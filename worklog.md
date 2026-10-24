@@ -58,3 +58,19 @@ Stage Summary:
 - BEAN Intelligence complete and browser-verified: 3 of 4 flagship products fully operational on real
   inference; JAZMII truthfully BLOCKED with documented unblocking path (Wan2.2, Apache-2.0, verified).
 - Final test report: docs/TEST-REPORT.md (PASS/BLOCKED with evidence paths).
+
+---
+Task ID: fix-riishe-withtimeout
+Agent: main (Z.ai)
+Task: Fix RIISHE chat API build error — missing withTimeout export from @/lib/router/router
+
+Work Log:
+- Root-caused the reported error: a prior partial fix had moved the withTimeout import to hosted-llm (real impl exists) but left a DEAD withTimeout import in router.ts:21 (never used there). Removed it.
+- Fixed withTimeout timer leak: internal setTimeout was never cleared, keeping the event loop alive up to requestMs (90-180s) after every call. Now cleared via .finally() on race settlement.
+- Documented honestly in the helper JSDoc: z-ai-web-dev-sdk exposes NO AbortSignal/options on create calls (verified dist/index.d.ts), so a timed-out underlying request CANNOT be cancelled; Promise.race only abandons the wait.
+- Fixed adjacent real type errors in the route's compile graph (root-caused each): hosted-llm buildMessages maxHistoryMessages missing on CodeTaskRequest (in-narrowing); backends.ts 4 descriptors missing required retries (added truthful {maxAttempts:1, backoffMs:0} — router does no auto-retry); hosted-image size literal-union cast after runtime validation; sandbox runner NODE_ENV + stdio tuple typing; stage0-probe REPORT typed interface; tsconfig excludes for non-app examples/skills (already eslint-ignored); added @types/bun dev dep for bun:test types.
+- Added tests/unit/timeout.test.ts: resolve-before-deadline, labeled rejection timing, late-rejection no-unhandled-crash, timer cleanup proof.
+
+Stage Summary:
+- Checks all actually run and pass: tsc --noEmit 0 errors (authoritative gate — next.config.ts has template default ignoreBuildErrors:true), eslint 0 errors, bun test 25 pass/0 fail (4 new timeout tests), next build compiled successfully.
+- Runtime smoke on live dev server: unauthenticated POST /api/riishe/chat -> clean 401; authenticated -> real reply "TIMEOUT_FIX_VERIFIED" 405ms; SSE stream=1 -> real deltas; usage metering recorded; no runtime errors in dev.log.

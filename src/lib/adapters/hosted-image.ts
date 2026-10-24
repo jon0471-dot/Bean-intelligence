@@ -9,7 +9,8 @@ import ZAI from 'z-ai-web-dev-sdk'
 import type { HealthReport, ImageRequest, ImageResult, TaskAdapter } from './types'
 
 const BACKEND_ID = 'bean-image-hosted-primary'
-const SUPPORTED_SIZES = new Set([
+/** Exactly the size literals the gateway SDK accepts. */
+const SUPPORTED_SIZES = [
   '1024x1024',
   '768x1344',
   '864x1152',
@@ -17,7 +18,9 @@ const SUPPORTED_SIZES = new Set([
   '1152x864',
   '1440x720',
   '720x1440',
-])
+] as const
+type SupportedSize = (typeof SUPPORTED_SIZES)[number]
+const SUPPORTED_SIZE_SET = new Set<string>(SUPPORTED_SIZES)
 
 export const hostedImageAdapter: TaskAdapter = {
   backendId: BACKEND_ID,
@@ -46,14 +49,16 @@ export const hostedImageAdapter: TaskAdapter = {
   },
 
   async generateImage(req: ImageRequest): Promise<ImageResult> {
-    if (!SUPPORTED_SIZES.has(req.size)) {
+    if (!SUPPORTED_SIZE_SET.has(req.size)) {
       throw new Error(`Unsupported size ${req.size} for configured backend`)
     }
+    // Runtime-validated above; the cast only mirrors the SDK's literal union.
+    const size = req.size as SupportedSize
     const t0 = Date.now()
     const zai = await ZAI.create()
     const res = await zai.images.generations.create({
       prompt: req.prompt.slice(0, 4000),
-      size: req.size,
+      size,
     })
     const b64 = res.data?.[0]?.base64
     if (!b64) throw new Error('Upstream returned no image payload')

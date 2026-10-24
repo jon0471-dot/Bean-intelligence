@@ -18,7 +18,7 @@ import { getBackend, getBackendsForProduct, type BackendDescriptor } from '@/lib
 import { getProduct, type BeanProductId, type BeanTask } from '@/lib/registry/products'
 import { BeanApiError } from '@/lib/api/errors'
 import { checkDailyQuota, checkRateLimit } from '@/lib/auth/ratelimit'
-import { hostedLlmAdapter, withTimeout } from '@/lib/adapters/hosted-llm'
+import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
 import type {
   ChatRequest,
