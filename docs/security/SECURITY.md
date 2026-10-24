@@ -107,11 +107,31 @@ seccomp profiles, and deny network egress by default. The capability is labeled
 - httpOnly + `Secure` session cookie mitigates XSS token theft (token is never
   readable by script).
 - Because the cookie is `SameSite=None` (embedded preview requirement), the implicit
-  CSRF protection of `Lax` is replaced by an explicit Origin check: `src/middleware.ts`
-  rejects any unsafe method (POST/PUT/PATCH/DELETE) on `/api/*` whose `Origin` host
-  does not match the request host (logic in `src/lib/api/origin.ts`, unit-tested).
-  Non-browser clients send no `Origin` and are unaffected; unparsable (`null`)
-  origins are rejected.
+  CSRF protection of `Lax` is replaced by a **strict, configuration-driven
+  trusted-origin policy** (`src/middleware.ts` + `src/lib/api/origin.ts`, unit-tested):
+  - `Sec-Fetch-Site: cross-site` is rejected unconditionally (browsers forbid JS from
+    setting `Sec-*` headers, so this signal cannot be spoofed by page scripts).
+  - No `Origin` header → allowed (non-browser client that cannot be CSRF-forged;
+    browsers always attach `Origin` to unsafe fetch/XHR).
+  - `Origin: null` (opaque origin, e.g. sandboxed iframe) → rejected (unverifiable).
+  - Otherwise the origin is normalized (lowercase scheme/host, default ports stripped,
+    credentials/path/query rejected) and must be allowlisted via:
+    - `BEAN_TRUSTED_ORIGINS` — exact origins (scheme, hostname and port must match), or
+    - `BEAN_TRUSTED_ORIGIN_SUFFIXES` — operator-opted HTTPS-only, dot-boundary-anchored
+      domain scope for platforms that assign the public origin at runtime
+      (e.g. `space-z.ai` accepts `https://preview-<id>.space-z.ai`), or
+    - non-production only: loopback origins (`localhost`, `127.0.0.1`, `[::1]`) on any
+      port for direct local development. Compiled out of production builds.
+  - Fail closed: in production with no configured origins, no browser mutation origin
+    is trusted.
+  - **Why not compare `Origin` against `Host`/`X-Forwarded-Host`?** Measured on this
+    deployment: the trusted ingress rewrites `Host` to an internal value while the
+    browser's true `Origin` is the public preview origin — host-equality checks reject
+    every legitimate browser mutation (observed as `Cross-site request rejected` on
+    sign-in). Forwarded headers are also spoofable from untrusted clients, so they are
+    deliberately not part of the decision.
+  - Rejections are logged with a reason and the offending site origin (an origin is
+    not a secret; no cookies, tokens or credentials are ever logged).
 - All state-changing endpoints require the session cookie; CORS is same-origin by
   default in the App Router (no cross-origin API surface is exposed).
 - React escapes by default; markdown is sanitized by ReactMarkdown rendering.
