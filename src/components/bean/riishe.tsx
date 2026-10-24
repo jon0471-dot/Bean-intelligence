@@ -2,7 +2,15 @@
 
 /**
  * BEAN Intelligence — RIISHE workspace (conversational AI).
- * Streaming is real SSE from the BEAN API; partial streams are labeled.
+ *
+ * Real orchestration events from the BEAN API drive the UI:
+ *  - `stage: researching` shows a genuine "Searching the web" indicator
+ *    (never a decorative one — it only appears when search actually runs).
+ *  - `meta` carries response states, evidence sources and the verification
+ *    summary assigned from ACTUAL tool execution (arithmetic evaluator,
+ *    citation audit). Fabricated or decorative badges are not possible:
+ *    the frontend only renders what the server's verification recorded.
+ * Streaming stays real SSE; partial streams are labeled.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -10,10 +18,62 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Markdown, Spinner, timeAgo, beanFetch, EmptyState } from './shared'
 import { cn } from '@/lib/utils'
-import { Plus, Send, Trash2, MessageSquareText, AlertTriangle } from 'lucide-react'
+import {
+  Plus,
+  Send,
+  Trash2,
+  MessageSquareText,
+  AlertTriangle,
+  Globe,
+  ShieldCheck,
+  ShieldAlert,
+  ExternalLink,
+  ChevronDown,
+} from 'lucide-react'
 
 interface Conv { id: string; title: string; messages: number; updatedAt: string }
-interface Msg { id: string; role: 'user' | 'assistant'; content: string; partial?: boolean; pending?: boolean }
+interface SourceView {
+  id: number
+  title: string
+  url: string
+  hostName: string
+  date: string | null
+  official: boolean
+  pageRead: boolean
+}
+interface VerificationView { check: string; status: 'passed' | 'failed' | 'not_applicable'; detail: string }
+interface MsgMeta {
+  states: string[]
+  sources: SourceView[]
+  verification: VerificationView[]
+  degraded: string[]
+}
+interface Msg {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  partial?: boolean
+  pending?: boolean
+  meta?: MsgMeta
+}
+
+const STATE_BADGES: Record<string, { label: string; tone: 'gold' | 'amber' | 'red' }> = {
+  VERIFIED_FROM_SOURCES: { label: 'Evidence-backed', tone: 'gold' },
+  COMPUTATION_VERIFIED: { label: 'Math verified', tone: 'gold' },
+  EXECUTION_VERIFIED: { label: 'Execution verified', tone: 'gold' },
+  PARTIALLY_VERIFIED: { label: 'Partially verified', tone: 'amber' },
+  TOOL_UNAVAILABLE: { label: 'Research unavailable', tone: 'amber' },
+  // UNVERIFIED renders no badge: ordinary conversation needs no disclaimer.
+}
+
+/** Turn [n] markers whose source exists into in-page citation links. */
+function linkifyCitations(content: string, sources?: SourceView[]): string {
+  if (!sources?.length) return content
+  return content.replace(/\[(\d{1,2})\]/g, (m, n: string) => {
+    const id = Number(n)
+    return sources.some((s) => s.id === id) ? `[${n}](#bean-src-${id})` : m
+  })
+}
 
 export function Riishe() {
   const [conversations, setConversations] = useState<Conv[]>([])
@@ -21,6 +81,8 @@ export function Riishe() {
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
+  const [researching, setResearching] = useState(false)
+  const [researchQueries, setResearchQueries] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const streamedRef = useRef('')
@@ -36,16 +98,23 @@ export function Riishe() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages, streaming])
+  }, [messages, streaming, researching])
 
   async function openConversation(id: string) {
     setActiveId(id)
     setError(null)
     try {
-      const d = await beanFetch<{ conversation: { messages: Array<{ id: string; role: string; content: string }> } }>(
-        `/api/riishe/conversations/${id}`,
+      const d = await beanFetch<{
+        conversation: { messages: Array<{ id: string; role: string; content: string; metadata?: MsgMeta | null }> }
+      }>(`/api/riishe/conversations/${id}`)
+      setMessages(
+        d.conversation.messages.map((m) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          meta: m.metadata ?? undefined,
+        })),
       )
-      setMessages(d.conversation.messages.map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content })))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -73,6 +142,8 @@ export function Riishe() {
     setInput('')
     setError(null)
     setStreaming(true)
+    setResearching(false)
+    setResearchQueries([])
     streamedRef.current = ''
 
     const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: message }
@@ -106,9 +177,21 @@ export function Riishe() {
         buffer = lines.pop() ?? ''
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
-          let evt: { delta?: string; done?: boolean; error?: string; conversationId?: string; partial?: boolean }
+          let evt: {
+            delta?: string
+            done?: boolean
+            error?: string
+            conversationId?: string
+            partial?: boolean
+            stage?: 'researching' | 'solving' | 'verifying'
+            research?: { queries?: string[] }
+            meta?: MsgMeta
+          }
           try { evt = JSON.parse(line.slice(6)) } catch { continue }
           if (evt.conversationId) convId = evt.conversationId
+          if (evt.stage === 'researching') { setResearching(true); setResearchQueries([]) }
+          if (evt.stage === 'solving' || evt.stage === 'verifying') setResearching(false)
+          if (evt.research?.queries) setResearchQueries(evt.research.queries)
           if (evt.error) { failed = true; setError(evt.error) }
           if (evt.delta) {
             streamedRef.current += evt.delta
@@ -116,10 +199,21 @@ export function Riishe() {
               prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current, pending: false } : m)),
             )
           }
-          if (evt.done && convId && !activeId) setActiveId(convId)
+          if (evt.done) {
+            setResearching(false)
+            if (convId && !activeId) setActiveId(convId)
+            if (evt.meta) {
+              setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, meta: evt.meta } : m)))
+            }
+          }
         }
       }
-      if (failed) {
+      // If nothing streamed (failed, or the server reported an empty partial),
+      // drop the empty assistant bubble — the error banner already explains
+      // what happened, and a perpetual "thinking" indicator would be a lie.
+      if (streamedRef.current === '') {
+        setMessages((prev) => prev.filter((m) => m.id !== asstId))
+      } else if (failed) {
         setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
       }
       void loadConversations()
@@ -128,9 +222,33 @@ export function Riishe() {
       setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
     } finally {
       setStreaming(false)
+      setResearching(false)
       setMessages((prev) => prev.map((m) => ({ ...m, pending: false })))
     }
   }
+
+  const citationComponents = (meta?: MsgMeta) => ({
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+      if (href?.startsWith('#bean-src-')) {
+        return (
+          <a
+            href={href}
+            className="mx-0.5 rounded bg-[rgba(212,175,55,0.16)] px-1 text-[11px] font-semibold text-[#f0c75e] no-underline hover:bg-[rgba(212,175,55,0.3)]"
+            title="Jump to source"
+          >
+            {children}
+          </a>
+        )
+      }
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#f0c75e] underline decoration-[rgba(212,175,55,0.4)] hover:decoration-[#f0c75e]">
+          {children}
+        </a>
+      )
+    },
+    ...(meta ? {} : {}),
+  })
+  void citationComponents
 
   return (
     <div className="flex h-[calc(100vh-3.5rem-2rem)] min-h-[540px] lg:h-[calc(100vh-3.5rem-1.5rem)]">
@@ -176,7 +294,7 @@ export function Riishe() {
         <div className="flex items-center gap-2 border-b border-[rgba(212,175,55,0.1)] px-5 py-3">
           <MessageSquareText className="h-4 w-4 text-[#d4af37]" />
           <div className="text-sm font-semibold tracking-wide">RIISHE</div>
-          <span className="text-xs text-white/35">Conversational AI · streaming</span>
+          <span className="text-xs text-white/35">Conversational AI · research · verified reasoning</span>
         </div>
 
         <div className="bean-scroll flex-1 overflow-y-auto px-5 py-4">
@@ -184,7 +302,7 @@ export function Riishe() {
             <EmptyState
               icon={<MessageSquareText className="h-10 w-10" />}
               title="Start a conversation"
-              hint="Ask questions, request summaries, drafting, rewriting or multilingual help. RIISHE answers with its actual capabilities."
+              hint="Ask questions, request derivations, code help or research on current topics. RIISHE searches live sources when a question needs them and verifies its arithmetic before answering."
             />
           ) : (
             <div className="mx-auto max-w-3xl space-y-4">
@@ -202,14 +320,22 @@ export function Riishe() {
                       <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed">{m.content}</p>
                     ) : m.content ? (
                       <>
-                        <Markdown content={m.content} />
+                        <Markdown content={linkifyCitations(m.content, m.meta?.sources)} components={citationComponents(m.meta)} />
                         {m.pending ? <Spinner className="ml-1 mt-1" /> : null}
                         {m.partial ? (
                           <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
                             <AlertTriangle className="h-3 w-3" /> Incomplete — the stream ended early
                           </div>
                         ) : null}
+                        {m.meta ? <AnswerEvidence meta={m.meta} /> : null}
                       </>
+                    ) : researching ? (
+                      <span className="inline-flex items-center gap-2 text-xs text-white/50">
+                        <Globe className="h-3.5 w-3.5 animate-pulse text-[#d4af37]" /> Searching the web…
+                        {researchQueries.length > 0 ? (
+                          <span className="text-white/30">({researchQueries.slice(0, 2).join(' · ')})</span>
+                        ) : null}
+                      </span>
                     ) : (
                       <span className="inline-flex items-center gap-2 text-xs text-white/40">
                         <Spinner /> RIISHE is thinking…
@@ -248,6 +374,92 @@ export function Riishe() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Evidence panel: state badges, verification summary, inspectable sources. */
+function AnswerEvidence({ meta }: { meta: MsgMeta }) {
+  const badges = meta.states
+    .map((s) => STATE_BADGES[s])
+    .filter((b): b is { label: string; tone: 'gold' | 'amber' | 'red' } => Boolean(b))
+  const checks = meta.verification ?? []
+  const sources = meta.sources ?? []
+
+  if (badges.length === 0 && checks.length === 0 && sources.length === 0) return null
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-[rgba(212,175,55,0.12)] pt-2">
+      {badges.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {badges.map((b) => (
+            <span
+              key={b.label}
+              className={cn(
+                'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium',
+                b.tone === 'gold' && 'border border-[rgba(212,175,55,0.35)] bg-[rgba(212,175,55,0.1)] text-[#f0c75e]',
+                b.tone === 'amber' && 'border border-amber-500/30 bg-amber-500/10 text-amber-300',
+                b.tone === 'red' && 'border border-red-500/30 bg-red-500/10 text-red-300',
+              )}
+            >
+              {b.tone === 'gold' ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
+              {b.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {checks.length > 0 ? (
+        <details className="group">
+          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11px] text-white/45 hover:text-white/70">
+            <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+            Verification ({checks.filter((c) => c.status === 'passed').length}/{checks.length} checks passed)
+          </summary>
+          <ul className="mt-1.5 space-y-1 pl-4">
+            {checks.map((c, i) => (
+              <li key={`${c.check}-${i}`} className="text-[11px] leading-snug">
+                <span className={c.status === 'passed' ? 'text-[#8fd694]' : 'text-red-400'}>
+                  {c.status === 'passed' ? '✓' : '✗'}
+                </span>{' '}
+                <span className="text-white/60">{c.check}</span>
+                <span className="text-white/35"> — {c.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {sources.length > 0 ? (
+        <details open={checks.length === 0}>
+          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11px] text-white/45 hover:text-white/70">
+            <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+            Sources ({sources.length})
+          </summary>
+          <ol className="mt-1.5 space-y-1 pl-4">
+            {sources.map((s) => (
+              <li key={s.id} id={`bean-src-${s.id}`} className="scroll-mt-6 text-[11px] leading-snug">
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#f0c75e] hover:underline"
+                >
+                  [{s.id}] {s.title.slice(0, 90)}
+                  <ExternalLink className="ml-1 inline h-2.5 w-2.5" />
+                </a>
+                <span className="text-white/35"> — {s.hostName}</span>
+                {s.official ? (
+                  <span className="ml-1 rounded border border-[rgba(212,175,55,0.35)] px-1 text-[9px] text-[#f0c75e]">official</span>
+                ) : null}
+                {s.pageRead ? (
+                  <span className="ml-1 rounded border border-white/15 px-1 text-[9px] text-white/45">full page read</span>
+                ) : null}
+                {s.date ? <span className="ml-1 text-white/30">({s.date.slice(0, 10)})</span> : null}
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
     </div>
   )
 }

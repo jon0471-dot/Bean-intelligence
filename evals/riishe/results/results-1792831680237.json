@@ -1,0 +1,106 @@
+{
+  "suiteVersion": "2026-10-24.1",
+  "ranAt": "2026-10-24T08:48:00.237Z",
+  "questionCount": 2,
+  "summary": {
+    "math": {
+      "baseline": {
+        "n": 2,
+        "pass": 2,
+        "meanLatencyMs": 6350
+      },
+      "upgraded": {
+        "n": 2,
+        "pass": 2,
+        "meanLatencyMs": 8288,
+        "searched": 0,
+        "computationVerified": 1,
+        "sourcesVerified": 0
+      }
+    }
+  },
+  "overall": {
+    "baselinePassRate": "2/2",
+    "upgradedPassRate": "2/2"
+  },
+  "outcomes": [
+    {
+      "questionId": "math-001",
+      "suite": "math",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 346: true"
+      ],
+      "latencyMs": 11303,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "math-002",
+      "suite": "math",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 80: true"
+      ],
+      "latencyMs": 1396,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "math-001",
+      "suite": "math",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 346: true"
+      ],
+      "latencyMs": 14009,
+      "searchRan": false,
+      "states": [
+        "COMPUTATION_VERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "math-002",
+      "suite": "math",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 80: true"
+      ],
+      "latencyMs": 2566,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    }
+  ],
+  "limitations": [
+    "Single run per question; model outputs are non-deterministic.",
+    "Small sample sizes per suite; results indicate direction, not statistical significance.",
+    "Structural scoring only (exact numeric match, citation integrity, abstention/refusal signals); no human grading of answer quality.",
+    "Research questions depend on live web results at run time."
+  ]
+}

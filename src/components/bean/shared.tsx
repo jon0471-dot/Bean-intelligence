@@ -120,10 +120,16 @@ export function StatusDot({ ok, pulse = false }: { ok: boolean; pulse?: boolean 
   )
 }
 
-export function Markdown({ content }: { content: string }) {
+export function Markdown({
+  content,
+  components,
+}: {
+  content: string
+  components?: React.ComponentProps<typeof ReactMarkdown>['components']
+}) {
   return (
     <div className="bean-prose text-[14.5px] text-white/88">
-      <ReactMarkdown>{content}</ReactMarkdown>
+      <ReactMarkdown components={components}>{content}</ReactMarkdown>
     </div>
   )
 }

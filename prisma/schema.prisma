@@ -56,6 +56,10 @@ model Message {
   tokensEstIn    Int?
   tokensEstOut   Int?
   latencyMs      Int?
+  // RIISHE orchestration artifact for assistant messages: evidence sources,
+  // response states (assigned from ACTUAL tool execution, never by the model)
+  // and the verification summary. Null for plain messages.
+  metadata       Json?
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 

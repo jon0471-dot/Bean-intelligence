@@ -24,6 +24,8 @@ export interface ChatRequest {
   maxPromptChars: number
   maxHistoryMessages: number
   timeoutMs: number
+  /** Higher reasoning effort for math/complex analysis (gateway thinking mode). */
+  thinkingEnabled?: boolean
 }
 
 export interface ChatResult {
