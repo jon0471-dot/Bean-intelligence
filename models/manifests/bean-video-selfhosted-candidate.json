@@ -1,0 +1,23 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-video-selfhosted-candidate",
+  "product": "jazmii",
+  "task": "video-generation",
+  "status": "blocked-no-gpu-and-license-review",
+  "deploymentMode": "self-hosted",
+  "provider": "BEAN Intelligence (planned)",
+  "modelIdentity": "NOT SELECTED — candidates in docs/models/MODEL-EVALUATION-REPORT.md",
+  "candidate": {
+    "primary": "Wan2.2-TI2V-5B",
+    "license": "Apache-2.0",
+    "sourceUrl": "https://github.com/Wan-Video/Wan2.2",
+    "verifiedAt": "2026-10-24",
+    "realConstraints": "720P@24fps, T2V+I2V, consumer-GPU class per authors (RTX 4090 listed); A14B tier = 5s clips 480P/720P",
+    "runtime": "diffusers / ComfyUI-class worker + async GPU queue",
+    "requiredHardware": "24GB VRAM class minimum for 5B tier"
+  },
+  "rejectedAlternatives": [
+    { "model": "HunyuanVideo", "reason": "Tencent community license commercial restrictions — legal review required", "sourceUrl": "https://github.com/Tencent-Hunyuan/HunyuanVideo" }
+  ],
+  "truthPolicy": "Router rejects all video requests with NO_BACKEND until this manifest is flipped to deployed. No simulated jobs."
+}

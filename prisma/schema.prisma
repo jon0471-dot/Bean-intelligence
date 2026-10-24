@@ -1,0 +1,115 @@
+// BEAN Intelligence — data model
+// Customer identity, sessions, conversations, generation jobs,
+// usage metering and administrative audit records.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String?
+  role          String         @default("member") // member | admin
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      Session[]
+  conversations Conversation[]
+  jobs          GenerationJob[]
+  usageRecords  UsageRecord[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String    @default("New conversation")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           String // user | assistant
+  content        String
+  tokensEstIn    Int?
+  tokensEstOut   Int?
+  latencyMs      Int?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+model GenerationJob {
+  id           String    @id @default(cuid())
+  userId       String
+  product      String // riishe | laxii | jazmii | code-giftz
+  task         String // image-generation | video-generation | coding-task
+  status       String // queued | running | completed | failed | rejected | unsupported
+  progress     Int       @default(0)
+  paramsJson   String // validated request parameters
+  resultJson   String? // normalized result payload (artifact paths, metrics)
+  errorCode    String?
+  errorMessage String? // safe, customer-displayable message
+  backendId    String? // private backend id — NEVER exposed to non-admin clients
+  queuedAt     DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, product])
+  @@index([status])
+}
+
+model UsageRecord {
+  id         String   @id @default(cuid())
+  userId     String
+  product    String
+  backendId  String?
+  kind       String // chat | image-generation | video-generation | coding-task
+  tokensIn   Int? // estimated when provider does not report exact counts
+  tokensOut  Int?
+  imageCount Int?
+  durationMs Int?
+  costMicros Int? // null = cost data not reported by provider (never invented)
+  success    Boolean  @default(true)
+  errorCode  String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, product])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String? // user performing the action, if authenticated
+  action    String // e.g. auth.login, admin.view_backends, job.cancel
+  target    String? // resource affected
+  metaJson  String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

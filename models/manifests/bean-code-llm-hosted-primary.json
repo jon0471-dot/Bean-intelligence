@@ -1,0 +1,23 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-code-llm-hosted-primary",
+  "product": "code-giftz",
+  "task": "coding-task",
+  "status": "deployed",
+  "deploymentMode": "authorized-hosted (generation) + local restricted sandbox (execution)",
+  "provider": "Z.ai authorized hosted inference gateway",
+  "modelIdentity": "Provider-managed language model; exact checkpoint not disclosed to tenant",
+  "execution": {
+    "engine": "child-process isolate",
+    "workspace": "sandbox-runs/<uuid>",
+    "timeoutMs": 15000,
+    "maxOutputBytes": 64000,
+    "environment": "minimal (PATH, HOME=workspace); no secrets injected",
+    "knownLimitation": "process-level isolation; container/gVisor hardening required for production multi-tenant scale"
+  },
+  "verifiedProbes": [
+    { "date": "2026-10-24", "test": "isPalindrome generation + sandbox run", "result": "PASS exit 0, 3/3 tests, 31ms" },
+    { "date": "2026-10-24", "test": "fizzBuzz generation + sandbox run from browser UI", "result": "PASS exit 0" }
+  ],
+  "license": { "name": "platform inference agreement", "sourceUrl": "https://z.ai", "verifiedAt": "2026-10-24" }
+}

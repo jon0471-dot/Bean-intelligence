@@ -1,0 +1,210 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-dim: var(--gold-dim);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/*
+ * BEAN Intelligence — black & gold identity.
+ * Near-black surfaces, restrained gold accents, subtle grid texture.
+ */
+:root,
+.dark {
+  --radius: 0.75rem;
+  --background: #0a0a0c;
+  --foreground: #f2f0ea;
+  --card: #121215;
+  --card-foreground: #f2f0ea;
+  --popover: #16161a;
+  --popover-foreground: #f2f0ea;
+  --primary: #d4af37;
+  --primary-foreground: #14100a;
+  --secondary: #1b1b20;
+  --secondary-foreground: #e8e5dc;
+  --muted: #17171b;
+  --muted-foreground: #9a968c;
+  --accent: #1e1a10;
+  --accent-foreground: #f0c75e;
+  --destructive: #e5484d;
+  --border: rgba(212, 175, 55, 0.14);
+  --input: rgba(212, 175, 55, 0.2);
+  --ring: rgba(212, 175, 55, 0.55);
+  --gold: #d4af37;
+  --gold-soft: #f0c75e;
+  --gold-dim: #8a7326;
+  --chart-1: #d4af37;
+  --chart-2: #f0c75e;
+  --chart-3: #8a7326;
+  --chart-4: #b3b09f;
+  --chart-5: #6b685c;
+  --sidebar: #0d0d10;
+  --sidebar-foreground: #f2f0ea;
+  --sidebar-primary: #d4af37;
+  --sidebar-primary-foreground: #14100a;
+  --sidebar-accent: #16130b;
+  --sidebar-accent-foreground: #f0c75e;
+  --sidebar-border: rgba(212, 175, 55, 0.12);
+  --sidebar-ring: rgba(212, 175, 55, 0.55);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image:
+      linear-gradient(rgba(212, 175, 55, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(212, 175, 55, 0.025) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  ::selection {
+    background: rgba(212, 175, 55, 0.32);
+  }
+}
+
+/* ---------- BEAN shared visual language ---------- */
+
+.bean-gold-text {
+  background: linear-gradient(115deg, #f5d97b 0%, #d4af37 45%, #a8842a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bean-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  border: 1px solid rgba(212, 175, 55, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.bean-glass-hover {
+  transition: border-color 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+}
+.bean-glass-hover:hover {
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.12), 0 12px 40px -18px rgba(212, 175, 55, 0.25);
+  transform: translateY(-2px);
+}
+
+.bean-glow {
+  box-shadow: 0 0 32px -8px rgba(212, 175, 55, 0.45);
+}
+
+.bean-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.bean-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.bean-scroll::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.22);
+  border-radius: 8px;
+}
+.bean-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.4);
+}
+
+/* Markdown output inside RIISHE / CODE GIFTZ */
+.bean-prose h1, .bean-prose h2, .bean-prose h3 {
+  color: #f0c75e;
+  font-weight: 600;
+  margin: 0.8em 0 0.4em;
+}
+.bean-prose h1 { font-size: 1.15rem; }
+.bean-prose h2 { font-size: 1.05rem; }
+.bean-prose h3 { font-size: 0.98rem; }
+.bean-prose p { margin: 0.45em 0; line-height: 1.65; }
+.bean-prose ul, .bean-prose ol { margin: 0.45em 0; padding-left: 1.3em; }
+.bean-prose ul { list-style: disc; }
+.bean-prose ol { list-style: decimal; }
+.bean-prose li { margin: 0.2em 0; line-height: 1.6; }
+.bean-prose code {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.86em;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.16);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+}
+.bean-prose pre {
+  background: #0c0c0f;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+.bean-prose pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.84em;
+  line-height: 1.55;
+}
+.bean-prose a { color: #f0c75e; text-decoration: underline; }
+.bean-prose blockquote {
+  border-left: 2px solid rgba(212, 175, 55, 0.5);
+  padding-left: 0.8em;
+  color: #b5b1a5;
+  margin: 0.5em 0;
+}
+
+@keyframes bean-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.bean-pulse { animation: bean-pulse 1.6s ease-in-out infinite; }
+
+@keyframes bean-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.bean-shimmer {
+  background: linear-gradient(90deg, rgba(212,175,55,0.06) 25%, rgba(212,175,55,0.16) 50%, rgba(212,175,55,0.06) 75%);
+  background-size: 200% 100%;
+  animation: bean-shimmer 1.8s linear infinite;
+}
