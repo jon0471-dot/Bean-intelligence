@@ -86,6 +86,9 @@ export function Riishe() {
         body: JSON.stringify({ message, conversationId: activeId ?? undefined }),
       })
       if (!res.ok || !res.body) {
+        // Keep the global identity in sync: a 401 here means the session is
+        // gone server-side; drop the signed-in shell immediately.
+        if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
         const data = await res.json().catch(() => ({}))
         throw new Error(data?.error?.message ?? `Request failed (${res.status})`)
       }

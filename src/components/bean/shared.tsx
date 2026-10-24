@@ -49,6 +49,12 @@ export async function beanFetch<T>(
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || data?.ok === false) {
+    // A 401 means the server no longer recognizes this session. Announce it
+    // so the app shell drops the (now stale) local identity and returns to
+    // the sign-in view — sidebar identity and server identity stay in sync.
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('bean:unauthorized'))
+    }
     const err: ApiErrorShape = data?.error ?? {
       code: 'INTERNAL_ERROR',
       message: `Request failed (${res.status})`,

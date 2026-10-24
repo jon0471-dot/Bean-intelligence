@@ -26,6 +26,16 @@ export default function Home() {
   const [sizes, setSizes] = useState<SizeOpt[]>([])
   const [booted, setBooted] = useState(false)
 
+  // When any API call returns 401, the server no longer recognizes this
+  // session (signed out elsewhere, session revoked, expired). Drop the local
+  // identity so the UI never shows a signed-in shell the server disagrees
+  // with — the landing view takes over.
+  useEffect(() => {
+    const onUnauthorized = () => setUser(null)
+    window.addEventListener('bean:unauthorized', onUnauthorized)
+    return () => window.removeEventListener('bean:unauthorized', onUnauthorized)
+  }, [setUser])
+
   useEffect(() => {
     void (async () => {
       try {
