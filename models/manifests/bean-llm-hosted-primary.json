@@ -1,0 +1,20 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-llm-hosted-primary",
+  "product": "riishe",
+  "task": "chat",
+  "status": "deployed",
+  "deploymentMode": "authorized-hosted",
+  "provider": "Z.ai authorized hosted inference gateway",
+  "modelIdentity": "Provider-managed language model; exact checkpoint not disclosed to tenant",
+  "revision": null,
+  "endpointType": "managed-sdk",
+  "capabilities": { "streaming": true, "thinking": "disabled", "imageInput": false },
+  "limits": { "maxPromptChars": 12000, "maxHistoryMessages": 24 },
+  "verifiedProbes": [
+    { "date": "2026-10-24", "test": "non-streaming completion", "result": "PASS", "latencyMs": 446 },
+    { "date": "2026-10-24", "test": "SSE streaming parse", "result": "PASS", "latencyMs": null }
+  ],
+  "license": { "name": "platform inference agreement", "sourceUrl": "https://z.ai", "verifiedAt": "2026-10-24" },
+  "secrets": ["managed by platform runtime — no tenant-side keys in source control"]
+}

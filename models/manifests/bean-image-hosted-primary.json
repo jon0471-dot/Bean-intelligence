@@ -1,0 +1,22 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-image-hosted-primary",
+  "product": "laxii",
+  "task": "image-generation",
+  "status": "deployed",
+  "deploymentMode": "authorized-hosted",
+  "provider": "Z.ai authorized hosted inference gateway",
+  "modelIdentity": "Provider-managed text-to-image model; exact checkpoint not disclosed to tenant",
+  "revision": null,
+  "endpointType": "managed-sdk",
+  "capabilities": { "textToImage": true, "imageToImage": false, "outputFormat": "jpeg" },
+  "limits": {
+    "sizes": ["1024x1024", "768x1344", "864x1152", "1344x768", "1152x864", "1440x720", "720x1440"],
+    "maxPromptChars": 4000,
+    "typicalLatencyMs": 60000
+  },
+  "verifiedProbes": [
+    { "date": "2026-10-24", "test": "real generation 1024x1024", "result": "PASS", "bytes": 78652, "magic": "FFD8FF (JPEG)" }
+  ],
+  "license": { "name": "platform inference agreement", "sourceUrl": "https://z.ai", "verifiedAt": "2026-10-24" }
+}

@@ -1,0 +1,27 @@
+{
+  "startedAt": "2026-10-24T06:28:34.906Z",
+  "chat": {
+    "ok": true,
+    "latencyMs": 446,
+    "responseSample": "BEAN_RIISHE_PROBE_OK"
+  },
+  "image": {
+    "ok": false,
+    "bytes": 47435,
+    "latencyMs": 59431,
+    "savedTo": "/home/z/my-project/scripts/probe-image.png"
+  },
+  "stream": {
+    "ok": true,
+    "chunks": 1,
+    "latencyMs": 3,
+    "sample": ""
+  },
+  "finishedAt": "2026-10-24T06:29:34.816Z",
+  "summary": {
+    "chat": true,
+    "image": false,
+    "stream": true,
+    "verdict": "One or more core backends FAILED — do not claim capability."
+  }
+}
