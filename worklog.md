@@ -74,3 +74,22 @@ Work Log:
 Stage Summary:
 - Checks all actually run and pass: tsc --noEmit 0 errors (authoritative gate — next.config.ts has template default ignoreBuildErrors:true), eslint 0 errors, bun test 25 pass/0 fail (4 new timeout tests), next build compiled successfully.
 - Runtime smoke on live dev server: unauthenticated POST /api/riishe/chat -> clean 401; authenticated -> real reply "TIMEOUT_FIX_VERIFIED" 405ms; SSE stream=1 -> real deltas; usage metering recorded; no runtime errors in dev.log.
+
+---
+Task ID: fix-riishe-browser-auth
+Agent: main (Z.ai)
+Task: Investigate and fix remaining browser authentication issue (sidebar signed-in but API 401 "Sign in to use BEAN Intelligence")
+
+Work Log:
+- Server-side evidence: dev.log shows real browser 401s with NO session SELECT (no cookie arrived); POST /api/auth/login 200 immediately followed by GET/POST /api/riishe/chat 401. DB: real user jon975824@gmail.com has 5 session rows from repeated logins within minutes — fingerprint of login-succeeds-but-cookie-never-sticks.
+- Browser E2E (agent-browser) on localhost:3000 top-level context: register -> chat -> real reply -> rail update all PASS with the old Lax cookie — server mechanics healthy; differential is the browsing context.
+- ROOT CAUSE: platform preview embeds the app in a cross-site iframe; browsers do not attach SameSite=Lax cookies to cross-site fetch/XHR. Register/login responses set the cookie server-side but the browser never sent it back; the sidebar hydrated from the login response body while every API call 401'd. "hi" was local optimistic UI state (never persisted); the rail was empty because GET failures are silent by design.
+- FIX (session.ts): cookie now SameSite=None + Secure (mandatory pair; localhost is a trustworthy origin so local dev still works).
+- FIX (NEW src/middleware.ts + NEW src/lib/api/origin.ts): CSRF compensating control — Origin host check on all unsafe /api methods (None removes Lax's implicit CSRF protection). Verified: evil Origin -> 403; no Origin (curl) -> passes; matching Origin -> passes.
+- FIX (shared.tsx beanFetch + riishe.tsx raw fetch + page.tsx listener): global 401 event 'bean:unauthorized' drops the local identity -> landing view. Ghost signed-in state is now impossible (identity agreement acceptance criterion).
+- Docs: SECURITY.md sections 1 + 10 updated (None+Secure rationale, Origin-check control).
+- Tests: NEW tests/unit/origin.test.ts (9 tests). bun test 34 pass/0 fail; tsc 0 errors; eslint 0 errors; build passes (Proxy (Middleware) shown in route output).
+- Browser E2E after fix: fresh register (None+Secure cookie stored) -> RIISHE chat -> real reply NONE_COOKIE_OK -> rail "2 msgs just now" -> reload keeps session + history; corrupted cookie -> reload -> landing; mid-session invalidation without reload -> sending a message drops to landing immediately.
+
+Stage Summary:
+- Browser auth fixed at the actual root cause (cookie SameSite for embedded cross-site preview), no auth bypasses, no fake replies. Real user must sign in once more to receive the new None+Secure cookie; sign-in will then persist in the preview.

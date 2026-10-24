@@ -6,8 +6,12 @@
 
 - Passwords: **scrypt** (N=16384) with per-user random salt; constant-time comparison.
 - Sessions: opaque 256-bit tokens stored server-side (`Session` table), delivered in an
-  **httpOnly, sameSite=lax** cookie; secure flag on in production. 7-day expiry with
-  server-side deletion.
+  **httpOnly, SameSite=None; Secure** cookie. 7-day expiry with server-side deletion.
+  `SameSite=None` (always paired with `Secure`) is required because the deployed access
+  path embeds the app in a cross-site preview iframe, where browsers do not attach
+  `SameSite=Lax` cookies to fetch/XHR requests — with `Lax`, login succeeded server-side
+  while every subsequent API request arrived without a cookie (observed 2026-10-24 as
+  repeated successful logins immediately followed by 401s; fixed same day).
 - Login is rate-limited (10/min per IP) and returns a uniform "Incorrect email or
   password" error — no user enumeration.
 - The **first registered account becomes admin** (documented bootstrap rule). Admin is a
@@ -100,8 +104,14 @@ seccomp profiles, and deny network egress by default. The capability is labeled
 
 ## 10. Browser security
 
-- httpOnly + sameSite=lax session cookie mitigates XSS token theft; production sets
-  `secure`.
+- httpOnly + `Secure` session cookie mitigates XSS token theft (token is never
+  readable by script).
+- Because the cookie is `SameSite=None` (embedded preview requirement), the implicit
+  CSRF protection of `Lax` is replaced by an explicit Origin check: `src/middleware.ts`
+  rejects any unsafe method (POST/PUT/PATCH/DELETE) on `/api/*` whose `Origin` host
+  does not match the request host (logic in `src/lib/api/origin.ts`, unit-tested).
+  Non-browser clients send no `Origin` and are unaffected; unparsable (`null`)
+  origins are rejected.
 - All state-changing endpoints require the session cookie; CORS is same-origin by
   default in the App Router (no cross-origin API surface is exposed).
 - React escapes by default; markdown is sanitized by ReactMarkdown rendering.

@@ -22,10 +22,20 @@ export async function createSession(userId: string): Promise<string> {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
   await db.session.create({ data: { userId, token, expiresAt } })
   const jar = await cookies()
+  // SameSite=None + Secure is REQUIRED for the deployed access path: the
+  // platform preview embeds this app in a cross-site iframe, and browsers do
+  // not attach SameSite=Lax cookies to cross-site subresource/fetch requests.
+  // With Lax, register/login succeeded server-side while every subsequent
+  // API request arrived without a cookie (401) — observed as repeated
+  // successful logins followed immediately by 401s. Browsers honor
+  // SameSite=None only with Secure; http://localhost is a trustworthy origin
+  // and still accepts Secure cookies for direct local development.
+  // Cross-site CSRF risk reintroduced by None is compensated by the Origin
+  // check in src/middleware.ts (all unsafe /api methods).
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'none',
+    secure: true,
     path: '/',
     expires: expiresAt,
   })
