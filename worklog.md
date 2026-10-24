@@ -93,3 +93,22 @@ Work Log:
 
 Stage Summary:
 - Browser auth fixed at the actual root cause (cookie SameSite for embedded cross-site preview), no auth bypasses, no fake replies. Real user must sign in once more to receive the new None+Secure cookie; sign-in will then persist in the preview.
+
+---
+Task ID: fix-cross-site-signin-rejection
+Agent: main (Z.ai)
+Task: Fix "Cross-site request rejected. Use the BEAN application directly." on sign-in submit — strict, config-driven trusted-origin policy
+
+Work Log:
+- Located the rejection: src/middleware.ts -> isAllowedApiMutation (src/lib/api/origin.ts), which required Origin host === request host (x-forwarded-host ?? host).
+- Evidence gathering (no secrets logged): temporary diagnostic route (deleted afterwards) + port-81 ingress probes proved the platform ingress rewrites routing headers — app observes Host: localhost, X-Forwarded-Host: localhost:81, X-Forwarded-Proto: http while the browser's true Origin is the public https preview origin. Therefore the host-equality rule could never pass through the real preview path: EVERY browser mutation (sign-in POST included) was 403'd pre-auth. Also established middleware 403s never appear in dev.log (silent), which hid the failure.
+- Implemented strict config-driven trusted-origin policy in src/lib/api/origin.ts: safe methods always allowed; Sec-Fetch-Site: cross-site rejected unconditionally (unspoofable by JS); no-Origin (non-browser) allowed; Origin: null rejected; otherwise normalized origin (lowercase scheme/host, default ports stripped, credentials/path/query rejected) must match BEAN_TRUSTED_ORIGINS (exact scheme+host+port) or operator-opted BEAN_TRUSTED_ORIGIN_SUFFIXES (https-only, dot-boundary anchored, e.g. space-z.ai -> preview-<id>.space-z.ai) or (non-production only) loopback origins on any port. Fail closed in production with no config. Forwarded headers deliberately excluded from the decision (untrustworthy + rewritten by ingress). checkApiMutationOrigin returns typed rejection reasons; middleware logs [bean:csrf] rejections with reason + site origin (no cookies/tokens).
+- Config: .env sets BEAN_TRUSTED_ORIGIN_SUFFIXES=space-z.ai for this deployment; .env.example documents both vars + fail-closed production behavior.
+- Session handling untouched (was already correct): SameSite=None; Secure; httpOnly; path=/; 7d; server-side validation via requireUser. Verified live cookie attrs via CDP: sameSite None, secure true, httpOnly true.
+- Tests: rewrote tests/unit/origin.test.ts for the new policy (normalization, exact allowlist scheme/port/case/default-port handling, suffix dot-boundary + scheme-downgrade + look-alike rejections, opaque/unparsable origins, fetch-metadata, loopback dev scope + production lockout, rejection reasons).
+- E2E (real browser, agent-browser): register -> auto sign-in -> dashboard; RIISHE real streamed reply ORIGIN_FIX_E2E_OK; reload keeps session + rail history; sign-out -> landing; invalid creds -> uniform "Incorrect email or password." (no CSRF error); VALID sign-in via form -> dashboard (the reported broken flow). HTTP-level lifecycle: login 200 -> chat 200 real reply LIVE_TOKEN_OK (461ms) -> logout 200 -> same token chat 401 UNAUTHENTICATED. Attack matrix via curl: evil origin 403 origin-not-allowlisted; Origin null 403 opaque-origin; allowlisted origin + Sec-Fetch-Site cross-site 403 cross-site-fetch-metadata; no-origin curl reaches auth (401 on bad creds). Trusted preview-origin POST via ingress now reaches auth (401 invalid creds on probe account). [bean:csrf] log contains ONLY the 3 deliberate attack probes — zero false rejections of legitimate traffic.
+- Gates: tsc --noEmit 0 errors; eslint clean; bun test 50 pass / 0 fail; npm run build success (Proxy (Middleware) registered).
+
+Stage Summary:
+- Root cause: ingress header rewrite made the previous Origin-vs-Host equality rule reject all legitimate browser mutations; replaced with strict env-driven trusted-origin allowlist (exact origins + https-only dot-boundary suffix scope + dev-only loopback), no wildcard acceptance, no bypass, no auth change. Sign-in works from the app origin; invalid creds still rejected; untrusted cross-origin still 403 with logged reason; session lifecycle intact end-to-end.
+- Deployment note: for any new access path, add its exact origin to BEAN_TRUSTED_ORIGINS (or its registrable domain to BEAN_TRUSTED_ORIGIN_SUFFIXES); production with neither set fails closed.
