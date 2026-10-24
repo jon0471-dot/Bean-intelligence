@@ -26,6 +26,7 @@ export async function GET(
           role: m.role,
           content: m.content,
           createdAt: m.createdAt,
+          metadata: m.metadata,
         })),
       },
     })

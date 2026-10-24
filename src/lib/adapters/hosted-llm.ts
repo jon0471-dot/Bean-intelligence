@@ -54,6 +54,29 @@ function buildMessages(req: ChatRequest | CodeTaskRequest) {
   }))
 }
 
+/**
+ * Bounded retry for transient gateway rejections (HTTP 429).
+ * A 429 means the request was NOT processed upstream — exactly one retry
+ * after a short backoff cannot double-charge or double-persist. Anything
+ * else (4xx/5xx, network) propagates immediately; the router surfaces it
+ * as BACKEND_FAILURE with honest degradation.
+ */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+async function createWithTransientRetry(
+  zai: Awaited<ReturnType<typeof ZAI.create>>,
+  body: unknown,
+): Promise<unknown> {
+  try {
+    return await zai.chat.completions.create(body as never)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (!msg.includes('429')) throw e
+    await sleep(2_500)
+    return zai.chat.completions.create(body as never)
+  }
+}
+
 export const hostedLlmAdapter: TaskAdapter = {
   backendId: BACKEND_ID,
 
@@ -65,7 +88,7 @@ export const hostedLlmAdapter: TaskAdapter = {
         messages: [{ role: 'user', content: 'Reply with exactly: OK' }],
         thinking: { type: 'disabled' },
       })
-      const content = completion.choices[0]?.message?.content ?? ''
+      const content = completion.choices?.[0]?.message?.content ?? ''
       const healthy = content.trim().length > 0
       return {
         healthy,
@@ -86,11 +109,13 @@ export const hostedLlmAdapter: TaskAdapter = {
   async chat(req: ChatRequest): Promise<ChatResult> {
     const t0 = Date.now()
     const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
+    const completion = (await createWithTransientRetry(zai, {
       messages: buildMessages(req),
-      thinking: { type: 'disabled' },
-    })
-    const content = completion.choices[0]?.message?.content ?? ''
+      thinking: { type: req.thinkingEnabled ? 'enabled' : 'disabled' },
+    })) as {
+      choices?: Array<{ message?: { content?: string } }>
+    }
+    const content = completion.choices?.[0]?.message?.content ?? ''
     if (!content) {
       throw new Error('Upstream returned an empty completion')
     }
@@ -106,10 +131,10 @@ export const hostedLlmAdapter: TaskAdapter = {
 
   async *chatStream(req: ChatRequest): AsyncGenerator<string, void, unknown> {
     const zai = await ZAI.create()
-    const stream = (await zai.chat.completions.create({
+    const stream = (await createWithTransientRetry(zai, {
       messages: buildMessages(req),
       stream: true,
-      thinking: { type: 'disabled' },
+      thinking: { type: req.thinkingEnabled ? 'enabled' : 'disabled' },
     })) as AsyncIterable<unknown>
     yield* sseDeltas(stream)
   },
@@ -121,7 +146,7 @@ export const hostedLlmAdapter: TaskAdapter = {
       messages: buildMessages(req),
       thinking: { type: 'disabled' },
     })
-    const content = completion.choices[0]?.message?.content ?? ''
+    const content = completion.choices?.[0]?.message?.content ?? ''
     if (!content) throw new Error('Upstream returned an empty completion')
     const durationMs = Date.now() - t0
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user')

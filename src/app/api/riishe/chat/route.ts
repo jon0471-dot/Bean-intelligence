@@ -4,24 +4,26 @@ import { handle, ok, BeanApiError } from '@/lib/api/errors'
 import { parseBody } from '@/lib/api/validate'
 import { requireUser } from '@/lib/auth/session'
 import { preflight, assertChatRequest } from '@/lib/router/router'
-import { withTimeout } from '@/lib/adapters/hosted-llm'
 import { recordUsage } from '@/lib/observability/metering'
 import { logger } from '@/lib/observability/logger'
+import { orchestrateTurn } from '@/lib/riishe/orchestrator'
+import { CHAT_BACKEND_CAPABILITIES } from '@/lib/riishe/classify'
+import { metadataToJson, type MessageMetadata } from '@/lib/riishe/states'
 
 const schema = z.object({
   conversationId: z.string().min(1).optional(),
   message: z.string().min(1, 'Enter a message.').max(12000),
 })
 
-const SYSTEM_PROMPT =
-  'You are RIISHE, the conversational AI of BEAN Intelligence. Be accurate, helpful and professional. ' +
-  'For coding questions you may include code in fenced blocks. If you are unsure about a fact, say so ' +
-  'instead of inventing one. Never claim capabilities you do not have.'
-
 /**
  * RIISHE conversational endpoint. SSE streaming when the client asks,
  * JSON otherwise. Every request passes the same preflight: auth,
  * availability, rate limits, quotas, concurrency, capability validation.
+ *
+ * The orchestrator runs Understand -> Retrieve -> Solve -> Verify -> Respond;
+ * response states and verification summaries are assigned from ACTUAL tool
+ * execution (search, arithmetic evaluator, citation audit), never by the
+ * model. The assistant message is persisted exactly once, with metadata.
  */
 export async function POST(request: Request) {
   return handle(async () => {
@@ -54,15 +56,10 @@ export async function POST(request: Request) {
       orderBy: { createdAt: 'asc' },
       take: caps.maxHistoryMessages,
     })
-
-    const chatMessages = [
-      { role: 'assistant' as const, content: SYSTEM_PROMPT },
-      ...priorMessages.map((m) => ({
-        role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
-        content: m.content,
-      })),
-      { role: 'user' as const, content: body.message },
-    ]
+    const history = priorMessages.map((m) => ({
+      role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
+      content: m.content,
+    }))
 
     await db.message.create({
       data: { conversationId, role: 'user', content: body.message },
@@ -70,18 +67,17 @@ export async function POST(request: Request) {
 
     const wantsStream = new URL(request.url).searchParams.get('stream') === '1'
 
+    // ---- JSON path ---------------------------------------------------------
     if (!wantsStream) {
       try {
-        const result = await withTimeout(
-          adapter.chat({
-            messages: chatMessages,
-            maxPromptChars: caps.maxPromptChars,
-            maxHistoryMessages: caps.maxHistoryMessages,
-            timeoutMs: backend.timeouts.requestMs,
-          }),
-          backend.timeouts.requestMs,
-          'RIISHE',
-        )
+        const result = await orchestrateTurn({
+          userMessage: body.message,
+          history,
+          caps,
+          adapter,
+          nonStreaming: true,
+          backendCapabilities: CHAT_BACKEND_CAPABILITIES,
+        })
         await db.message.create({
           data: {
             conversationId,
@@ -90,6 +86,7 @@ export async function POST(request: Request) {
             tokensEstIn: result.tokensInEst,
             tokensEstOut: result.tokensOutEst,
             latencyMs: result.durationMs,
+            metadata: metadataToJson(result.metadata),
           },
         })
         await recordUsage({
@@ -102,7 +99,12 @@ export async function POST(request: Request) {
           durationMs: result.durationMs,
           success: true,
         })
-        return ok({ conversationId, content: result.content, durationMs: result.durationMs })
+        return ok({
+          conversationId,
+          content: result.content,
+          durationMs: result.durationMs,
+          metadata: result.metadata,
+        })
       } finally {
         release()
       }
@@ -113,31 +115,46 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        let full = ''
         const t0 = Date.now()
         let succeeded = false
+        let full = ''
+        let finalMetadata: MessageMetadata | null = null
         try {
-          for await (const delta of adapter.chatStream!({
-            messages: chatMessages,
-            maxPromptChars: caps.maxPromptChars,
-            maxHistoryMessages: caps.maxHistoryMessages,
-            timeoutMs: backend.timeouts.requestMs,
-          })) {
-            full += delta
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ delta, conversationId: convId })}\n\n`),
-            )
-          }
-          succeeded = full.length > 0
+          const result = await orchestrateTurn({
+            userMessage: body.message,
+            history,
+            caps,
+            adapter,
+            backendCapabilities: CHAT_BACKEND_CAPABILITIES,
+            onEvent: (e) => {
+              if (e.type === 'delta') {
+                full += e.delta
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ delta: e.delta, conversationId: convId })}\n\n`,
+                  ),
+                )
+              } else if (e.type === 'stage') {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`))
+              } else if (e.type === 'research') {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ research: { queries: e.queries } })}\n\n`),
+                )
+              }
+            },
+          })
+          finalMetadata = result.metadata
+          succeeded = full.trim().length > 0
           if (succeeded) {
             await db.message.create({
               data: {
                 conversationId: convId,
                 role: 'assistant',
-                content: full,
-                tokensEstIn: Math.ceil(body.message.length / 4),
-                tokensEstOut: Math.ceil(full.length / 4),
-                latencyMs: Date.now() - t0,
+                content: result.content,
+                tokensEstIn: result.tokensInEst,
+                tokensEstOut: result.tokensOutEst,
+                latencyMs: result.durationMs,
+                metadata: metadataToJson(result.metadata),
               },
             })
           }
@@ -146,8 +163,8 @@ export async function POST(request: Request) {
             product: 'riishe',
             backendId: backend.id,
             kind: 'chat',
-            tokensIn: Math.ceil(body.message.length / 4),
-            tokensOut: full ? Math.ceil(full.length / 4) : null,
+            tokensIn: result.tokensInEst,
+            tokensOut: succeeded ? result.tokensOutEst : null,
             durationMs: Date.now() - t0,
             success: succeeded,
             errorCode: succeeded ? null : 'BACKEND_FAILURE',
@@ -159,6 +176,7 @@ export async function POST(request: Request) {
                 conversationId: convId,
                 durationMs: Date.now() - t0,
                 partial: !succeeded,
+                ...(finalMetadata ? { meta: finalMetadata } : {}),
               })}\n\n`,
             ),
           )
