@@ -110,8 +110,11 @@ export async function runInSandbox(files: SandboxFile[]): Promise<SandboxRunResu
       env: {
         PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
         HOME: workspace,
+        // Deliberate minimal env — no secrets, no DATABASE_URL, no cookies.
+        NODE_ENV: process.env.NODE_ENV ?? 'production',
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      // Explicit tuple so spawn resolves to the piped-stdout/stderr overload.
+      stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'],
     })
 
     let stdout = ''

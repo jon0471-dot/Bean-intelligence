@@ -43,7 +43,11 @@ async function* sseDeltas(
 }
 
 function buildMessages(req: ChatRequest | CodeTaskRequest) {
-  const history = req.messages.slice(-req.maxHistoryMessages)
+  // CodeTaskRequest carries no history cap: its messages are already curated
+  // by the CODE GIFTZ route (system prompt + single user turn).
+  const maxHistoryMessages =
+    'maxHistoryMessages' in req ? req.maxHistoryMessages : req.messages.length
+  const history = req.messages.slice(-maxHistoryMessages)
   return history.map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content.slice(0, req.maxPromptChars),
@@ -130,12 +134,29 @@ export const hostedLlmAdapter: TaskAdapter = {
   },
 }
 
-/** Timeout guard used by the router around adapter calls. */
+/**
+ * Timeout guard used by the router around adapter calls.
+ *
+ * Guarantees: the caller's awaited promise settles within `ms` — resolving
+ * with the wrapped result, or rejecting with a labeled timeout error that
+ * routes surface as BACKEND_FAILURE. The internal timer is always cleared
+ * once the race settles, so it never keeps the event loop alive after
+ * completion.
+ *
+ * Known limitation (recorded, not hidden): the authorized gateway SDK
+ * (z-ai-web-dev-sdk) exposes no AbortSignal/options parameter on its create
+ * calls (verified against dist/index.d.ts), so a timed-out underlying
+ * request CANNOT be cancelled from here. Promise.race only abandons the
+ * wait — the upstream request may continue until the provider itself times
+ * out. It produces no customer-visible effect (the slot is released, the
+ * response is discarded), but operators must assume the upstream work
+ * consumed until the provider's own deadline. This is a platform-level
+ * limitation to revisit if the SDK gains signal support.
+ */
 export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
-    ),
-  ])
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }

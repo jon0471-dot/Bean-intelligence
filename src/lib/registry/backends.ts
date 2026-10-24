@@ -103,6 +103,9 @@ const HOSTED_LLM: BackendDescriptor = {
   enabled: true,
   concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 16 },
   timeouts: { requestMs: 90_000, queueMs: 5_000 },
+  // Truthful policy: the router issues exactly one attempt per request and
+  // does not auto-retry; failures surface to the customer immediately.
+  retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
 const HOSTED_IMAGE: BackendDescriptor = {
@@ -147,6 +150,8 @@ const HOSTED_IMAGE: BackendDescriptor = {
   enabled: true,
   concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 4 },
   timeouts: { requestMs: 180_000, queueMs: 10_000 },
+  // Truthful policy: one attempt per image job; no automatic retry.
+  retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
 /**
@@ -188,6 +193,8 @@ const VIDEO_PLANNED: BackendDescriptor = {
     'No video-generation backend is deployed. BEAN does not simulate video jobs — deployment of a licensed GPU worker is required before JAZMII can accept requests.',
   concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 1 },
   timeouts: { requestMs: 900_000, queueMs: 60_000 },
+  // Inactive backend: policy becomes enforceable only when enabled.
+  retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
 const HOSTED_CODE_LLM: BackendDescriptor = {
@@ -226,6 +233,8 @@ const HOSTED_CODE_LLM: BackendDescriptor = {
   enabled: true,
   concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 8 },
   timeouts: { requestMs: 120_000, queueMs: 5_000 },
+  // Truthful policy: one attempt per coding task; no automatic retry.
+  retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
 /** Private registry — the only place product→backend mappings exist. */

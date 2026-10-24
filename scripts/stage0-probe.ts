@@ -10,7 +10,16 @@ import ZAI from 'z-ai-web-dev-sdk'
 import fs from 'fs'
 import path from 'path'
 
-const REPORT: Record<string, unknown> = { startedAt: new Date().toISOString() }
+interface Stage0Report {
+  startedAt: string
+  finishedAt?: string
+  chat?: { ok: boolean; latencyMs?: number; responseSample?: string; error?: string }
+  image?: { ok: boolean; bytes?: number; latencyMs?: number; savedTo?: string; note?: string; error?: string }
+  stream?: { ok: boolean; chunks?: number; latencyMs?: number; sample?: string; note?: string; error?: string }
+  summary?: { chat: boolean; image: boolean; stream: boolean; verdict: string }
+}
+
+const REPORT: Stage0Report = { startedAt: new Date().toISOString() }
 
 async function probeChat(): Promise<boolean> {
   try {
