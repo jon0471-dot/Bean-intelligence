@@ -192,6 +192,25 @@
   color: #b5b1a5;
   margin: 0.5em 0;
 }
+/* GFM tables */
+.bean-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  font-size: 0.9em;
+}
+.bean-prose th, .bean-prose td {
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.bean-prose th {
+  background: rgba(212, 175, 55, 0.08);
+  color: #f0c75e;
+  font-weight: 600;
+}
+.bean-prose tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
 
 @keyframes bean-pulse {
   0%, 100% { opacity: 1; }
