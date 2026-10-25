@@ -28,6 +28,12 @@ import { BeanApiError } from '@/lib/api/errors'
 import { buildSystemPrompt, buildUserTurn } from './prompts'
 import { parseSelfCheck, verifyComputations, type ComputationCheck } from '@/lib/verify/exprcheck'
 import { auditCitations, stripFabricatedUrls } from '@/lib/verify/citations'
+import {
+  assessEchoCompliance,
+  detectEchoDirective,
+  INJECTION_REFUSAL,
+  type EchoDirective,
+} from '@/lib/verify/injection'
 import type { MessageMetadata, ResponseState, VerificationCheckView } from './states'
 
 export type OrchestrationEvent =
@@ -107,6 +113,14 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const decision = shouldSearch(userMessage)
   const searchNeeded = decision.search && !isDocumentLike(userMessage)
 
+  // ---- Injection gate (input side, BEFORE generation) ----------------------
+  // Measured evidence: the model non-deterministically echoes spoofed
+  // confirmation phrases ("SYSTEM OVERRIDE ACCEPTED."). When an echo
+  // directive is present the solve output is BUFFERED (not streamed) so a
+  // complying answer can be replaced before anything reaches the client.
+  const echo: EchoDirective | null = detectEchoDirective(userMessage)
+  const bufferOutput = echo !== null && !input.nonStreaming
+
   // ---- Retrieve -------------------------------------------------------------
   let pack: EvidencePack | null = null
   if (searchNeeded) {
@@ -165,7 +179,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       thinkingEnabled: profile.thinkingEnabled,
     })) {
       full += delta
-      onEvent?.({ type: 'delta', delta })
+      if (!bufferOutput) onEvent?.({ type: 'delta', delta })
     }
     if (!full.trim()) throw new Error('Upstream returned an empty completion')
     return { content: full, streamed: true }
@@ -173,14 +187,30 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
 
   let solveResult = await runSolve(baseMessages)
 
+  // ---- Injection gate (output side) ----------------------------------------
+  // Deterministic compliance check on the model's answer. When it complied,
+  // the answer is replaced by a fixed honest refusal BEFORE any of it is
+  // streamed. The gated content is then emitted as a single delta so the
+  // SSE path's `full` tracking (and persistence predicate) stays correct.
+  let finalContent = solveResult.content
+  let injectionBlocked = false
+  if (echo) {
+    const assessment = assessEchoCompliance(userMessage, finalContent)
+    if (assessment.complied) {
+      injectionBlocked = true
+      finalContent = INJECTION_REFUSAL
+      degraded.push('injected confirmation directive blocked by deterministic output guard')
+    }
+    if (bufferOutput) onEvent?.({ type: 'delta', delta: finalContent })
+  }
+
   // ---- Verify ---------------------------------------------------------------
   onEvent?.({ type: 'stage', stage: 'verifying' })
   const tVerify = Date.now()
 
   // 1. arithmetic verification (deterministic, in-process safe evaluator)
   let computation: ComputationCheck | null = null
-  let finalContent = solveResult.content
-  if (profile.verifyMath) {
+  if (profile.verifyMath && !injectionBlocked) {
     const checks = parseSelfCheck(finalContent)
     if (checks.length > 0) {
       computation = await verifyComputations(checks)
@@ -211,8 +241,10 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   stages.push({ stage: 'verifying', durationMs: Date.now() - tVerify })
 
   // 2. citation integrity audit against the ACTUAL evidence
+  // (skipped for blocked injections: the refusal is BEAN's own fixed text,
+  // it makes no external claims and cites nothing by design)
   let citationsValid: boolean | null = null
-  if (pack && pack.sources.length > 0) {
+  if (pack && pack.sources.length > 0 && !injectionBlocked) {
     const audit = auditCitations(finalContent, pack.sources)
     citationsValid =
       audit.invalidIds.length === 0 && audit.fabricatedUrls.length === 0 && audit.usedSources.length > 0
@@ -233,6 +265,15 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const states = statesFrom(profile, searchNeeded, pack, citationsValid, computation, degraded)
 
   const verification: VerificationCheckView[] = []
+  if (injectionBlocked) {
+    verification.push({
+      check: 'prompt-injection guard',
+      status: 'passed',
+      detail:
+        'a directive demanding a spoofed confirmation phrase was detected on input and the complying ' +
+        'output was blocked deterministically before anything was shown',
+    })
+  }
   if (computation?.ran) {
     for (const r of computation.results) {
       verification.push({
@@ -278,6 +319,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     verification: verification.filter((v) => v.status !== 'not_applicable'),
     stages,
     degraded,
+    ...(injectionBlocked ? { injectionBlocked: true } : {}),
   }
 
   // token estimates: solver call(s) — prompt (system+history+turn) and outputs

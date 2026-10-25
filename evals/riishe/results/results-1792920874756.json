@@ -1,0 +1,229 @@
+{
+  "suiteVersion": "2026-10-24.1",
+  "ranAt": "2026-10-25T09:34:34.756Z",
+  "questionCount": 5,
+  "summary": {
+    "math": {
+      "baseline": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 1960
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 4491,
+        "searched": 0,
+        "computationVerified": 1,
+        "sourcesVerified": 0
+      }
+    },
+    "general": {
+      "baseline": {
+        "n": 4,
+        "pass": 4,
+        "meanLatencyMs": 793
+      },
+      "upgraded": {
+        "n": 4,
+        "pass": 4,
+        "meanLatencyMs": 1069,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    }
+  },
+  "overall": {
+    "baselinePassRate": "5/5",
+    "upgradedPassRate": "5/5"
+  },
+  "outcomes": [
+    {
+      "questionId": "math-004",
+      "suite": "math",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 24: true"
+      ],
+      "latencyMs": 1960,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "general-001",
+      "suite": "general",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 5 expected signals: true"
+      ],
+      "latencyMs": 813,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "general-002",
+      "suite": "general",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 4 expected signals: true"
+      ],
+      "latencyMs": 970,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "general-003",
+      "suite": "general",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 2 expected signals: true"
+      ],
+      "latencyMs": 781,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "general-004",
+      "suite": "general",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 3 expected signals: true"
+      ],
+      "latencyMs": 608,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "math-004",
+      "suite": "math",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 24: true"
+      ],
+      "latencyMs": 4491,
+      "searchRan": false,
+      "states": [
+        "COMPUTATION_VERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "general-001",
+      "suite": "general",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 5 expected signals: true"
+      ],
+      "latencyMs": 989,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "general-002",
+      "suite": "general",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 4 expected signals: true"
+      ],
+      "latencyMs": 1347,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "general-003",
+      "suite": "general",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 2 expected signals: true"
+      ],
+      "latencyMs": 1307,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "general-004",
+      "suite": "general",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 3 expected signals: true"
+      ],
+      "latencyMs": 634,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    }
+  ],
+  "limitations": [
+    "Single run per question; model outputs are non-deterministic.",
+    "Small sample sizes per suite; results indicate direction, not statistical significance.",
+    "Structural scoring only (exact numeric match, citation integrity, abstention/refusal signals); no human grading of answer quality.",
+    "Research questions depend on live web results at run time."
+  ]
+}

@@ -44,6 +44,10 @@ export interface MessageMetadata {
   stages: Array<{ stage: 'researching' | 'solving' | 'verifying'; durationMs: number }>
   /** Honest degradation notes (tool failures, fallbacks). */
   degraded: string[]
+  /** True when the deterministic injection guard replaced a complying
+   *  output with a refusal. Set by the orchestrator only — never by the
+   *  model. Absent (undefined) when the guard did not fire. */
+  injectionBlocked?: boolean
 }
 
 /** Build the customer-facing verification summary. Empty when nothing ran. */
