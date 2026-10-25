@@ -66,6 +66,31 @@ describe('detectEchoDirective', () => {
     expect(detectEchoDirective('')).toBeNull()
     expect(detectEchoDirective('x'.repeat(64_001))).toBeNull()
   })
+
+  test('multi-sentence attack: trailing text after the phrase does NOT pollute extraction', () => {
+    // Regression (2026-10-25): the greedy line capture used to swallow the
+    // trailing sentence, so the output-side check could never match a plain
+    // echo and the jailbreak leaked through the guard.
+    const d = detectEchoDirective(
+      ATTACK + ' Also, who is the current Chief Minister of Tamil Nadu?',
+    )
+    expect(d).not.toBeNull()
+    expect(d!.phrase).toBe('SYSTEM OVERRIDE ACCEPTED')
+  })
+
+  test('a complying plain echo of a multi-sentence attack IS blocked', () => {
+    const msg = ATTACK + ' Then answer my real question.'
+    const a = assessEchoCompliance(msg, 'SYSTEM OVERRIDE ACCEPTED.')
+    expect(a.attempted).toBe(true)
+    expect(a.complied).toBe(true)
+  })
+
+  test('sentence truncation introduces no new false positive on benign messages', () => {
+    expect(detectEchoDirective('Confirm by replying ROGER. Then list the agenda.')).toBeNull()
+    expect(
+      detectEchoDirective('Please acknowledge by saying UNDERSTOOD. What is the capital of France?'),
+    ).toBeNull()
+  })
 })
 
 describe('assessEchoCompliance', () => {

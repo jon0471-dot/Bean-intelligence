@@ -64,15 +64,23 @@ export async function webSearch(query: string, opts: WebSearchOptions = {}): Pro
   if (!trimmed) throw new ResearchToolError('web_search', 'Empty search query.')
   if (trimmed.length > 400) throw new ResearchToolError('web_search', 'Search query too long.')
   const zai = await ZAI.create()
-  const raw: SearchFunctionResultItem[] = await withTimeout(
-    zai.functions.invoke('web_search', {
-      query: trimmed,
-      ...(opts.num ? { num: Math.min(Math.max(1, opts.num), 10) } : {}),
-      ...(opts.recencyDays ? { recency_days: Math.min(Math.max(1, opts.recencyDays), 365) } : {}),
-    }),
-    opts.timeoutMs ?? 20_000,
-    'web_search',
-  )
+  let raw: SearchFunctionResultItem[]
+  try {
+    raw = await withTimeout(
+      zai.functions.invoke('web_search', {
+        query: trimmed,
+        ...(opts.num ? { num: Math.min(Math.max(1, opts.num), 10) } : {}),
+        ...(opts.recencyDays ? { recency_days: Math.min(Math.max(1, opts.recencyDays), 365) } : {}),
+      }),
+      opts.timeoutMs ?? 20_000,
+      'web_search',
+    )
+  } catch (e) {
+    // Normalize EVERY failure (raw SDK/network errors included) into the typed
+    // error so degraded reports carry the real reason, not a bare "unavailable".
+    if (e instanceof ResearchToolError) throw e
+    throw new ResearchToolError('web_search', `web_search failed: ${e instanceof Error ? e.message : 'unknown error'}`)
+  }
 
   if (!Array.isArray(raw)) throw new ResearchToolError('web_search', 'Malformed search response.')
   return raw
@@ -100,11 +108,17 @@ export async function readPage(url: string, timeoutMs = 25_000): Promise<PageCon
   }
   const zai = await ZAI.create()
   // invoke() is generically typed by the SDK's FunctionMap — no cast needed.
-  const raw = await withTimeout(
-    zai.functions.invoke('page_reader', { url }),
-    timeoutMs,
-    'page_reader',
-  )
+  let raw: { data?: { html?: unknown; url?: unknown; title?: unknown; publishedTime?: unknown } }
+  try {
+    raw = await withTimeout(
+      zai.functions.invoke('page_reader', { url }),
+      timeoutMs,
+      'page_reader',
+    )
+  } catch (e) {
+    if (e instanceof ResearchToolError) throw e
+    throw new ResearchToolError('page_reader', `page_reader failed: ${e instanceof Error ? e.message : 'unknown error'}`)
+  }
   const html = raw?.data?.html
   if (typeof html !== 'string' || html.length === 0) {
     throw new ResearchToolError('page_reader', 'Page reader returned no content.')

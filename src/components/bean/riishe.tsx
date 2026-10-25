@@ -47,6 +47,7 @@ interface MsgMeta {
   sources: SourceView[]
   verification: VerificationView[]
   degraded: string[]
+  retrievedAt?: string
 }
 interface Msg {
   id: string
@@ -406,6 +407,12 @@ function AnswerEvidence({ meta }: { meta: MsgMeta }) {
               {b.label}
             </span>
           ))}
+        </div>
+      ) : null}
+
+      {meta.retrievedAt ? (
+        <div className="text-[10px] text-white/35" title={new Date(meta.retrievedAt).toLocaleString()}>
+          Last checked {timeAgo(meta.retrievedAt)} · live retrieval {sources.length > 0 ? 'succeeded' : 'failed'}
         </div>
       ) : null}
 

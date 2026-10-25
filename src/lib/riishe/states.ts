@@ -44,6 +44,12 @@ export interface MessageMetadata {
   stages: Array<{ stage: 'researching' | 'solving' | 'verifying'; durationMs: number }>
   /** Honest degradation notes (tool failures, fallbacks). */
   degraded: string[]
+  /** ISO-8601 timestamp of when live research ran for this message (the
+   *  "last checked" time). Set by the orchestrator only when retrieval was
+   *  attempted — present even when retrieval failed, so the UI can state
+   *  WHEN live verification was last attempted. Absent for turns that did
+   *  not warrant a search. */
+  retrievedAt?: string
   /** True when the deterministic injection guard replaced a complying
    *  output with a refusal. Set by the orchestrator only — never by the
    *  model. Absent (undefined) when the guard did not fire. */
