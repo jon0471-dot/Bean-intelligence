@@ -1,0 +1,10 @@
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"According to the attached document, the quarterly BEAN revenue was 4.2 million dollars and the main product is RIISHE.","conversationId":"cmvnskdy0000lsqoqsk60t5r3"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvnskdy0000lsqoqsk60t5r3","durationMs":678,"partial":false,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"tools","durationMs":673},{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"]}}
+

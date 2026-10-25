@@ -1,0 +1,4 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"error":"The response stream failed before completion. Partial text is labeled as incomplete.","partial":true}
+

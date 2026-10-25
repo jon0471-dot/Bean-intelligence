@@ -1,0 +1,14 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"capital of France\""]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\nThe capital of France is Paris [1][2][3][4][6].","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvnrsbbt005csqtf3q2evhr0","durationMs":6750,"partial":false,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Paris facts: the capital of France in history","url":"https://home.adelphi.edu/~ca19535/page%204.html","hostName":"home.adelphi.edu","date":null,"official":true,"pageRead":true},{"id":2,"title":"Paris","url":"https://en.wikipedia.org/wiki/Paris","hostName":"en.wikipedia.org","date":"Sun, 25 Oct 2026 03:31:46 GMT","official":false,"pageRead":true},{"id":3,"title":"List of capitals of France","url":"https://en.wikipedia.org/wiki/List_of_capitals_of_France","hostName":"en.wikipedia.org","date":null,"official":false,"pageRead":false},{"id":4,"title":"What is the capital city of France and why is it famous?","url":"https://brainly.in/question/62118432","hostName":"brainly.in","date":"Aug 13, 2025","official":false,"pageRead":false},{"id":5,"title":"What's the capital of France? : r/riddles","url":"https://www.reddit.com/r/riddles/comments/p8kx8x/whats_the_capital_of_france","hostName":"www.reddit.com","date":null,"official":false,"pageRead":false},{"id":6,"title":"France | History, Maps, Flag, Population, Cities, Capital, &","url":"https://www.britannica.com/place/France","hostName":"www.britannica.com","date":null,"official":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"source freshness","status":"passed","detail":"Newest retrieved source is dated 2025; the question is time-sensitive, so the answer may be out of date."}],"stages":[{"stage":"researching","durationMs":6132},{"stage":"tools","durationMs":614},{"stage":"verifying","durationMs":0}],"degraded":[],"retrievedAt":"2026-10-25T11:55:37.390Z"}}
+

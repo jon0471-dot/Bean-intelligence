@@ -1,0 +1,38 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"BE","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":"AN","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" Intelligence","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" is","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" an","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" AI","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" system","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" designed","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" to","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" process","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" and","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" remember","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" information","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" from","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" conversations","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":".","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvns757j000nsqahfk92chod","durationMs":592,"partial":false,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"digestUsed":true}}
+

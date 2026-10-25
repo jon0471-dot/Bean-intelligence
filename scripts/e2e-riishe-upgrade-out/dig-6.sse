@@ -1,0 +1,10 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\n","conversationId":"cmvnru7ed006msqtfyw7jeh0c"}
+
+data: {"delta":"6","conversationId":"cmvnru7ed006msqtfyw7jeh0c"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvnru7ed006msqtfyw7jeh0c","durationMs":415,"partial":false,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"]}}
+
