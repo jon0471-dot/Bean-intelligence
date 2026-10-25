@@ -158,3 +158,25 @@ Work Log:
 Stage Summary:
 - The eval lab did its job: it surfaced a real jailbreak that prompt hardening could not reliably prevent, and the fix is a deterministic, unit-tested, wire-verified backstop that cannot regress silently (injection suite now gates it: baseline 1/2 vs upgraded 2/2).
 - Honest state of the 13 requirement boards: research/citation pipeline (working, live-verified), math verification (working, COMPUTATION_VERIFIED live), injection defense (now deterministic), honest degradation (twice verified in-browser under real 429s). Remaining honest limitations unchanged: code-execution verification stays behind CODE GIFTZ's explicit-approval sandbox; RIISHE never claims EXECUTION_VERIFIED in chat; eval runs are single-run/small-n with structural scoring; sustained gateway 429 quota still occasionally blocks live research demos (runner + server degrade honestly when it does).
+
+---
+Task ID: fix-csrf-rejection-recurrence
+Agent: main (Z.ai)
+Task: Fix recurring "Cross-site request rejected. Use the BEAN application directly." on RIISHE chat — root cause, durable fix, end-to-end proof through the real preview origin
+
+Work Log:
+- Located the error string: src/middleware.ts:35 (the single API choke point; policy in src/lib/api/origin.ts).
+- Server-side evidence (dev.log [bean:csrf]): 11 rejections, ALL `origin=https://preview-chat-5607195a-212f-4a85-8f55-146057425b38.space-z.ai` (matches the IM session chat_id) with `sec-fetch-site=same-origin` — legitimate same-origin browser traffic, reason `origin-not-allowlisted`.
+- ROOT CAUSE: the deployment environment regenerated `.env` (mtime 2026-10-25 09:06) down to `DATABASE_URL` only — the CSRF fix's `BEAN_TRUSTED_ORIGIN_SUFFIXES=space-z.ai` was LOST. Safe methods (GET) still worked, so the UI loaded fully while every browser mutation (chat POST, code tasks, login itself) got 403. Verdict: legitimate request incorrectly rejected (config loss), NOT an unsupported origin — the origin is under the platform's own registrable domain and carries same-origin fetch-metadata.
+- FIX (two layers, security preserved):
+  1. Config restored: .env re-adds BEAN_TRUSTED_ORIGIN_SUFFIXES=space-z.ai; .env.example recreated (also wiped by the reset) documenting both origin vars.
+  2. Durable hardening in src/lib/api/origin.ts: new resolveSuffixConfig — UNDEFINED env now falls back to the platform scope (space-z.ai) so an env regeneration can never again silently lock the preview path out; explicit value always wins (""/"none" disables and fails closed; a list replaces, no merge). Security invariants unchanged: cross-site fetch-metadata rejected unconditionally BEFORE the scope is consulted, Origin: null rejected, https-only dot-boundary matching, forwarded headers still untrusted.
+- Tests: tests/unit/origin.test.ts 21 -> 30 (new platform-default block: undefined->allowed with the user's exact origin, explicit disable, operator override no-merge, https-only/dot-boundary/cross-site/opaque invariants under the default). Full suite 93 -> 98 pass / 0 fail; tsc 0 errors; eslint clean; next build compiled successfully (Proxy (Middleware) registered).
+- E2E (all through the USER'S REAL preview origin, not just localhost):
+  - curl with Origin: preview-chat-5607195a-...space-z.ai + same-origin fetch-metadata: register 200 (was 403), login 200, POST /api/riishe/chat?stream=1 -> real streamed model reply "PONTEFIX" with metadata.
+  - Real browser on https://preview-chat-5607195a-212f-4a85-8f55-146057425b38.space-z.ai: sign-in -> dashboard -> RIISHE -> "In one short sentence, what is BEAN Intelligence?" -> real model reply rendered in the conversation; reload keeps session; conversation reopened shows the server-persisted reply.
+  - Log audit after the fix: ZERO new [bean:csrf] rejections for the whole E2E; usage metering success:true (452ms, 580ms).
+- SECURITY.md section 10 updated (suffix-scope resolution semantics + the measured env-regeneration failure mode).
+
+Stage Summary:
+- Root cause was lost runtime config (env regeneration), not the policy logic and not the preview origin. Fixed durably: config restored AND the policy now survives env resets via the platform-default scope, with explicit operator opt-out preserved. All prior protections intact (auth, sessions, cross-site fetch-metadata rejection, opaque-origin rejection, exact-origin allowlist). End-to-end chat verified in the real browser on the exact origin from the user's error logs.
