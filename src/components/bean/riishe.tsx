@@ -5,19 +5,26 @@
  *
  * Real orchestration events from the BEAN API drive the UI:
  *  - `stage: researching` shows a genuine "Searching the web" indicator
- *    (never a decorative one — it only appears when search actually runs).
- *  - `meta` carries response states, evidence sources and the verification
- *    summary assigned from ACTUAL tool execution (arithmetic evaluator,
- *    citation audit). Fabricated or decorative badges are not possible:
- *    the frontend only renders what the server's verification recorded.
+ *    (never decorative — it only appears when search actually runs).
+ *  - `stage: tools` / `tool` events show REAL server-side tool executions.
+ *  - `meta` carries response states, evidence sources, tool runs and the
+ *    verification summary assigned from ACTUAL execution. Fabricated or
+ *    decorative badges are not possible: the frontend only renders what the
+ *    server's verification recorded.
+ *
+ * User controls: search mode (auto/on/off), document attach, sandboxed code
+ * execution opt-in, stop generation, regenerate, copy response, copy code.
  * Streaming stays real SSE; partial streams are labeled.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Markdown, Spinner, timeAgo, beanFetch, EmptyState } from './shared'
 import { cn } from '@/lib/utils'
+import { linkifyCitations } from '@/lib/riishe/citation-view'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   Plus,
   Send,
@@ -29,6 +36,14 @@ import {
   ShieldAlert,
   ExternalLink,
   ChevronDown,
+  Paperclip,
+  FileText,
+  X,
+  Square,
+  RefreshCw,
+  Copy,
+  Check,
+  Terminal,
 } from 'lucide-react'
 
 interface Conv { id: string; title: string; messages: number; updatedAt: string }
@@ -42,13 +57,17 @@ interface SourceView {
   pageRead: boolean
 }
 interface VerificationView { check: string; status: 'passed' | 'failed' | 'not_applicable'; detail: string }
+interface ToolRunView { tool: string; ok: boolean; durationMs: number }
 interface MsgMeta {
   states: string[]
   sources: SourceView[]
   verification: VerificationView[]
   degraded: string[]
+  toolRuns?: ToolRunView[]
+  digestUsed?: boolean
   retrievedAt?: string
 }
+interface DocMeta { id: string; name: string; characters?: number; truncated?: boolean }
 interface Msg {
   id: string
   role: 'user' | 'assistant'
@@ -57,6 +76,8 @@ interface Msg {
   pending?: boolean
   meta?: MsgMeta
 }
+
+type SearchMode = 'auto' | 'on' | 'off'
 
 const STATE_BADGES: Record<string, { label: string; tone: 'gold' | 'amber' | 'red' }> = {
   VERIFIED_FROM_SOURCES: { label: 'Evidence-backed', tone: 'gold' },
@@ -67,13 +88,60 @@ const STATE_BADGES: Record<string, { label: string; tone: 'gold' | 'amber' | 're
   // UNVERIFIED renders no badge: ordinary conversation needs no disclaimer.
 }
 
-/** Turn [n] markers whose source exists into in-page citation links. */
-function linkifyCitations(content: string, sources?: SourceView[]): string {
-  if (!sources?.length) return content
-  return content.replace(/\[(\d{1,2})\]/g, (m, n: string) => {
-    const id = Number(n)
-    return sources.some((s) => s.id === id) ? `[${n}](#bean-src-${id})` : m
-  })
+const SEARCH_MODES: Array<{ id: SearchMode; label: string; title: string }> = [
+  { id: 'auto', label: 'Auto', title: 'RIISHE searches when the question needs current information' },
+  { id: 'on', label: 'Web', title: 'Always search the live web for this turn' },
+  { id: 'off', label: 'Off', title: 'Never search this turn (answer from stable knowledge)' },
+]
+
+function useCopy(): [boolean, (text: string) => void] {
+  const [copied, setCopied] = useState(false)
+  const copy = useCallback((text: string) => {
+    const done = () => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(done)
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      done()
+    }
+  }, [])
+  return [copied, copy]
+}
+
+/** Code block with real syntax highlighting and a working copy button. */
+function CodeBlock({ code, lang }: { code: string; lang?: string }) {
+  const [copied, copy] = useCopy()
+  return (
+    <div className="group/code relative my-2 overflow-hidden rounded-[10px] border border-[rgba(212,175,55,0.18)]">
+      <div className="flex items-center justify-between bg-black/60 px-3 py-1">
+        <span className="text-[10px] uppercase tracking-wider text-white/35">{lang || 'code'}</span>
+        <button
+          onClick={() => copy(code)}
+          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 transition-colors hover:bg-white/10 hover:text-white/80"
+          aria-label="Copy code"
+        >
+          {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        language={lang || 'text'}
+        style={vscDarkPlus}
+        customStyle={{ margin: 0, background: '#0c0c0f', fontSize: '12.5px', padding: '12px 14px' }}
+        wrapLongLines={false}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  )
 }
 
 export function Riishe() {
@@ -83,10 +151,17 @@ export function Riishe() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [researching, setResearching] = useState(false)
+  const [runningTool, setRunningTool] = useState<string | null>(null)
   const [researchQueries, setResearchQueries] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [searchMode, setSearchMode] = useState<SearchMode>('auto')
+  const [allowCodeExecution, setAllowCodeExecution] = useState(false)
+  const [documents, setDocuments] = useState<DocMeta[]>([])
+  const [uploadingDoc, setUploadingDoc] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const streamedRef = useRef('')
+  const abortRef = useRef<AbortController | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadConversations = useCallback(async () => {
     try {
@@ -99,11 +174,12 @@ export function Riishe() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages, streaming, researching])
+  }, [messages, streaming, researching, runningTool])
 
   async function openConversation(id: string) {
     setActiveId(id)
     setError(null)
+    setDocuments([])
     try {
       const d = await beanFetch<{
         conversation: { messages: Array<{ id: string; role: string; content: string; metadata?: MsgMeta | null }> }
@@ -135,15 +211,57 @@ export function Riishe() {
     setActiveId(null)
     setMessages([])
     setError(null)
+    setDocuments([])
   }
 
-  async function send() {
-    const message = input.trim()
+  async function uploadDocument(file: File) {
+    if (uploadingDoc || documents.length >= 2) return
+    setUploadingDoc(true)
+    setError(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/riishe/documents', { method: 'POST', body: form })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
+        throw new Error(data?.error?.message ?? `Upload failed (${res.status})`)
+      }
+      setDocuments((prev) => [...prev, data.document].slice(0, 2))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setUploadingDoc(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  function stopGeneration() {
+    abortRef.current?.abort()
+  }
+
+  function regenerate() {
+    if (streaming) return
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+    if (!lastUser) return
+    setInput(lastUser.content)
+    setMessages((prev) => {
+      const copy = [...prev]
+      if (copy.length > 0 && copy[copy.length - 1].role === 'assistant') copy.pop()
+      return copy
+    })
+    // Send on the next tick with the restored input.
+    setTimeout(() => void send(lastUser.content, true), 0)
+  }
+
+  async function send(overrideMessage?: string, retry = false) {
+    const message = (overrideMessage ?? input).trim()
     if (!message || streaming) return
-    setInput('')
+    if (overrideMessage === undefined) setInput('')
     setError(null)
     setStreaming(true)
     setResearching(false)
+    setRunningTool(null)
     setResearchQueries([])
     streamedRef.current = ''
 
@@ -151,11 +269,22 @@ export function Riishe() {
     const asstId = `a-${Date.now()}`
     setMessages((prev) => [...prev, userMsg, { id: asstId, role: 'assistant', content: '', pending: true }])
 
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       const res = await fetch(`/api/riishe/chat?stream=1${activeId ? `&conversationId=${activeId}` : ''}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message, conversationId: activeId ?? undefined }),
+        body: JSON.stringify({
+          message,
+          conversationId: activeId ?? undefined,
+          searchMode,
+          allowCodeExecution,
+          documentIds: documents.length > 0 ? documents.map((d) => d.id) : undefined,
+          retry,
+        }),
+        signal: controller.signal,
       })
       if (!res.ok || !res.body) {
         // Keep the global identity in sync: a 401 here means the session is
@@ -184,14 +313,20 @@ export function Riishe() {
             error?: string
             conversationId?: string
             partial?: boolean
-            stage?: 'researching' | 'solving' | 'verifying'
+            stage?: 'researching' | 'tools' | 'solving' | 'verifying'
             research?: { queries?: string[] }
+            tool?: { name: string; status: 'started' | 'done' | 'failed' }
             meta?: MsgMeta
           }
           try { evt = JSON.parse(line.slice(6)) } catch { continue }
           if (evt.conversationId) convId = evt.conversationId
           if (evt.stage === 'researching') { setResearching(true); setResearchQueries([]) }
-          if (evt.stage === 'solving' || evt.stage === 'verifying') setResearching(false)
+          if (evt.stage === 'tools') { setResearching(false); setRunningTool('working') }
+          if (evt.stage === 'solving' || evt.stage === 'verifying') { setResearching(false); setRunningTool(null) }
+          if (evt.tool) {
+            if (evt.tool.status === 'started') setRunningTool(evt.tool.name)
+            else setRunningTool(null)
+          }
           if (evt.research?.queries) setResearchQueries(evt.research.queries)
           if (evt.error) { failed = true; setError(evt.error) }
           if (evt.delta) {
@@ -202,6 +337,7 @@ export function Riishe() {
           }
           if (evt.done) {
             setResearching(false)
+            setRunningTool(null)
             if (convId && !activeId) setActiveId(convId)
             if (evt.meta) {
               setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, meta: evt.meta } : m)))
@@ -219,11 +355,22 @@ export function Riishe() {
       }
       void loadConversations()
     } catch (e) {
-      setError((e as Error).message)
-      setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
+      if ((e as Error).name === 'AbortError') {
+        // User pressed stop: keep what arrived and label it honestly.
+        if (streamedRef.current !== '') {
+          setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
+        } else {
+          setMessages((prev) => prev.filter((m) => m.id !== asstId))
+        }
+      } else {
+        setError((e as Error).message)
+        setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
+      }
     } finally {
       setStreaming(false)
       setResearching(false)
+      setRunningTool(null)
+      abortRef.current = null
       setMessages((prev) => prev.map((m) => ({ ...m, pending: false })))
     }
   }
@@ -247,9 +394,19 @@ export function Riishe() {
         </a>
       )
     },
+    pre: ({ children }: { children?: React.ReactNode }) => {
+      // React-markdown nests <code> inside <pre>; extract for highlighting.
+      const child = Array.isArray(children) ? children[0] : children
+      const props = (child as { props?: { className?: string; children?: ReactNode } })?.props
+      const lang = props?.className?.replace(/language-/, '') || undefined
+      const code = String(props?.children ?? '').replace(/\n$/, '')
+      if (code === '') return <pre>{children}</pre>
+      return <CodeBlock code={code} lang={lang} />
+    },
     ...(meta ? {} : {}),
   })
-  void citationComponents
+
+  const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant' && !m.pending)?.id
 
   return (
     <div className="flex h-[calc(100vh-3.5rem-2rem)] min-h-[540px] lg:h-[calc(100vh-3.5rem-1.5rem)]">
@@ -303,7 +460,7 @@ export function Riishe() {
             <EmptyState
               icon={<MessageSquareText className="h-10 w-10" />}
               title="Start a conversation"
-              hint="Ask questions, request derivations, code help or research on current topics. RIISHE searches live sources when a question needs them and verifies its arithmetic before answering."
+              hint="Ask questions, request derivations, code help or research on current topics. RIISHE searches live sources when a question needs them, runs real tools, and verifies its arithmetic before answering. Attach a document for grounded analysis."
             />
           ) : (
             <div className="mx-auto max-w-3xl space-y-4">
@@ -325,10 +482,21 @@ export function Riishe() {
                         {m.pending ? <Spinner className="ml-1 mt-1" /> : null}
                         {m.partial ? (
                           <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
-                            <AlertTriangle className="h-3 w-3" /> Incomplete — the stream ended early
+                            <AlertTriangle className="h-3 w-3" /> Incomplete — the stream was stopped or ended early
                           </div>
                         ) : null}
                         {m.meta ? <AnswerEvidence meta={m.meta} /> : null}
+                        {m.id === lastAssistantId && !m.pending ? (
+                          <div className="mt-2 flex items-center gap-2 border-t border-[rgba(212,175,55,0.12)] pt-2">
+                            <CopyMessageButton content={m.content} />
+                            <button
+                              onClick={regenerate}
+                              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 transition-colors hover:bg-white/10 hover:text-white/80"
+                            >
+                              <RefreshCw className="h-3 w-3" /> Regenerate
+                            </button>
+                          </div>
+                        ) : null}
                       </>
                     ) : researching ? (
                       <span className="inline-flex items-center gap-2 text-xs text-white/50">
@@ -336,6 +504,11 @@ export function Riishe() {
                         {researchQueries.length > 0 ? (
                           <span className="text-white/30">({researchQueries.slice(0, 2).join(' · ')})</span>
                         ) : null}
+                      </span>
+                    ) : runningTool ? (
+                      <span className="inline-flex items-center gap-2 text-xs text-white/50">
+                        <Terminal className="h-3.5 w-3.5 animate-pulse text-[#d4af37]" />
+                        {runningTool === 'working' ? 'Running server-side tools…' : `Running ${runningTool}…`}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-2 text-xs text-white/40">
@@ -354,28 +527,126 @@ export function Riishe() {
           <div className="mx-5 mb-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>
         ) : null}
 
+        {/* Attachments */}
+        {documents.length > 0 ? (
+          <div className="mx-auto flex w-full max-w-3xl flex-wrap gap-2 px-4 pb-1">
+            {documents.map((d) => (
+              <span key={d.id} className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(212,175,55,0.3)] bg-[rgba(212,175,55,0.08)] px-2.5 py-1 text-[11px] text-[#f0c75e]">
+                <FileText className="h-3 w-3" />
+                {d.name}
+                {typeof d.characters === 'number' ? <span className="text-white/35">· {d.characters.toLocaleString()} chars</span> : null}
+                {d.truncated ? <span className="text-amber-300">· truncated</span> : null}
+                <button
+                  onClick={() => setDocuments((prev) => prev.filter((x) => x.id !== d.id))}
+                  className="ml-0.5 text-white/40 hover:text-white/80"
+                  aria-label={`Remove ${d.name}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+
         <div className="border-t border-[rgba(212,175,55,0.1)] p-4">
-          <div className="mx-auto flex max-w-3xl items-end gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() }
-              }}
-              placeholder="Message RIISHE… (Enter to send, Shift+Enter for a new line)"
-              rows={Math.min(4, Math.max(1, input.split('\n').length))}
-              maxLength={12000}
-              disabled={streaming}
-              className="max-h-40 min-h-[46px] resize-none bg-black/30"
-              aria-label="Message RIISHE"
-            />
-            <Button onClick={() => void send()} disabled={streaming || !input.trim()} className="h-[46px] bg-[#d4af37] px-4 text-black hover:bg-[#e6c25a]" aria-label="Send message">
-              {streaming ? <Spinner className="border-black/30 border-t-black" /> : <Send className="h-4 w-4" />}
-            </Button>
+          <div className="mx-auto max-w-3xl">
+            {/* Controls row: search mode, attach, sandbox opt-in */}
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <div className="inline-flex overflow-hidden rounded-lg border border-[rgba(212,175,55,0.25)]" role="group" aria-label="Web search mode">
+                {SEARCH_MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setSearchMode(m.id)}
+                    title={m.title}
+                    className={cn(
+                      'px-2.5 py-1 text-[11px] transition-colors',
+                      searchMode === m.id
+                        ? 'bg-[rgba(212,175,55,0.2)] text-[#f0c75e]'
+                        : 'bg-transparent text-white/45 hover:bg-white/5 hover:text-white/70',
+                    )}
+                  >
+                    <Globe className="mr-1 inline h-3 w-3" />
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingDoc || documents.length >= 2}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(212,175,55,0.25)] px-2.5 py-1 text-[11px] text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 disabled:opacity-50"
+                title="Attach a document (txt, md, csv, json, pdf — max 10 MB, up to 2)"
+              >
+                {uploadingDoc ? <Spinner className="h-3 w-3" /> : <Paperclip className="h-3 w-3" />}
+                Attach document
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.csv,.json,.log,.pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void uploadDocument(f)
+                }}
+              />
+              <button
+                onClick={() => setAllowCodeExecution((v) => !v)}
+                title="Allow RIISHE to run short JavaScript/TypeScript snippets in the restricted sandbox for this conversation"
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] transition-colors',
+                  allowCodeExecution
+                    ? 'border-[rgba(212,175,55,0.45)] bg-[rgba(212,175,55,0.14)] text-[#f0c75e]'
+                    : 'border-[rgba(212,175,55,0.25)] text-white/55 hover:bg-white/5 hover:text-white/80',
+                )}
+                aria-pressed={allowCodeExecution}
+              >
+                <Terminal className="h-3 w-3" />
+                Code sandbox {allowCodeExecution ? 'on' : 'off'}
+              </button>
+            </div>
+
+            <div className="flex items-end gap-2">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() }
+                }}
+                placeholder="Message RIISHE… (Enter to send, Shift+Enter for a new line)"
+                rows={Math.min(4, Math.max(1, input.split('\n').length))}
+                maxLength={12000}
+                disabled={streaming}
+                className="max-h-40 min-h-[46px] resize-none bg-black/30"
+                aria-label="Message RIISHE"
+              />
+              {streaming ? (
+                <Button onClick={stopGeneration} className="h-[46px] bg-[rgba(212,175,55,0.15)] px-4 text-[#f0c75e] hover:bg-[rgba(212,175,55,0.25)]" variant="outline" aria-label="Stop generating">
+                  <Square className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button onClick={() => void send()} disabled={!input.trim()} className="h-[46px] bg-[#d4af37] px-4 text-black hover:bg-[#e6c25a]" aria-label="Send message">
+                  <Send className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function CopyMessageButton({ content }: { content: string }) {
+  const [copied, copy] = useCopy()
+  return (
+    <button
+      onClick={() => copy(content)}
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 transition-colors hover:bg-white/10 hover:text-white/80"
+      aria-label="Copy response"
+    >
+      {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+      {copied ? 'Copied' : 'Copy response'}
+    </button>
   )
 }
 
@@ -386,6 +657,7 @@ function AnswerEvidence({ meta }: { meta: MsgMeta }) {
     .filter((b): b is { label: string; tone: 'gold' | 'amber' | 'red' } => Boolean(b))
   const checks = meta.verification ?? []
   const sources = meta.sources ?? []
+  const toolRuns = meta.toolRuns ?? []
 
   if (badges.length === 0 && checks.length === 0 && sources.length === 0) return null
 
@@ -413,6 +685,17 @@ function AnswerEvidence({ meta }: { meta: MsgMeta }) {
       {meta.retrievedAt ? (
         <div className="text-[10px] text-white/35" title={new Date(meta.retrievedAt).toLocaleString()}>
           Last checked {timeAgo(meta.retrievedAt)} · live retrieval {sources.length > 0 ? 'succeeded' : 'failed'}
+        </div>
+      ) : null}
+
+      {toolRuns.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-white/40">
+          <Terminal className="h-3 w-3" />
+          {toolRuns.map((t, i) => (
+            <span key={`${t.tool}-${i}`} className="rounded border border-white/15 px-1.5 py-0.5">
+              {t.tool} {t.ok ? '✓' : '✗'} · {t.durationMs}ms
+            </span>
+          ))}
         </div>
       ) : null}
 

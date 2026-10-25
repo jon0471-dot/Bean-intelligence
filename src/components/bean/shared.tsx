@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 export interface BeanUser {
   id: string
@@ -129,7 +130,10 @@ export function Markdown({
 }) {
   return (
     <div className="bean-prose text-[14.5px] text-white/88">
-      <ReactMarkdown components={components}>{content}</ReactMarkdown>
+      {/* remark-gfm: real markdown tables, task lists and strikethrough */}
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {content}
+      </ReactMarkdown>
     </div>
   )
 }

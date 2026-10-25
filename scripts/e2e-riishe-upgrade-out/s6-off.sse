@@ -1,0 +1,98 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\n","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"The","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" current","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" Chief","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" Minister","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" of","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" Tamil","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" Nadu","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" is","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" C","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":".","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" Joseph","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" Vij","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"ay","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" [","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"2","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"][","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"3","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"][","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"4","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"][","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"6","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"].","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" He","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" was","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" sworn","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" in","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" on","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" May","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" ","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"9","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":",","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" ","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"202","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"6","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":",","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" succeeding","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" M","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":".K","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":".","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" Stalin","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":" [","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"4","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"][","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"6","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"delta":"].","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvnrsbbt005csqtf3q2evhr0","durationMs":849,"partial":false,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: user disabled live search for this turn"]}}
+

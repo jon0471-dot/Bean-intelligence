@@ -1,0 +1,16 @@
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"tool":{"type":"tool","name":"run_code","status":"started"}}
+
+data: {"tool":{"type":"tool","name":"run_code","status":"done"}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\n129","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvnrsbbt005csqtf3q2evhr0","durationMs":5207,"partial":false,"meta":{"states":["EXECUTION_VERIFIED"],"sources":[],"verification":[{"check":"tool: run_code","status":"passed","detail":"executed server-side in 53ms"}],"stages":[{"stage":"tools","durationMs":5203},{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: mathematical task — deterministic verification applies, not search"],"toolRuns":[{"tool":"run_code","ok":true,"durationMs":53}]}}
+
