@@ -16,6 +16,7 @@ import {
   isAllowedApiMutation,
   normalizeOrigin,
   checkApiMutationOrigin,
+  resolveSuffixConfig,
   type OriginPolicyEnv,
 } from '../../src/lib/api/origin'
 
@@ -145,11 +146,9 @@ describe('isAllowedApiMutation — configured suffix scope (https-only, dot-boun
     expect(isAllowedApiMutation('POST', 'http://preview-abc123.space-z.ai', null, env())).toBe(false)
   })
 
-  test('suffix scope requires opt-in and sane entries', () => {
+  test('suffix scope requires sane entries', () => {
     const e = env({ BEAN_TRUSTED_ORIGIN_SUFFIXES: 'localhost, .space-z.ai, *bad..' })
     expect(isAllowedApiMutation('POST', 'https://preview-x.space-z.ai', null, e)).toBe(true)
-    const noSuffix = env({ BEAN_TRUSTED_ORIGIN_SUFFIXES: undefined })
-    expect(isAllowedApiMutation('POST', 'https://preview-x.space-z.ai', null, noSuffix)).toBe(false)
   })
 })
 
@@ -169,6 +168,67 @@ describe('isAllowedApiMutation — loopback development allowance', () => {
 
   test('production never gets the implicit loopback allowance', () => {
     expect(isAllowedApiMutation('POST', 'http://localhost:3000', null, env())).toBe(false)
+  })
+})
+
+describe('resolveSuffixConfig + platform-default scope (env-regeneration resilience)', () => {
+  // Measured failure mode (2026-10-25): the platform regenerated .env with
+  // DATABASE_URL only; every legitimate browser mutation from the preview
+  // origin was 403'd while GETs kept working. An UNDEFINED suffix env must
+  // now fall back to the platform scope instead of failing closed.
+  const prodNoSuffixEnv = env({ BEAN_TRUSTED_ORIGIN_SUFFIXES: undefined })
+
+  test('undefined env resolves to the platform default scope', () => {
+    expect(resolveSuffixConfig(undefined)).toEqual({
+      source: 'platform-default',
+      list: ['space-z.ai'],
+    })
+  })
+
+  test('the user-facing preview origin is allowed with NO suffix config at all', () => {
+    expect(
+      isAllowedApiMutation(
+        'POST',
+        'https://preview-chat-5607195a-212f-4a85-8f55-146057425b38.space-z.ai',
+        'same-origin',
+        prodNoSuffixEnv,
+      ),
+    ).toBe(true)
+  })
+
+  test('explicit empty string disables the scope (operator opt-out, fail closed)', () => {
+    expect(resolveSuffixConfig('')).toEqual({ source: 'disabled', list: [] })
+    expect(resolveSuffixConfig('none')).toEqual({ source: 'disabled', list: [] })
+    expect(resolveSuffixConfig('  ')).toEqual({ source: 'disabled', list: [] })
+    expect(
+      isAllowedApiMutation('POST', 'https://preview-x.space-z.ai', null, env({ BEAN_TRUSTED_ORIGIN_SUFFIXES: '' })),
+    ).toBe(false)
+  })
+
+  test('explicit operator list overrides the default (no merge)', () => {
+    expect(resolveSuffixConfig('example.com')).toEqual({ source: 'operator', list: ['example.com'] })
+    expect(
+      isAllowedApiMutation('POST', 'https://preview-x.space-z.ai', null, env({ BEAN_TRUSTED_ORIGIN_SUFFIXES: 'example.com' })),
+    ).toBe(false)
+    expect(
+      isAllowedApiMutation('POST', 'https://app.example.com', null, env({ BEAN_TRUSTED_ORIGIN_SUFFIXES: 'example.com' })),
+    ).toBe(true)
+  })
+
+  test('platform default keeps the security invariants', () => {
+    // https-only
+    expect(isAllowedApiMutation('POST', 'http://preview-x.space-z.ai', null, prodNoSuffixEnv)).toBe(false)
+    // dot-boundary anchored
+    expect(isAllowedApiMutation('POST', 'https://evil-space-z.ai', null, prodNoSuffixEnv)).toBe(false)
+    expect(isAllowedApiMutation('POST', 'https://space-z.ai.evil.com', null, prodNoSuffixEnv)).toBe(false)
+    // cross-site fetch-metadata is STILL rejected unconditionally, even from
+    // a sibling origin under the platform suffix (CSRF core invariant)
+    expect(
+      checkApiMutationOrigin('https://preview-evil.space-z.ai', 'cross-site', prodNoSuffixEnv).rejection,
+    ).toBe('cross-site-fetch-metadata')
+    expect(isAllowedApiMutation('POST', 'https://preview-evil.space-z.ai', 'cross-site', prodNoSuffixEnv)).toBe(false)
+    // opaque origin still rejected
+    expect(checkApiMutationOrigin('null', 'same-origin', prodNoSuffixEnv).rejection).toBe('opaque-origin')
   })
 })
 

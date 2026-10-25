@@ -128,13 +128,24 @@ seccomp profiles, and deny network egress by default. The capability is labeled
   - Otherwise the origin is normalized (lowercase scheme/host, default ports stripped,
     credentials/path/query rejected) and must be allowlisted via:
     - `BEAN_TRUSTED_ORIGINS` — exact origins (scheme, hostname and port must match), or
-    - `BEAN_TRUSTED_ORIGIN_SUFFIXES` — operator-opted HTTPS-only, dot-boundary-anchored
+    - `BEAN_TRUSTED_ORIGIN_SUFFIXES` — HTTPS-only, dot-boundary-anchored
       domain scope for platforms that assign the public origin at runtime
       (e.g. `space-z.ai` accepts `https://preview-<id>.space-z.ai`), or
     - non-production only: loopback origins (`localhost`, `127.0.0.1`, `[::1]`) on any
       port for direct local development. Compiled out of production builds.
-  - Fail closed: in production with no configured origins, no browser mutation origin
-    is trusted.
+  - Suffix-scope resolution (`resolveSuffixConfig`): an UNDEFINED env variable falls
+    back to the platform scope of this deployment (`space-z.ai`) — measured 2026-10-25,
+    an environment regeneration wiped `.env` down to `DATABASE_URL` and every
+    legitimate browser mutation from the preview origin was rejected
+    (`origin-not-allowlisted`, same-origin fetch-metadata) while GETs kept working.
+    An explicit value always wins (`""`/`none` disables the scope and fails closed;
+    a list replaces the default with no merge). This does not weaken the control:
+    cross-site fetch-metadata is still rejected unconditionally before the suffix
+    scope is consulted, so even an attacker page under the platform suffix cannot
+    forge a state-changing request.
+  - Fail closed: explicit operator opt-out (empty suffix config) disables the suffix
+    scope entirely; opaque origins and cross-site fetch-metadata are always rejected
+    regardless of configuration.
   - **Why not compare `Origin` against `Host`/`X-Forwarded-Host`?** Measured on this
     deployment: the trusted ingress rewrites `Host` to an internal value while the
     browser's true `Origin` is the public preview origin — host-equality checks reject

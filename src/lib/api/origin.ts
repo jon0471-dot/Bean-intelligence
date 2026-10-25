@@ -27,11 +27,14 @@
  *       verified. Logged loudly by the middleware.
  *     - Otherwise the origin is normalized (lowercase scheme/host, default
  *       ports stripped, credentials/path/query rejected) and must match
- *       either an exact entry in BEAN_TRUSTED_ORIGINS, or — when the
- *       operator opts in via BEAN_TRUSTED_ORIGIN_SUFFIXES — an HTTPS origin
- *       whose hostname equals or is a dot-boundary subdomain of a configured
- *       suffix (used for the platform's assigned preview subdomain, whose
- *       exact value is not known at deploy time).
+ *       either an exact entry in BEAN_TRUSTED_ORIGINS, or — via the
+ *       configured suffix scope — an HTTPS origin whose hostname equals or
+ *       is a dot-boundary subdomain of a configured suffix (used for the
+ *       platform's assigned preview subdomain, whose exact value is not
+ *       known at deploy time). When BEAN_TRUSTED_ORIGIN_SUFFIXES is
+ *       UNDEFINED, the platform scope of this deployment (space-z.ai) is
+ *       applied by default; an explicit empty value disables the suffix
+ *       scope entirely (see PLATFORM_DEFAULT_ORIGIN_SUFFIXES below).
  *     - In non-production only, http(s) loopback origins (localhost,
  *       127.0.0.1, [::1]) on any port are allowed for direct local
  *       development; this allowance is compiled out of production.
@@ -102,6 +105,52 @@ function parseList(raw: string | undefined): string[] {
 }
 
 /**
+ * Registrable-domain scope of the platform this deployment runs on. The
+ * public access path is the per-session preview origin
+ * (https://preview-*.space-z.ai) whose exact host cannot be known at deploy
+ * time, and the suffix configuration lives in an env file the platform may
+ * regenerate: measured 2026-10-25, after an environment reset .env contained
+ * only DATABASE_URL and EVERY legitimate browser mutation was rejected with
+ * `origin-not-allowlisted` (same-origin fetch-metadata, platform origin in
+ * the logs) while GETs kept working — the app loaded but chat was dead.
+ *
+ * Therefore an UNDEFINED BEAN_TRUSTED_ORIGIN_SUFFIXES now resolves to this
+ * platform scope instead of failing closed. Operator control is preserved:
+ *  - an explicit list overrides the default (no merge);
+ *  - an explicit empty value (or "none") disables the suffix scope entirely
+ *    and fails closed.
+ *
+ * This does not weaken the control against attackers: Sec-Fetch-Site:
+ * cross-site is rejected unconditionally BEFORE the suffix scope is ever
+ * consulted (browsers forbid JS from forging Sec-*), so even an attacker-
+ * controlled page under the platform suffix cannot forge a state-changing
+ * request. The suffix scope only legitimizes pages genuinely served from
+ * the platform's own domain — which is where this product is deployed.
+ */
+const PLATFORM_DEFAULT_ORIGIN_SUFFIXES = 'space-z.ai'
+
+export type SuffixConfigSource = 'operator' | 'platform-default' | 'disabled'
+
+/**
+ * Resolve the effective suffix scope from raw env input.
+ * Exposed for unit tests and for the middleware to report which source was
+ * applied when logging rejections.
+ */
+export function resolveSuffixConfig(raw: string | undefined): {
+  source: SuffixConfigSource
+  list: string[]
+} {
+  if (raw === undefined) {
+    return { source: 'platform-default', list: parseSuffixes(PLATFORM_DEFAULT_ORIGIN_SUFFIXES) }
+  }
+  const trimmed = raw.trim()
+  if (trimmed.length === 0 || trimmed.toLowerCase() === 'none') {
+    return { source: 'disabled', list: [] }
+  }
+  return { source: 'operator', list: parseSuffixes(raw) }
+}
+
+/**
  * Parse BEAN_TRUSTED_ORIGIN_SUFFIXES into clean registrable-domain suffixes.
  * Accepts `space-z.ai`, `.space-z.ai`, or `*.space-z.ai` spellings; anything
  * that is not a plain dotted hostname is discarded (defensive parsing).
@@ -163,10 +212,11 @@ export function checkApiMutationOrigin(
   }
   if (exact.has(normalized)) return { allowed: true }
 
-  // Operator-opted platform scope: HTTPS origins on configured domain
-  // suffixes (dot-boundary anchored). Used for the platform-assigned
-  // preview subdomain whose exact host is not known at deploy time.
-  const suffixes = parseSuffixes(env.BEAN_TRUSTED_ORIGIN_SUFFIXES)
+  // Suffix scope: HTTPS origins on configured domain suffixes (dot-boundary
+  // anchored), for the platform-assigned preview subdomain. Undefined env
+  // falls back to the platform default; explicit empty disables (see
+  // resolveSuffixConfig).
+  const { list: suffixes } = resolveSuffixConfig(env.BEAN_TRUSTED_ORIGIN_SUFFIXES)
   if (url.protocol === 'https:' && suffixes.some((s) => hostMatchesSuffix(url.hostname, s))) {
     return { allowed: true }
   }
