@@ -41,9 +41,13 @@ export interface MessageMetadata {
   sources: EvidenceSourceView[]
   verification: VerificationCheckView[]
   /** Which stage events actually fired during orchestration. */
-  stages: Array<{ stage: 'researching' | 'solving' | 'verifying'; durationMs: number }>
+  stages: Array<{ stage: 'researching' | 'tools' | 'solving' | 'verifying'; durationMs: number }>
   /** Honest degradation notes (tool failures, fallbacks). */
   degraded: string[]
+  /** Real server-side tool executions for this turn (name, outcome, time). */
+  toolRuns?: Array<{ tool: string; ok: boolean; durationMs: number }>
+  /** True when a condensed digest of earlier turns was included in context. */
+  digestUsed?: boolean
   /** ISO-8601 timestamp of when live research ran for this message (the
    *  "last checked" time). Set by the orchestrator only when retrieval was
    *  attempted — present even when retrieval failed, so the UI can state

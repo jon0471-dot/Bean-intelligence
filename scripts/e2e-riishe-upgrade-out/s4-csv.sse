@@ -1,0 +1,10 @@
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Looking at the attached CSV data, I'll calculate the total revenue across the three months:\n\n- January: $1,200\n- February: $1,500\n- March: $1,800\n\nTotal revenue = $1,200 + $1,500 + $1,800 = $4,500","conversationId":"cmvns6xtz0007sqahwzrfcmix"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvns6xtz0007sqahwzrfcmix","durationMs":1019,"partial":false,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"tools","durationMs":1010},{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: mathematical task — deterministic verification applies, not search"]}}
+

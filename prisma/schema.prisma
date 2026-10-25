@@ -23,6 +23,7 @@ model User {
   conversations Conversation[]
   jobs          GenerationJob[]
   usageRecords  UsageRecord[]
+  documents     Document[]
 }
 
 model Session {
@@ -40,10 +41,16 @@ model Conversation {
   id        String    @id @default(cuid())
   userId    String
   title     String    @default("New conversation")
+  // Long-conversation context management: cached digest of the turns that
+  // fell out of the model's history window. Regenerated only when the
+  // overflow grows; deleted with the conversation (cascade).
+  summary       String?
+  summaryCount  Int?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages  Message[]
+  documents Document[]
 
   @@index([userId])
 }
@@ -64,6 +71,23 @@ model Message {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
+}
+
+model Document {
+  id             String       @id @default(cuid())
+  userId         String
+  conversationId String?
+  name           String // original filename (display only; never used for filesystem access)
+  mime           String
+  size           Int // uploaded bytes
+  text           String // extracted text actually used as evidence (may be truncated)
+  truncated      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }
 
 model GenerationJob {

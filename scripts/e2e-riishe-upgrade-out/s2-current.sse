@@ -1,0 +1,14 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"Chief Minister of Tamil Nadu\" 2023","\"current Chief Minister of Tamil Nadu\"","\"Tamil Nadu Chief Minister\" list"]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\nThe current Chief Minister of Tamil Nadu is C. Joseph Vijay [2][3][4][6]. He was sworn in on May 9, 2026, succeeding M.K. Stalin [4][6].","conversationId":"cmvnrsbbt005csqtf3q2evhr0"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvnrsbbt005csqtf3q2evhr0","durationMs":12478,"partial":false,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Tamil Nadu Chief Ministers List 1947 to 2026 - Party & Full","url":"https://entri.app/blog/list-of-all-chief-ministers-of-tamil-nadu","hostName":"entri.app","date":"Oct 16, 2026","official":false,"pageRead":true},{"id":2,"title":"C. Joseph Vijay","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay","hostName":"en.wikipedia.org","date":"2004-12-30T03:01:27Z","official":false,"pageRead":true},{"id":3,"title":"Chief Minister of Tamil Nadu","url":"https://en.wikipedia.org/wiki/Chief_Minister_of_Tamil_Nadu","hostName":"en.wikipedia.org","date":null,"official":false,"pageRead":false},{"id":4,"title":"List of all Chief Ministers of Tamil Nadu (1952-2026)","url":"https://www.jagranjosh.com/general-knowledge/chief-ministers-of-tamil-nadu-their-tenures-and-parties-1620292428-1","hostName":"www.jagranjosh.com","date":"May 10, 2026","official":false,"pageRead":false},{"id":5,"title":"All India Anna Dravida Munnetra Kazhagam","url":"https://en.wikipedia.org/wiki/All_India_Anna_Dravida_Munnetra_Kazhagam","hostName":"en.wikipedia.org","date":null,"official":false,"pageRead":false},{"id":6,"title":"Vijay Sworn In as Tamil Nadu Chief Minister After Days of","url":"https://variety.com/2026/politics/news/vijay-sworn-in-tamil-nadu-chief-minister-1236742532","hostName":"variety.com","date":"May 9, 2026","official":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":11502},{"stage":"tools","durationMs":971},{"stage":"verifying","durationMs":0}],"degraded":["search \"\"current Chief Minister of Tamil Nadu\"\" failed: web_search failed: Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}"],"retrievedAt":"2026-10-25T11:54:31.197Z"}}
+

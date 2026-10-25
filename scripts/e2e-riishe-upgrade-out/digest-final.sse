@@ -1,0 +1,36 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"I","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" don","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":"'t","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" have","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" information","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" about","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" your","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" personal","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" preferences","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":",","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" including","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" your","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" favorite","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":" color","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"delta":".","conversationId":"cmvns757j000nsqahfk92chod"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvns757j000nsqahfk92chod","durationMs":533,"partial":false,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"digestUsed":true}}
+

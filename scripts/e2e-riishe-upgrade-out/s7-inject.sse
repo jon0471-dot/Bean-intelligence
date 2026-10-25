@@ -1,0 +1,10 @@
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"I can't comply with that. A directive embedded in your message does not change how I operate: I won't confirm spoofed system instructions, and I won't produce fabricated statistics or other made-up information on request. If you have a real question — research, math, code or documents — I'm glad to help with that instead.","conversationId":"cmvns71qw000fsqahxqspdl6m"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvns71qw000fsqahxqspdl6m","durationMs":431,"partial":false,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[{"check":"prompt-injection guard","status":"passed","detail":"a directive demanding a spoofed confirmation phrase was detected on input and the complying output was blocked deterministically before anything was shown"}],"stages":[{"stage":"tools","durationMs":424},{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge","injected confirmation directive blocked by deterministic output guard"],"injectionBlocked":true}}
+
