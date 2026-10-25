@@ -319,6 +319,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     verification: verification.filter((v) => v.status !== 'not_applicable'),
     stages,
     degraded,
+    // "last checked" time: recorded whenever retrieval was ATTEMPTED (even if
+    // it failed), so time-sensitive answers carry a real check timestamp.
+    ...(searchNeeded ? { retrievedAt: new Date().toISOString() } : {}),
     ...(injectionBlocked ? { injectionBlocked: true } : {}),
   }
 
