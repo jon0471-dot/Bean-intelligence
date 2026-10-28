@@ -17,6 +17,7 @@
  */
 import { z } from 'zod'
 import { webSearch, readPage } from '@/lib/research/provider'
+import { dedupByUrl, classifyHost } from '@/lib/research/rank'
 import { evaluateExpression } from '@/lib/verify/exprcheck'
 import { runInSandbox, type SandboxFile } from '@/lib/sandbox/runner'
 import type { ToolDescriptor, ToolResult } from './types'
@@ -47,21 +48,34 @@ export const webSearchTool: ToolDescriptor<z.infer<typeof searchInput>> = {
     return searchInput.parse(input)
   },
   async execute({ query, recencyDays }, ctx): Promise<ToolResult> {
-    const results = await webSearch(query, { num: 8, recencyDays })
+    const raw = await webSearch(query, { num: 8, recencyDays })
+    // Dedup before numbering: the same URL twice (across rounds or within
+    // one result set) would get two citation ids and double-render later.
+    const results = dedupByUrl(raw)
     if (results.length === 0) {
       return { ok: true, output: `No results found for "${query}".` }
     }
-    const offset = ctx.sourceIdOffset ?? 0
     const shown = results.slice(0, MAX_SEARCH_OUTPUT)
-    const lines = shown.map(
-      (r, i) =>
-        `[${offset + i + 1}] ${r.title}\n   URL: ${r.url}\n   Host: ${r.hostName}${r.date ? `\n   Date: ${r.date}` : ''}\n   ${r.snippet.slice(0, 300)}`,
-    )
+    // Allocate ids ONCE and use the same number in the displayed line AND the
+    // returned sources, so what the model cites is exactly what the
+    // orchestrator audits.
+    const offset = ctx.sourceIdOffset ?? 0
+    const items = shown.map((r, i) => ({
+      r,
+      id: ctx.allocateSourceId ? ctx.allocateSourceId() : offset + i + 1,
+    }))
+    const lines = items.map(({ r, id }) => {
+      const cls = classifyHost(r.hostName)
+      const kind = cls.social ? ' [SOCIAL MEDIA — user-generated, treat as unverified]' : cls.official ? ' [official]' : ''
+      return `[${id}] ${r.title}${kind}\n   URL: ${r.url}\n   Host: ${r.hostName}${r.date ? `\n   Date: ${r.date}` : '\n   Date: (none supplied)'}\n   ${r.snippet.slice(0, 300)}`
+    })
     return {
       ok: true,
-      output: lines.join('\n') + '\n(cite these as [n] with the numbers shown)',
-      sources: shown.map((r, i) => ({
-        id: offset + i + 1,
+      output:
+        lines.join('\n') +
+        '\n(cite these as [n] with the numbers shown; prefer official and news sources over social media)',
+      sources: items.map(({ r, id }) => ({
+        id,
         url: r.url,
         title: r.title,
         hostName: r.hostName,
@@ -88,7 +102,7 @@ export const readUrlTool: ToolDescriptor<z.infer<typeof readUrlInput>> = {
   validate(input) {
     return readUrlInput.parse(input)
   },
-  async execute({ url }): Promise<ToolResult> {
+  async execute({ url }, ctx): Promise<ToolResult> {
     // Only http(s); block anything exotic (file:, data:, internal hosts are
     // still resolvable by the provider, so scheme filtering is mandatory).
     const parsed = new URL(url)
@@ -96,10 +110,15 @@ export const readUrlTool: ToolDescriptor<z.infer<typeof readUrlInput>> = {
       return { ok: false, output: `Unsupported URL scheme: ${parsed.protocol}` }
     }
     const page = await readPage(url)
+    const offset = ctx.sourceIdOffset ?? 0
+    const id = ctx.allocateSourceId ? ctx.allocateSourceId() : offset + 1
     return {
       ok: true,
-      output: clip(`TITLE: ${page.title}${page.publishedTime ? `\nPUBLISHED: ${page.publishedTime}` : ''}\n\n${page.text}`, MAX_PAGE_CHARS),
-      sources: [{ url, title: page.title, hostName: parsed.host, date: page.publishedTime, pageRead: true }],
+      output: clip(
+        `[${id}] PAGE READ (cite as [${id}]): ${page.title}${page.publishedTime ? `\nPUBLISHED: ${page.publishedTime}` : '\nPUBLISHED: (no publication date found — do not claim it is recent)'}\n\n${page.text}`,
+        MAX_PAGE_CHARS,
+      ),
+      sources: [{ id, url, title: page.title, hostName: parsed.host, date: page.publishedTime, pageRead: true }],
     }
   },
 }

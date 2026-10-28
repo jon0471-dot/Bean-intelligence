@@ -46,6 +46,24 @@ const MODERATE_RISK_PATTERNS: Array<[RegExp, string]> = [
 /** Explicit user request to look things up. */
 const EXPLICIT_SEARCH: Array<[RegExp, string]> = [
   [/\b(search|google|look\s*up|browse|find\s+online|check\s+online|latest\s+news\s+(about|on)|verify\s+online)\b/i, 'user explicitly requested a lookup'],
+  // "Research a current topic: X" — "research" must count as an explicit
+  // lookup request even though \bsearch\b cannot match inside the word.
+  [/\b(research(?:ing)?|fact-?\s*check|find\s+out\s+about|look\s+this\s+up|investigate)\b/i, 'user explicitly requested research'],
+]
+
+/**
+ * Ongoing incident / case patterns (evaluated BEFORE the generic explicit
+ * rule): missing persons, crimes, deaths and disasters demand the newest
+ * reporting — days-old coverage is the known failure mode for these topics.
+ */
+const INCIDENT_PATTERNS: Array<[RegExp, string]> = [
+  [/\bmissing\s+(girl|boy|child|children|woman|women|man|men|person|people|student|teen|teenager|toddler|infant|baby|family|couple|hiker|trekker|fisherman|fishermen|worker|tourist|pilgrim|swimmer)\b/i, 'ongoing missing-person case; newest reporting required'],
+  [/\b(girl|boy|child|woman|man|person|student|teen|toddler|family|hiker|trekker|fisherman|tourist)\s+(went\s+missing|missing|abducted|kidnapped)\b/i, 'ongoing missing-person case; newest reporting required'],
+  [/\b(missing|abduction|kidnapping)\s+(case|incident|report)\b/i, 'ongoing missing-person case; newest reporting required'],
+  [/\b(murder|homicide|rape|assault|kidnapping|abduction|trafficking|harassment|molestation)\s+(case|probe|investigation|accused|arrest)\b/i, 'ongoing crime case; newest reporting required'],
+  [/\b(fir|chargesheet|charge\s+sheet|arrested|post-?mortem|custodial|autopsy|found\s+dead|death\s+toll)\b/i, 'ongoing incident/case; newest reporting required'],
+  [/\b(building\s+collapse|bridge\s+collapse|stampede|boat\s+capsiz\w+|gas\s+leak|derail\w+|plane\s+crash|bus\s+accident)\b/i, 'ongoing accident/disaster; newest reporting required'],
+  [/\b(suicide|gang\s+rape|mass\s+shooting|bomb\s+blast)\b/i, 'ongoing violent incident; newest reporting required'],
 ]
 
 /** Exclusions: tasks where searching adds cost, not accuracy. */
@@ -66,6 +84,7 @@ export function shouldSearch(message: string): SearchDecision {
   const highRisk = HIGH_RISK_PATTERNS.find(([re]) => re.test(text))
   const explicit = EXPLICIT_SEARCH.find(([re]) => re.test(text))
   const moderate = MODERATE_RISK_PATTERNS.find(([re]) => re.test(text))
+  const incident = INCIDENT_PATTERNS.find(([re]) => re.test(text))
 
   for (const [re, reason] of EXCLUSION_PATTERNS) {
     if (!re.test(text)) continue
@@ -73,9 +92,12 @@ export function shouldSearch(message: string): SearchDecision {
     if (reason.startsWith('mathematical') || reason.startsWith('creative') || reason.startsWith('greeting')) {
       return { search: false, risk: 'none', reason }
     }
-    // coding exclusion yields to freshness-sensitive signals
-    if (!highRisk && !explicit) return { search: false, risk: 'none', reason }
+    // coding exclusion yields to freshness-sensitive and incident signals
+    if (!highRisk && !explicit && !incident) return { search: false, risk: 'none', reason }
   }
+  // Ongoing incidents outrank the generic explicit rule: they need the
+  // newest reporting, not just any coverage within the window.
+  if (incident) return { search: true, risk: 'high', recencyDays: 180, reason: incident[1] }
   if (explicit) return { search: true, risk: 'moderate', recencyDays: 90, reason: explicit[1] }
   if (highRisk) return { search: true, risk: 'high', recencyDays: 180, reason: highRisk[1] }
   if (moderate) return { search: true, risk: 'moderate', recencyDays: 365, reason: moderate[1] }

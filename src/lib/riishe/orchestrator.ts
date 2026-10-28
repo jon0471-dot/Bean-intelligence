@@ -28,18 +28,20 @@ import type { TaskAdapter, ChatTurn } from '@/lib/adapters/types'
 import { withTimeout } from '@/lib/adapters/hosted-llm'
 import { shouldSearch, isDocumentLike, type SearchDecision } from '@/lib/research/policy'
 import { runResearch, formatEvidenceBlock, type EvidencePack } from '@/lib/research/pipeline'
+import { isOfficialHost, isSocialHost } from '@/lib/research/rank'
+import { detectSensitiveCase, scanForUnattributedAllegations } from '@/lib/research/sensitive'
 import { classifyTask, assertCapability, CHAT_BACKEND_CAPABILITIES, type TaskProfile } from './classify'
 import { BeanApiError } from '@/lib/api/errors'
 import { buildSystemPrompt, buildUserTurn } from './prompts'
 import { parseSelfCheck, verifyComputations, type ComputationCheck } from '@/lib/verify/exprcheck'
-import { auditCitations, stripFabricatedUrls } from '@/lib/verify/citations'
+import { auditCitations, stripFabricatedUrls, dedupeSourcesByUrl, remapCitationIds } from '@/lib/verify/citations'
 import {
   assessEchoCompliance,
   detectEchoDirective,
   INJECTION_REFUSAL,
   type EchoDirective,
 } from '@/lib/verify/injection'
-import { runToolLoop } from './toolloop'
+import { runToolLoop, stripToolCallSyntax } from './toolloop'
 import { describeTools } from './tools/registry'
 import { registerBuiltins } from './tools/builtin-registry'
 import type { ToolContext } from './tools/types'
@@ -192,6 +194,10 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     profile.task = 'document'
     profile.thinkingEnabled = true
   }
+  // Ongoing incident/case detection (missing persons, crimes, deaths,
+  // disasters): selects the sensitive-case prompt protocol and the
+  // deterministic allegation scan later in the pipeline.
+  const sensitiveCase = detectSensitiveCase(userMessage).sensitive
   if (input.backendCapabilities) {
     try {
       assertCapability(input.backendCapabilities, profile.task)
@@ -254,13 +260,14 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
 
   // ---- Solve ----------------------------------------------------------------
   const systemPrompt = buildSystemPrompt(
-    { evidenceBlock, task: profile.task, staleness: pack?.staleness ?? null, toolNames: toolsActive ? toolNames : undefined },
+    { evidenceBlock, task: profile.task, staleness: pack?.staleness ?? null, toolNames: toolsActive ? toolNames : undefined, sensitiveCase },
     toolsActive ? describeTools(toolNames) : undefined,
   )
   let userTurn = buildUserTurn(userMessage, {
     evidenceBlock: evidenceBlock ? evidenceBlock : null,
     task: profile.task,
     staleness: pack?.staleness ?? null,
+    sensitiveCase,
   }, input.digest)
   if (documentBlock) userTurn = `${documentBlock}\n\n${userTurn}`
   if (searchNeeded && pack && pack.sources.length === 0) {
@@ -313,15 +320,26 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   // Bounded tool loop when tools are active; a single solve pass otherwise.
   // Tool search results continue the evidence numbering so citations stay
   // unambiguous across the pre-solve pipeline pack and model-driven lookups.
+  // A monotonic allocator (not a static offset) prevents id collisions when
+  // the model runs web_search in SEVERAL rounds: each result gets a fresh id.
   let solveResult: { content: string; streamed: boolean }
   let toolExecutions: Awaited<ReturnType<typeof runToolLoop>>['executions'] = []
   if (toolsActive) {
     onEvent?.({ type: 'stage', stage: 'tools' })
     const tTools = Date.now()
+    let sourceCursor = pack?.sources.length ?? 0
+    const toolCtx = {
+      ...input.toolContext!,
+      sourceIdOffset: pack?.sources.length ?? 0,
+      allocateSourceId: () => {
+        sourceCursor += 1
+        return sourceCursor
+      },
+    }
     const loop = await runToolLoop({
       baseMessages,
       toolNames,
-      toolCtx: { ...input.toolContext!, sourceIdOffset: pack?.sources.length ?? 0 },
+      toolCtx,
       solve: runSolveOnce,
       onToolEvent: (e) => onEvent?.({ type: 'tool', name: e.name, status: e.status }),
     })
@@ -334,7 +352,10 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     solveResult = { content, streamed: !input.nonStreaming }
   }
 
-  // Emit buffered output exactly once (injection gate or tool loop path).
+  // Emit buffered output exactly once — AFTER every post-processing step
+  // below (injection gate, sensitive rewrite, verification retry, SELF_CHECK
+  // lift). The earlier mid-pipeline emit caused double-emitted rewrites and
+  // leaked the raw SELF_CHECK block to buffered clients.
   let finalContent = solveResult.content
   let injectionBlocked = false
   if (echo) {
@@ -348,7 +369,6 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       degraded.push('injected confirmation directive blocked by deterministic output guard')
     }
   }
-  if (bufferOutput) onEvent?.({ type: 'delta', delta: finalContent })
 
   // ---- Verify ---------------------------------------------------------------
   onEvent?.({ type: 'stage', stage: 'verifying' })
@@ -378,13 +398,44 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
           },
         ]
         finalContent = await runSolveOnce(retryMessages)
-        if (bufferOutput) onEvent?.({ type: 'delta', delta: finalContent })
         const rechecks = parseSelfCheck(finalContent)
         if (rechecks.length > 0) computation = await verifyComputations(rechecks)
       }
     }
   }
   stages.push({ stage: 'verifying', durationMs: Date.now() - tVerify })
+
+  // 1b. sensitive-case allegation scan (deterministic, citation-aware):
+  // for ongoing incidents, accusatory statements about identifiable people
+  // must carry a citation or explicit attribution. Flagged answers get ONE
+  // bounded rewrite pass; remaining flags degrade honestly.
+  let allegationFlags = 0
+  if (sensitiveCase && !injectionBlocked && (pack?.sources.length ?? 0) > 0) {
+    const flags = scanForUnattributedAllegations(finalContent)
+    if (flags.length > 0) {
+      const flaggedList = flags.map((f, i) => `${i + 1}. ${f.sentence}`).join('\n')
+      degraded.push(`sensitive-case guard flagged ${flags.length} sentence(s) as unattributed allegations; requesting one bounded rewrite`)
+      const rewriteMessages: ChatTurn[] = [
+        ...baseMessages,
+        { role: 'assistant', content: finalContent },
+        {
+          role: 'user',
+          content:
+            "BEAN's sensitive-case guard flagged the sentence(s) below: they assert an accusation against an " +
+            'identifiable person WITHOUT a citation or attribution language. Rewrite the COMPLETE answer: either ' +
+            'support each flagged claim with an explicit source attribution AND a citation marker from the evidence, ' +
+            'attribute it as an allegation (reported/alleged, not officially confirmed), or remove it. Do not infer ' +
+            'guilt, motive or involvement from social-media posts. Keep everything else unchanged.\n\n' +
+            flaggedList,
+        },
+      ]
+      finalContent = stripToolCallSyntax(await runSolveOnce(rewriteMessages))
+      allegationFlags = scanForUnattributedAllegations(finalContent).length
+      if (allegationFlags > 0) {
+        degraded.push(`sensitive-case guard: ${allegationFlags} sentence(s) remain unattributed after rewrite; treat those claims with caution`)
+      }
+    }
+  }
 
   // 2. citation integrity audit against the ACTUAL evidence — including
   // sources really retrieved by model-requested web tools (their outputs
@@ -396,6 +447,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     hostName: string
     date: string | null
     official: boolean
+    social: boolean
     pageRead: boolean
   }
   const packSources: AuditSource[] = (pack?.sources ?? []).map((s) => ({
@@ -405,10 +457,11 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     hostName: s.hostName,
     date: s.date,
     official: s.official,
+    social: s.social,
     pageRead: s.pageRead,
   }))
-  // Tool sources continue the evidence-pack numbering (their tool outputs were
-  // shown to the model with these ids, so citations resolve deterministically).
+  // Tool sources were numbered by the allocator (or continue the pack
+  // numbering) — the ids shown to the model are the ids audited here.
   const toolSources: AuditSource[] = []
   let nextSourceId = packSources.length
   for (const e of toolExecutions) {
@@ -420,12 +473,22 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         title: s.title,
         hostName: s.hostName,
         date: s.date,
-        official: false,
+        official: isOfficialHost(s.hostName),
+        social: isSocialHost(s.hostName),
         pageRead: e.tool === 'read_url',
       })
     }
   }
-  const auditUniverse: AuditSource[] = [...packSources, ...toolSources]
+  // Dedup across pack + tool results: the same URL reached twice (pipeline
+  // AND a tool search, or two search rounds) must render as ONE source with
+  // ONE citation id. The answer's [n] markers are rewritten through the same
+  // map, so what the model cited resolves to the canonical numbering.
+  const deduped = dedupeSourcesByUrl([...packSources, ...toolSources])
+  const auditUniverse: AuditSource[] = deduped.kept
+  if (deduped.duplicatesRemoved > 0) {
+    finalContent = remapCitationIds(finalContent, deduped.idMap)
+    degraded.push(`deduplicated ${deduped.duplicatesRemoved} duplicate source(s) across search results`)
+  }
   let citationsValid: boolean | null = null
   if (auditUniverse.length > 0 && !injectionBlocked) {
     const audit = auditCitations(finalContent, auditUniverse)
@@ -443,6 +506,11 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
 
   // 3. lift the raw SELF_CHECK block out of the customer-visible answer
   finalContent = liftSelfCheck(finalContent)
+
+  // Single buffered emission, now that the content is final. Non-buffered
+  // (streaming) turns already emitted their deltas live and must not emit
+  // again.
+  if (bufferOutput) onEvent?.({ type: 'delta', delta: finalContent })
 
   // ---- Respond ---------------------------------------------------------------
   const ranCode = toolExecutions.some((e) => e.tool === 'run_code' && e.ok)
@@ -494,8 +562,20 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
             : 'answer contained no citation markers',
     })
     if (pack?.staleness) {
-      verification.push({ check: 'source freshness', status: 'passed', detail: pack.staleness })
+      // A staleness note is a WARNING, not a pass: it says the evidence may
+      // not describe the present state.
+      verification.push({ check: 'source freshness', status: 'warning', detail: pack.staleness })
     }
+  }
+  if (sensitiveCase && (searchNeeded || toolExecutions.some((e) => (e.sources?.length ?? 0) > 0))) {
+    verification.push({
+      check: 'sensitive-case guard',
+      status: allegationFlags > 0 ? 'warning' : 'passed',
+      detail:
+        allegationFlags > 0
+          ? `${allegationFlags} statement(s) remained unattributed after the rewrite pass — treat accusations in this answer as unverified`
+          : 'accusatory statements are cited/attributed; no unattributed allegations detected',
+    })
   }
 
   const metadata: MessageMetadata = {
@@ -507,6 +587,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       hostName: s.hostName,
       date: s.date,
       official: s.official,
+      social: s.social,
       pageRead: s.pageRead,
     })),
     verification: verification.filter((v) => v.status !== 'not_applicable'),

@@ -123,12 +123,74 @@ export async function readPage(url: string, timeoutMs = 25_000): Promise<PageCon
   if (typeof html !== 'string' || html.length === 0) {
     throw new ResearchToolError('page_reader', 'Page reader returned no content.')
   }
+  const providerTime = typeof raw.data?.publishedTime === 'string' && raw.data.publishedTime.trim() ? raw.data.publishedTime.trim() : null
+  // Publication-date verification: when the provider omits a date, extract
+  // one from the page's own structured metadata (JSON-LD / meta / <time>).
+  // Publication date ≠ event date — the prompt layer must keep the two apart.
+  const publishedTime = providerTime ?? extractPublishedTime(html)
   return {
     url: typeof raw.data?.url === 'string' ? raw.data.url : url,
     title: typeof raw.data?.title === 'string' ? raw.data.title : '',
-    publishedTime: typeof raw.data?.publishedTime === 'string' ? raw.data.publishedTime : null,
+    publishedTime,
     text: htmlToText(html).slice(0, 24_000),
   }
+}
+
+/**
+ * Extract the article publication date from raw HTML metadata.
+ * Priority: JSON-LD datePublished > article:published_time / date meta tags
+ * > <time datetime>. Returns null when none is present (never guesses).
+ * Exported pure for unit testing.
+ */
+export function extractPublishedTime(html: string): string | null {
+  const limited = html.slice(0, 400_000)
+
+  // 1. JSON-LD blocks (Next.js/WordPress/news sites embed datePublished).
+  const ldRe = /<script[^>]+ld\+json[^>]*>([\s\S]*?)<\/script>/gi
+  let m: RegExpExecArray | null
+  while ((m = ldRe.exec(limited)) !== null) {
+    const date = firstDateInJsonLd(m[1])
+    if (date) return date
+  }
+
+  // 2. Standard meta tags.
+  const metaPatterns = [
+    /<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']article:published_time["']/i,
+    /<meta[^>]+name=["']date["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+itemprop=["']datePublished["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+name=["']publish(?:ed)?-?date["'][^>]+content=["']([^"']+)["']/i,
+  ]
+  for (const re of metaPatterns) {
+    m = re.exec(limited)
+    if (m && looksLikeDate(m[1])) return m[1].trim()
+  }
+
+  // 3. <time datetime="..."> (first one only — later ones are often updates
+  //    on unrelated blocks).
+  m = /<time[^>]+datetime=["']([^"']+)["']/i.exec(limited)
+  if (m && looksLikeDate(m[1])) return m[1].trim()
+
+  return null
+}
+
+/** Pull the first plausible date out of a JSON-LD blob (may be an array/graph). */
+function firstDateInJsonLd(blob: string): string | null {
+  const dateRe = /"(?:datePublished|dateCreated|uploadDate)"\s*:\s*"([^"]+)"/g
+  let m: RegExpExecArray | null
+  while ((m = dateRe.exec(blob)) !== null) {
+    if (looksLikeDate(m[1])) return m[1].trim()
+  }
+  return null
+}
+
+/** Cheap plausibility gate: ISO-ish or contains a 4-digit year + separator. */
+function looksLikeDate(s: string): boolean {
+  if (!s || s.length < 4 || s.length > 64) return false
+  const t = s.trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return true // ISO 8601
+  // e.g. "12 Oct 2026", "Oct 12, 2026", "2026.10.12"
+  return /\b(19|20)\d{2}\b/.test(t) && /[-/.]|\d\s+[A-Za-z]{3}|[A-Za-z]{3}\s+\d/.test(t)
 }
 
 function safeHost(url: string): string {

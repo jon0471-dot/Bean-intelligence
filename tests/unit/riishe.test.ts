@@ -118,7 +118,7 @@ describe('ranking and dedup', () => {
   })
 
   test('staleness warning fires when dated evidence is older than this year', () => {
-    const old = [{ id: 1, year: 2023, freshness: 0.1, url: '', title: '', snippet: '', hostName: '', date: '2023-01-01', authority: 0.4, official: false, score: 1 }]
+    const old = [{ id: 1, year: 2023, freshness: 0.1, url: '', title: '', snippet: '', hostName: '', date: '2023-01-01', authority: 0.4, official: false, social: false, sourceType: 'other' as const, score: 1 }]
     expect(stalenessWarning(old)).toContain('2023')
     expect(stalenessWarning([])).toBeNull()
   })
@@ -136,6 +136,8 @@ describe('citation integrity', () => {
     year: null,
     authority: 0.5,
     official: false,
+    social: false,
+    sourceType: 'other' as const,
     score: 0.5,
     pageRead: false,
     excerpt: null,

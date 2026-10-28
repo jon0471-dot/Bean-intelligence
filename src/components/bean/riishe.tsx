@@ -54,9 +54,10 @@ interface SourceView {
   hostName: string
   date: string | null
   official: boolean
+  social?: boolean
   pageRead: boolean
 }
-interface VerificationView { check: string; status: 'passed' | 'failed' | 'not_applicable'; detail: string }
+interface VerificationView { check: string; status: 'passed' | 'failed' | 'warning' | 'not_applicable'; detail: string }
 interface ToolRunView { tool: string; ok: boolean; durationMs: number }
 interface MsgMeta {
   states: string[]
@@ -708,8 +709,16 @@ function AnswerEvidence({ meta }: { meta: MsgMeta }) {
           <ul className="mt-1.5 space-y-1 pl-4">
             {checks.map((c, i) => (
               <li key={`${c.check}-${i}`} className="text-[11px] leading-snug">
-                <span className={c.status === 'passed' ? 'text-[#8fd694]' : 'text-red-400'}>
-                  {c.status === 'passed' ? '✓' : '✗'}
+                <span
+                  className={
+                    c.status === 'passed'
+                      ? 'text-[#8fd694]'
+                      : c.status === 'warning'
+                        ? 'text-amber-300'
+                        : 'text-red-400'
+                  }
+                >
+                  {c.status === 'passed' ? '✓' : c.status === 'warning' ? '⚠' : '✗'}
                 </span>{' '}
                 <span className="text-white/60">{c.check}</span>
                 <span className="text-white/35"> — {c.detail}</span>
@@ -741,10 +750,26 @@ function AnswerEvidence({ meta }: { meta: MsgMeta }) {
                 {s.official ? (
                   <span className="ml-1 rounded border border-[rgba(212,175,55,0.35)] px-1 text-[9px] text-[#f0c75e]">official</span>
                 ) : null}
+                {s.social ? (
+                  <span
+                    className="ml-1 rounded border border-amber-500/30 px-1 text-[9px] text-amber-300"
+                    title="Social-media source: user-generated content. Never treated as verification of claims about people."
+                  >
+                    social
+                  </span>
+                ) : null}
                 {s.pageRead ? (
                   <span className="ml-1 rounded border border-white/15 px-1 text-[9px] text-white/45">full page read</span>
                 ) : null}
-                {s.date ? <span className="ml-1 text-white/30">({s.date.slice(0, 10)})</span> : null}
+                {s.date ? (
+                  <span className="ml-1 text-white/30" title="Publication date reported by the source">
+                    ({s.date.slice(0, 10)})
+                  </span>
+                ) : (
+                  <span className="ml-1 text-white/25" title="The source did not state a publication date">
+                    (no date)
+                  </span>
+                )}
               </li>
             ))}
           </ol>
