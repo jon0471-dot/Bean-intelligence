@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { webSearch, readPage, WebSearchResult, ResearchToolError } from './provider'
 import { rankSources, stalenessWarning, RankedSource } from './rank'
 import type { SearchDecision } from './policy'
+import { coreTopic, detectSensitiveCase } from './sensitive'
 
 const queriesSchema = z.object({
   queries: z.array(z.string().min(3).max(300)).min(1).max(3),
@@ -46,7 +47,10 @@ export interface EvidencePack {
 const QUERY_SYSTEM =
   'You generate concise web search queries for a fact-checking pipeline. ' +
   'Given a user question, output 1-3 search queries that would surface authoritative, current sources. ' +
-  'Prefer the exact entities, names, versions or dates involved. No explanations.'
+  'Prefer the exact entities, names, places and dates involved. ' +
+  'For ongoing incidents (missing persons, crimes, accidents, disasters, investigations), include one ' +
+  'query targeting the NEWEST developments (e.g. "<entity> latest update today") and one targeting official ' +
+  'statements (police/government) where plausible. No explanations.'
 
 /** Generate 1-3 refined search queries with a fast LLM call; falls back to the raw message. */
 export async function generateQueries(message: string, risk: SearchDecision): Promise<{ queries: string[]; usedFallback: boolean }> {
@@ -92,6 +96,34 @@ export interface RunResearchOptions {
 }
 
 /**
+ * Build the final query set: LLM-refined queries plus, for ongoing incidents,
+ * one deterministic newest-coverage query built from the core topic. The
+ * extra query guarantees "newer coverage is searched before summarizing an
+ * ongoing case" even when the LLM query-gen call fails or under-delivers.
+ */
+export function buildQuerySet(message: string, llmQueries: string[], usedFallback: boolean): { queries: string[]; usedFallback: boolean; addedFreshnessQuery: string | null } {
+  const queries = llmQueries.slice(0, 3)
+  let addedFreshnessQuery: string | null = null
+  const sensitive = detectSensitiveCase(message)
+  if (sensitive.sensitive) {
+    const core = coreTopic(message)
+    if (core) {
+      const freshnessQuery = `${core} latest update`
+      if (!queries.some((q) => q.toLowerCase().includes(core.toLowerCase().slice(0, 24)))) {
+        // LLM queries drifted away from the core topic — anchor one to it.
+        queries.unshift(truncateQuery(core))
+      }
+      queries.push(freshnessQuery)
+      addedFreshnessQuery = freshnessQuery
+    }
+  }
+  if (queries.length === 0) {
+    queries.push(truncateQuery(message))
+  }
+  return { queries: queries.slice(0, 4), usedFallback, addedFreshnessQuery }
+}
+
+/**
  * Execute the full research pipeline for one question.
  * Never throws: all tool failures are collected into `degraded`.
  */
@@ -103,10 +135,12 @@ export async function runResearch(
   const t0 = Date.now()
   const degraded: string[] = []
   const maxSources = opts.maxSources ?? 6
-  const readTopN = opts.readTopN ?? 2
+  const readTopN = opts.readTopN ?? 3
 
-  const { queries, usedFallback } = await generateQueries(message, decision)
-  if (usedFallback) degraded.push('query refinement unavailable; searched the raw question')
+  const gen = await generateQueries(message, decision)
+  const { queries, addedFreshnessQuery } = buildQuerySet(message, gen.queries, gen.usedFallback)
+  if (gen.usedFallback) degraded.push('query refinement unavailable; searched the raw question')
+  if (addedFreshnessQuery) degraded.push(`incident detected: added newest-coverage query "${addedFreshnessQuery.slice(0, 60)}"`)
 
   // --- retrieval (parallel, bounded) ---------------------------------------
   const settled = await Promise.allSettled(
@@ -138,7 +172,7 @@ export async function runResearch(
     }
   }
 
-  const ranked = rankSources(message, rawResults, { freshnessMatters: decision.risk === 'high', limit: maxSources })
+  const ranked = rankSources(message, rawResults, { freshnessMatters: decision.risk !== 'none', limit: maxSources })
 
   // --- full-page reading for the top sources (snippet != proof) -------------
   const sources: EvidenceSource[] = ranked.map((r) => ({ ...r, pageRead: false, excerpt: null }))
@@ -150,7 +184,10 @@ export async function runResearch(
       if (match) {
         match.pageRead = true
         match.excerpt = res.value.text.slice(0, 6_000)
-        if (!match.date && res.value.publishedTime) match.date = res.value.publishedTime
+        // Publication-date verification: the page's own structured metadata
+        // (JSON-LD/meta) is the authoritative publication date — it overrides
+        // the search-engine-supplied date (often a crawl/index date).
+        if (res.value.publishedTime) match.date = res.value.publishedTime
       }
     } else {
       degraded.push(`page read failed: ${res.reason instanceof ResearchToolError ? res.reason.message : 'unavailable'}`)
@@ -162,7 +199,7 @@ export async function runResearch(
     sources,
     queries,
     degraded,
-    staleness: stalenessWarning(sources),
+    staleness: stalenessWarning(sources, { timeSensitive: decision.risk !== 'none' }),
     durationMs: Date.now() - t0,
   }
 }
@@ -181,9 +218,10 @@ function samePage(a: string, b: string): boolean {
 export function formatEvidenceBlock(pack: EvidencePack): string | null {
   if (pack.sources.length === 0) return null
   const lines = pack.sources.map((s) => {
-    const date = s.date ? ` (dated ${s.date})` : ' (no date supplied)'
+    const date = s.date ? ` (published ${s.date})` : ' (no publication date found — do NOT claim it is recent)'
+    const kind = s.sourceType === 'social' ? ' [SOCIAL MEDIA — user-generated, not reporting]' : ''
     const body = s.excerpt ? s.excerpt.slice(0, 1_200) : s.snippet.slice(0, 600)
-    return `[${s.id}] ${s.title}${date}\nURL: ${s.url}\nEXCERPT: ${body}`
+    return `[${s.id}] ${s.title}${date}${kind}\nURL: ${s.url}\nEXCERPT: ${body}`
   })
   return lines.join('\n\n')
 }

@@ -27,12 +27,14 @@ export interface EvidenceSourceView {
   hostName: string
   date: string | null
   official: boolean
+  /** Social-media source: user-generated content, not reporting. */
+  social?: boolean
   pageRead: boolean
 }
 
 export interface VerificationCheckView {
   check: string // human label
-  status: 'passed' | 'failed' | 'not_applicable'
+  status: 'passed' | 'failed' | 'warning' | 'not_applicable'
   detail: string
 }
 

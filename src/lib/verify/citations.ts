@@ -122,3 +122,65 @@ export function stripFabricatedUrls(answer: string, sources: readonly CitableSou
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
+
+/**
+ * Deduplicate a source list by normalized URL (first occurrence wins) and
+ * RENUMBER the kept sources 1..n in order of first appearance.
+ *
+ * Returns an idMap covering EVERY input id: kept sources map to their new
+ * id, duplicates map to the id of the first occurrence of the same URL.
+ * This is what makes compact deduped citation ids consistent: the model may
+ * cite any id it was SHOWN (pack numbering, first or second search round);
+ * the answer text is rewritten through the same map so the UI, the audit
+ * and the stored metadata all agree on one canonical list.
+ */
+export function dedupeSourcesByUrl<T extends { id: number; url: string }>(sources: readonly T[]): {
+  kept: T[]
+  idMap: Map<number, number>
+  duplicatesRemoved: number
+} {
+  const kept: T[] = []
+  const byUrl = new Map<string, T>()
+  const idMap = new Map<number, number>()
+  for (const s of sources) {
+    const key = normalizedUrlKey(s.url)
+    const existing = key ? byUrl.get(key) : undefined
+    if (existing) {
+      idMap.set(s.id, idMap.get(existing.id) ?? existing.id)
+      continue
+    }
+    const newId = kept.length + 1
+    const copy = { ...s, id: newId }
+    kept.push(copy)
+    if (key) byUrl.set(key, copy)
+    idMap.set(s.id, newId)
+  }
+  return { kept, idMap, duplicatesRemoved: sources.length - kept.length }
+}
+
+function normalizedUrlKey(url: string): string | null {
+  try {
+    const u = new URL(url)
+    u.hash = ''
+    u.search = ''
+    return `${u.hostname.replace(/^www\./, '')}${u.pathname.replace(/\/$/, '')}`
+  } catch {
+    return url
+  }
+}
+
+/**
+ * Rewrite citation markers [n] / [n,m] in an answer through an old→new id
+ * map. Markers whose id is NOT in the map are left untouched (the citation
+ * audit will flag them as invalid, as before).
+ */
+export function remapCitationIds(answer: string, idMap: ReadonlyMap<number, number>): string {
+  return answer.replace(/\[(\d{1,2}(?:\s*,\s*\d{1,2})*)\]/g, (full, inner: string) => {
+    const parts = inner.split(',').map((p) => p.trim())
+    const mapped = parts.map((p) => {
+      const n = Number(p)
+      return Number.isInteger(n) && idMap.has(n) ? String(idMap.get(n)) : p
+    })
+    return `[${mapped.join(',')}]`
+  })
+}
