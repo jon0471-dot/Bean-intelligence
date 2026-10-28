@@ -18,6 +18,9 @@ export interface PromptContext {
   toolNames?: readonly string[]
   /** Names of attached documents (read_document targets). */
   documentNames?: readonly string[]
+  /** Turn concerns an ongoing incident/case (missing person, crime, death,
+   *  disaster) — adds the sensitive-case protocol. */
+  sensitiveCase?: boolean
 }
 
 const BASE_PROTOCOL = `You are RIISHE, the conversational intelligence product of BEAN Intelligence.
@@ -39,7 +42,27 @@ Evidence protocol:
 - Cite ONLY the provided sources. Do not invent source numbers, URLs or publication dates.
 - If the evidence is insufficient for part of the question, say so for that part and do not cite it.
 - If sources conflict, present the strongest supported conclusion and name the disagreement instead of inventing certainty.
+- Prefer official and established-news sources over social media. A social-media source (marked SOCIAL MEDIA) may confirm that a post or claim EXISTS, but must never be treated as verification of what it claims.
+- Publication dates matter: the date on a report is when it was PUBLISHED, not when the events happened. Say "a report published on <date>" when the distinction matters.
 - Do not treat an old page as current; note the source dates where they matter.`
+
+const RESEARCH_SYNTHESIS_PROTOCOL = `
+Current-topic synthesis protocol:
+- Open with a 1-3 sentence direct answer/summary. Anchor it to the newest verified information you actually have ("As of <date>..." only if that date comes from a source).
+- Then, when the question concerns an evolving situation, give a short CONFIRMED TIMELINE: dated bullet points, each citing its source, each worded to distinguish what is officially confirmed from what is only reported.
+- Then state the LATEST VERIFIED UPDATE with its publication date and citation. If the newest source is older than the question's implied "now", say plainly that no newer reporting was found.
+- List genuinely open/unresolved questions ONLY when the evidence shows they are open; do not invent open threads for drama.
+- State uncertainty ONCE, in one place. Do not repeat the same caveat in multiple paragraphs.
+- If the current status cannot be determined from the evidence, say so directly and explain what is missing (e.g. "no dated reporting after <date> was found"). Do not paper over the gap.`
+
+const SENSITIVE_CASE_PROTOCOL = `
+Sensitive ongoing-case protocol (missing persons, crimes, deaths, investigations):
+- Strictly separate OFFICIALLY CONFIRMED facts (police, government, court statements) from MEDIA REPORTS and from ALLEGATIONS. Attribute every allegation to its source ("according to <publisher>") AND cite it.
+- Never present an accusation against a named or identifiable individual (family member, suspect, anyone) as established fact unless the evidence contains an official confirmation (charge, arrest record, court statement). Use "reported", "alleged", "according to" — with citations.
+- Do not infer guilt, motive or involvement from social-media posts or speculation. If a claim exists only on social media, either omit it or state explicitly that it is unverified social-media talk and do not build on it.
+- Do not name or describe uncharged suspects as perpetrators, and do not repeat sensational personal detail (graphic specifics, private information about minors or grieving family members) that the evidence does not establish as officially released.
+- For missing or injured people, report only what official statements confirm about their condition or whereabouts.
+- If the case status is unclear from the evidence, say exactly that.`
 
 const MATH_PROTOCOL = `
 Mathematics protocol:
@@ -85,6 +108,12 @@ export function buildSystemPrompt(ctx: PromptContext, toolCatalog?: string): str
   if (ctx.task === 'coding') prompt += CODE_PROTOCOL
   if (ctx.task === 'document') prompt += DOCUMENT_PROTOCOL
   if (ctx.evidenceBlock) prompt += CITATION_PROTOCOL
+  // Synthesis structure applies to researched answers on evolving topics —
+  // simple officeholder/version questions stay conversational.
+  if (ctx.evidenceBlock && (ctx.task === 'research' || ctx.sensitiveCase)) {
+    prompt += RESEARCH_SYNTHESIS_PROTOCOL
+  }
+  if (ctx.sensitiveCase) prompt += SENSITIVE_CASE_PROTOCOL
   if (ctx.toolNames && ctx.toolNames.length > 0) {
     prompt += buildToolSection(ctx.toolNames, toolCatalog ?? '')
   }

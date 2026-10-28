@@ -14,6 +14,8 @@
  */
 import type { WebSearchResult } from './provider'
 
+export type SourceType = 'official' | 'reference' | 'news' | 'social' | 'other'
+
 export interface RankedSource {
   id: number // 1-based citation id used in prompts and the UI
   url: string
@@ -30,13 +32,24 @@ export interface RankedSource {
   authority: number
   /** True when the host is a government/institutional domain. */
   official: boolean
+  /** True for social-media hosts (treated as low-trust for facts). */
+  social: boolean
+  /** Coarse source class used for ranking and UI labeling. */
+  sourceType: SourceType
   score: number
 }
 
 // Domains whose own records are authoritative for their own announcements.
+// Includes national second-level government domains (gov.in etc.) — police
+// and state-government statements for incidents in India live there.
 const OFFICIAL_SUFFIXES = [
   '.gov',
   '.gov.uk',
+  '.gov.in',
+  '.gov.au',
+  '.govt.nz',
+  '.gc.ca',
+  '.nic.in',
   '.europa.eu',
   '.un.org',
   '.who.int',
@@ -68,6 +81,7 @@ const PRIMARY_HOSTS = [
 const REPUTABLE_HOSTS = [
   'reuters.com',
   'apnews.com',
+  'afp.com',
   'bbc.com',
   'bbc.co.uk',
   'economist.com',
@@ -83,6 +97,53 @@ const REPUTABLE_HOSTS = [
   'stanford.edu',
   'mit.edu',
   'harvard.edu',
+  // Established Indian outlets (national + widely-cited regional) —
+  // incident coverage for Indian topics is usually broken there first.
+  'thehindu.com',
+  'indianexpress.com',
+  'hindustantimes.com',
+  'ndtv.com',
+  'timesofindia.indiatimes.com',
+  'deccanherald.com',
+  'newindianexpress.com',
+  'deccanchronicle.com',
+  'tribuneindia.com',
+  'thehindubusinessline.com',
+  'ptinews.com',
+  'ani.in',
+  'dinamalar.com',
+  'dailythanthi.com',
+  'dinakaran.com',
+  'oneindia.com',
+  'mathrubhumi.com',
+  'malayala.manoramaonline.com',
+  'eenadu.net',
+  'sakshi.com',
+  'prabhanews.com',
+]
+
+// Social platforms: user-generated speculation, not reporting. For facts
+// about identifiable people they are last-resort sources only.
+export const SOCIAL_HOSTS = [
+  'twitter.com',
+  'x.com',
+  'facebook.com',
+  'm.facebook.com',
+  'instagram.com',
+  'youtube.com',
+  'youtu.be',
+  'reddit.com',
+  'quora.com',
+  't.me',
+  'telegram.me',
+  'whatsapp.com',
+  'linkedin.com',
+  'threads.net',
+  'tiktok.com',
+  'pinterest.com',
+  'medium.com',
+  'blogspot.com',
+  'wordpress.com',
 ]
 
 function hostMatches(host: string, entries: string[]): boolean {
@@ -95,10 +156,26 @@ export function isOfficialHost(host: string): boolean {
   return OFFICIAL_SUFFIXES.some((s) => (s.startsWith('.') ? h === s.slice(1) || h.endsWith(s) : h === s || h.endsWith(`.${s}`)))
 }
 
+export function isSocialHost(host: string): boolean {
+  return hostMatches(host, SOCIAL_HOSTS)
+}
+
+/** Coarse source class for ranking, prompts and UI labels. */
+export function classifyHost(host: string): { official: boolean; social: boolean; sourceType: SourceType } {
+  if (isOfficialHost(host)) return { official: true, social: false, sourceType: 'official' }
+  if (isSocialHost(host)) return { official: false, social: true, sourceType: 'social' }
+  if (hostMatches(host, ['wikipedia.org', 'britannica.com', 'wikidata.org'])) {
+    return { official: false, social: false, sourceType: 'reference' }
+  }
+  if (hostMatches(host, REPUTABLE_HOSTS)) return { official: false, social: false, sourceType: 'news' }
+  return { official: false, social: false, sourceType: 'other' }
+}
+
 export function authorityScore(host: string): number {
   if (isOfficialHost(host)) return 1
   if (hostMatches(host, PRIMARY_HOSTS)) return 0.9
   if (hostMatches(host, REPUTABLE_HOSTS)) return 0.75
+  if (isSocialHost(host)) return 0.2
   return 0.4
 }
 
@@ -176,6 +253,7 @@ export function rankSources(query: string, results: WebSearchResult[], opts: Ran
   const scored = deduped.map((r) => {
     const { year, ageDays } = parseSourceDate(r.date)
     const fresh = freshnessScore(ageDays)
+    const cls = classifyHost(r.hostName)
     const authority = authorityScore(r.hostName)
     const relevance = relevanceScore(query, r)
     const providerRankScore = Math.max(0, 1 - Math.log2(1 + Math.max(0, r.rank - 1)) / 4)
@@ -185,7 +263,7 @@ export function rankSources(query: string, results: WebSearchResult[], opts: Ran
       0.25 * authority +
       freshnessWeight * (fresh ?? 0.35) + // unknown date scores conservatively
       0.15 * providerRankScore +
-      (isOfficialHost(r.hostName) ? 0.08 : 0)
+      (cls.official ? 0.08 : 0)
     return {
       id: 0,
       url: r.url,
@@ -196,7 +274,9 @@ export function rankSources(query: string, results: WebSearchResult[], opts: Ran
       freshness: fresh,
       year,
       authority,
-      official: isOfficialHost(r.hostName),
+      official: cls.official,
+      social: cls.social,
+      sourceType: cls.sourceType,
       score,
     } satisfies RankedSource
   })
@@ -206,19 +286,40 @@ export function rankSources(query: string, results: WebSearchResult[], opts: Ran
   return selected.map((s, i) => ({ ...s, id: i + 1 }))
 }
 
+export interface StalenessOptions {
+  /** The question demands recent reporting (incident or freshness signal). */
+  timeSensitive?: boolean
+}
+
 /**
- * Detect a likely stale claim: the question is freshness-sensitive and the
- * selected evidence is older than the recency window. Returns the reason
- * string for the verification summary when staleness is detected.
+ * Detect stale or undated evidence for a time-sensitive question.
+ *
+ * Returns a warning string for the verification summary when:
+ *  - no retrieved source states ANY publication date (freshness unverifiable), or
+ *  - the newest dated source predates the current year, or
+ *  - the question is time-sensitive and the newest dated source is older
+ *    than ~30 days (older reporting may no longer describe the present
+ *    state — the answer must not claim "latest" beyond its evidence).
  */
-export function stalenessWarning(ranked: RankedSource[]): string | null {
+export function stalenessWarning(ranked: RankedSource[], opts: StalenessOptions = {}): string | null {
   if (ranked.length === 0) return null
   const dated = ranked.filter((r) => r.year !== null)
-  if (dated.length === 0) return 'No retrieved source states a publication date; freshness could not be verified.'
+  if (dated.length === 0) {
+    return 'No retrieved source states a publication date; freshness could not be verified.'
+  }
   const currentYear = new Date().getFullYear()
   const newest = Math.max(...dated.map((r) => r.year as number))
   if (newest < currentYear) {
     return `Newest retrieved source is dated ${newest}; the question is time-sensitive, so the answer may be out of date.`
+  }
+  if (opts.timeSensitive) {
+    const ages = dated.map((r) => parseSourceDate(r.date).ageDays).filter((a): a is number => a !== null)
+    if (ages.length > 0) {
+      const newestAge = Math.min(...ages)
+      if (newestAge > 30) {
+        return `Newest retrieved source is ~${newestAge} days old; no newer coverage was found in this search, so the current status may have changed.`
+      }
+    }
   }
   return null
 }

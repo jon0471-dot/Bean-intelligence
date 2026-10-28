@@ -25,6 +25,11 @@ export interface ToolContext {
   /** Evidence-pack sources already numbered in the prompt (tool outputs
    *  continue numbering from here so citations stay unambiguous). */
   sourceIdOffset?: number
+  /** Monotonic citation-id allocator. Preferred over sourceIdOffset: with
+   *  multiple tool search rounds in one turn a static offset would assign
+   *  the SAME ids twice (the model would then cite ambiguous numbers).
+   *  When absent, tools fall back to offset-based numbering. */
+  allocateSourceId?: () => number
 }
 
 export interface ToolSource {
