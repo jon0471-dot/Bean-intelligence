@@ -17,7 +17,8 @@ export async function GET() {
     return ok({
       projects: projects.map((p) => ({
         id: p.id,
-        name: p.name,
+        // Schema truth: the display name column is `title` (no `name`).
+        title: p.title,
         files: p._count.files,
         messages: p._count.messages,
         updatedAt: p.updatedAt,

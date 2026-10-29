@@ -9,13 +9,18 @@
  * server-only, never imported by client code).
  */
 
-export type BeanProductId = 'riishe' | 'laxii' | 'jazmii' | 'code-giftz'
+export type BeanProductId = 'riishe' | 'laxii' | 'jazmii' | 'code-giftz' | 'gangzii'
 
 export type BeanTask =
   | 'chat'
   | 'image-generation'
   | 'video-generation'
   | 'coding-task'
+  // GANGZII audio tasks (server-side API surface):
+  | 'speech-synthesis'
+  | 'audio-transcription'
+  | 'audio-conversion'
+  | 'music-generation'
 
 export interface ProductCapability {
   /** Human-readable capability shown in the UI. */
@@ -81,6 +86,23 @@ export const BEAN_PRODUCTS: BeanProduct[] = [
 export function getProduct(id: string): BeanProduct | undefined {
   return BEAN_PRODUCTS.find((p) => p.id === id)
 }
+
+/**
+ * GANGZII limits — the values the gateway GENUINELY enforces (measured
+ * probes recorded in models/manifests/bean-audio-tts-hosted-primary.json;
+ * speed 0.3 was rejected upstream, mp3 response_format is rejected, >1024
+ * chars per chunk rejected — BEAN pre-validates all of these).
+ */
+export const GANGZII_LIMITS = {
+  speedMin: 0.5,
+  speedMax: 2.0,
+  maxCharsPerRequest: 6000,
+  outputFormat: 'wav',
+  sampleRateHz: 24_000,
+} as const
+
+/** Flat provider-voice list (re-exported for the server routes' import). */
+export { GANGZII_VOICES } from './gangzii-presets'
 
 /**
  * Publicly displayable size options for LAXII. Must mirror the sizes the

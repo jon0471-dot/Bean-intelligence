@@ -45,7 +45,7 @@ const SYSTEM_PROMPT =
   'ambiguous, otherwise proceed with reasonable choices and say what you chose. ' +
   'Standard library only — no external package installs. Never claim you ran or tested code; the user runs it in the sandbox.'
 
-function buildProjectContext(files: Array<{ path: string; content: string }>): string {
+export function buildProjectContext(files: Array<{ path: string; content: string }>): string {
   if (files.length === 0) return ''
   let budget = MAX_FILE_CONTEXT_CHARS
   const parts: string[] = ['CURRENT PROJECT FILES (this is the code the user sees and will run):']

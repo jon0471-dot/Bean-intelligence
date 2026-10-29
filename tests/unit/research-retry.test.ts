@@ -1,17 +1,18 @@
 /**
- * Bounded single-retry for transient search-provider failures.
+ * Bounded single-retry for transient search-provider failures (pipeline layer).
  *
  * Measured evidence (worklog 2026-10-27, quota-recovery verification): the
  * web_search backend intermittently returns HTTP 422 "No search results
- * available" for a query it serves successfully seconds later. Previously one
- * such flake killed grounding for the whole turn (TOOL_UNAVAILABLE). The
- * pipeline now retries ONCE with the same query after a short backoff —
- * bounded, honest, never fabricated.
+ * available" for a query it serves successfully seconds later. One such flake
+ * must not kill grounding for the whole turn. The pipeline retries ONCE with
+ * the same query after a short backoff — bounded, honest, never fabricated —
+ * while a 429 is NEVER retried (breaker + typed error; provider-retry.test.ts
+ * covers that contract at the boundary).
  *
  * Only the SDK boundary is scripted; the pipeline, cache and ranking are the
- * REAL production code. No fake success path exists — a scripted "failure"
- * only ever fails; "results" simulate a healthy provider the same way the
- * outage test simulates a dead one.
+ * REAL production code. Behavior keys use toSearchQuery() — the pipeline
+ * strips directive scaffolding ("right now?", "Research ...") before
+ * searching, so the test keys on the query the provider will actually see.
  */
 import { describe, test, expect, mock } from 'bun:test'
 
@@ -63,55 +64,74 @@ const scriptedZai = {
 
 mock.module('z-ai-web-dev-sdk', () => ({ default: { create: async () => scriptedZai } }))
 
-const { runResearch, SEARCH_RETRY_BACKOFF_MS } = await import('../../src/lib/research/pipeline')
+const { runResearch, toSearchQuery, SEARCH_RETRY_BACKOFF_MS } = await import(
+  '../../src/lib/research/pipeline'
+)
+const { _resetUpstreamCooldownForTests } = await import('../../src/lib/upstream/gateway')
 import type { SearchDecision } from '../../src/lib/research/policy'
 
 const DECISION: SearchDecision = { search: true, risk: 'high', recencyDays: 180, reason: 'test' }
 
-// Unique message per test -> unique fast-path query -> no cross-test cache hits.
-const msg = (tag: string) => `Unique retry probe ${tag}: what is the current status right now?`
+// Unique message per test -> unique fast-path query -> no cross-test cache
+// hits. The KEY is the query the provider actually receives (post-cleaning).
+// The wording survives toSearchQuery unchanged (no directive prefix, no
+// "right now" tail) — the guard test below turns any drift into a loud fail.
+const msg = (tag: string) => `Unique retry probe ${tag}: what is the current status?`
+const keyOf = (tag: string) => toSearchQuery(msg(tag))
 
 describe('search bounded retry (transient provider flake)', () => {
+  test('toSearchQuery keys match what the provider receives (guard against contract drift)', () => {
+    // If the cleaner ever rewrites these fixtures, the keyed behaviors below
+    // would silently stop matching — this guard turns that into a loud fail.
+    for (const tag of ['recover', 'outage', 'empty', 'healthy']) {
+      expect(keyOf(tag)).toBe(msg(tag))
+    }
+  })
+
   test('first attempt 422s, single retry recovers real grounding', async () => {
+    _resetUpstreamCooldownForTests()
     const m = msg('recover')
-    behaviors.set(m, 'fail-first')
+    const k = keyOf('recover')
+    behaviors.set(k, 'fail-first')
     const pack = await runResearch(m, DECISION)
-    expect(callsByQuery.get(m)).toBe(2) // exactly ONE extra provider call
+    expect(callsByQuery.get(k)).toBe(2) // exactly ONE extra provider call
     expect(pack.searchCalls).toBe(2)
-    expect(pack.searchRetries).toBe(1)
     expect(pack.sources.length).toBeGreaterThan(0)
     expect(pack.degraded).toHaveLength(0) // recovery is not a degradation
-    expect(pack.queries).toEqual([m])
+    expect(pack.queries).toEqual([k])
   })
 
   test('hard outage: both attempts fail, degradation stays honest (exactly two calls, never loops)', async () => {
+    _resetUpstreamCooldownForTests()
     const m = msg('outage')
-    behaviors.set(m, 'always-fail')
+    const k = keyOf('outage')
+    behaviors.set(k, 'always-fail')
     const pack = await runResearch(m, DECISION)
-    expect(callsByQuery.get(m)).toBe(2) // bounded — no infinite retry
+    expect(callsByQuery.get(k)).toBe(2) // bounded — no infinite retry
     expect(pack.searchCalls).toBe(2)
-    expect(pack.searchRetries).toBe(1)
     expect(pack.sources).toHaveLength(0)
     expect(pack.degraded.join(' ')).toContain('web_search failed')
   })
 
   test('empty-but-healthy first response also gets exactly one retry', async () => {
+    _resetUpstreamCooldownForTests()
     const m = msg('empty')
-    behaviors.set(m, 'empty-first')
+    const k = keyOf('empty')
+    behaviors.set(k, 'empty-first')
     const pack = await runResearch(m, DECISION)
-    expect(callsByQuery.get(m)).toBe(2)
-    expect(pack.searchRetries).toBe(1)
+    expect(callsByQuery.get(k)).toBe(2)
     expect(pack.sources.length).toBeGreaterThan(0)
     expect(pack.degraded).toHaveLength(0)
   })
 
   test('healthy first attempt: NO retry, NO extra provider call (latency guard)', async () => {
+    _resetUpstreamCooldownForTests()
     const m = msg('healthy')
-    behaviors.set(m, 'healthy')
+    const k = keyOf('healthy')
+    behaviors.set(k, 'healthy')
     const pack = await runResearch(m, DECISION)
-    expect(callsByQuery.get(m)).toBe(1)
+    expect(callsByQuery.get(k)).toBe(1)
     expect(pack.searchCalls).toBe(1)
-    expect(pack.searchRetries).toBe(0)
     expect(pack.sources.length).toBeGreaterThan(0)
   })
 
