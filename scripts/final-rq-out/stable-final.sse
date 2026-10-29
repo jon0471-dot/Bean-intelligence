@@ -1,0 +1,26 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"17","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"delta":" multiplied","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"delta":" by","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"delta":" ","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"delta":"23","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"delta":" is","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"delta":" ","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"delta":"39","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"delta":"1","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"delta":".","conversationId":"cmvsvbci5000lqb33khv6fvmv"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvsvbci5000lqb33khv6fvmv","durationMs":505,"partial":false,"messageId":"cmvsvbcw7000pqb33buas146p","firstTokenMs":500,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"timings":{"totalMs":501,"understandMs":1,"researchMs":null,"solveTtftMs":499,"solveMs":500,"verifyMs":0,"solvePasses":1}}}
+

@@ -1,0 +1,10 @@
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Let's solve this step by step:\n\n1. First, perform the multiplication: 17 × 23 = 391\n2. Then, perform the division: 8 ÷ 2 = 4\n3. Finally, add the results: 391 + 4 = 395\n\nThe answer is 395.\n\nSELF_CHECK:\nCHECK: 17*23 = 391\nCHECK: 8/2 = 4\nCHECK: 391+4 = 395","conversationId":"cmvrnvtix000dr4vjg4iv1a2e"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrnvtix000dr4vjg4iv1a2e","durationMs":1460,"partial":false,"messageId":"cmvrnvunk000hr4vjzq4ah3d6","meta":{"states":["COMPUTATION_VERIFIED"],"sources":[],"verification":[{"check":"arithmetic: 17*23","status":"passed","detail":"claimed 391 -> evaluated 391"},{"check":"arithmetic: 8/2","status":"passed","detail":"claimed 4 -> evaluated 4"},{"check":"arithmetic: 391+4","status":"passed","detail":"claimed 395 -> evaluated 395"}],"stages":[{"stage":"tools","durationMs":1453},{"stage":"verifying","durationMs":2}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"]}}
+

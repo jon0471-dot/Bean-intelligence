@@ -1,11 +1,12 @@
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { handle, ok } from '@/lib/api/errors'
+import { handle, ok, BeanApiError } from '@/lib/api/errors'
 import { parseBody } from '@/lib/api/validate'
 import { requireUser } from '@/lib/auth/session'
 import { preflight } from '@/lib/router/router'
 import { recordUsage, recordAudit } from '@/lib/observability/metering'
 import { hostedLlmAdapter, withTimeout } from '@/lib/adapters/hosted-llm'
+import { upstreamErrorCode, UpstreamRateLimitError, UpstreamAuthError, UpstreamBillingError } from '@/lib/upstream/gateway'
 import { extractFiles } from '@/lib/sandbox/runner'
 
 const schema = z.object({
@@ -64,7 +65,6 @@ export async function POST(request: Request) {
       )
 
       const files = body.mode === 'generate' ? extractFiles(result.content) : []
-
       const job = await db.generationJob.create({
         data: {
           userId: user.id,
@@ -110,6 +110,15 @@ export async function POST(request: Request) {
           durationMs: result.durationMs,
         },
       })
+    } catch (e) {
+      // Typed upstream failures keep their honest class: a 429 surfaces as
+      // RATE_LIMITED (HTTP 429) with the real reason — never a generic 500.
+      // ONLY typed upstream errors are remapped; anything else propagates
+      // exactly as before.
+      if (e instanceof UpstreamRateLimitError || e instanceof UpstreamAuthError || e instanceof UpstreamBillingError) {
+        throw new BeanApiError(upstreamErrorCode(e), e instanceof Error ? e.message : 'The coding backend call failed.')
+      }
+      throw e
     } finally {
       release()
     }

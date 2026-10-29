@@ -1,0 +1,14 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"current Prime Minister of India\" 2023","\"Narendra Modi\" term start date","\"Prime Minister of India\" latest"]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"The current Prime Minister of India is Narendra Modi [3, 4, 5, 6]. His term started on May 26, 2014 [6].","conversationId":"cmvrq0lqv0089r4o7hbm7cuh2"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrq0lqv0089r4o7hbm7cuh2","durationMs":10628,"partial":false,"messageId":"cmvrq0ty3008dr4o7p20fsjjn","firstTokenMs":10623,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":3,"title":"Prime minister of India | Description, Powers, Duties","url":"https://www.britannica.com/topic/Prime-Minister-of-India","hostName":"www.britannica.com","date":"Oct 21, 2026","official":false,"pageRead":false},{"id":4,"title":"List of all Prime Ministers of India (1947-2026)","url":"https://www.jagranjosh.com/general-knowledge/list-of-all-prime-ministers-of-india-1473165149-1","hostName":"www.jagranjosh.com","date":"Sep 17, 2026","official":false,"pageRead":false},{"id":5,"title":"Narendra Modi","url":"https://en.wikipedia.org/wiki/Narendra_Modi","hostName":"en.wikipedia.org","date":null,"official":false,"pageRead":false},{"id":6,"title":"Prime Minister of India","url":"https://en.wikipedia.org/wiki/Prime_Minister_of_India","hostName":"en.wikipedia.org","date":null,"official":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":9678},{"stage":"tools","durationMs":945},{"stage":"verifying","durationMs":0}],"degraded":[],"retrievedAt":"2026-10-28T06:15:58.105Z","timings":{"totalMs":10623,"understandMs":0,"researchMs":9678,"searchMs":3619,"pageReadMs":5371,"solveTtftMs":770,"solveMs":945,"verifyMs":0,"solvePasses":1}}}
+

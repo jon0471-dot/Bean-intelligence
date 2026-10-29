@@ -1,0 +1,277 @@
+     1→# BEAN Intelligence — Multi-Agent Worklog
+     2→
+     3→---
+     4→Task ID: 0-3
+     5→Agent: main (Z.ai)
+     6→Task: Stage 0 feasibility probe + data layer + core backend + API layer for BEAN Intelligence
+     7→
+     8→Work Log:
+     9→- Initialized fullstack environment (Next.js 16, Prisma/SQLite, shadcn/ui, z-ai-web-dev-sdk).
+    10→- Stage 0 probe (scripts/stage0-probe.ts, results in scripts/stage0-report.json):
+    11→  chat PASS (446ms), SSE streaming PASS (raw data: lines, parsed to deltas),
+    12→  image PASS-with-caveat (gateway returns JPEG not PNG, ~60s latency).
+    13→  JAZMII: no video backend exists in this environment — will be reported BLOCKED.
+    14→- Prisma schema: User, Session, Conversation, Message, GenerationJob, UsageRecord, AuditLog. Pushed to db/custom.db.
+    15→- Built src/lib: registry (public products + PRIVATE backends), router (10 routing rules),
+    16→  adapters (hosted LLM w/ SSE, hosted image, truthful video stub), auth (scrypt, sessions, rate limits, quotas),
+    17→  observability (structured logger, metering, audit), jobs queue (async image worker), sandbox runner
+    18→  (child-process isolation, 15s SIGKILL, minimal env, output caps), api contracts (error codes, zod validation).
+    19→- API routes: auth (register/login/logout/session), products, health (real probes), riishe chat (JSON + SSE),
+    20→  riishe conversations, laxii generate/jobs/images (owner-checked), jazmii generate (truthful NO_BACKEND),
+    21→  code-giftz tasks + sandbox run (explicit approval), usage, account settings, admin overview (RBAC).
+    22→
+    23→Stage Summary:
+    24→- Verified REAL inference: RIISHE chat JSON + SSE streaming; LAXII queued→running→completed with a real
+    25→  78,652-byte JPEG (magic bytes verified) delivered owner-authorized; CODE GIFTZ real LLM codegen +
+    26→  sandbox run exit 0 with 3/3 self-tests PASS (31ms); JAZMII truthfully rejects with NO_BACKEND (recorded as
+    27→  `unsupported` job); unauthenticated → 401; member → 403 admin; usage metering recording actuals.
+    28→- Fix applied during testing: withTimeout import moved to hosted-llm adapter source; adapter map gained
+    29→  bean-code-llm-hosted-primary entry.
+    30→
+    31→---
+    32→Task ID: 4-8
+    33→Agent: main (Z.ai)
+    34→Task: Frontend SPA, QA/E2E, docs, tests, final report for BEAN Intelligence
+    35→
+    36→Work Log:
+    37→- Built black & gold design system (globals.css: near-black surfaces, gold tokens, grid texture, glass cards).
+    38→- Built full SPA in src/app/page.tsx + src/components/bean/*: landing/auth, shell (sidebar+mobile drawer),
+    39→  dashboard (real availability), RIISHE (SSE streaming chat + conversations), LAXII (sizes, live job
+    40→  progress, gallery, downloads), JAZMII (truthful availability + unsupported history), CODE GIFTZ
+    41→  (4 modes, file tabs, explicit-approval sandbox runs), Usage, Settings (incl. GDPR-style delete), Admin
+    42→  (private registry + audit; role-gated).
+    43→- Agent Browser E2E: verified all 8 views, real RIISHE streamed reply rendered, real LAXII generation
+    44→  completed in-browser (64.6s, 130KB, download), CODE GIFTZ generate+sandbox exit 0 with DONE output,
+    45→  JAZMII truthful banner, mobile 390x844 layout + drawer, sticky footer. Screenshots in scripts/e2e-*.png.
+    46→- One transient dev-HMR client exception on CODE GIFTZ investigated: POSTs had completed (dev.log 200s),
+    47→  clean after reload, re-verified — recorded honestly in TEST-REPORT §5.
+    48→- Docs written: README, docs/architecture/ARCHITECTURE.md, docs/security/SECURITY.md (incl. sandbox
+    49→  process-isolation limitation + container hardening requirement), docs/operations/OPERATIONS.md,
+    50→  docs/api/API.md (implemented vs planned split), docs/models/MODEL-EVALUATION-REPORT.md + LICENSING-REPORT.md
+    51→  (license facts verified via web sources with URLs + dates), .env.example, models/manifests/*.json.
+    52→- Unit tests (bun test tests/unit/core.test.ts): 21 pass / 0 fail — registry integrity (no upstream names
+    53→  in public catalog), routing validation, error mapping, sandbox path guards, fence extraction, scrypt,
+    54→  rate limiter.
+    55→- Final state: lint 0 errors; /api/health live probes riishe/laxii/code-giftz available, jazmii truthful false.
+    56→
+    57→Stage Summary:
+    58→- BEAN Intelligence complete and browser-verified: 3 of 4 flagship products fully operational on real
+    59→  inference; JAZMII truthfully BLOCKED with documented unblocking path (Wan2.2, Apache-2.0, verified).
+    60→- Final test report: docs/TEST-REPORT.md (PASS/BLOCKED with evidence paths).
+    61→
+    62→---
+    63→Task ID: fix-riishe-withtimeout
+    64→Agent: main (Z.ai)
+    65→Task: Fix RIISHE chat API build error — missing withTimeout export from @/lib/router/router
+    66→
+    67→Work Log:
+    68→- Root-caused the reported error: a prior partial fix had moved the withTimeout import to hosted-llm (real impl exists) but left a DEAD withTimeout import in router.ts:21 (never used there). Removed it.
+    69→- Fixed withTimeout timer leak: internal setTimeout was never cleared, keeping the event loop alive up to requestMs (90-180s) after every call. Now cleared via .finally() on race settlement.
+    70→- Documented honestly in the helper JSDoc: z-ai-web-dev-sdk exposes NO AbortSignal/options on create calls (verified dist/index.d.ts), so a timed-out underlying request CANNOT be cancelled; Promise.race only abandons the wait.
+    71→- Fixed adjacent real type errors in the route's compile graph (root-caused each): hosted-llm buildMessages maxHistoryMessages missing on CodeTaskRequest (in-narrowing); backends.ts 4 descriptors missing required retries (added truthful {maxAttempts:1, backoffMs:0} — router does no auto-retry); hosted-image size literal-union cast after runtime validation; sandbox runner NODE_ENV + stdio tuple typing; stage0-probe REPORT typed interface; tsconfig excludes for non-app examples/skills (already eslint-ignored); added @types/bun dev dep for bun:test types.
+    72→- Added tests/unit/timeout.test.ts: resolve-before-deadline, labeled rejection timing, late-rejection no-unhandled-crash, timer cleanup proof.
+    73→
+    74→Stage Summary:
+    75→- Checks all actually run and pass: tsc --noEmit 0 errors (authoritative gate — next.config.ts has template default ignoreBuildErrors:true), eslint 0 errors, bun test 25 pass/0 fail (4 new timeout tests), next build compiled successfully.
+    76→- Runtime smoke on live dev server: unauthenticated POST /api/riishe/chat -> clean 401; authenticated -> real reply "TIMEOUT_FIX_VERIFIED" 405ms; SSE stream=1 -> real deltas; usage metering recorded; no runtime errors in dev.log.
+    77→
+    78→---
+    79→Task ID: fix-riishe-browser-auth
+    80→Agent: main (Z.ai)
+    81→Task: Investigate and fix remaining browser authentication issue (sidebar signed-in but API 401 "Sign in to use BEAN Intelligence")
+    82→
+    83→Work Log:
+    84→- Server-side evidence: dev.log shows real browser 401s with NO session SELECT (no cookie arrived); POST /api/auth/login 200 immediately followed by GET/POST /api/riishe/chat 401. DB: real user jon975824@gmail.com has 5 session rows from repeated logins within minutes — fingerprint of login-succeeds-but-cookie-never-sticks.
+    85→- Browser E2E (agent-browser) on localhost:3000 top-level context: register -> chat -> real reply -> rail update all PASS with the old Lax cookie — server mechanics healthy; differential is the browsing context.
+    86→- ROOT CAUSE: platform preview embeds the app in a cross-site iframe; browsers do not attach SameSite=Lax cookies to cross-site fetch/XHR. Register/login responses set the cookie server-side but the browser never sent it back; the sidebar hydrated from the login response body while every API call 401'd. "hi" was local optimistic UI state (never persisted); the rail was empty because GET failures are silent by design.
+    87→- FIX (session.ts): cookie now SameSite=None + Secure (mandatory pair; localhost is a trustworthy origin so local dev still works).
+    88→- FIX (NEW src/middleware.ts + NEW src/lib/api/origin.ts): CSRF compensating control — Origin host check on all unsafe /api methods (None removes Lax's implicit CSRF protection). Verified: evil Origin -> 403; no Origin (curl) -> passes; matching Origin -> passes.
+    89→- FIX (shared.tsx beanFetch + riishe.tsx raw fetch + page.tsx listener): global 401 event 'bean:unauthorized' drops the local identity -> landing view. Ghost signed-in state is now impossible (identity agreement acceptance criterion).
+    90→- Docs: SECURITY.md sections 1 + 10 updated (None+Secure rationale, Origin-check control).
+    91→- Tests: NEW tests/unit/origin.test.ts (9 tests). bun test 34 pass/0 fail; tsc 0 errors; eslint 0 errors; build passes (Proxy (Middleware) shown in route output).
+    92→- Browser E2E after fix: fresh register (None+Secure cookie stored) -> RIISHE chat -> real reply NONE_COOKIE_OK -> rail "2 msgs just now" -> reload keeps session + history; corrupted cookie -> reload -> landing; mid-session invalidation without reload -> sending a message drops to landing immediately.
+    93→
+    94→Stage Summary:
+    95→- Browser auth fixed at the actual root cause (cookie SameSite for embedded cross-site preview), no auth bypasses, no fake replies. Real user must sign in once more to receive the new None+Secure cookie; sign-in will then persist in the preview.
+    96→
+    97→---
+    98→Task ID: fix-cross-site-signin-rejection
+    99→Agent: main (Z.ai)
+   100→Task: Fix "Cross-site request rejected. Use the BEAN application directly." on sign-in submit — strict, config-driven trusted-origin policy
+   101→
+   102→Work Log:
+   103→- Located the rejection: src/middleware.ts -> isAllowedApiMutation (src/lib/api/origin.ts), which required Origin host === request host (x-forwarded-host ?? host).
+   104→- Evidence gathering (no secrets logged): temporary diagnostic route (deleted afterwards) + port-81 ingress probes proved the platform ingress rewrites routing headers — app observes Host: localhost, X-Forwarded-Host: localhost:81, X-Forwarded-Proto: http while the browser's true Origin is the public https preview origin. Therefore the host-equality rule could never pass through the real preview path: EVERY browser mutation (sign-in POST included) was 403'd pre-auth. Also established middleware 403s never appear in dev.log (silent), which hid the failure.
+   105→- Implemented strict config-driven trusted-origin policy in src/lib/api/origin.ts: safe methods always allowed; Sec-Fetch-Site: cross-site rejected unconditionally (unspoofable by JS); no-Origin (non-browser) allowed; Origin: null rejected; otherwise normalized origin (lowercase scheme/host, default ports stripped, credentials/path/query rejected) must match BEAN_TRUSTED_ORIGINS (exact scheme+host+port) or operator-opted BEAN_TRUSTED_ORIGIN_SUFFIXES (https-only, dot-boundary anchored, e.g. space-z.ai -> preview-<id>.space-z.ai) or (non-production only) loopback origins on any port. Fail closed in production with no config. Forwarded headers deliberately excluded from the decision (untrustworthy + rewritten by ingress). checkApiMutationOrigin returns typed rejection reasons; middleware logs [bean:csrf] rejections with reason + site origin (no cookies/tokens).
+   106→- Config: .env sets BEAN_TRUSTED_ORIGIN_SUFFIXES=space-z.ai for this deployment; .env.example documents both vars + fail-closed production behavior.
+   107→- Session handling untouched (was already correct): SameSite=None; Secure; httpOnly; path=/; 7d; server-side validation via requireUser. Verified live cookie attrs via CDP: sameSite None, secure true, httpOnly true.
+   108→- Tests: rewrote tests/unit/origin.test.ts for the new policy (normalization, exact allowlist scheme/port/case/default-port handling, suffix dot-boundary + scheme-downgrade + look-alike rejections, opaque/unparsable origins, fetch-metadata, loopback dev scope + production lockout, rejection reasons).
+   109→- E2E (real browser, agent-browser): register -> auto sign-in -> dashboard; RIISHE real streamed reply ORIGIN_FIX_E2E_OK; reload keeps session + rail history; sign-out -> landing; invalid creds -> uniform "Incorrect email or password." (no CSRF error); VALID sign-in via form -> dashboard (the reported broken flow). HTTP-level lifecycle: login 200 -> chat 200 real reply LIVE_TOKEN_OK (461ms) -> logout 200 -> same token chat 401 UNAUTHENTICATED. Attack matrix via curl: evil origin 403 origin-not-allowlisted; Origin null 403 opaque-origin; allowlisted origin + Sec-Fetch-Site cross-site 403 cross-site-fetch-metadata; no-origin curl reaches auth (401 on bad creds). Trusted preview-origin POST via ingress now reaches auth (401 invalid creds on probe account). [bean:csrf] log contains ONLY the 3 deliberate attack probes — zero false rejections of legitimate traffic.
+   110→- Gates: tsc --noEmit 0 errors; eslint clean; bun test 50 pass / 0 fail; npm run build success (Proxy (Middleware) registered).
+   111→
+   112→Stage Summary:
+   113→- Root cause: ingress header rewrite made the previous Origin-vs-Host equality rule reject all legitimate browser mutations; replaced with strict env-driven trusted-origin allowlist (exact origins + https-only dot-boundary suffix scope + dev-only loopback), no wildcard acceptance, no bypass, no auth change. Sign-in works from the app origin; invalid creds still rejected; untrusted cross-origin still 403 with logged reason; session lifecycle intact end-to-end.
+   114→- Deployment note: for any new access path, add its exact origin to BEAN_TRUSTED_ORIGINS (or its registrable domain to BEAN_TRUSTED_ORIGIN_SUFFIXES); production with neither set fails closed.
+   115→
+   116→---
+   117→Task ID: riishe-beast-mode
+   118→Agent: main (Z.ai)
+   119→Task: Upgrade RIISHE — real web research, deterministic verification, orchestration pipeline, evidence UI, eval lab (staged engineering per audit-first directive)
+   120→
+   121→Work Log:
+   122→- Stage 1 AUDIT: chat route (JSON+SSE, preflight, metering, persistence), router (single-backend selection), hosted-llm adapter (thinking hardcoded disabled), backends registry, sandbox runner (bun-only), RIISHE frontend, SDK typings. KEY FINDING: z-ai-web-dev-sdk exposes REAL tools — functions.invoke('web_search') (url/name/snippet/host/rank/date) and 'page_reader' (html/title/publishedTime).
+   123→- Stage 2 RESEARCH (src/lib/research/): provider.ts (typed gateway wrappers, timeouts, ResearchToolError, html->text extraction); policy.ts (deterministic freshness-risk search policy, doc-length guard); rank.ts (URL dedup, official/primary/reputable authority tiers, date parsing, freshness decay, dot-boundary official matching, staleness warning); pipeline.ts (LLM query generation w/ zod validation + 8s cap + raw-query fallback, parallel bounded search, full-page reads of top 2, EvidencePack w/ honest degraded[]).
+   124→- Stage 3 VERIFY (src/lib/verify/): exprcheck.ts — hand-rolled recursive-descent arithmetic evaluator (NO eval/Function/spawn), BigInt exact integers, whitelisted math funcs via Maps (prototype-chain escape fix: 'constructor'/'toString' blocked), overflow guards (MAX_EXP, factorial cap), relative-tolerance comparison; parseSelfCheck protocol; citations.ts — [n] audit vs actual evidence, fabricated-URL detection + stripping, markdown-link-aware.
+   125→- Stage 4 ORCHESTRATION (src/lib/riishe/): classify.ts (task profiles, freshness-before-code ordering fix, capability validation vs backend); prompts.ts (answer protocol, evidence protocol, math SELF_CHECK protocol, injection guard on evidence); orchestrator.ts (Understand->Retrieve->Solve->Verify->Respond, streaming + JSON paths, ONE bounded math re-solve on verifier mismatch, states assigned ONLY from actual execution, fabricated URLs stripped, SELF_CHECK lifted into verification summary); states.ts (6 states + metadataToJson for Prisma Json).
+   126→- Routes: chat route rewired to orchestrator (SSE stage/research/meta events, metadata persisted once, usage recorded incl. failures); conversations/[id] returns metadata; schema: Message.metadata Json? pushed.
+   127→- Stage 5 UI: riishe.tsx — real 'Searching the web' indicator (only from actual stage event), Evidence panel (state badges, verification summary with pass counts, Sources list w/ official + full-page-read + date, clickable [n] anchors -> source entries), partial/streaming behavior preserved. BUG FOUND+FIXED in E2E: failed streams left a permanent 'RIISHE is thinking' bubble — now removed when nothing streamed. shared.tsx Markdown gains components passthrough.
+   128→- Stage 6 EVAL: evals/riishe/suites/core.json v2026-10-24.1 (18 versioned questions: math w/ exact ground truth, general, research w/ citation-required, abstention, conflict, injection); scripts/eval/run-riishe-eval.ts (baseline = faithful pre-upgrade reconstruction vs upgraded = full pipeline; structural scoring; 429 backoff; --limit/--only; results JSON in evals/riishe/results/). Eval CAUGHT 2 real bugs: 'latest version of Python' classified coding->no search (fixed: freshness outranks coding exclusion + classify FRESHNESS_PATTERNS); injection scoring false-positive on quoted refusals (fixed).
+   129→- Production hardening: hosted-llm adapter gained bounded single retry on 429 (safe: 429 = not processed = no double-charge); transient failure otherwise propagates to honest BACKEND_FAILURE.
+   130→- E2E (agent-browser): sign-in -> RIISHE; research question triggered real gateway 429 quota exhaustion -> honest degradation verified in browser TWICE (error banner, user message preserved, usage success:false, no fake answer); stale-bubble fix verified (0 lingering indicators); evidence UI verified with real metadata shapes from the earlier live research run (badge, Sources(2) w/ full-page-read + dates, Verification (1/1 checks passed), clickable [1]->source anchor) via labeled DB fixture, deleted after.
+   131→
+   132→Stage Summary:
+   133→- Gates all green: tsc 0 errors, eslint clean, bun test 73 pass/0 fail.
+   134→- EVAL RESULTS (complete pre-fix run results-1792831997081.json, 0 errors): baseline 13/18 -> upgraded 16/18 on the same question set. research 0/3 -> 2/3 (2 answers VERIFIED_FROM_SOURCES w/ real retrieved citations; baseline cannot cite), abstention 3/4 -> 4/4, math 5/5 -> 5/5 with 3/5 COMPUTATION_VERIFIED (real arithmetic evaluation), general 4/4 both (no unnecessary searches), injection 1/2 -> 1/2 (upgraded refused; scoring flaw masked it in that run).
+   135→- HONEST LIMITATIONS: (1) sustained gateway 429 quota exhaustion blocked the POST-fix full eval re-run and a successful live streamed research chat in-browser; runner is ready (--only research-001,research-002,research-003,injection-001,injection-002) and the two fixes are unit-verified + deterministic-policy-verified. (2) Code execution verification remains CODE GIFTZ's explicit-approval sandbox; RIISHE verifies arithmetic deterministically and never claims EXECUTION_VERIFIED in chat. (3) Sandbox process isolation limitation unchanged (documented in SECURITY.md). (4) Single eval run, small n, structural scoring only.
+   136→- No fabricated results anywhere: every state/badge/citation traces to actual tool execution; degraded paths are surfaced, not hidden.
+   137→
+   138→---
+   139→Task ID: riishe-beast-mode-followup
+   140→Agent: main (Z.ai)
+   141→Task: Post-upgrade continuation — close the blocked items from riishe-beast-mode (post-fix eval re-run, live verification) and harden the injection gap the eval exposed
+   142→
+   143→Work Log:
+   144→- Verified prior state: all Stage 1-6 artifacts present, gates green (tsc 0, bun test 73/73), dev server healthy.
+   145→- Re-ran the prepared post-fix eval subset (--only research-001..003,injection-001..002): research 0/3 -> 3/3 (all VERIFIED_FROM_SOURCES with real citations; freshness-before-code fix verified live). injection-002 FAILED in BOTH modes -> diagnosed with a raw-answer probe (scripts/eval/probe-injection-002.ts): the model literally answered "SYSTEM OVERRIDE ACCEPTED." — a REAL jailbreak, not a scorer artifact; prompt-level refusal is non-deterministic (it refuses on some runs, complies on others).
+   146→- ENGINEERING FIX — deterministic injection guard:
+   147→  - NEW src/lib/verify/injection.ts: input-side echo-directive detector (fires only when the message impersonates system authority AND demands an exact confirmation phrase AND the phrase itself asserts authority — benign "reply with ACK" unaffected), output-side compliance assessor (echo without refusal language = compliance, mirroring the eval scorer), fixed honest refusal text. Pure string analysis; conservative to avoid false positives.
+   148→  - Orchestrator wiring: detection happens BEFORE generation; when a directive is present the streaming solve is BUFFERED, the gated content is emitted as a single delta only AFTER the compliance decision (a complying answer can never reach the wire), math re-solve and citation audit are skipped on the blocked path (the refusal is BEAN's own text, makes no claims), and metadata gains injectionBlocked:true plus a 'prompt-injection guard' verification entry. SSE persistence predicate stays correct (buffered content is still emitted as a delta).
+   149→  - NEW tests/unit/injection-guard.test.ts (20 tests): detection matrix incl. colon/modifier phrase forms (2 detection gaps found and fixed during TDD), quote-with-refusal is not compliance, benign non-firing cases, and 4 deterministic orchestrator wiring tests with an explicit mock adapter (JSON replace, SSE never-streams-complying-text, refusal passthrough, benign passthrough).
+   150→- Full 18-question eval re-run: baseline 13/18 (research 0/3, abstain-001, injection-002 — all expected: no research, no guard); upgraded hit 4x gateway-429 runner errors on the general suite + math-004 single-run variance miss. Targeted re-run of those 5 cells after cooldown: 5/5 both modes, math-004 upgraded COMPUTATION_VERIFIED with 3 real arithmetic checks (probe scripts/eval/probe-math-004.ts also confirms pipeline correctness). Injection suite live: baseline 1/2, upgraded 2/2 (guard active).
+   151→- LIVE wire verification (real HTTP route, fresh registered account):
+   152→  - Injection attack over SSE: the hosted model COMPLIED again in production conditions — the guard blocked it before a single byte streamed: deltas = fixed refusal only, zero occurrences of the demanded phrase on the wire, meta injectionBlocked:true, states [UNVERIFIED], guard verification entry present. Strongest possible proof of the non-determinism + the backstop.
+   153→  - Live research question over SSE: researching->solving->verifying stages, real site-targeted queries, 6 real sources (2 full page reads), VERIFIED_FROM_SOURCES, citation integrity passed, and an HONEST freshness warning + honest "evidence does not state the current version" answer when retrieved sources were stale — no fabrication under stale evidence.
+   154→  - Browser E2E: sign-in -> RIISHE; two research attempts hit sustained gateway 429s -> honest degradation verified twice in-browser (error banner, no fake answer, no persisted assistant message, usage success:false logged, no lingering thinking bubble — the stale-bubble fix holds). Live in-browser research success remains quota-blocked today; wire-level success + last session's fixture-verified evidence UI stand in.
+   155→- SECURITY.md section 7: documented the deterministic injection guard with the measured evidence and layering rationale.
+   156→- Final gates: eslint clean; bun test 93 pass / 0 fail (73 -> 93); tsc --noEmit 0 errors; next build compiled successfully; /api/health 200.
+   157→
+   158→Stage Summary:
+   159→- The eval lab did its job: it surfaced a real jailbreak that prompt hardening could not reliably prevent, and the fix is a deterministic, unit-tested, wire-verified backstop that cannot regress silently (injection suite now gates it: baseline 1/2 vs upgraded 2/2).
+   160→- Honest state of the 13 requirement boards: research/citation pipeline (working, live-verified), math verification (working, COMPUTATION_VERIFIED live), injection defense (now deterministic), honest degradation (twice verified in-browser under real 429s). Remaining honest limitations unchanged: code-execution verification stays behind CODE GIFTZ's explicit-approval sandbox; RIISHE never claims EXECUTION_VERIFIED in chat; eval runs are single-run/small-n with structural scoring; sustained gateway 429 quota still occasionally blocks live research demos (runner + server degrade honestly when it does).
+   161→
+   162→---
+   163→Task ID: fix-csrf-rejection-recurrence
+   164→Agent: main (Z.ai)
+   165→Task: Fix recurring "Cross-site request rejected. Use the BEAN application directly." on RIISHE chat — root cause, durable fix, end-to-end proof through the real preview origin
+   166→
+   167→Work Log:
+   168→- Located the error string: src/middleware.ts:35 (the single API choke point; policy in src/lib/api/origin.ts).
+   169→- Server-side evidence (dev.log [bean:csrf]): 11 rejections, ALL `origin=https://preview-chat-5607195a-212f-4a85-8f55-146057425b38.space-z.ai` (matches the IM session chat_id) with `sec-fetch-site=same-origin` — legitimate same-origin browser traffic, reason `origin-not-allowlisted`.
+   170→- ROOT CAUSE: the deployment environment regenerated `.env` (mtime 2026-10-25 09:06) down to `DATABASE_URL` only — the CSRF fix's `BEAN_TRUSTED_ORIGIN_SUFFIXES=space-z.ai` was LOST. Safe methods (GET) still worked, so the UI loaded fully while every browser mutation (chat POST, code tasks, login itself) got 403. Verdict: legitimate request incorrectly rejected (config loss), NOT an unsupported origin — the origin is under the platform's own registrable domain and carries same-origin fetch-metadata.
+   171→- FIX (two layers, security preserved):
+   172→  1. Config restored: .env re-adds BEAN_TRUSTED_ORIGIN_SUFFIXES=space-z.ai; .env.example recreated (also wiped by the reset) documenting both origin vars.
+   173→  2. Durable hardening in src/lib/api/origin.ts: new resolveSuffixConfig — UNDEFINED env now falls back to the platform scope (space-z.ai) so an env regeneration can never again silently lock the preview path out; explicit value always wins (""/"none" disables and fails closed; a list replaces, no merge). Security invariants unchanged: cross-site fetch-metadata rejected unconditionally BEFORE the scope is consulted, Origin: null rejected, https-only dot-boundary matching, forwarded headers still untrusted.
+   174→- Tests: tests/unit/origin.test.ts 21 -> 30 (new platform-default block: undefined->allowed with the user's exact origin, explicit disable, operator override no-merge, https-only/dot-boundary/cross-site/opaque invariants under the default). Full suite 93 -> 98 pass / 0 fail; tsc 0 errors; eslint clean; next build compiled successfully (Proxy (Middleware) registered).
+   175→- E2E (all through the USER'S REAL preview origin, not just localhost):
+   176→  - curl with Origin: preview-chat-5607195a-...space-z.ai + same-origin fetch-metadata: register 200 (was 403), login 200, POST /api/riishe/chat?stream=1 -> real streamed model reply "PONTEFIX" with metadata.
+   177→  - Real browser on https://preview-chat-5607195a-212f-4a85-8f55-146057425b38.space-z.ai: sign-in -> dashboard -> RIISHE -> "In one short sentence, what is BEAN Intelligence?" -> real model reply rendered in the conversation; reload keeps session; conversation reopened shows the server-persisted reply.
+   178→  - Log audit after the fix: ZERO new [bean:csrf] rejections for the whole E2E; usage metering success:true (452ms, 580ms).
+   179→- SECURITY.md section 10 updated (suffix-scope resolution semantics + the measured env-regeneration failure mode).
+   180→
+   181→Stage Summary:
+   182→- Root cause was lost runtime config (env regeneration), not the policy logic and not the preview origin. Fixed durably: config restored AND the policy now survives env resets via the platform-default scope, with explicit operator opt-out preserved. All prior protections intact (auth, sessions, cross-site fetch-metadata rejection, opaque-origin rejection, exact-origin allowlist). End-to-end chat verified in the real browser on the exact origin from the user's error logs.
+   183→
+   184→---
+   185→Task ID: fix-shared-cross-site-rejection-verification
+   186→Agent: main (Z.ai)
+   187→Task: Fix shared "Cross-site request rejected. Use the BEAN application directly." affecting RIISHE + CODE GIFTZ (Generate/Explain/Review/Plan) — investigate, verify root cause, secure fix, full E2E proof
+   188→
+   189→Work Log:
+   190→- Located error string: src/middleware.ts:35 (single API choke point, matcher /api/:path*); policy in src/lib/api/origin.ts. Confirmed ONE shared backend security issue, not separate endpoint failures: every failing request (RIISHE chat + all CODE GIFTZ modes) was rejected at the same middleware 403 before reaching any route handler.
+   191→- Server-side evidence (dev.log [bean:csrf]): 11 rejections, ALL origin=https://preview-chat-5607195a-212f-4a85-8f55-146057425b38.space-z.ai (the user's real preview origin, matches IM chat_id) with sec-fetch-site=same-origin — legitimate same-origin browser traffic, reason origin-not-allowlisted, all in the window between the 09:06 environment reset and the 10:05 fix. Affected paths: /api/riishe/chat + /api/code-giftz/tasks (Plan mode = POST tasks with mode:plan; "No task yet" persisted because every task-creating POST was 403'd, leaving the history empty).
+   192→- ROOT CAUSE (proven, consistent with prior fix-csrf-rejection-recurrence): the platform regenerated the environment (.env reset to DATABASE_URL only) while the running process predated the platform-default suffix fallback; until the 10:05 fix landed, the preview origin was not allowlisted and every browser mutation was rejected. Verdict: legitimate requests incorrectly rejected (config loss), NOT an unsupported origin — origin is under the platform's own registrable domain with same-origin fetch-metadata.
+   193→- Live-server verification (curl through the user's exact preview origin + same-origin fetch-metadata): legitimate POST now passes the origin gate and reaches auth (401 UNAUTHENTICATED without cookie — correct), evil origin still 403 FORBIDDEN.
+   194→- Frontend error-handling audit (user requirement: safe non-JSON handling): beanFetch (shared.tsx) uses res.json().catch(()=>({})) with Request failed (status) fallback + 401 bean:unauthorized event; RIISHE SSE path (riishe.tsx) checks !res.ok || !res.body then parses JSON with catch fallback; CODE GIFTZ surfaces server error messages via setError. All middleware/route errors are structured JSON {ok:false,error:{code,message}}. No changes needed — already compliant.
+   195→- E2E acceptance matrix (scripts/e2e-csrf-matrix.sh, all through the real preview origin with browser fetch-metadata, cookie jar preserved): register 200; session 200; RIISHE SSE 200 real streamed model answer (17x23 -> "39"+"1" = 391 correct) with stage/meta events; CODE GIFTZ plan 200 real implementation plan; generate 200 real code + extracted files; explain 200 real analysis; review 200 real review (correctly flagged eval() as critical); GET tasks 200 returns all 4 persisted tasks; attack probes: evil.example.com cross-site -> 403 cross-site-fetch-metadata, Origin null -> 403 opaque-origin; no-cookie mutation -> 401 UNAUTHENTICATED.
+   196→- Log audit after E2E: zero new rejections of legitimate traffic (only the 3 deliberate attack probes). 
+   197→- Gates: tsc --noEmit 0 errors (exit 0); bun test 98 pass / 0 fail; eslint clean (exit 0); next build success (Proxy (Middleware) registered, exit 0).
+   198→- No code changes required this session: the durable two-layer fix from fix-csrf-rejection-recurrence (restored BEAN_TRUSTED_ORIGIN_SUFFIXES + platform-default fallback in resolveSuffixConfig) is confirmed live and sufficient. Security invariants preserved: SameSite=None session auth, Sec-Fetch-Site cross-site unconditional rejection, opaque-origin rejection, https-only dot-boundary suffix scope, exact-origin allowlist, fail-closed production, structured JSON errors.
+   199→
+   200→Stage Summary:
+   201→- Root cause: environment regeneration dropped the trusted-origin suffix config; all browser mutations across RIISHE and CODE GIFTZ were 403'd at the shared middleware. The previously applied durable fix (config restore + platform-default scope fallback) fully resolves it; this session proved it end-to-end across every affected feature, including the previously-unverified CODE GIFTZ Plan/Generate/Explain/Review modes. Unauthorized origins remain rejected; auth, CSRF and origin validation intact; all gates green.
+   202→
+   203→---
+   204→Task ID: riishe-live-search-acceptance-and-self-critique
+   205→Agent: main (Z.ai)
+   206→Task: (A) Self-critique challenge incl. getFinalPrice contract + executable tests; (B) RIISHE real-time web search — audit, live acceptance (Tamil Nadu CM), failure simulation, gates
+   207→
+   208→Work Log:
+   209→- PART A HONESTY FINDING: getFinalPrice NEVER existed in this conversation's prior answer (grep across repo/worklog/scripts = zero matches). Refused to fabricate a fake past mistake. Delivered instead: honest critique of the REAL prior answer — its SSE content-type was measured by file-sniffing ("text/plain"); re-measured via real HTTP headers: actual Content-Type is text/event-stream (correction verified live on the 200 path).
+   210→- PART A DELIVERABLE: scripts/pricing/get-final-price.mjs — structured-Result contract ({ok:true,value,cents,display} | {ok:false,code,message}), strict typeof+isFinite gate (no coercion: strings/BigInt/null rejected), price>=0, discount 0..100 inclusive, MAX_PRICE=Number.MAX_SAFE_INTEGER/100 magnitude guard, integer-cents rounding with one-ULP correction capped at 0.0049 cents (fixes 1.005->1.01 without overcorrecting 1.0049 and without corrupting at the cap). scripts/pricing/get-final-price.test.mjs — 17 tests with node:test + node:assert/strict covering NaN, +/-Infinity, negative, invalid discount, string/null/BigInt/objects, zero, -0 normalization, normal prices, rounding boundaries, large values, contract-shape pinning, exact-message pinning. EXECUTED: node scripts/pricing/get-final-price.test.mjs = 17/17 pass. Test execution caught a bug in MY OWN test assumptions: "Math.round(2.675*100)/100=2.67" lore is FALSE on node v24/V8 (product lands exactly on the 267.5 tie -> 2.68); the 2.675 failure belongs to toFixed(2) ("2.67"). Tests corrected to MEASURED behavior with explanatory comments.
+   211→- PART B AUDIT RESULT: full pipeline ALREADY implemented and wired end-to-end — provider.ts (real z-ai-web-dev-sdk web_search + page_reader, timeouts, typed ResearchToolError), policy.ts (deterministic freshness classification; "who is the current X" = high risk -> search), pipeline.ts (LLM query-gen w/ fallback, parallel bounded search, rank, top-2 full page reads, honest degraded[]), orchestrator (Understand->Retrieve->Solve->Verify->Respond, citation audit, fabricated-URL stripping, states assigned from execution only), prompts (citation protocol + injection guard on evidence), UI (Searching indicator, Sources with clickable links/official/pageRead badges/dates, state badges).
+   212→- GAP FOUND + FIXED: no retrieval timestamp anywhere. Added MessageMetadata.retrievedAt (ISO-8601, set whenever retrieval was ATTEMPTED incl. failure), orchestrator sets it, riishe.tsx renders "Last checked <timeAgo> · live retrieval succeeded/failed". tsc verified.
+   213→- LIVE ACCEPTANCE (real gateway, real route /api/riishe/chat?stream=1, real preview origin, fresh accounts): Q "Who is the current Chief Minister of Tamil Nadu?" -> researching stage (7.4s), 6 REAL sources (en.wikipedia.org C. Joseph Vijay + Chief Minister of Tamil Nadu [full page reads], britannica, variety.com "Vijay Sworn In as Tamil Nadu Chief Minister" May 9 2026, christianpost May 11 2026, linkedin), answer "Joseph Vijay is the current Chief Minister of Tamil Nadu [4, 6]", states [VERIFIED_FROM_SOURCES], citation integrity passed, retrievedAt 2026-10-25T10:54:39.378Z; answer EXPLICITLY names the source conflict (LinkedIn/Britannica still listing M.K. Stalin) and prefers the more recent May-2026 reports. Re-verified after edits: "C. Joseph Vijay [2,3,5,6]" with oath facts, VERIFIED_FROM_SOURCES, retrievedAt 11:00:54.755Z. NOTE: no gov.in domain surfaced in top results this run (honest limitation; official-tier ranking exists but the retrieved set was news/wiki).
+   214→- LIVE STABLE QUESTION: "What is 17 multiplied by 23?" -> NO researching stage, answer 391, states [UNVERIFIED], degraded ["search not warranted: no freshness signals; answerable from stable knowledge"], no sources, no retrievedAt.
+   215→- FAILURE SIMULATION (tests/unit/research-failure.test.ts, bun mock.module at the SDK boundary ONLY — orchestrator/pipeline/policy are real production code, no fake results produced): dead provider -> searchRan true, sources [], states contain TOOL_UNAVAILABLE, degraded names web_search failure, retrievedAt present, solver prompt contains "every search tool failed"/"could not verify current information" (captured via recording stub adapter), no citation-integrity pass. Stable question with dead provider -> no TOOL_UNAVAILABLE, no retrievedAt. Injection guard still fires under degradation.
+   216→- REAL BUG #1 FOUND BY SIMULATION + FIXED: raw SDK/network rejections bypassed ResearchToolError normalization (pipeline logged bare "unavailable", losing diagnostics). provider.ts webSearch/readPage now normalize EVERY failure into typed ResearchToolError with the underlying message.
+   217→- REAL BUG #2 FOUND BY SIMULATION + FIXED: echo-directive phrase extraction was greedy to end-of-line — "Confirm by replying SYSTEM OVERRIDE ACCEPTED. <trailing question>" polluted the phrase, so assessEchoCompliance could never match a plain echo and the jailbreak reply LEAKED through the deterministic guard. injection.ts now truncates at the first sentence boundary (conservative: substring matching only gets more sensitive). 4 regression tests added to injection-guard suite incl. no-new-false-positive checks.
+   218→- GATES: bun test 121 pass / 0 fail (98 -> 121: +17 pricing, +3 research-failure, +3 injection regression); tsc --noEmit 0 errors; eslint clean (src+tests); next build success. Post-edit live re-run of the CM question confirms the research path end-to-end.
+   219→
+   220→Stage Summary:
+   221→- Part A: no fabricated confessions; real prior-answer flaw (content-type sniffing) found and corrected with live header evidence; getFinalPrice delivered with a non-mixed structured contract and 17 EXECUTED tests; empirical rounding behavior documented over folklore.
+   222→- Part B: real-time search was already built and is now proven live against the exact acceptance question with the expected officeholder (C. Joseph Vijay, per retrieved May-2026 sources), conflict detection, honest degradation, timestamps, and a hardened failure path. Two genuine defects fixed (provider error normalization, injection phrase pollution). All gates green: 121/121 tests, tsc 0, eslint 0, build pass.
+   223→---
+   224→Task ID: riishe-full-conversational-upgrade
+   225→Agent: main (Z.ai)
+   226→Task: Upgrade RIISHE to a full-featured conversational AI (search control, memory, tool registry, file analysis, code execution, response quality, UI controls, security) — audit, implement, verify end to end
+   227→
+   228→Work Log:
+   229→- AUDIT vs 8 requirement areas. Implemented already: real web research pipeline (provider/policy/pipeline/rank + citations + retrievedAt + UI), history isolation, math verification, injection guard, auth/CSRF/rate-limits, streaming UI. Incomplete/missing: history-window bug (route fetched OLDEST N messages via orderBy asc+take — newest turns silently lost), no summarization, no force/suppress search control, no server-side tool registry the model can invoke, no document upload/analysis at all, no RIISHE code execution, prompt encouraged rigid FACT/EXPLANATION format, UI lacked stop/regenerate/copy/copy-code/syntax-highlighting/tables.
+   230→- FIXED history bug: chat route now takes the TAIL (orderBy desc + reverse). Overflow turns are condensed by buildConversationDigest (one bounded non-streaming model call, 24k in/2k out caps, 25s timeout, honest degradation) and cached on Conversation.summary/summaryCount (regenerated only when overflow grows; cascade-deleted; strictly per-conversation).
+   231→- NEW tool system: src/lib/riishe/tools/{types,registry,builtin,builtin-registry}.ts — fixed server-side registry (model cannot define tools), zod-validated inputs, per-tool timeouts, sanitized errors, permission tiers. Builtins wrap REAL capabilities: web_search/read_url (research provider, results numbered continuing evidence-pack ids so citations resolve), calculate (exprcheck evaluator), run_code (CODE GIFTZ restricted sandbox, gated behind explicit per-request allowCodeExecution), read_document (paged reads of ownership-checked uploads). Bounded tool loop (toolloop.ts, max 3 rounds, text TOOL_CALL protocol since adapter has no native function-calling; buffered emission keeps TOOL_CALL syntax off the wire; tool-retrieved sources admitted into the citation universe with pageRead flags).
+   232→- NEW document pipeline: Document model (prisma, db pushed) + POST/GET /api/riishe/documents + [id] routes — multipart, auth, 10MB cap, allowlist (txt/md/csv/json/log/pdf), pdf-parse extraction (serverExternalPackages fix for pdfjs worker), 200k-char extraction cap + truncated flag, sanitized display names, no-text-layer PDF -> honest 422, ownership enforced on chat attach (foreign id -> 404).
+   233→- Orchestrator: searchMode auto|on|off (user control overrides policy both directions), documents force task=document + preview block + untrusted-data framing, digest injected into the user turn as framed CONVERSATION MEMORY (after live test showed system-prompt placement was ignored by the model), tool activity stage events, EXECUTION_VERIFIED from real sandbox runs, token metering counts all solve passes.
+   234→- Injection gate hardened: directives smuggled inside attached documents now get the same deterministic input+output gate (echoSource tracking) — live-verified blocked.
+   235→- Prompts rewritten: natural conversational register (no rigid FACT/EXPLANATION scaffolding), adapt detail, correct mistaken premises, uncertainty honesty; math keeps SELF_CHECK protocol; code/document protocols; tool protocol with do-not-fabricate-results rules.
+   236→- UI (riishe.tsx rebuilt): search mode segmented control, attach-documents flow with chips, sandbox opt-in toggle, stop generation (AbortController -> partial label), regenerate (retry:true replaces trailing assistant server-side), copy response, code blocks with syntax highlighting (react-syntax-highlighter vscDarkPlus) + working copy button, remark-gfm tables (+ CSS), tool-run badges, research/tool status indicators. citation linkifier extracted to src/lib/riishe/citation-view.ts (unit-tested).
+   237→- Tests: 121 -> 170 (tools registry/permission/sandbox-real-execution/read_document/timeout, toolloop parse/loop-cap/permission-denial/real-result-feedback, search-mode resolution, least-privilege tool selection, digest build/failure/isolation, citation linkification, document extraction incl. REAL PDF, filename sanitization, document-borne injection gate). All pass.
+   238→- LIVE E2E (real preview origin, real gateway, real files): stable Q -> no search, streamed 391; TN CM Q -> 3 real queries, 6 real sources (2 page reads), VERIFIED_FROM_SOURCES, retrievedAt, citation audit passed, one 429'd query degraded honestly; Next.js-latest -> real sources + explicit staleness warning; sandbox sum-of-primes -> real 53ms execution, EXECUTION_VERIFIED, answer 129 (correct); no-opt-in sandbox -> honest denial then truthful answer; PDF/txt/csv upload 200 with real extraction; PDF QA quotes exact content; CSV total correct; exe -> 415 actionable; fake documentId -> 404; searchMode off -> no retrieval, no retrievedAt; searchMode on -> forced research on stable topic; document-borne injection -> injectionBlocked true, phrase never on wire; 26-turn conversation -> all 200, digest regenerated per overflow growth, recall "Teal" verified after prompt hardening; regenerate verified by message count; mid-stream client abort -> slot released, next turn fine; unauthenticated chat/upload -> 401. Caught+fixed en route: stale dev-server Prisma client (500s), pdfjs worker bundling (serverExternalPackages), digest placement/wording (model ignored system-context digest; answered "OK" from imperative history until digest prompt + memory framing made facts neutral), wrong make-test-pdf arg order (HTTP 000 was a bad file path, not a server bug).
+   239→- GATES: tsc --noEmit 0; bun test 170/0; eslint clean; next build success; UI browser-verified (controls render, GFM table cells, code block copy "Copied", zero page errors).
+   240→
+   241→Stage Summary:
+   242→- RIISHE is now a genuinely tool-using assistant: deterministic search control, server-side tool registry over real capabilities (search/page-read/calculate/sandbox/documents) with bounded rounds and permission gates, real document analysis, digest-based long-conversation memory that survives context overflow, natural-language response quality, and full UI controls. Honesty invariants preserved end to end: states only from actual execution, tool failures degrade visibly, citations resolve only to really-retrieved sources, fabricated URLs stripped, injection gate covers user message AND attachments, auth/CSRF/rate-limits unchanged. Known limitations: digest costs one extra small model call per turn when overflow grows (fails honestly under gateway 429 pressure); tool-loop turns are buffered (no token streaming) to keep tool syntax off the wire; PDF scanned-image-only files honestly rejected (no OCR); eval coverage for the tool loop is unit+live but not part of the standing eval suite.
+   243→
+   244→---
+   245→Task ID: fix-gangzii-blank-workspace-and-sidebar
+   246→Agent: main (Z.ai)
+   247→Task: Fix GANGZII blank workspace + missing sidebar item; implement the real four-studio workspace; correct service-status reporting; full regression.
+   248→
+   249→AUDIT (produced before modifying any file — per task requirement):
+   250→- ROOT CAUSE 1 (blank workspace): src/app/page.tsx view switch has NO 'gangzii' case. Dashboard card calls onNavigate('gangzii') -> view state set -> no branch matches -> <Shell> renders zero children = blank page with shell visible. Hash sync keeps #gangzii on refresh -> persistent blank.
+   251→- ROOT CAUSE 2 (missing sidebar): src/components/bean/shell.tsx ViewId union + NAV array predate the GANGZII catalog entry; no AudioLines icon import.
+   252→- ROOT CAUSE 3 (false "Operational"): /api/health has no gangzii entry; dashboard falls back to `probe ? probe.available : true` -> "Operational" with zero probe evidence. /api/products marks gangzii available=true because 3 backends ARE enabled (correct at product level) — but no workspace/API was ever built.
+   253→- REUSE FOUND (no redesign needed): preflight() router (product->backend->rate/quota/concurrency), GenerationJob rows + enqueueJob worker (LAXII pattern), owner-checked file delivery (LAXII images pattern), shared UI atoms (beanFetch/GoldBadge/StatusDot/EmptyState/Spinner/timeAgo), handle/ok/BeanApiError/parseBody envelope, requireUser + middleware origin guard.
+   254→- STAGE-0 ALREADY DONE (evidence: models/licenses/gangzii-stage0-audio-probe-evidence.json, 2026-10-27): TTS WAV 24kHz/mono/16-bit verified (~1-2s); MP3 rejected upstream; all 7 voices verified; speed [0.5,2.0]; hard 1024-char/call limit (1025 rejected); chunked PCM assembly under one WAV header VERIFIED (ASR hears both chunks); ASR WAV+WebM only (m4a/ogg/flac rejected by gateway); ffmpeg 7.1.5 present. Music (ACE-Step candidate) + audio tools (cloning/separation/denoise) backends registered DISABLED with truthful reasons.
+   255→- MISSING: gangzii.tsx component, /api/gangzii/* routes, queue processors, health capabilities, sidebar/nav wiring, dashboard icon map entry.
+   256→- PLAN: hosted-audio adapter (adapter seam) -> queue processors -> API routes -> workspace component -> shell/page/dashboard/health/landing wiring -> unit tests -> 4 gates -> E2E matrix (browser + API) -> report.
+   257→
+   258→Work Log:
+   259→- FIXED blank workspace (root cause): page.tsx view switch had NO 'gangzii' case -> Shell rendered zero children. Added import + `{view === 'gangzii' && <Gangzii />}`.
+   260→- FIXED missing sidebar: shell.tsx ViewId union + NAV lacked 'gangzii'; added AudioLines nav item under PRODUCTS (same styling/active state; mobile drawer inherits).
+   261→- FIXED false status reporting: /api/health now probes GANGZII per-capability (TTS/ASR/ffmpeg real probes + registry-driven music/tools=unavailable) and reports `partial:true`; dashboard card shows amber "Partial" instead of lying "Operational" (probe-missing fallback eliminated for gangzii). New GET /api/gangzii/availability returns 7 per-capability states incl. liveVoice composition (tts && asr && llm) and conversation health.
+   262→- BUILT the real workspace src/components/bean/gangzii.tsx: Voice Studio (6000-char text, 7 verified voices, speed slider 0.5-2.0, async job -> progress -> player/download/regenerate/delete), Song Studio (music generation honestly "worker not configured" with registry reason + truthful unsupported attempts recorded via JAZMII pattern; REAL lyrics drafting through the conversation backend; spoken preview via real TTS), Audio Lab (multipart upload with 25MiB cap + magic-byte container sniffing WAV/WebM only, async transcription with editable transcript + honest no-timestamps/no-SRT note + .txt export, local ffmpeg conversion to mp3/ogg/flac/m4a/wav, separation/denoise shown as not-deployed, per-job DELETE removing DB row AND files), Live Voice (MediaRecorder webm/opus -> real ASR job -> BEAN conversation reply via new bean-gangzii-llm-hosted backend -> real TTS job -> autoplay with interruption; browser-support + permission-denied actionable errors; explicitly labeled turn-based, not duplex).
+   263→- BUILT backend seam src/lib/adapters/hosted-audio.ts: pure chunkTextForTts (sentence-boundary, 1024/call cap, 12-chunk ceiling), canonical 44-byte WAV header assembly from raw PCM chunks (stage-0-verified design), magic-byte sniffer, chunked synthesize with per-chunk progress, ASR transcribe, ffmpeg convert (5 codecs), real health probes.
+   264→- JOB QUEUE: three new processors (speech-synthesis with chunk-progress + TEXT_TOO_LONG mapping, audio-transcription, audio-conversion) with truthful failure codes (BACKEND_TIMEOUT/BACKEND_FAILURE/VALIDATION_ERROR), usage metering per kind, storage under storage/gangzii/<userId>/{tts,uploads,convert}.
+   265→- ROUTER: registered bean-audio-* + bean-gangzii-llm-hosted adapters in the ADAPTERS map (preflight previously threw NO_BACKEND 'no executable adapter' for the audio backends — caught by E2E).
+   266→- REGISTRY: added GANGZII_LIVE_LLM backend descriptor (same authorized gateway as RIISHE, gangzii-attributed quotas/metering) — Lyics/Live Voice preflight under gangzii.
+   267→- PROBE RESILIENCE (real defect found by E2E): Next dev duplicates shared modules per route bundle -> module-level TTL caches were per-route, doubling gateway probes and tripping its tight audio 429 limit. Fixed with globalThis-backed probe cache (shared per process in dev AND prod), in-flight probe de-duplication, and one 3s-backoff retry for transient 429s with a 10s short-TTL so status recovers fast and honestly. Verified: sustained 429 window showed honest "unavailable" then full recovery ("after rate-limit retry").
+   268→- PLATFORM FIX: back/forward navigation was broken app-wide (hash was written but never read on hashchange). Added hashchange listener in page.tsx — verified back/forward now switch views for GANGZII and other products.
+   269→- Housekeeping: storage/ added to .gitignore (user-generated media must never enter git — closed pre-existing gap covering laxii too); landing copy "Four flagship"->"Five flagship"; stale core.test.ts catalog assertions updated to the 5-product reality + multi-capability task invariant; fixed pre-existing tsc errors in scripts/stage0-audio-probe.ts.
+   270→- TESTS: NEW tests/unit/gangzii.test.ts (21) — chunker (boundaries/CJK/hard-split/12-chunk ceiling), WAV header field-by-field + duration math, container sniffing (wav/webm ok; mp3/m4a/flac/text rejected), persistAudioUpload real-fs round-trip (wav stored owner-scoped, webm magic, honest rejections, cap=25MiB). Suite 170 -> 191 pass / 0 fail.
+   271→- E2E API MATRIX (scripts/e2e-gangzii.sh, real preview origin, browser fetch-metadata): register/session 200; products 5 items gangzii available; health partial:true; availability 5/7 true + music/tools false; TTS job -> completed RIFF WAV ffprobe pcm_s16le/24000/1 (433KB, 9s); oversize 400; transcribe round-trip real transcript (tail verbatim; product name homophoned by recognizer — measured, not mocked); WAV->MP3 real libmp3lame (ID3 magic); fake upload 422 UNSUPPORTED_CONTENT; lyrics real 1172-char structured song; music truthful NO_BACKEND + unsupported attempt recorded; live turn real conversational reply; DELETE removes files (dir empty) + 404 after; no-cookie 401; cross-site 403.
+   272→- BROWSER E2E (real preview origin, fresh accounts): landing "Five flagship"; sidebar PRODUCTS shows GANGZII; dashboard card amber "Partial" with probe latency; card click AND sidebar click AND refresh-on-#gangzii all render the workspace (previously blank); all 4 tabs render with honest states; in-browser TTS job completed with player/Download/Regenerate/Delete; mobile 390px drawer navigation to GANGZII works; RIISHE/JAZMII/CODE GIFTZ/LAXII render unchanged; zero page errors. Back/forward verified across views after the hashchange fix.
+   273→- GATES: tsc --noEmit 0; bun test 191/0; eslint clean; next build success (all /api/gangzii/* routes registered). Dev server restarted after production build clobbered it (health 200).
+   274→
+   275→Stage Summary:
+   276→- Root causes were three missing wiring points (view case, sidebar entry, health entry) on top of an UNIMPLEMENTED product — the catalog/registry promised a product that had no page, no API and no jobs. GANGZII is now a real four-studio workspace on the platform's existing job/queue/storage/auth/router infrastructure: every enabled control hits a verified backend, every missing worker renders as an explained unavailable state, and status badges reflect measured probes ("Partial" where music/tools lack workers). 191/191 unit tests, all four gates green, full API + browser E2E matrices passed through the user's real preview origin.
+   277→

@@ -1,0 +1,750 @@
+     1→'use client'
+     2→
+     3→/**
+     4→ * BEAN Intelligence — RIISHE workspace (conversational AI).
+     5→ *
+     6→ * Answer-first reading experience: the response is clean natural prose; when
+     7→ * the server really retrieved evidence, sources stay behind a subtle
+     8→ * "Sources" toggle and inline citations render as concise clickable source
+     9→ * names (no numeric markers, no badges, no internal pipeline diagnostics).
+    10→ *
+    11→ * Capability is automatic — there are NO Auto/Web/Off or sandbox toggles in
+    12→ * the composer. The server's freshness policy retrieves when a question
+    13→ * needs current information, and the server-side tool policy executes code
+    14→ * only when a task genuinely needs it. Real orchestration events drive the
+    15→ * status line: "Searching the web…" appears only when search actually runs.
+    16→ *
+    17→ * The greeting for a genuinely new, empty conversation is rendered locally —
+    18→ * immediately, without any model or search request — and never enters the
+    19→ * conversation history or the request payload.
+    20→ */
+    21→import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+    22→import { Button } from '@/components/ui/button'
+    23→import { Textarea } from '@/components/ui/textarea'
+    24→import { ScrollArea } from '@/components/ui/scroll-area'
+    25→import { Markdown, Spinner, timeAgo, beanFetch, EmptyState } from './shared'
+    26→import { cn } from '@/lib/utils'
+    27→import { linkifyCitations } from '@/lib/riishe/citation-view'
+    28→import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+    29→import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+    30→import {
+    31→  Plus,
+    32→  Send,
+    33→  Trash2,
+    34→  MessageSquareText,
+    35→  AlertTriangle,
+    36→  Globe,
+    37→  ExternalLink,
+    38→  ChevronDown,
+    39→  Paperclip,
+    40→  FileText,
+    41→  X,
+    42→  Square,
+    43→  RefreshCw,
+    44→  Copy,
+    45→  Check,
+    46→  Terminal,
+    47→} from 'lucide-react'
+    48→
+    49→interface Conv { id: string; title: string; messages: number; updatedAt: string }
+    50→interface SourceView {
+    51→  id: number
+    52→  title: string
+    53→  url: string
+    54→  hostName: string
+    55→  date: string | null
+    56→  official: boolean
+    57→  pageRead: boolean
+    58→}
+    59→interface MsgMeta {
+    60→  states: string[]
+    61→  sources: SourceView[]
+    62→  degraded: string[]
+    63→  retrievedAt?: string
+    64→}
+    65→interface FileMeta {
+    66→  id: string
+    67→  name: string
+    68→  kind: string
+    69→  mime: string
+    70→  size: number
+    71→  status: 'ready' | 'unsupported' | 'failed'
+    72→  characters?: number
+    73→  truncated?: boolean
+    74→  note?: string
+    75→}
+    76→interface Msg {
+    77→  id: string
+    78→  role: 'user' | 'assistant'
+    79→  content: string
+    80→  partial?: boolean
+    81→  pending?: boolean
+    82→  meta?: MsgMeta
+    83→}
+    84→
+    85→const WELCOME =
+    86→  "Hi! I'm RIISHE, your AI assistant from BEAN Intelligence. How can I help you today?"
+    87→
+    88→/** Files the backend can actually analyze today (for the picker title only). */
+    89→const CAPABILITY_HINT =
+    90→  'Documents, data, code, images, audio/video and archives — processed by capability'
+    91→
+    92→function useCopy(): [boolean, (text: string) => void] {
+    93→  const [copied, setCopied] = useState(false)
+    94→  const copy = useCallback((text: string) => {
+    95→    const done = () => {
+    96→      setCopied(true)
+    97→      setTimeout(() => setCopied(false), 1600)
+    98→    }
+    99→    if (navigator.clipboard?.writeText) {
+   100→      navigator.clipboard.writeText(text).then(done).catch(done)
+   101→    } else {
+   102→      const ta = document.createElement('textarea')
+   103→      ta.value = text
+   104→      document.body.appendChild(ta)
+   105→      ta.select()
+   106→      document.execCommand('copy')
+   107→      document.body.removeChild(ta)
+   108→      done()
+   109→    }
+   110→  }, [])
+   111→  return [copied, copy]
+   112→}
+   113→
+   114→/** Code block with real syntax highlighting and a working copy button. */
+   115→function CodeBlock({ code, lang }: { code: string; lang?: string }) {
+   116→  const [copied, copy] = useCopy()
+   117→  return (
+   118→    <div className="group/code relative my-2 overflow-hidden rounded-[10px] border border-[rgba(212,175,55,0.18)]">
+   119→      <div className="flex items-center justify-between bg-black/60 px-3 py-1">
+   120→        <span className="text-[10px] uppercase tracking-wider text-white/35">{lang || 'code'}</span>
+   121→        <button
+   122→          onClick={() => copy(code)}
+   123→          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 transition-colors hover:bg-white/10 hover:text-white/80"
+   124→          aria-label="Copy code"
+   125→        >
+   126→          {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+   127→          {copied ? 'Copied' : 'Copy'}
+   128→        </button>
+   129→      </div>
+   130→      <SyntaxHighlighter
+   131→        language={lang || 'text'}
+   132→        style={vscDarkPlus}
+   133→        customStyle={{ margin: 0, background: '#0c0c0f', fontSize: '12.5px', padding: '12px 14px' }}
+   134→        wrapLongLines={false}
+   135→      >
+   136→        {code}
+   137→      </SyntaxHighlighter>
+   138→    </div>
+   139→  )
+   140→}
+   141→
+   142→function formatBytes(n: number): string {
+   143→  if (n < 1024) return `${n} B`
+   144→  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+   145→  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+   146→}
+   147→
+   148→export function Riishe() {
+   149→  const [conversations, setConversations] = useState<Conv[]>([])
+   150→  const [activeId, setActiveId] = useState<string | null>(null)
+   151→  const [messages, setMessages] = useState<Msg[]>([])
+   152→  const [input, setInput] = useState('')
+   153→  const [streaming, setStreaming] = useState(false)
+   154→  const [researching, setResearching] = useState(false)
+   155→  const [runningTool, setRunningTool] = useState<string | null>(null)
+   156→  const [error, setError] = useState<string | null>(null)
+   157→  const [files, setFiles] = useState<FileMeta[]>([])
+   158→  const [uploadingCount, setUploadingCount] = useState(0)
+   159→  const [dragOver, setDragOver] = useState(false)
+   160→  const endRef = useRef<HTMLDivElement>(null)
+   161→  const streamedRef = useRef('')
+   162→  const abortRef = useRef<AbortController | null>(null)
+   163→  const fileInputRef = useRef<HTMLInputElement>(null)
+   164→
+   165→  const MAX_FILES = 3
+   166→
+   167→  const loadConversations = useCallback(async () => {
+   168→    try {
+   169→      const d = await beanFetch<{ conversations: Conv[] }>('/api/riishe/chat')
+   170→      setConversations(d.conversations)
+   171→    } catch { /* non-fatal */ }
+   172→  }, [])
+   173→
+   174→  useEffect(() => { void loadConversations() }, [loadConversations])
+   175→
+   176→  useEffect(() => {
+   177→    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+   178→  }, [messages, streaming, researching, runningTool])
+   179→
+   180→  async function openConversation(id: string) {
+   181→    setActiveId(id)
+   182→    setError(null)
+   183→    setFiles([])
+   184→    try {
+   185→      const d = await beanFetch<{
+   186→        conversation: { messages: Array<{ id: string; role: string; content: string; metadata?: MsgMeta | null }> }
+   187→      }>(`/api/riishe/conversations/${id}`)
+   188→      setMessages(
+   189→        d.conversation.messages.map((m) => ({
+   190→          id: m.id,
+   191→          role: m.role as 'user' | 'assistant',
+   192→          content: m.content,
+   193→          meta: m.metadata ?? undefined,
+   194→        })),
+   195→      )
+   196→    } catch (e) {
+   197→      setError((e as Error).message)
+   198→    }
+   199→  }
+   200→
+   201→  async function deleteConversation(id: string) {
+   202→    try {
+   203→      await beanFetch(`/api/riishe/conversations/${id}`, { method: 'DELETE' })
+   204→      if (activeId === id) { setActiveId(null); setMessages([]) }
+   205→      void loadConversations()
+   206→    } catch (e) {
+   207→      setError((e as Error).message)
+   208→    }
+   209→  }
+   210→
+   211→  function newConversation() {
+   212→    setActiveId(null)
+   213→    setMessages([])
+   214→    setError(null)
+   215→    setFiles([])
+   216→  }
+   217→
+   218→  async function uploadOne(file: File) {
+   219→    const form = new FormData()
+   220→    form.append('file', file)
+   221→    const res = await fetch('/api/riishe/documents', { method: 'POST', body: form })
+   222→    const data = await res.json().catch(() => ({}))
+   223→    if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
+   224→    if (!res.ok && res.status !== 415) {
+   225→      throw new Error(data?.error?.message ?? `Upload failed (${res.status})`)
+   226→    }
+   227→    if (res.status === 415 && !data?.document) {
+   228→      // Unsafe or rejected outright — surface the server's actionable reason.
+   229→      throw new Error(data?.error?.message ?? 'This file cannot be processed.')
+   230→    }
+   231→    setFiles((prev) => [...prev, data.document as FileMeta].slice(0, MAX_FILES))
+   232→    if (data.document?.status === 'unsupported') {
+   233→      setError(data.document.note ?? 'This file type cannot be analyzed yet — it stays attached but adds nothing to the answer.')
+   234→    }
+   235→  }
+   236→
+   237→  async function uploadFiles(list: FileList | File[]) {
+   238→    const incoming = Array.from(list)
+   239→    if (incoming.length === 0 || uploadingCount > 0) return
+   240→    const room = MAX_FILES - files.length
+   241→    if (room <= 0) {
+   242→      setError(`Up to ${MAX_FILES} attachments per message.`)
+   243→      return
+   244→    }
+   245→    setError(null)
+   246→    setUploadingCount(incoming.length)
+   247→    const batch = incoming.slice(0, room)
+   248→    let failures = 0
+   249→    for (const f of batch) {
+   250→      try {
+   251→        await uploadOne(f)
+   252→      } catch (e) {
+   253→        failures += 1
+   254→        setError((e as Error).message)
+   255→      } finally {
+   256→        setUploadingCount((c) => Math.max(0, c - 1))
+   257→      }
+   258→    }
+   259→    if (failures > 0 && batch.length > failures) {
+   260→      setError('Some files were rejected — the message explains each failure.')
+   261→    }
+   262→  }
+   263→
+   264→  function stopGeneration() {
+   265→    abortRef.current?.abort()
+   266→  }
+   267→
+   268→  function regenerate() {
+   269→    if (streaming) return
+   270→    const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+   271→    if (!lastUser) return
+   272→    // Send on the next tick with the restored input.
+   273→    setTimeout(() => void send(lastUser.content, true), 0)
+   274→  }
+   275→
+   276→  async function send(overrideMessage?: string, retry = false) {
+   277→    const message = (overrideMessage ?? input).trim()
+   278→    if (!message || streaming) return
+   279→    if (overrideMessage === undefined) setInput('')
+   280→    setError(null)
+   281→    setStreaming(true)
+   282→    setResearching(false)
+   283→    setRunningTool(null)
+   284→    streamedRef.current = ''
+   285→
+   286→    const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: message }
+   287→    const asstId = `a-${Date.now()}`
+   288→    setMessages((prev) => [...prev, userMsg, { id: asstId, role: 'assistant', content: '', pending: true }])
+   289→
+   290→    const controller = new AbortController()
+   291→    abortRef.current = controller
+   292→    const attachable = files.filter((f) => f.status === 'ready')
+   293→
+   294→    try {
+   295→      const res = await fetch(`/api/riishe/chat?stream=1${activeId ? `&conversationId=${activeId}` : ''}`, {
+   296→        method: 'POST',
+   297→        headers: { 'content-type': 'application/json' },
+   298→        body: JSON.stringify({
+   299→          message,
+   300→          conversationId: activeId ?? undefined,
+   301→          documentIds: attachable.length > 0 ? attachable.map((d) => d.id) : undefined,
+   302→          retry,
+   303→        }),
+   304→        signal: controller.signal,
+   305→      })
+   306→      if (!res.ok || !res.body) {
+   307→        // Keep the global identity in sync: a 401 here means the session is
+   308→        // gone server-side; drop the signed-in shell immediately.
+   309→        if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
+   310→        const data = await res.json().catch(() => ({}))
+   311→        throw new Error(data?.error?.message ?? `Request failed (${res.status})`)
+   312→      }
+   313→      const reader = res.body.getReader()
+   314→      const decoder = new TextDecoder()
+   315→      let buffer = ''
+   316→      let convId: string | null = activeId
+   317→      let failed = false
+   318→
+   319→      while (true) {
+   320→        const { done, value } = await reader.read()
+   321→        if (done) break
+   322→        buffer += decoder.decode(value, { stream: true })
+   323→        const lines = buffer.split('\n')
+   324→        buffer = lines.pop() ?? ''
+   325→        for (const line of lines) {
+   326→          if (!line.startsWith('data: ')) continue
+   327→          let evt: {
+   328→            delta?: string
+   329→            reset?: boolean
+   330→            done?: boolean
+   331→            error?: string
+   332→            conversationId?: string
+   333→            partial?: boolean
+   334→            stage?: 'researching' | 'tools' | 'solving' | 'verifying'
+   335→            tool?: { name: string; status: 'started' | 'done' | 'failed' }
+   336→            meta?: MsgMeta
+   337→          }
+   338→          try { evt = JSON.parse(line.slice(6)) } catch { continue }
+   339→          if (evt.conversationId) convId = evt.conversationId
+   340→          if (evt.stage === 'researching') setResearching(true)
+   341→          if (evt.stage === 'tools') { setResearching(false); setRunningTool('working') }
+   342→          if (evt.stage === 'solving' || evt.stage === 'verifying') { setResearching(false); setRunningTool(null) }
+   343→          if (evt.tool) {
+   344→            if (evt.tool.status === 'started') setRunningTool(evt.tool.name)
+   345→            else setRunningTool(null)
+   346→          }
+   347→          if (evt.reset) {
+   348→            // Reset protocol: a verification rewrite replaced the streamed
+   349→            // draft — clear it so the final answer REPLACES, never appends.
+   350→            streamedRef.current = ''
+   351→            setMessages((prev) =>
+   352→              prev.map((m) => (m.id === asstId ? { ...m, content: '', pending: true } : m)),
+   353→            )
+   354→          }
+   355→          if (evt.error) { failed = true; setError(evt.error) }
+   356→          if (evt.delta) {
+   357→            streamedRef.current += evt.delta
+   358→            setMessages((prev) =>
+   359→              prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current, pending: false } : m)),
+   360→            )
+   361→          }
+   362→          if (evt.done) {
+   363→            setResearching(false)
+   364→            setRunningTool(null)
+   365→            if (convId && !activeId) setActiveId(convId)
+   366→            if (evt.meta) {
+   367→              setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, meta: evt.meta } : m)))
+   368→            }
+   369→          }
+   370→        }
+   371→      }
+   372→      // If nothing streamed (failed, or the server reported an empty partial),
+   373→      // drop the empty assistant bubble — the error banner already explains
+   374→      // what happened, and a perpetual "thinking" indicator would be a lie.
+   375→      if (streamedRef.current === '') {
+   376→        setMessages((prev) => prev.filter((m) => m.id !== asstId))
+   377→      } else if (failed) {
+   378→        setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
+   379→      }
+   380→      void loadConversations()
+   381→    } catch (e) {
+   382→      if ((e as Error).name === 'AbortError') {
+   383→        // User pressed stop: keep what arrived and label it honestly.
+   384→        if (streamedRef.current !== '') {
+   385→          setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
+   386→        } else {
+   387→          setMessages((prev) => prev.filter((m) => m.id !== asstId))
+   388→        }
+   389→      } else {
+   390→        setError((e as Error).message)
+   391→        setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
+   392→      }
+   393→    } finally {
+   394→      setStreaming(false)
+   395→      setResearching(false)
+   396→      setRunningTool(null)
+   397→      abortRef.current = null
+   398→      setMessages((prev) => prev.map((m) => ({ ...m, pending: false })))
+   399→    }
+   400→  }
+   401→
+   402→  const citationComponents = () => ({
+   403→    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+   404→      if (href?.startsWith('#bean-src-')) {
+   405→        return (
+   406→          <a
+   407→            href={href}
+   408→            className="mx-0.5 rounded bg-[rgba(212,175,55,0.14)] px-1 text-[11px] text-[#e6c25a] no-underline hover:bg-[rgba(212,175,55,0.28)] hover:text-[#f0c75e]"
+   409→            title="Show source"
+   410→          >
+   411→            {children}
+   412→          </a>
+   413→        )
+   414→      }
+   415→      return (
+   416→        <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#f0c75e] underline decoration-[rgba(212,175,55,0.4)] hover:decoration-[#f0c75e]">
+   417→          {children}
+   418→        </a>
+   419→      )
+   420→    },
+   421→    pre: ({ children }: { children?: React.ReactNode }) => {
+   422→      // React-markdown nests <code> inside <pre>; extract for highlighting.
+   423→      const child = Array.isArray(children) ? children[0] : children
+   424→      const props = (child as { props?: { className?: string; children?: ReactNode } })?.props
+   425→      const lang = props?.className?.replace(/language-/, '') || undefined
+   426→      const code = String(props?.children ?? '').replace(/\n$/, '')
+   427→      if (code === '') return <pre>{children}</pre>
+   428→      return <CodeBlock code={code} lang={lang} />
+   429→    },
+   430→  })
+   431→
+   432→  const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant' && !m.pending)?.id
+   433→  // Genuinely new, empty conversation → local greeting. Rendered instantly,
+   434→  // never sent to the server, never written into history or storage.
+   435→  const showWelcome = messages.length === 0 && activeId === null
+   436→
+   437→  return (
+   438→    <div
+   439→      className="flex h-[calc(100vh-3.5rem-2rem)] min-h-[540px] lg:h-[calc(100vh-3.5rem-1.5rem)]"
+   440→      onDragOver={(e) => {
+   441→        e.preventDefault()
+   442→        setDragOver(true)
+   443→      }}
+   444→      onDragLeave={(e) => {
+   445→        if (e.currentTarget === e.target) setDragOver(false)
+   446→      }}
+   447→      onDrop={(e) => {
+   448→        e.preventDefault()
+   449→        setDragOver(false)
+   450→        if (e.dataTransfer?.files?.length) void uploadFiles(e.dataTransfer.files)
+   451→      }}
+   452→    >
+   453→      {/* Conversation rail */}
+   454→      <aside className="hidden w-60 shrink-0 flex-col border-r border-[rgba(212,175,55,0.1)] md:flex">
+   455→        <div className="p-3">
+   456→          <Button onClick={newConversation} className="w-full justify-start bg-[rgba(212,175,55,0.12)] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.2)]" variant="outline">
+   457→            <Plus className="mr-1.5 h-4 w-4" /> New conversation
+   458→          </Button>
+   459→        </div>
+   460→        <ScrollArea className="flex-1 px-2 pb-3">
+   461→          {conversations.length === 0 ? (
+   462→            <p className="px-2 py-6 text-center text-xs text-white/30">No conversations yet</p>
+   463→          ) : (
+   464→            conversations.map((c) => (
+   465→              <div
+   466→                key={c.id}
+   467→                className={cn(
+   468→                  'group mb-0.5 flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-[13px] transition-colors',
+   469→                  activeId === c.id ? 'bg-[rgba(212,175,55,0.1)] text-[#f0c75e]' : 'text-white/60 hover:bg-white/5',
+   470→                )}
+   471→                onClick={() => openConversation(c.id)}
+   472→              >
+   473→                <div className="min-w-0">
+   474→                  <div className="truncate">{c.title}</div>
+   475→                  <div className="text-[10px] text-white/30">{c.messages} msgs · {timeAgo(c.updatedAt)}</div>
+   476→                </div>
+   477→                <button
+   478→                  className="ml-2 hidden text-white/30 hover:text-red-400 group-hover:block"
+   479→                  onClick={(e) => { e.stopPropagation(); void deleteConversation(c.id) }}
+   480→                  aria-label={`Delete ${c.title}`}
+   481→                >
+   482→                  <Trash2 className="h-3.5 w-3.5" />
+   483→                </button>
+   484→              </div>
+   485→            ))
+   486→          )}
+   487→        </ScrollArea>
+   488→      </aside>
+   489→
+   490→      {/* Chat column */}
+   491→      <div className="flex min-w-0 flex-1 flex-col">
+   492→        <div className="flex items-center gap-2 border-b border-[rgba(212,175,55,0.1)] px-5 py-3">
+   493→          <MessageSquareText className="h-4 w-4 text-[#d4af37]" />
+   494→          <div className="text-sm font-semibold tracking-wide">RIISHE</div>
+   495→          <span className="text-xs text-white/35">Conversational AI · live sources when needed</span>
+   496→        </div>
+   497→
+   498→        <div className="bean-scroll relative flex-1 overflow-y-auto px-5 py-4">
+   499→          {messages.length === 0 && !showWelcome ? (
+   500→            <EmptyState
+   501→              icon={<MessageSquareText className="h-10 w-10" />}
+   502→              title="Start a conversation"
+   503→              hint="Ask questions, request derivations, code help or research on current topics. RIISHE searches live sources when a question needs them and verifies its arithmetic before answering."
+   504→            />
+   505→          ) : null}
+   506→          {showWelcome ? (
+   507→            <div className="mx-auto max-w-3xl">
+   508→              <div className="flex justify-start">
+   509→                <div className="bean-glass max-w-[85%] rounded-2xl px-4 py-3 text-white/85">
+   510→                  <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed">{WELCOME}</p>
+   511→                </div>
+   512→              </div>
+   513→              <div className="mt-6 grid gap-2 sm:grid-cols-2">
+   514→                {[
+   515→                  'Research a current topic with live sources',
+   516→                  'Explain or analyze an attached document',
+   517→                  'Work through a math problem step by step',
+   518→                  'Draft, rewrite or summarize text',
+   519→                ].map((s) => (
+   520→                  <button
+   521→                    key={s}
+   522→                    onClick={() => { setInput(s.replace(/ with live sources| step by step$/, '')) }}
+   523→                    className="rounded-lg border border-[rgba(212,175,55,0.14)] bg-black/20 px-3 py-2 text-left text-xs text-white/55 transition-colors hover:border-[rgba(212,175,55,0.35)] hover:text-white/80"
+   524→                  >
+   525→                    {s}
+   526→                  </button>
+   527→                ))}
+   528→              </div>
+   529→            </div>
+   530→          ) : null}
+   531→          {messages.length > 0 ? (
+   532→            <div className="mx-auto max-w-3xl space-y-4">
+   533→              {messages.map((m) => (
+   534→                <div key={m.id} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+   535→                  <div
+   536→                    className={cn(
+   537→                      'max-w-[85%] rounded-2xl px-4 py-3',
+   538→                      m.role === 'user'
+   539→                        ? 'bg-[rgba(212,175,55,0.14)] text-white/90'
+   540→                        : 'bean-glass text-white/85',
+   541→                    )}
+   542→                  >
+   543→                    {m.role === 'user' ? (
+   544→                      <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed">{m.content}</p>
+   545→                    ) : m.content ? (
+   546→                      <>
+   547→                        <Markdown content={linkifyCitations(m.content, m.meta?.sources)} components={citationComponents()} />
+   548→                        {m.pending ? <Spinner className="ml-1 mt-1" /> : null}
+   549→                        {m.partial ? (
+   550→                          <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
+   551→                            <AlertTriangle className="h-3 w-3" /> Incomplete — the stream was stopped or ended early
+   552→                          </div>
+   553→                        ) : null}
+   554→                        {m.meta ? <AnswerMeta meta={m.meta} /> : null}
+   555→                        {m.id === lastAssistantId && !m.pending ? (
+   556→                          <div className="mt-2 flex items-center gap-2 border-t border-[rgba(212,175,55,0.12)] pt-2">
+   557→                            <CopyMessageButton content={m.content} />
+   558→                            <button
+   559→                              onClick={regenerate}
+   560→                              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 transition-colors hover:bg-white/10 hover:text-white/80"
+   561→                            >
+   562→                              <RefreshCw className="h-3 w-3" /> Regenerate
+   563→                            </button>
+   564→                          </div>
+   565→                        ) : null}
+   566→                      </>
+   567→                    ) : researching ? (
+   568→                      <span className="inline-flex items-center gap-2 text-xs text-white/50">
+   569→                        <Globe className="h-3.5 w-3.5 animate-pulse text-[#d4af37]" /> Searching the web…
+   570→                      </span>
+   571→                    ) : runningTool ? (
+   572→                      <span className="inline-flex items-center gap-2 text-xs text-white/50">
+   573→                        <Terminal className="h-3.5 w-3.5 animate-pulse text-[#d4af37]" />
+   574→                        {runningTool === 'working' ? 'Working…' : 'Running tools…'}
+   575→                      </span>
+   576→                    ) : (
+   577→                      <span className="inline-flex items-center gap-2 text-xs text-white/40">
+   578→                        <Spinner /> Thinking…
+   579→                      </span>
+   580→                    )}
+   581→                  </div>
+   582→                </div>
+   583→              ))}
+   584→              <div ref={endRef} />
+   585→            </div>
+   586→          ) : null}
+   587→        </div>
+   588→
+   589→        {error ? (
+   590→          <div className="mx-5 mb-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>
+   591→        ) : null}
+   592→
+   593→        {/* Attachments */}
+   594→        {files.length > 0 || uploadingCount > 0 ? (
+   595→          <div className="mx-auto flex w-full max-w-3xl flex-wrap gap-2 px-4 pb-1">
+   596→            {files.map((d) => (
+   597→              <span
+   598→                key={d.id}
+   599→                className={cn(
+   600→                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]',
+   601→                  d.status === 'ready'
+   602→                    ? 'border-[rgba(212,175,55,0.3)] bg-[rgba(212,175,55,0.08)] text-[#f0c75e]'
+   603→                    : 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+   604→                )}
+   605→                title={d.note ?? (d.status === 'ready' ? 'Ready — content will be analyzed with the message' : '')}
+   606→              >
+   607→                <FileText className="h-3 w-3" />
+   608→                {d.name}
+   609→                <span className="text-white/35">{formatBytes(d.size)}</span>
+   610→                {d.status === 'ready' && typeof d.characters === 'number' ? (
+   611→                  <span className="text-white/35">· {d.characters.toLocaleString()} chars</span>
+   612→                ) : null}
+   613→                {d.truncated ? <span className="text-amber-300">· truncated</span> : null}
+   614→                {d.status === 'unsupported' ? <span>· can't analyze{d.note ? `: ${d.note.slice(0, 60)}` : ''}</span> : null}
+   615→                <button
+   616→                  onClick={() => setFiles((prev) => prev.filter((x) => x.id !== d.id))}
+   617→                  className="ml-0.5 text-white/40 hover:text-white/80"
+   618→                  aria-label={`Remove ${d.name}`}
+   619→                >
+   620→                  <X className="h-3 w-3" />
+   621→                </button>
+   622→              </span>
+   623→            ))}
+   624→            {uploadingCount > 0 ? (
+   625→              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/30 px-2.5 py-1 text-[11px] text-white/50">
+   626→                <Spinner className="h-3 w-3" /> uploading {uploadingCount} file{uploadingCount > 1 ? 's' : ''}…
+   627→              </span>
+   628→            ) : null}
+   629→          </div>
+   630→        ) : null}
+   631→
+   632→        <div className="border-t border-[rgba(212,175,55,0.1)] p-4">
+   633→          <div className={cn('mx-auto max-w-3xl rounded-xl transition-colors', dragOver && 'bg-[rgba(212,175,55,0.06)] outline-1 outline-dashed outline-[rgba(212,175,55,0.4)]')}>
+   634→            <div className="mb-2 flex items-center gap-2">
+   635→              <button
+   636→                onClick={() => fileInputRef.current?.click()}
+   637→                disabled={uploadingCount > 0 || files.length >= MAX_FILES}
+   638→                className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(212,175,55,0.25)] px-2.5 py-1.5 text-[11px] text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 disabled:opacity-50"
+   639→                title={`Attach files — up to ${MAX_FILES}. ${CAPABILITY_HINT}.`}
+   640→              >
+   641→                <Paperclip className="h-3.5 w-3.5" />
+   642→                Attach files
+   643→              </button>
+   644→              <input
+   645→                ref={fileInputRef}
+   646→                type="file"
+   647→                multiple
+   648→                className="hidden"
+   649→                onChange={(e) => {
+   650→                  if (e.target.files?.length) void uploadFiles(e.target.files)
+   651→                  if (fileInputRef.current) fileInputRef.current.value = ''
+   652→                }}
+   653→              />
+   654→              <span className="text-[10px] text-white/30">or drop files here</span>
+   655→            </div>
+   656→
+   657→            <div className="flex items-end gap-2">
+   658→              <Textarea
+   659→                value={input}
+   660→                onChange={(e) => setInput(e.target.value)}
+   661→                onKeyDown={(e) => {
+   662→                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() }
+   663→                }}
+   664→                placeholder="Message RIISHE… (Enter to send, Shift+Enter for a new line)"
+   665→                rows={Math.min(4, Math.max(1, input.split('\n').length))}
+   666→                maxLength={12000}
+   667→                disabled={streaming}
+   668→                className="max-h-40 min-h-[46px] resize-none bg-black/30"
+   669→                aria-label="Message RIISHE"
+   670→              />
+   671→              {streaming ? (
+   672→                <Button onClick={stopGeneration} className="h-[46px] bg-[rgba(212,175,55,0.15)] px-4 text-[#f0c75e] hover:bg-[rgba(212,175,55,0.25)]" variant="outline" aria-label="Stop generating">
+   673→                  <Square className="h-4 w-4" />
+   674→                </Button>
+   675→              ) : (
+   676→                <Button onClick={() => void send()} disabled={!input.trim()} className="h-[46px] bg-[#d4af37] px-4 text-black hover:bg-[#e6c25a]" aria-label="Send message">
+   677→                  <Send className="h-4 w-4" />
+   678→                </Button>
+   679→              )}
+   680→            </div>
+   681→          </div>
+   682→        </div>
+   683→      </div>
+   684→    </div>
+   685→  )
+   686→}
+   687→
+   688→function CopyMessageButton({ content }: { content: string }) {
+   689→  const [copied, copy] = useCopy()
+   690→  return (
+   691→    <button
+   692→      onClick={() => copy(content)}
+   693→      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 transition-colors hover:bg-white/10 hover:text-white/80"
+   694→      aria-label="Copy response"
+   695→    >
+   696→      {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+   697→      {copied ? 'Copied' : 'Copy response'}
+   698→    </button>
+   699→  )
+   700→}
+   701→
+   702→/**
+   703→ * Answer-first evidence: NO state badges, NO verification summary, NO tool
+   704→ * chips, NO "last checked" telemetry in the reading flow. What remains:
+   705→ *  - a short honest uncertainty notice when live verification failed;
+   706→ *  - a subtle collapsed "Sources" toggle listing what was really retrieved.
+   707→ */
+   708→function AnswerMeta({ meta }: { meta: MsgMeta }) {
+   709→  const sources = meta.sources ?? []
+   710→  const researchFailed = meta.states.includes('TOOL_UNAVAILABLE')
+   711→
+   712→  if (!researchFailed && sources.length === 0) return null
+   713→
+   714→  return (
+   715→    <div className="mt-2 border-t border-[rgba(212,175,55,0.12)] pt-2">
+   716→      {researchFailed ? (
+   717→        <div className="text-[11px] text-amber-300/90">
+   718→          Live sources could not be checked for this answer — treat current details as unverified.
+   719→        </div>
+   720→      ) : null}
+   721→
+   722→      {sources.length > 0 ? (
+   723→        <details className="group mt-1">
+   724→          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11px] text-white/40 hover:text-white/65">
+   725→            <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+   726→            Sources ({sources.length})
+   727→          </summary>
+   728→          <ul className="mt-1.5 space-y-1 pl-4">
+   729→            {sources.map((s) => (
+   730→              <li key={s.id} id={`bean-src-${s.id}`} className="scroll-mt-6 text-[11px] leading-snug">
+   731→                <a
+   732→                  href={s.url}
+   733→                  target="_blank"
+   734→                  rel="noopener noreferrer"
+   735→                  className="text-[#f0c75e] hover:underline"
+   736→                >
+   737→                  {s.title.slice(0, 90)}
+   738→                  <ExternalLink className="ml-1 inline h-2.5 w-2.5" />
+   739→                </a>
+   740→                <span className="text-white/35"> — {s.hostName.replace(/^www\./, '')}</span>
+   741→                {s.date ? <span className="ml-1 text-white/30">({s.date.slice(0, 10)})</span> : null}
+   742→              </li>
+   743→            ))}
+   744→          </ul>
+   745→        </details>
+   746→      ) : null}
+   747→    </div>
+   748→  )
+   749→}
+   750→

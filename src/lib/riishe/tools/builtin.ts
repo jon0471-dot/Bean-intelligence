@@ -58,7 +58,8 @@ export const webSearchTool: ToolDescriptor<z.infer<typeof searchInput>> = {
     const shown = results.slice(0, MAX_SEARCH_OUTPUT)
     // Allocate ids ONCE and use the same number in the displayed line AND the
     // returned sources, so what the model cites is exactly what the
-    // orchestrator audits.
+    // orchestrator audits. The monotonic allocator prevents id collisions
+    // across multiple tool rounds in one turn.
     const offset = ctx.sourceIdOffset ?? 0
     const items = shown.map((r, i) => ({
       r,
@@ -102,7 +103,7 @@ export const readUrlTool: ToolDescriptor<z.infer<typeof readUrlInput>> = {
   validate(input) {
     return readUrlInput.parse(input)
   },
-  async execute({ url }, ctx): Promise<ToolResult> {
+  async execute({ url }): Promise<ToolResult> {
     // Only http(s); block anything exotic (file:, data:, internal hosts are
     // still resolvable by the provider, so scheme filtering is mandatory).
     const parsed = new URL(url)
@@ -110,15 +111,10 @@ export const readUrlTool: ToolDescriptor<z.infer<typeof readUrlInput>> = {
       return { ok: false, output: `Unsupported URL scheme: ${parsed.protocol}` }
     }
     const page = await readPage(url)
-    const offset = ctx.sourceIdOffset ?? 0
-    const id = ctx.allocateSourceId ? ctx.allocateSourceId() : offset + 1
     return {
       ok: true,
-      output: clip(
-        `[${id}] PAGE READ (cite as [${id}]): ${page.title}${page.publishedTime ? `\nPUBLISHED: ${page.publishedTime}` : '\nPUBLISHED: (no publication date found — do not claim it is recent)'}\n\n${page.text}`,
-        MAX_PAGE_CHARS,
-      ),
-      sources: [{ id, url, title: page.title, hostName: parsed.host, date: page.publishedTime, pageRead: true }],
+      output: clip(`TITLE: ${page.title}${page.publishedTime ? `\nPUBLISHED: ${page.publishedTime}` : ''}\n\n${page.text}`, MAX_PAGE_CHARS),
+      sources: [{ url, title: page.title, hostName: parsed.host, date: page.publishedTime, pageRead: true }],
     }
   },
 }

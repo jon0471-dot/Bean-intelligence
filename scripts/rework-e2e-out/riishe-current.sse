@@ -1,0 +1,324 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["What is the latest stable version of Node.js right now?"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"The","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" latest","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" stable","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" version","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" of","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" Node","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":".js","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" right","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" now","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" is","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" **","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"26","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":".","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"12","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":".","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"1","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"**,","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" as","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" indicated","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" by","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" the","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" npm","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" registry","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" [","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"4","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"].","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" This","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" is","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" a","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" recent","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" release","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" with","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" the","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" last","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" publication","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" being","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" about","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"2","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" days","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ago","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" according","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" to","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" the","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" source","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":".\n\n","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"For","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" context","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" Node","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":".js","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" follows","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" a","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" release","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" cycle","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" where","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":":\n","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"-","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" Odd","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"-number","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"ed","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" releases","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" (","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"like","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"19","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"21","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"25","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":")","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" are","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" current","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" releases","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" for","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" six","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" months","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" before","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" becoming","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" unsupported","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":".\n","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"-","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" Even","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"-number","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"ed","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" releases","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" (","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"like","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"20","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"22","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"24","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"26","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":")","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" move","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" to","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" LTS","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" (","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"Long","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"-T","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"erm","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" Support","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":")","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" status","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" after","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" their","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" six","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"-month","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" Current","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" phase","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" making","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" them","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" stable","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" for","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" general","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" use","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" [","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"1","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"].\n\n","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"Starting","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" with","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" Node","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":".js","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" ","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"27","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" the","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" cycle","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" will","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" shift","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" to","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" annual","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" releases","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":",","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" with","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" all","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" major","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" versions","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" becoming","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" LTS","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" after","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" their","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" Current","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" phase","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":" [","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"1","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"delta":"].","conversationId":"cmvria9w0000dr4tz29vjcqhb"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvria9w0000dr4tz29vjcqhb","durationMs":15347,"partial":false,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Node.js Releases","url":"https://nodejs.org/fr/about/previous-releases","hostName":"nodejs.org","date":null,"official":false,"pageRead":true},{"id":2,"title":"How to determine latest stable version of node from nvm?","url":"https://stackoverflow.com/questions/71902980/how-to-determine-latest-stable-version-of-node-from-nvm","hostName":"stackoverflow.com","date":null,"official":false,"pageRead":true},{"id":3,"title":"What is the most stable Node.js version?","url":"https://www.quora.com/What-is-the-most-stable-Node-js-version","hostName":"www.quora.com","date":null,"official":false,"pageRead":false},{"id":4,"title":"node","url":"https://www.npmjs.com/package/node","hostName":"www.npmjs.com","date":null,"official":false,"pageRead":false},{"id":5,"title":"Node.js 19 is now available!","url":"https://nodejs.org/en/blog/announcements/v19-release-announce","hostName":"nodejs.org","date":"Oct 18, 2022","official":false,"pageRead":false},{"id":6,"title":"Which version of Node should I use?","url":"https://www.reddit.com/r/node/comments/4sbpu1/which_version_of_node_should_i_use","hostName":"www.reddit.com","date":null,"official":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"source freshness","status":"passed","detail":"Newest retrieved source is dated 2022; the question is time-sensitive, so the answer may be out of date."}],"stages":[{"stage":"researching","durationMs":13342},{"stage":"verifying","durationMs":0}],"degraded":[],"retrievedAt":"2026-10-28T02:39:37.106Z"}}
+

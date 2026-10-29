@@ -20,7 +20,7 @@ export interface CitableSource {
   url: string
 }
 
-export interface CitationAudit {
+export interface CitationAudit<T extends CitableSource = CitableSource> {
   /** [n] references found in the answer text. */
   referencedIds: number[]
   /** [n] references that point to a source NOT in the evidence pack. */
@@ -28,7 +28,7 @@ export interface CitationAudit {
   /** URLs appearing in the answer that were never retrieved. */
   fabricatedUrls: string[]
   /** Sources actually cited (subset of the evidence pack). */
-  usedSources: CitableSource[]
+  usedSources: T[]
   /** True when evidence existed but the answer cites nothing. */
   uncitedEvidence: boolean
 }
@@ -74,7 +74,7 @@ function sameUrl(a: string, b: string): boolean {
   }
 }
 
-export function auditCitations(answer: string, sources: readonly CitableSource[]): CitationAudit {
+export function auditCitations<T extends CitableSource>(answer: string, sources: readonly T[]): CitationAudit<T> {
   const referencedIds = extractCitationIds(answer)
   const validIdSet = new Set(sources.map((s) => s.id))
   const invalidIds = referencedIds.filter((id) => !validIdSet.has(id))
@@ -94,7 +94,7 @@ export function auditCitations(answer: string, sources: readonly CitableSource[]
  * or the full evidence set when the model cited by URL instead of [n].
  * Fabricated URLs are never included.
  */
-export function buildRenderableSources(answer: string, sources: readonly CitableSource[]): CitableSource[] {
+export function buildRenderableSources<T extends CitableSource>(answer: string, sources: readonly T[]): T[] {
   const audit = auditCitations(answer, sources)
   if (audit.usedSources.length > 0) return audit.usedSources
   // URL-style citations: match sources whose URL appears in the answer.
@@ -124,17 +124,25 @@ function escapeRegExp(s: string): string {
 }
 
 /**
- * Deduplicate a source list by normalized URL (first occurrence wins) and
- * RENUMBER the kept sources 1..n in order of first appearance.
- *
- * Returns an idMap covering EVERY input id: kept sources map to their new
- * id, duplicates map to the id of the first occurrence of the same URL.
- * This is what makes compact deduped citation ids consistent: the model may
- * cite any id it was SHOWN (pack numbering, first or second search round);
- * the answer text is rewritten through the same map so the UI, the audit
- * and the stored metadata all agree on one canonical list.
+ * Canonical-URL dedupe for the source list: same host + path (ignoring
+ * www/protocol/query/hash/trailing slash) is the SAME page. Keeps the first
+ * (lowest id) occurrence so citation ids stay stable. Work-order contract:
+ * the Sources section never lists the same page twice.
  */
-export function dedupeSourcesByUrl<T extends { id: number; url: string }>(sources: readonly T[]): {
+export function dedupeSourcesByUrl<T extends { id: number; url: string }>(sources: T[]): T[] {
+  return dedupeSourcesWithMap(sources).kept
+}
+
+/**
+ * Deduplicate a source list by normalized URL, keeping the FIRST occurrence
+ * (lowest original id) and ITS id — ids stay stable so UI anchors and
+ * already-shown tool numbering never shift. The idMap covers EVERY input id:
+ * kept sources map to their own id, duplicates map to the id of the first
+ * occurrence of the same URL. The answer's [n] markers are rewritten through
+ * that map so the audit, the UI and the stored metadata agree on one
+ * canonical list without renumbering anything the model already saw.
+ */
+export function dedupeSourcesWithMap<T extends { id: number; url: string }>(sources: readonly T[]): {
   kept: T[]
   idMap: Map<number, number>
   duplicatesRemoved: number
@@ -142,18 +150,16 @@ export function dedupeSourcesByUrl<T extends { id: number; url: string }>(source
   const kept: T[] = []
   const byUrl = new Map<string, T>()
   const idMap = new Map<number, number>()
-  for (const s of sources) {
+  for (const s of [...sources].sort((a, b) => a.id - b.id)) {
     const key = normalizedUrlKey(s.url)
     const existing = key ? byUrl.get(key) : undefined
     if (existing) {
-      idMap.set(s.id, idMap.get(existing.id) ?? existing.id)
+      idMap.set(s.id, existing.id)
       continue
     }
-    const newId = kept.length + 1
-    const copy = { ...s, id: newId }
-    kept.push(copy)
-    if (key) byUrl.set(key, copy)
-    idMap.set(s.id, newId)
+    kept.push(s)
+    if (key) byUrl.set(key, s)
+    idMap.set(s.id, s.id)
   }
   return { kept, idMap, duplicatesRemoved: sources.length - kept.length }
 }

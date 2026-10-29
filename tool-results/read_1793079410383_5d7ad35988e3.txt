@@ -1,0 +1,1159 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→/**
+     4→     4→ * BEAN Intelligence — GANGZII workspace (voice, speech & audio).
+     5→     5→ *
+     6→     6→ * TRUTH POLICY: every control here maps to a REAL backend. Capabilities with
+     7→     7→ * no deployed worker (music generation, voice cloning, source separation,
+     8→     8→ * denoising) are rendered as clearly marked unavailable sections — they are
+     9→     9→ * never simulated. Live Voice is an honest TURN-BASED pipeline
+    10→    10→ * (record → ASR → BEAN conversation model → TTS), not a duplex stream.
+    11→    11→ */
+    12→    12→import { useCallback, useEffect, useRef, useState } from 'react'
+    13→    13→import { Button } from '@/components/ui/button'
+    14→    14→import { Textarea } from '@/components/ui/textarea'
+    15→    15→import { Slider } from '@/components/ui/slider'
+    16→    16→import { Progress } from '@/components/ui/progress'
+    17→    17→import {
+    18→    18→  beanFetch,
+    19→    19→  GoldBadge,
+    20→    20→  Spinner,
+    21→    21→  EmptyState,
+    22→    22→  StatusDot,
+    23→    23→  timeAgo,
+    24→    24→} from './shared'
+    25→    25→import { cn } from '@/lib/utils'
+    26→    26→import { GANGZII_VOICES, GANGZII_LIMITS } from '@/lib/registry/products'
+    27→    27→import {
+    28→    28→  AudioLines,
+    29→    29→  Mic,
+    30→    30→  Square,
+    31→    31→  Play,
+    32→    32→  Download,
+    33→    33→  Trash2,
+    34→    34→  RotateCcw,
+    35→    35→  Music,
+    36→    36→  FileAudio,
+    37→    37→  Wand2,
+    38→    38→  PenLine,
+    39→    39→  ShieldAlert,
+    40→    40→  Info,
+    41→    41→  CheckCircle2,
+    42→    42→  XCircle,
+    43→    43→  Clock,
+    44→    44→  Copy,
+    45→    45→  Loader2,
+    46→    46→} from 'lucide-react'
+    47→    47→
+    48→    48→const MAX_CHARS = GANGZII_LIMITS.maxCharsPerRequest
+    49→    49→
+    50→    50→// ---- types -----------------------------------------------------------------
+    51→    51→
+    52→    52→interface Capability {
+    53→    53→  available: boolean
+    54→    54→  detail: string
+    55→    55→  latencyMs: number | null
+    56→    56→  checkedAt: string
+    57→    57→}
+    58→    58→interface Availability {
+    59→    59→  available: boolean
+    60→    60→  partial: boolean
+    61→    61→  capabilities: Record<string, Capability>
+    62→    62→}
+    63→    63→interface TtsJob {
+    64→    64→  id: string
+    65→    65→  status: 'queued' | 'running' | 'completed' | 'failed'
+    66→    66→  progress: number
+    67→    67→  voice: string | null
+    68→    68→  speed: number | null
+    69→    69→  text: string | null
+    70→    70→  errorCode: string | null
+    71→    71→  errorMessage: string | null
+    72→    72→  audioUrl: string | null
+    73→    73→  chunks?: number
+    74→    74→  durationSec?: number
+    75→    75→  bytes?: number
+    76→    76→  format?: string
+    77→    77→  queuedAt: string
+    78→    78→}
+    79→    79→interface LabJob {
+    80→    80→  id: string
+    81→    81→  status: 'queued' | 'running' | 'completed' | 'failed'
+    82→    82→  progress: number
+    83→    83→  displayName: string
+    84→    84→  container: string | null
+    85→    85→  target?: string | null
+    86→    86→  errorCode: string | null
+    87→    87→  errorMessage: string | null
+    88→    88→  transcript?: string | null
+    89→    89→  audioUrl: string | null
+    90→    90→  bytes?: number
+    91→    91→  queuedAt: string
+    92→    92→}
+    93→    93→interface Turn {
+    94→    94→  id: string
+    95→    95→  transcript: string
+    96→    96→  reply: string
+    97→    97→  audioUrl: string | null
+    98→    98→  error: string | null
+    99→    99→}
+   100→   100→
+   101→   101→type TabId = 'voice' | 'song' | 'lab' | 'live'
+   102→   102→type LivePhase = 'idle' | 'recording' | 'transcribing' | 'thinking' | 'speaking'
+   103→   103→
+   104→   104→const TABS: Array<{ id: TabId; label: string; icon: React.ElementType }> = [
+   105→   105→  { id: 'voice', label: 'Voice Studio', icon: AudioLines },
+   106→   106→  { id: 'song', label: 'Song Studio', icon: Music },
+   107→   107→  { id: 'lab', label: 'Audio Lab', icon: FileAudio },
+   108→   108→  { id: 'live', label: 'Live Voice', icon: Mic },
+   109→   109→]
+   110→   110→
+   111→   111→async function pollJob<T extends { status: string; id: string }>(
+   112→   112→  id: string,
+   113→   113→  urlFor: (jobId: string) => string,
+   114→   114→  maxTries = 80,
+   115→   115→): Promise<T | null> {
+   116→   116→  for (let i = 0; i < maxTries; i++) {
+   117→   117→    await new Promise((r) => setTimeout(r, 1500))
+   118→   118→    try {
+   119→   119→      const d = await beanFetch<{ job: T }>(urlFor(id))
+   120→   120→      if (d.job.status === 'completed' || d.job.status === 'failed') return d.job
+   121→   121→    } catch {
+   122→   122→      return null
+   123→   123→    }
+   124→   124→  }
+   125→   125→  return null
+   126→   126→}
+   127→   127→
+   128→   128→function UnavailableBanner({ title, reason }: { title: string; reason: string }) {
+   129→   129→  return (
+   130→   130→    <div className="bean-glass mb-5 rounded-xl border-amber-500/25 p-4">
+   131→   131→      <div className="mb-1.5 flex items-center gap-2">
+   132→   132→        <ShieldAlert className="h-4 w-4 text-amber-400" />
+   133→   133→        <span className="text-sm font-semibold text-amber-300">{title}</span>
+   134→   134→      </div>
+   135→   135→      <p className="text-[13px] leading-relaxed text-white/60">{reason}</p>
+   136→   136→    </div>
+   137→   137→  )
+   138→   138→}
+   139→   139→
+   140→   140→// ---- workspace -------------------------------------------------------------
+   141→   141→
+   142→   142→export function Gangzii() {
+   143→   143→  const [tab, setTab] = useState<TabId>('voice')
+   144→   144→  const [availability, setAvailability] = useState<Availability | null>(null)
+   145→   145→
+   146→   146→  // Voice Studio
+   147→   147→  const [ttsText, setTtsText] = useState('')
+   148→   148→  const [voice, setVoice] = useState<string>(GANGZII_VOICES[0].value)
+   149→   149→  const [speed, setSpeed] = useState(1.0)
+   150→   150→  const [ttsJobs, setTtsJobs] = useState<TtsJob[]>([])
+   151→   151→  const [ttsBusy, setTtsBusy] = useState(false)
+   152→   152→
+   153→   153→  // Song Studio
+   154→   154→  const [songIdea, setSongIdea] = useState('')
+   155→   155→  const [lyrics, setLyrics] = useState('')
+   156→   156→  const [lyricsBusy, setLyricsBusy] = useState(false)
+   157→   157→
+   158→   158→  // Audio Lab
+   159→   159→  const [labFile, setLabFile] = useState<File | null>(null)
+   160→   160→  const [convertTarget, setConvertTarget] = useState<'mp3' | 'ogg' | 'flac' | 'm4a' | 'wav'>('mp3')
+   161→   161→  const [transcribeJobs, setTranscribeJobs] = useState<LabJob[]>([])
+   162→   162→  const [convertJobs, setConvertJobs] = useState<LabJob[]>([])
+   163→   163→  const [editedTranscripts, setEditedTranscripts] = useState<Record<string, string>>({})
+   164→   164→  const [labBusy, setLabBusy] = useState(false)
+   165→   165→
+   166→   166→  // Live Voice
+   167→   167→  const [livePhase, setLivePhase] = useState<LivePhase>('idle')
+   168→   168→  const [turns, setTurns] = useState<Turn[]>([])
+   169→   169→  const [liveVoice, setLiveVoice] = useState<string>(GANGZII_VOICES[0].value)
+   170→   170→  const [recordSecs, setRecordSecs] = useState(0)
+   171→   171→
+   172→   172→  const [actionError, setActionError] = useState<string | null>(null)
+   173→   173→  const [notice, setNotice] = useState<string | null>(null)
+   174→   174→
+   175→   175→  const recorderRef = useRef<MediaRecorder | null>(null)
+   176→   176→  const chunksRef = useRef<Blob[]>([])
+   177→   177→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+   178→   178→  const liveAudioRef = useRef<HTMLAudioElement | null>(null)
+   179→   179→  const historyRef = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([])
+   180→   180→
+   181→   181→  const cap = (k: string) => availability?.capabilities?.[k]
+   182→   182→
+   183→   183→  const loadAvailability = useCallback(async () => {
+   184→   184→    try {
+   185→   185→      const d = await beanFetch<Availability>('/api/gangzii/availability')
+   186→   186→      setAvailability(d)
+   187→   187→    } catch {
+   188→   188→      /* non-fatal; per-tab status lines show unknown */
+   189→   189→    }
+   190→   190→  }, [])
+   191→   191→
+   192→   192→  const loadLists = useCallback(async () => {
+   193→   193→    try {
+   194→   194→      const [t, tr, cv] = await Promise.all([
+   195→   195→        beanFetch<{ jobs: TtsJob[] }>('/api/gangzii/tts'),
+   196→   196→        beanFetch<{ jobs: LabJob[] }>('/api/gangzii/transcribe'),
+   197→   197→        beanFetch<{ jobs: LabJob[] }>('/api/gangzii/convert'),
+   198→   198→      ])
+   199→   199→      setTtsJobs(t.jobs)
+   200→   200→      setTranscribeJobs(tr.jobs)
+   201→   201→      setConvertJobs(cv.jobs)
+   202→   202→      return { tts: t.jobs, transcribe: tr.jobs, convert: cv.jobs }
+   203→   203→    } catch {
+   204→   204→      return { tts: [], transcribe: [], convert: [] }
+   205→   205→    }
+   206→   206→  }, [])
+   207→   207→
+   208→   208→  useEffect(() => {
+   209→   209→    void loadAvailability()
+   210→   210→    void loadLists()
+   211→   211→  }, [loadAvailability, loadLists])
+   212→   212→
+   213→   213→  // Poll while any job is in flight.
+   214→   214→  useEffect(() => {
+   215→   215→    const inflight =
+   216→   216→      ttsJobs.some((j) => j.status === 'queued' || j.status === 'running') ||
+   217→   217→      transcribeJobs.some((j) => j.status === 'queued' || j.status === 'running') ||
+   218→   218→      convertJobs.some((j) => j.status === 'queued' || j.status === 'running')
+   219→   219→    if (!inflight) return
+   220→   220→    const t = setInterval(() => void loadLists(), 3000)
+   221→   221→    return () => clearInterval(t)
+   222→   222→  }, [ttsJobs, transcribeJobs, convertJobs, loadLists])
+   223→   223→
+   224→   224→  // Cleanup on unmount: recorder + timers + live audio.
+   225→   225→  useEffect(() => {
+   226→   226→    return () => {
+   227→   227→      if (timerRef.current) clearInterval(timerRef.current)
+   228→   228→      recorderRef.current?.stream.getTracks().forEach((tr) => tr.stop())
+   229→   229→      liveAudioRef.current?.pause()
+   230→   230→    }
+   231→   231→  }, [])
+   232→   232→
+   233→   233→  // ---- Voice Studio --------------------------------------------------------
+   234→   234→
+   235→   235→  async function submitTts(text: string, chosenVoice: string, chosenSpeed: number, source?: 'song-preview') {
+   236→   236→    if (ttsBusy) return
+   237→   237→    setTtsBusy(true)
+   238→   238→    setActionError(null)
+   239→   239→    setNotice(source === 'song-preview' ? 'Spoken preview queued (spoken, not sung — music generation is unavailable).' : null)
+   240→   240→    try {
+   241→   241→      await beanFetch('/api/gangzii/tts', { method: 'POST', json: { text, voice: chosenVoice, speed: chosenSpeed } })
+   242→   242→      await loadLists()
+   243→   243→    } catch (e) {
+   244→   244→      setActionError((e as Error).message)
+   245→   245→    } finally {
+   246→   246→      setTtsBusy(false)
+   247→   247→    }
+   248→   248→  }
+   249→   249→
+   250→   250→  function regenerateTts(job: TtsJob) {
+   251→   251→    if (!job.text) return
+   252→   252→    setTtsText(job.text)
+   253→   253→    setVoice(job.voice ?? GANGZII_VOICES[0].value)
+   254→   254→    setSpeed(job.speed ?? 1)
+   255→   255→    setTab('voice')
+   256→   256→    setNotice('Parameters loaded from history — press Generate to re-create this audio.')
+   257→   257→  }
+   258→   258→
+   259→   259→  async function deleteJob(id: string) {
+   260→   260→    setActionError(null)
+   261→   261→    try {
+   262→   262→      await beanFetch(`/api/gangzii/jobs/${id}`, { method: 'DELETE' })
+   263→   263→      setTurns((prev) => prev.map((t) => (t.audioUrl?.includes(id) ? { ...t, audioUrl: null } : t)))
+   264→   264→      await loadLists()
+   265→   265→    } catch (e) {
+   266→   266→      setActionError((e as Error).message)
+   267→   267→    }
+   268→   268→  }
+   269→   269→
+   270→   270→  // ---- Song Studio ---------------------------------------------------------
+   271→   271→
+   272→   272→  async function draftLyrics() {
+   273→   273→    const idea = songIdea.trim()
+   274→   274→    if (!idea || lyricsBusy) return
+   275→   275→    setLyricsBusy(true)
+   276→   276→    setActionError(null)
+   277→   277→    try {
+   278→   278→      const d = await beanFetch<{ lyrics: string }>('/api/gangzii/lyrics', { method: 'POST', json: { prompt: idea } })
+   279→   279→      setLyrics(d.lyrics)
+   280→   280→      setNotice('Original lyrics drafted by the BEAN lyricist. Edit them freely — spoken preview uses the real TTS pipeline.')
+   281→   281→    } catch (e) {
+   282→   282→      setActionError((e as Error).message)
+   283→   283→    } finally {
+   284→   284→      setLyricsBusy(false)
+   285→   285→    }
+   286→   286→  }
+   287→   287→
+   288→   288→  async function requestMusic() {
+   289→   289→    setActionError(null)
+   290→   290→    try {
+   291→   291→      const d = await beanFetch<{ message: string }>('/api/gangzii/music', {
+   292→   292→        method: 'POST',
+   293→   293→        json: { prompt: (songIdea.trim() || lyrics.slice(0, 500) || 'song').slice(0, 2000) },
+   294→   294→      })
+   295→   295→      setActionError(d.message)
+   296→   296→    } catch (e) {
+   297→   297→      setActionError((e as Error).message)
+   298→   298→    }
+   299→   299→  }
+   300→   300→
+   301→   301→  // ---- Audio Lab -----------------------------------------------------------
+   302→   302→
+   303→   303→  async function transcribeUpload() {
+   304→   304→    if (!labFile || labBusy) return
+   305→   305→    setLabBusy(true)
+   306→   306→    setActionError(null)
+   307→   307→    try {
+   308→   308→      const fd = new FormData()
+   309→   309→      fd.append('file', labFile)
+   310→   310→      const res = await fetch('/api/gangzii/transcribe', { method: 'POST', body: fd })
+   311→   311→      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: { message?: string } }
+   312→   312→      if (!res.ok || data.ok === false) throw new Error(data.error?.message ?? `Upload failed (${res.status})`)
+   313→   313→      await loadLists()
+   314→   314→      setNotice('Audio uploaded — transcription is running below.')
+   315→   315→      setLabFile(null)
+   316→   316→    } catch (e) {
+   317→   317→      setActionError((e as Error).message)
+   318→   318→    } finally {
+   319→   319→      setLabBusy(false)
+   320→   320→    }
+   321→   321→  }
+   322→   322→
+   323→   323→  async function convertUpload() {
+   324→   324→    if (!labFile || labBusy) return
+   325→   325→    setLabBusy(true)
+   326→   326→    setActionError(null)
+   327→   327→    try {
+   328→   328→      const fd = new FormData()
+   329→   329→      fd.append('file', labFile)
+   330→   330→      fd.append('target', convertTarget)
+   331→   331→      const res = await fetch('/api/gangzii/convert', { method: 'POST', body: fd })
+   332→   332→      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: { message?: string } }
+   333→   333→      if (!res.ok || data.ok === false) throw new Error(data.error?.message ?? `Upload failed (${res.status})`)
+   334→   334→      await loadLists()
+   335→   335→      setNotice(`Conversion to ${convertTarget.toUpperCase()} is running below.`)
+   336→   336→      setLabFile(null)
+   337→   337→    } catch (e) {
+   338→   338→      setActionError((e as Error).message)
+   339→   339→    } finally {
+   340→   340→      setLabBusy(false)
+   341→   341→    }
+   342→   342→  }
+   343→   343→
+   344→   344→  function downloadTranscript(job: LabJob) {
+   345→   345→    const text = editedTranscripts[job.id] ?? job.transcript ?? ''
+   346→   346→    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+   347→   347→    const url = URL.createObjectURL(blob)
+   348→   348→    const a = document.createElement('a')
+   349→   349→    a.href = url
+   350→   350→    a.download = `bean-gangzii-transcript-${job.id}.txt`
+   351→   351→    a.click()
+   352→   352→    URL.revokeObjectURL(url)
+   353→   353→  }
+   354→   354→
+   355→   355→  // ---- Live Voice ----------------------------------------------------------
+   356→   356→
+   357→   357→  async function startRecording() {
+   358→   358→    setActionError(null)
+   359→   359→    // Interrupt any playback the moment the user grabs the mic.
+   360→   360→    liveAudioRef.current?.pause()
+   361→   361→    if (!availability || !cap('liveVoice')?.available) {
+   362→   362→      setActionError('Live voice is not available right now — see the service status above.')
+   363→   363→      return
+   364→   364→    }
+   365→   365→    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+   366→   366→      setActionError('This browser does not support microphone recording (MediaRecorder). Try a current version of Chrome, Edge, Firefox or Safari.')
+   367→   367→      return
+   368→   368→    }
+   369→   369→    try {
+   370→   370→      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+   371→   371→      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : ''
+   372→   372→      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+   373→   373→      chunksRef.current = []
+   374→   374→      recorder.ondataavailable = (ev) => {
+   375→   375→        if (ev.data.size > 0) chunksRef.current.push(ev.data)
+   376→   376→      }
+   377→   377→      recorder.onstop = () => {
+   378→   378→        stream.getTracks().forEach((tr) => tr.stop())
+   379→   379→        void processTurn(new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' }))
+   380→   380→      }
+   381→   381→      recorderRef.current = recorder
+   382→   382→      recorder.start()
+   383→   383→      setLivePhase('recording')
+   384→   384→      setRecordSecs(0)
+   385→   385→      if (timerRef.current) clearInterval(timerRef.current)
+   386→   386→      timerRef.current = setInterval(() => setRecordSecs((s) => s + 1), 1000)
+   387→   387→    } catch (e) {
+   388→   388→      const err = e as DOMException
+   389→   389→      if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+   390→   390→        setActionError('Microphone access was denied. Allow microphone permission for this site in your browser settings, then try again.')
+   391→   391→      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+   392→   392→        setActionError('No microphone was found on this device.')
+   393→   393→      } else {
+   394→   394→        setActionError(`Could not start recording: ${err.message || err.name}`)
+   395→   395→      }
+   396→   396→    }
+   397→   397→  }
+   398→   398→
+   399→   399→  function stopRecording() {
+   400→   400→    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+   401→   401→    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+   402→   402→      recorderRef.current.stop()
+   403→   403→    }
+   404→   404→  }
+   405→   405→
+   406→   406→  async function processTurn(blob: Blob) {
+   407→   407→    if (blob.size === 0) {
+   408→   408→      setLivePhase('idle')
+   409→   409→      setActionError('The recording was empty — try speaking a little longer.')
+   410→   410→      return
+   411→   411→    }
+   412→   412→    setLivePhase('transcribing')
+   413→   413→    setActionError(null)
+   414→   414→    try {
+   415→   415→      // 1. Transcribe the recorded turn through the REAL ASR pipeline.
+   416→   416→      const fd = new FormData()
+   417→   417→      fd.append('file', new File([blob], 'turn.webm', { type: blob.type || 'audio/webm' }))
+   418→   418→      const res = await fetch('/api/gangzii/transcribe', { method: 'POST', body: fd })
+   419→   419→      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; job?: { id: string }; error?: { message?: string } }
+   420→   420→      if (!res.ok || data.ok === false || !data.job) {
+   421→   421→        throw new Error(data.error?.message ?? 'The recorded turn could not be transcribed.')
+   422→   422→      }
+   423→   423→      const tJob = await pollJob<LabJob>(data.job.id, (id) => `/api/gangzii/jobs/${id}`)
+   424→   424→      if (!tJob || tJob.status !== 'completed' || !tJob.transcript) {
+   425→   425→        throw new Error(tJob?.errorMessage ?? 'Transcription failed for this turn.')
+   426→   426→      }
+   427→   427→      const transcript = tJob.transcript
+   428→   428→
+   429→   429→      // 2. Ask the BEAN conversation model for a spoken-style reply.
+   430→   430→      setLivePhase('thinking')
+   431→   431→      const live = await beanFetch<{ reply: string }>('/api/gangzii/live', {
+   432→   432→        method: 'POST',
+   433→   433→        json: { transcript, history: historyRef.current },
+   434→   434→      })
+   435→   435→
+   436→   436→      // 3. Speak the reply through the REAL TTS job pipeline.
+   437→   437→      setLivePhase('speaking')
+   438→   438→      await beanFetch('/api/gangzii/tts', {
+   439→   439→        method: 'POST',
+   440→   440→        json: { text: live.reply, voice: liveVoice, speed: 1.0 },
+   441→   441→      })
+   442→   442→      const lists = await loadLists()
+   443→   443→      const spoken = lists.tts.find((j) => j.status !== 'failed' && j.voice === liveVoice && j.text === live.reply)
+   444→   444→      let audioUrl: string | null = null
+   445→   445→      if (spoken) {
+   446→   446→        const done = spoken.status === 'completed' ? spoken : await pollJob<TtsJob>(spoken.id, (id) => `/api/gangzii/jobs/${id}`)
+   447→   447→        if (done && done.status === 'completed' && done.audioUrl) audioUrl = done.audioUrl
+   448→   448→      }
+   449→   449→
+   450→   450→      const turn: Turn = { id: tJob.id, transcript, reply: live.reply, audioUrl, error: null }
+   451→   451→      historyRef.current = [...historyRef.current, { role: 'user' as const, content: transcript }, { role: 'assistant' as const, content: live.reply }].slice(-12)
+   452→   452→      setTurns((prev) => [...prev, turn])
+   453→   453→
+   454→   454→      if (audioUrl) {
+   455→   455→        // Autoplay the spoken reply; browsers may block — fall back to manual play.
+   456→   456→        try {
+   457→   457→          const el = liveAudioRef.current
+   458→   458→          if (el) {
+   459→   459→            el.src = audioUrl
+   460→   460→            await el.play()
+   461→   461→          }
+   462→   462→        } catch {
+   463→   463→          /* autoplay blocked — the turn card exposes a play button */
+   464→   464→        }
+   465→   465→      }
+   466→   466→      setLivePhase('idle')
+   467→   467→    } catch (e) {
+   468→   468→      setTurns((prev) => [
+   469→   469→        ...prev,
+   470→   470→        { id: `err-${Date.now()}`, transcript: '', reply: '', audioUrl: null, error: (e as Error).message },
+   471→   471→      ])
+   472→   472→      setLivePhase('idle')
+   473→   473→    }
+   474→   474→  }
+   475→   475→
+   476→   476→  function replayTurn(url: string) {
+   477→   477→    liveAudioRef.current?.pause()
+   478→   478→    const el = liveAudioRef.current
+   479→   479→    if (el) {
+   480→   480→      el.src = url
+   481→   481→      void el.play().catch(() => undefined)
+   482→   482→    }
+   483→   483→  }
+   484→   484→
+   485→   485→  // ---- render helpers ------------------------------------------------------
+   486→   486→
+   487→   487→  const statusLine = (key: string, label: string) => {
+   488→   488→    const c = cap(key)
+   489→   489→    return (
+   490→   490→      <div className="flex items-center gap-1.5 text-[11px] text-white/45" title={c?.detail ?? 'Checking…'}>
+   491→   491→        <StatusDot ok={c ? c.available : false} pulse={!c} />
+   492→   492→        {label}
+   493→   493→        {c ? (c.available ? ' ready' : ' unavailable') : ' checking…'}
+   494→   494→      </div>
+   495→   495→    )
+   496→   496→  }
+   497→   497→
+   498→   498→  return (
+   499→   499→    <div className="mx-auto max-w-6xl px-6 py-8">
+   500→   500→      {/* Header */}
+   501→   501→      <div className="mb-5 flex flex-wrap items-center gap-3">
+   502→   502→        <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-[rgba(212,175,55,0.25)] bg-[rgba(212,175,55,0.07)]">
+   503→   503→          <AudioLines className="h-5 w-5 text-[#d4af37]" />
+   504→   504→        </div>
+   505→   505→        <div>
+   506→   506→          <h1 className="text-xl font-semibold tracking-tight">
+   507→   507→            GANGZII <span className="text-white/40">— voice, speech &amp; audio workspace</span>
+   508→   508→          </h1>
+   509→   509→          <p className="text-[13px] text-white/45">
+   510→   510→            Studio voices, transcription, format conversion and turn-based live voice. Availability is measured, never assumed.
+   511→   511→          </p>
+   512→   512→        </div>
+   513→   513→      </div>
+   514→   514→
+   515→   515→      {/* Service status strip */}
+   516→   516→      <div className="bean-glass mb-6 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl p-3.5">
+   517→   517→        {statusLine('speechSynthesis', 'Speech')}
+   518→   518→        {statusLine('transcription', 'Transcription')}
+   519→   519→        {statusLine('conversion', 'Conversion')}
+   520→   520→        {statusLine('musicGeneration', 'Music generation')}
+   521→   521→        {statusLine('liveVoice', 'Live voice')}
+   522→   522→        <span className="ml-auto text-[10px] text-white/30">
+   523→   523→          {cap('speechSynthesis') ? `probes ${timeAgo(cap('speechSynthesis')!.checkedAt)}` : ''}
+   524→   524→        </span>
+   525→   525→      </div>
+   526→   526→
+   527→   527→      {/* Tabs */}
+   528→   528→      <div className="mb-5 flex flex-wrap gap-1.5">
+   529→   529→        {TABS.map((t) => (
+   530→   530→          <button
+   531→   531→            key={t.id}
+   532→   532→            onClick={() => { setTab(t.id); setNotice(null); setActionError(null) }}
+   533→   533→            className={cn(
+   534→   534→              'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] transition-colors',
+   535→   535→              tab === t.id
+   536→   536→                ? 'bg-[rgba(212,175,55,0.12)] text-[#f0c75e] shadow-[inset_0_0_0_1px_rgba(212,175,55,0.28)]'
+   537→   537→                : 'text-white/55 hover:bg-white/5 hover:text-white/85',
+   538→   538→            )}
+   539→   539→          >
+   540→   540→            <t.icon className="h-4 w-4" />
+   541→   541→            {t.label}
+   542→   542→          </button>
+   543→   543→        ))}
+   544→   544→      </div>
+   545→   545→
+   546→   546→      {actionError ? (
+   547→   547→        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] leading-relaxed text-red-300">
+   548→   548→          {actionError}
+   549→   549→        </div>
+   550→   550→      ) : null}
+   551→   551→      {notice ? (
+   552→   552→        <div className="mb-4 rounded-lg border border-[rgba(212,175,55,0.3)] bg-[rgba(212,175,55,0.07)] px-4 py-3 text-[13px] text-[#f0c75e]">
+   553→   553→          {notice}
+   554→   554→        </div>
+   555→   555→      ) : null}
+   556→   556→
+   557→   557→      {/* Hidden audio element for Live Voice playback */}
+   558→   558→      <audio ref={liveAudioRef} className="hidden" />
+   559→   559→
+   560→   560→      {/* ============ VOICE STUDIO ============ */}
+   561→   561→      {tab === 'voice' && (
+   562→   562→        <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+   563→   563→          <div className="bean-glass rounded-xl p-5">
+   564→   564→            <label htmlFor="gangzii-tts-text" className="mb-1.5 block text-xs text-white/55">
+   565→   565→              Text to speak
+   566→   566→            </label>
+   567→   567→            <Textarea
+   568→   568→              id="gangzii-tts-text"
+   569→   569→              value={ttsText}
+   570→   570→              onChange={(e) => setTtsText(e.target.value.slice(0, MAX_CHARS))}
+   571→   571→              rows={6}
+   572→   572→              placeholder="Type what GANGZII should say…"
+   573→   573→              className="resize-none bg-black/30"
+   574→   574→            />
+   575→   575→            <div className="mt-1 text-right text-[10px] text-white/30">{ttsText.length}/{MAX_CHARS}</div>
+   576→   576→
+   577→   577→            <div className="mt-4">
+   578→   578→              <div className="mb-1.5 text-xs text-white/55">Voice</div>
+   579→   579→              <div className="grid grid-cols-2 gap-1.5">
+   580→   580→                {GANGZII_VOICES.map((v) => (
+   581→   581→                  <button
+   582→   582→                    key={v.value}
+   583→   583→                    onClick={() => setVoice(v.value)}
+   584→   584→                    className={cn(
+   585→   585→                      'rounded-lg border px-2.5 py-2 text-left text-[11px] transition-colors',
+   586→   586→                      voice === v.value
+   587→   587→                        ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.12)] text-[#f0c75e]'
+   588→   588→                        : 'border-white/10 text-white/55 hover:border-[rgba(212,175,55,0.3)]',
+   589→   589→                    )}
+   590→   590→                  >
+   591→   591→                    <div className="font-medium">{v.label}</div>
+   592→   592→                    <div className="text-white/35">{v.character}</div>
+   593→   593→                  </button>
+   594→   594→                ))}
+   595→   595→              </div>
+   596→   596→            </div>
+   597→   597→
+   598→   598→            <div className="mt-4">
+   599→   599→              <div className="mb-1.5 flex items-center justify-between text-xs text-white/55">
+   600→   600→                <span>Speed</span>
+   601→   601→                <span className="text-[#f0c75e]">{speed.toFixed(2)}×</span>
+   602→   602→              </div>
+   603→   603→              <Slider
+   604→   604→                value={[speed]}
+   605→   605→                min={GANGZII_LIMITS.speedMin}
+   606→   606→                max={GANGZII_LIMITS.speedMax}
+   607→   607→                step={0.05}
+   608→   608→                onValueChange={(vals) => setSpeed(vals[0] ?? 1)}
+   609→   609→              />
+   610→   610→              <div className="mt-1 flex justify-between text-[10px] text-white/30">
+   611→   611→                <span>0.5×</span>
+   612→   612→                <span>2.0×</span>
+   613→   613→              </div>
+   614→   614→            </div>
+   615→   615→
+   616→   616→            <Button
+   617→   617→              onClick={() => void submitTts(ttsText.trim(), voice, speed)}
+   618→   618→              disabled={ttsBusy || ttsText.trim().length === 0 || !cap('speechSynthesis')?.available}
+   619→   619→              className="mt-5 w-full bg-[#d4af37] font-semibold text-black hover:bg-[#e6c25a] disabled:cursor-not-allowed disabled:opacity-50"
+   620→   620→            >
+   621→   621→              <AudioLines className="mr-1.5 h-4 w-4" />
+   622→   622→              Generate speech
+   623→   623→            </Button>
+   624→   624→            {!cap('speechSynthesis')?.available && cap('speechSynthesis') ? (
+   625→   625→              <p className="mt-2 text-[11px] leading-relaxed text-amber-300/80">{cap('speechSynthesis')!.detail}</p>
+   626→   626→            ) : null}
+   627→   627→            <p className="mt-3 text-[11px] leading-relaxed text-white/35">
+   628→   628→              Output: WAV, 24 kHz mono. Long text is split into sentence chunks (limit 1024 characters each) and assembled into one file. All audio is AI-generated.
+   629→   629→            </p>
+   630→   630→          </div>
+   631→   631→
+   632→   632→          <div className="min-w-0">
+   633→   633→            <div className="mb-3 flex items-center justify-between">
+   634→   634→              <h3 className="text-sm font-semibold text-white/80">Your speech history</h3>
+   635→   635→              <span className="text-xs text-white/35">{ttsJobs.length} item{ttsJobs.length === 1 ? '' : 's'}</span>
+   636→   636→            </div>
+   637→   637→            {ttsJobs.length === 0 ? (
+   638→   638→              <EmptyState
+   639→   639→                icon={<AudioLines className="h-10 w-10" />}
+   640→   640→                title="No speech yet"
+   641→   641→                hint="Write text, pick a voice and press Generate — completed audio appears here with playback, download, regenerate and delete."
+   642→   642→              />
+   643→   643→            ) : (
+   644→   644→              <div className="space-y-3">
+   645→   645→                {ttsJobs.map((j) => (
+   646→   646→                  <div key={j.id} className="bean-glass rounded-xl p-4">
+   647→   647→                    <div className="mb-2 flex flex-wrap items-center gap-2">
+   648→   648→                      {j.status === 'completed' ? (
+   649→   649→                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+   650→   650→                      ) : j.status === 'failed' ? (
+   651→   651→                        <XCircle className="h-3.5 w-3.5 text-red-400" />
+   652→   652→                      ) : (
+   653→   653→                        <Clock className="h-3.5 w-3.5 text-[#d4af37]" />
+   654→   654→                      )}
+   655→   655→                      <span className="text-[12px] font-medium text-white/80">
+   656→   656→                        {GANGZII_VOICES.find((v) => v.value === j.voice)?.label ?? j.voice} · {j.speed?.toFixed(2)}×
+   657→   657→                      </span>
+   658→   658→                      <span className="text-[11px] text-white/35">{timeAgo(j.queuedAt)}</span>
+   659→   659→                      {j.status === 'completed' && j.durationSec != null ? (
+   660→   660→                        <span className="text-[11px] text-white/35">· {j.durationSec}s · {j.chunks} chunk{j.chunks === 1 ? '' : 's'}</span>
+   661→   661→                      ) : null}
+   662→   662→                      <GoldBadge tone={j.status === 'completed' ? 'green' : j.status === 'failed' ? 'red' : 'gold'}>{j.status}</GoldBadge>
+   663→   663→                      {j.status === 'completed' ? (
+   664→   664→                        <span className="ml-auto inline-flex items-center gap-1.5">
+   665→   665→                          <a
+   666→   666→                            href={`${j.audioUrl}?download=1`}
+   667→   667→                            download
+   668→   668→                            className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2 py-1 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
+   669→   669→                          >
+   670→   670→                            <Download className="h-3 w-3" /> Download
+   671→   671→                          </a>
+   672→   672→                          <button
+   673→   673→                            onClick={() => regenerateTts(j)}
+   674→   674→                            className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2 py-1 text-[11px] text-white/60 hover:bg-white/5"
+   675→   675→                            title="Load these parameters into the composer"
+   676→   676→                          >
+   677→   677→                            <RotateCcw className="h-3 w-3" /> Regenerate
+   678→   678→                          </button>
+   679→   679→                          <button
+   680→   680→                            onClick={() => void deleteJob(j.id)}
+   681→   681→                            className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2 py-1 text-[11px] text-white/50 hover:border-red-500/40 hover:text-red-300"
+   682→   682→                            title="Delete this audio permanently"
+   683→   683→                          >
+   684→   684→                            <Trash2 className="h-3 w-3" />
+   685→   685→                          </button>
+   686→   686→                        </span>
+   687→   687→                      ) : null}
+   688→   688→                    </div>
+   689→   689→                    {j.status === 'completed' && j.audioUrl ? (
+   690→   690→                      <audio controls preload="none" src={j.audioUrl} className="h-9 w-full" />
+   691→   691→                    ) : j.status === 'failed' ? (
+   692→   692→                      <p className="text-xs text-red-300">{j.errorMessage ?? 'Generation failed.'}{j.errorCode ? ` (${j.errorCode})` : ''}</p>
+   693→   693→                    ) : (
+   694→   694→                      <div className="py-1">
+   695→   695→                        <div className="mb-1.5 text-xs text-white/50">Synthesizing… {j.progress}%</div>
+   696→   696→                        <Progress value={j.progress} className="h-1.5 bg-white/5" />
+   697→   697→                      </div>
+   698→   698→                    )}
+   699→   699→                    {j.text ? <p className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-white/40">“{j.text}”</p> : null}
+   700→   700→                  </div>
+   701→   701→                ))}
+   702→   702→              </div>
+   703→   703→            )}
+   704→   704→          </div>
+   705→   705→        </div>
+   706→   706→      )}
+   707→   707→
+   708→   708→      {/* ============ SONG STUDIO ============ */}
+   709→   709→      {tab === 'song' && (
+   710→   710→        <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+   711→   711→          <div className="bean-glass rounded-xl p-5">
+   712→   712→            <label htmlFor="gangzii-song-idea" className="mb-1.5 block text-xs text-white/55">
+   713→   713→              Song idea
+   714→   714→            </label>
+   715→   715→            <Textarea
+   716→   716→              id="gangzii-song-idea"
+   717→   717→              value={songIdea}
+   718→   718→              onChange={(e) => setSongIdea(e.target.value.slice(0, 2000))}
+   719→   719→              rows={4}
+   720→   720→              placeholder="e.g. An upbeat synth-pop chorus about a late-night train ride home"
+   721→   721→              className="resize-none bg-black/30"
+   722→   722→            />
+   723→   723→            <Button
+   724→   724→              onClick={() => void draftLyrics()}
+   725→   725→              disabled={lyricsBusy || songIdea.trim().length < 4 || !cap('conversation')?.available}
+   726→   726→              className="mt-3 w-full bg-[#d4af37] font-semibold text-black hover:bg-[#e6c25a] disabled:cursor-not-allowed disabled:opacity-50"
+   727→   727→            >
+   728→   728→              {lyricsBusy ? <Spinner className="border-black/30 border-t-black" /> : <PenLine className="mr-1.5 h-4 w-4" />}
+   729→   729→              Draft lyrics with BEAN
+   730→   730→            </Button>
+   731→   731→            <p className="mt-2 text-[11px] leading-relaxed text-white/35">
+   732→   732→              Lyrics drafting is REAL (BEAN conversation model, original text only). The spoken preview below is real TTS — spoken, not sung.
+   733→   733→            </p>
+   734→   734→            <Button
+   735→   735→              onClick={() => void submitTts(lyrics.trim() || 'Write or draft lyrics first — this preview reads them aloud.', voice, speed, 'song-preview')}
+   736→   736→              disabled={!lyrics.trim() || !cap('speechSynthesis')?.available}
+   737→   737→              variant="outline"
+   738→   738→              className="mt-2 w-full border-[rgba(212,175,55,0.35)] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.08)] disabled:opacity-50"
+   739→   739→            >
+   740→   740→              <Play className="mr-1.5 h-4 w-4" />
+   741→   741→              Spoken preview of lyrics
+   742→   742→            </Button>
+   743→   743→            <Button
+   744→   744→              onClick={() => void requestMusic()}
+   745→   745→              disabled={songIdea.trim().length < 3 && lyrics.trim().length < 3}
+   746→   746→              variant="outline"
+   747→   747→              className="mt-4 w-full border-amber-500/30 text-amber-300 hover:bg-amber-500/5"
+   748→   748→            >
+   749→   749→              <Music className="mr-1.5 h-4 w-4" />
+   750→   750→              Generate music (singing)
+   751→   751→            </Button>
+   752→   752→            <p className="mt-2 text-[11px] leading-relaxed text-white/35">
+   753→   753→              Pressing it records a truthful “unavailable” attempt — no fake audio is ever produced.
+   754→   754→            </p>
+   755→   755→          </div>
+   756→   756→
+   757→   757→          <div className="min-w-0">
+   758→   758→            <UnavailableBanner
+   759→   759→              title="Music generation — worker not configured"
+   760→   760→              reason={
+   761→   761→                cap('musicGeneration')?.detail ??
+   762→   762→                'Music generation requires a self-hosted GPU worker (ACE-Step 1.5 candidate) whose model-weight license is still under review. BEAN does not simulate music.'
+   763→   763→              }
+   764→   764→            />
+   765→   765→            <div className="mb-3 flex items-center justify-between">
+   766→   766→              <h3 className="text-sm font-semibold text-white/80">Lyrics editor</h3>
+   767→   767→              {lyrics ? (
+   768→   768→                <span className="text-xs text-white/35">{lyrics.length} chars · editable</span>
+   769→   769→              ) : null}
+   770→   770→            </div>
+   771→   771→            {lyrics ? (
+   772→   772→              <Textarea
+   773→   773→                value={lyrics}
+   774→   774→                onChange={(e) => setLyrics(e.target.value)}
+   775→   775→                rows={16}
+   776→   776→                className="bean-glass resize-y bg-black/30 font-mono text-[12.5px] leading-relaxed"
+   777→   777→              />
+   778→   778→            ) : (
+   779→   779→              <EmptyState
+   780→   780→                icon={<PenLine className="h-10 w-10" />}
+   781→   781→                title="No lyrics yet"
+   782→   782→                hint="Describe a song idea and press “Draft lyrics with BEAN”. The draft lands here fully editable, and Voice Studio can speak it aloud."
+   783→   783→              />
+   784→   784→            )}
+   785→   785→          </div>
+   786→   786→        </div>
+   787→   787→      )}
+   788→   788→
+   789→   789→      {/* ============ AUDIO LAB + LIVE VOICE ============ */}
+   790→   790→      {tab === 'lab' && (
+   791→   791→        <AudioLabTab
+   792→   792→          labFile={labFile}
+   793→   793→          setLabFile={setLabFile}
+   794→   794→          convertTarget={convertTarget}
+   795→   795→          setConvertTarget={setConvertTarget}
+   796→   796→          transcribeJobs={transcribeJobs}
+   797→   797→          convertJobs={convertJobs}
+   798→   798→          editedTranscripts={editedTranscripts}
+   799→   799→          setEditedTranscripts={setEditedTranscripts}
+   800→   800→          labBusy={labBusy}
+   801→   801→          capTranscription={cap('transcription')?.available ?? false}
+   802→   802→          capConversion={cap('conversion')?.available ?? false}
+   803→   803→          capTools={cap('audioTools')}
+   804→   804→          onTranscribe={() => void transcribeUpload()}
+   805→   805→          onConvert={() => void convertUpload()}
+   806→   806→          onDownloadTranscript={downloadTranscript}
+   807→   807→          onDelete={(id) => void deleteJob(id)}
+   808→   808→        />
+   809→   809→      )}
+   810→   810→
+   811→   811→      {tab === 'live' && (
+   812→   812→        <div className="mx-auto max-w-3xl">
+   813→   813→          <div className="bean-glass mb-5 rounded-xl border-[rgba(212,175,55,0.18)] p-4">
+   814→   814→            <div className="mb-1.5 flex items-center gap-2">
+   815→   815→              <Info className="h-4 w-4 text-[#d4af37]" />
+   816→   816→              <span className="text-sm font-semibold text-[#f0c75e]">Turn-based voice conversation</span>
+   817→   817→            </div>
+   818→   818→            <p className="text-[13px] leading-relaxed text-white/60">
+   819→   819→              Each turn: record → real speech recognition → the BEAN conversation model → real speech synthesis. This is an
+   820→   820→              honest turn-based pipeline, not a low-latency duplex stream. Grab the mic any time to interrupt playback.
+   821→   821→            </p>
+   822→   822→          </div>
+   823→   823→
+   824→   824→          <div className="bean-glass flex flex-col items-center rounded-xl p-8">
+   825→   825→            <button
+   826→   826→              onClick={() => (livePhase === 'recording' ? stopRecording() : void startRecording())}
+   827→   827→              disabled={livePhase !== 'idle' && livePhase !== 'recording'}
+   828→   828→              className={cn(
+   829→   829→                'flex h-20 w-20 items-center justify-center rounded-full transition-all disabled:cursor-not-allowed disabled:opacity-40',
+   830→   830→                livePhase === 'recording'
+   831→   831→                  ? 'bg-red-500/90 shadow-[0_0_0_8px_rgba(239,68,68,0.15)] hover:bg-red-500'
+   832→   832→                  : 'bg-[#d4af37] shadow-[0_0_0_8px_rgba(212,175,55,0.12)] hover:bg-[#e6c25a]',
+   833→   833→              )}
+   834→   834→              aria-label={livePhase === 'recording' ? 'Stop recording' : 'Start recording'}
+   835→   835→            >
+   836→   836→              {livePhase === 'recording' ? (
+   837→   837→                <Square className="h-7 w-7 text-black" />
+   838→   838→              ) : (
+   839→   839→                <Mic className="h-7 w-7 text-black" />
+   840→   840→              )}
+   841→   841→            </button>
+   842→   842→            <div className="mt-4 h-6 text-sm text-white/70">
+   843→   843→              {livePhase === 'idle' && 'Press the microphone and speak'}
+   844→   844→              {livePhase === 'recording' && `Recording… ${recordSecs}s — press to stop`}
+   845→   845→              {livePhase === 'transcribing' && 'Transcribing your turn…'}
+   846→   846→              {livePhase === 'thinking' && 'BEAN is thinking…'}
+   847→   847→              {livePhase === 'speaking' && 'BEAN is speaking…'}
+   848→   848→            </div>
+   849→   849→            {livePhase === 'transcribing' || livePhase === 'thinking' || livePhase === 'speaking' ? (
+   850→   850→              <Loader2 className="mt-2 h-4 w-4 animate-spin text-[#d4af37]" />
+   851→   851→            ) : null}
+   852→   852→
+   853→   853→            <div className="mt-5 w-full max-w-xs">
+   854→   854→              <div className="mb-1.5 text-center text-xs text-white/55">Reply voice</div>
+   855→   855→              <div className="flex flex-wrap justify-center gap-1.5">
+   856→   856→                {GANGZII_VOICES.slice(0, 4).map((v) => (
+   857→   857→                  <button
+   858→   858→                    key={v.value}
+   859→   859→                    onClick={() => setLiveVoice(v.value)}
+   860→   860→                    className={cn(
+   861→   861→                      'rounded-md border px-2.5 py-1 text-[11px] transition-colors',
+   862→   862→                      liveVoice === v.value
+   863→   863→                        ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.12)] text-[#f0c75e]'
+   864→   864→                        : 'border-white/10 text-white/55 hover:border-[rgba(212,175,55,0.3)]',
+   865→   865→                    )}
+   866→   866→                  >
+   867→   867→                    {v.label}
+   868→   868→                  </button>
+   869→   869→                ))}
+   870→   870→              </div>
+   871→   871→            </div>
+   872→   872→          </div>
+   873→   873→
+   874→   874→          <div className="mt-5 space-y-3">
+   875→   875→            {turns.length === 0 ? (
+   876→   876→              <EmptyState
+   877→   877→                icon={<Mic className="h-10 w-10" />}
+   878→   878→                title="No turns yet"
+   879→   879→                hint="Your first recording appears here with its transcript, BEAN's spoken reply and replay controls."
+   880→   880→              />
+   881→   881→            ) : (
+   882→   882→              [...turns].reverse().map((t) => (
+   883→   883→                <div key={t.id} className="bean-glass rounded-xl p-4">
+   884→   884→                  {t.error ? (
+   885→   885→                    <p className="text-xs text-red-300">{t.error}</p>
+   886→   886→                  ) : (
+   887→   887→                    <>
+   888→   888→                      <div className="mb-1 flex items-start gap-2">
+   889→   889→                        <Mic className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/40" />
+   890→   890→                        <p className="text-[13px] text-white/75">{t.transcript}</p>
+   891→   891→                      </div>
+   892→   892→                      <div className="mb-2 flex items-start gap-2">
+   893→   893→                        <AudioLines className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#d4af37]" />
+   894→   894→                        <p className="text-[13px] text-[#f0c75e]">{t.reply}</p>
+   895→   895→                      </div>
+   896→   896→                      {t.audioUrl ? (
+   897→   897→                        <div className="flex items-center gap-2">
+   898→   898→                          <button
+   899→   899→                            onClick={() => replayTurn(t.audioUrl!)}
+   900→   900→                            className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2 py-1 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
+   901→   901→                          >
+   902→   902→                            <Play className="h-3 w-3" /> Replay
+   903→   903→                          </button>
+   904→   904→                          <button
+   905→   905→                            onClick={() => liveAudioRef.current?.pause()}
+   906→   906→                            className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2 py-1 text-[11px] text-white/55 hover:bg-white/5"
+   907→   907→                          >
+   908→   908→                            Stop
+   909→   909→                          </button>
+   910→   910→                          <a
+   911→   911→                            href={`${t.audioUrl}?download=1`}
+   912→   912→                            download
+   913→   913→                            className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2 py-1 text-[11px] text-white/55 hover:bg-white/5"
+   914→   914→                          >
+   915→   915→                            <Download className="h-3 w-3" /> Audio
+   916→   916→                          </a>
+   917→   917→                        </div>
+   918→   918→                      ) : (
+   919→   919→                        <p className="text-[11px] text-white/35">Audio for this turn was not produced or was deleted.</p>
+   920→   920→                      )}
+   921→   921→                    </>
+   922→   922→                  )}
+   923→   923→                </div>
+   924→   924→              ))
+   925→   925→            )}
+   926→   926→          </div>
+   927→   927→        </div>
+   928→   928→      )}
+   929→   929→    </div>
+   930→   930→  )
+   931→   931→}
+   932→   932→
+   933→   933→// ---- Audio Lab tab (kept as a sub-component for readability) ----------------
+   934→   934→
+   935→   935→function AudioLabTab(props: {
+   936→   936→  labFile: File | null
+   937→   937→  setLabFile: (f: File | null) => void
+   938→   938→  convertTarget: 'mp3' | 'ogg' | 'flac' | 'm4a' | 'wav'
+   939→   939→  setConvertTarget: (t: 'mp3' | 'ogg' | 'flac' | 'm4a' | 'wav') => void
+   940→   940→  transcribeJobs: LabJob[]
+   941→   941→  convertJobs: LabJob[]
+   942→   942→  editedTranscripts: Record<string, string>
+   943→   943→  setEditedTranscripts: (m: Record<string, string>) => void
+   944→   944→  labBusy: boolean
+   945→   945→  capTranscription: boolean
+   946→   946→  capConversion: boolean
+   947→   947→  capTools?: Capability
+   948→   948→  onTranscribe: () => void
+   949→   949→  onConvert: () => void
+   950→   950→  onDownloadTranscript: (job: LabJob) => void
+   951→   951→  onDelete: (id: string) => void
+   952→   952→}) {
+   953→   953→  const {
+   954→   954→    labFile, setLabFile, convertTarget, setConvertTarget, transcribeJobs, convertJobs,
+   955→   955→    editedTranscripts, setEditedTranscripts, labBusy, capTranscription, capConversion,
+   956→   956→    capTools, onTranscribe, onConvert, onDownloadTranscript, onDelete,
+   957→   957→  } = props
+   958→   958→
+   959→   959→  return (
+   960→   960→    <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+   961→   961→      <div className="bean-glass rounded-xl p-5">
+   962→   962→        <label htmlFor="gangzii-lab-file" className="mb-1.5 block text-xs text-white/55">
+   963→   963→          Upload audio (WAV or WebM · max 25 MB)
+   964→   964→        </label>
+   965→   965→        <input
+   966→   966→          id="gangzii-lab-file"
+   967→   967→          type="file"
+   968→   968→          accept=".wav,.webm,audio/wav,audio/webm"
+   969→   969→          onChange={(e) => setLabFile(e.target.files?.[0] ?? null)}
+   970→   970→          className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 text-xs text-white/70 file:mr-3 file:rounded-md file:border-0 file:bg-[rgba(212,175,55,0.15)] file:px-3 file:py-1.5 file:text-[11px] file:text-[#f0c75e] hover:file:bg-[rgba(212,175,55,0.25)]"
+   971→   971→        />
+   972→   972→        {labFile ? (
+   973→   973→          <p className="mt-2 truncate text-[11px] text-white/45">
+   974→   974→            {labFile.name} · {(labFile.size / (1024 * 1024)).toFixed(2)} MB — the server verifies the real container by magic bytes.
+   975→   975→          </p>
+   976→   976→        ) : null}
+   977→   977→
+   978→   978→        <Button
+   979→   979→          onClick={onTranscribe}
+   980→   980→          disabled={!labFile || labBusy || !capTranscription}
+   981→   981→          className="mt-4 w-full bg-[#d4af37] font-semibold text-black hover:bg-[#e6c25a] disabled:cursor-not-allowed disabled:opacity-50"
+   982→   982→        >
+   983→   983→          {labBusy ? <Spinner className="border-black/30 border-t-black" /> : <FileAudio className="mr-1.5 h-4 w-4" />}
+   984→   984→          Transcribe speech
+   985→   985→        </Button>
+   986→   986→
+   987→   987→        <div className="mt-3">
+   988→   988→          <div className="mb-1.5 text-xs text-white/55">Convert to</div>
+   989→   989→          <div className="grid grid-cols-5 gap-1">
+   990→   990→            {(['mp3', 'ogg', 'flac', 'm4a', 'wav'] as const).map((f) => (
+   991→   991→              <button
+   992→   992→                key={f}
+   993→   993→                onClick={() => setConvertTarget(f)}
+   994→   994→                className={cn(
+   995→   995→                  'rounded-md border px-1 py-1.5 text-[11px] uppercase transition-colors',
+   996→   996→                  convertTarget === f
+   997→   997→                    ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.12)] text-[#f0c75e]'
+   998→   998→                    : 'border-white/10 text-white/55 hover:border-[rgba(212,175,55,0.3)]',
+   999→   999→                )}
+  1000→  1000→              >
+  1001→  1001→                {f}
+  1002→  1002→              </button>
+  1003→  1003→            ))}
+  1004→  1004→          </div>
+  1005→  1005→        </div>
+  1006→  1006→        <Button
+  1007→  1007→          onClick={onConvert}
+  1008→  1008→          disabled={!labFile || labBusy || !capConversion}
+  1009→  1009→          variant="outline"
+  1010→  1010→          className="mt-2 w-full border-[rgba(212,175,55,0.35)] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.08)] disabled:opacity-50"
+  1011→  1011→        >
+  1012→  1012→          <Wand2 className="mr-1.5 h-4 w-4" />
+  1013→  1013→          Convert format
+  1014→  1014→        </Button>
+  1015→  1015→
+  1016→  1016→        <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-3">
+  1017→  1017→          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-white/60">
+  1018→  1018→            <ShieldAlert className="h-3.5 w-3.5 text-amber-400" /> Not available yet
+  1019→  1019→          </div>
+  1020→  1020→          <p className="text-[11px] leading-relaxed text-white/40">
+  1021→  1021→            {capTools?.detail ??
+  1022→  1022→              'Vocal/instrumental separation, denoising and voice cloning require self-hosted model workers that are not deployed; their licenses are under review. BEAN does not fake these outputs.'}
+  1023→  1023→          </p>
+  1024→  1024→        </div>
+  1025→  1025→
+  1026→  1026→        <p className="mt-4 text-[11px] leading-relaxed text-white/35">
+  1027→  1027→          The transcription backend returns plain text without word timestamps, so timed subtitle (SRT) export is not offered — only honest plain-text export.
+  1028→  1028→        </p>
+  1029→  1029→      </div>
+  1030→  1030→
+  1031→  1031→      <div className="min-w-0">
+  1032→  1032→        <h3 className="mb-3 text-sm font-semibold text-white/80">Transcripts</h3>
+  1033→  1033→        {transcribeJobs.length === 0 ? (
+  1034→  1034→          <EmptyState
+  1035→  1035→            icon={<FileAudio className="h-10 w-10" />}
+  1036→  1036→            title="No transcriptions yet"
+  1037→  1037→            hint="Upload a WAV or WebM file — completed transcripts appear here, editable and exportable as .txt."
+  1038→  1038→          />
+  1039→  1039→        ) : (
+  1040→  1040→          <div className="space-y-3">
+  1041→  1041→            {transcribeJobs.map((j) => (
+  1042→  1042→              <div key={j.id} className="bean-glass rounded-xl p-4">
+  1043→  1043→                <div className="mb-2 flex flex-wrap items-center gap-2">
+  1044→  1044→                  {j.status === 'completed' ? (
+  1045→  1045→                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+  1046→  1046→                  ) : j.status === 'failed' ? (
+  1047→  1047→                    <XCircle className="h-3.5 w-3.5 text-red-400" />
+  1048→  1048→                  ) : (
+  1049→  1049→                    <Clock className="h-3.5 w-3.5 text-[#d4af37]" />
+  1050→  1050→                  )}
+  1051→  1051→                  <span className="max-w-[220px] truncate text-[12px] font-medium text-white/80">{j.displayName}</span>
+  1052→  1052→                  <span className="text-[11px] text-white/35">{timeAgo(j.queuedAt)}</span>
+  1053→  1053→                  <GoldBadge tone={j.status === 'completed' ? 'green' : j.status === 'failed' ? 'red' : 'gold'}>{j.status}</GoldBadge>
+  1054→  1054→                  {j.status === 'completed' ? (
+  1055→  1055→                    <span className="ml-auto inline-flex items-center gap-1.5">
+  1056→  1056→                      <button
+  1057→  1057→                        onClick={() => onDownloadTranscript(j)}
+  1058→  1058→                        className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2 py-1 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
+  1059→  1059→                      >
+  1060→  1060→                        <Download className="h-3 w-3" /> .txt
+  1061→  1061→                      </button>
+  1062→  1062→                      <button
+  1063→  1063→                        onClick={() => {
+  1064→  1064→                          void navigator.clipboard?.writeText(editedTranscripts[j.id] ?? j.transcript ?? '')
+  1065→  1065→                        }}
+  1066→  1066→                        className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2 py-1 text-[11px] text-white/60 hover:bg-white/5"
+  1067→  1067→                      >
+  1068→  1068→                        <Copy className="h-3 w-3" /> Copy
+  1069→  1069→                      </button>
+  1070→  1070→                      <button
+  1071→  1071→                        onClick={() => onDelete(j.id)}
+  1072→  1072→                        className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2 py-1 text-[11px] text-white/50 hover:border-red-500/40 hover:text-red-300"
+  1073→  1073→                        title="Delete transcript + uploaded audio permanently"
+  1074→  1074→                      >
+  1075→  1075→                        <Trash2 className="h-3 w-3" />
+  1076→  1076→                      </button>
+  1077→  1077→                    </span>
+  1078→  1078→                  ) : null}
+  1079→  1079→                </div>
+  1080→  1080→                {j.status === 'completed' ? (
+  1081→  1081→                  <Textarea
+  1082→  1082→                    value={editedTranscripts[j.id] ?? j.transcript ?? ''}
+  1083→  1083→                    onChange={(e) => setEditedTranscripts({ ...editedTranscripts, [j.id]: e.target.value })}
+  1084→  1084→                    rows={4}
+  1085→  1085→                    className="resize-y bg-black/30 text-[12.5px] leading-relaxed"
+  1086→  1086→                  />
+  1087→  1087→                ) : j.status === 'failed' ? (
+  1088→  1088→                  <p className="text-xs text-red-300">{j.errorMessage ?? 'Transcription failed.'}{j.errorCode ? ` (${j.errorCode})` : ''}</p>
+  1089→  1089→                ) : (
+  1090→  1090→                  <div className="py-1">
+  1091→  1091→                    <div className="mb-1.5 text-xs text-white/50">Transcribing… {j.progress}%</div>
+  1092→  1092→                    <Progress value={j.progress} className="h-1.5 bg-white/5" />
+  1093→  1093→                  </div>
+  1094→  1094→                )}
+  1095→  1095→              </div>
+  1096→  1096→            ))}
+  1097→  1097→          </div>
+  1098→  1098→        )}
+  1099→  1099→
+  1100→  1100→        <h3 className="mb-3 mt-6 text-sm font-semibold text-white/80">Converted files</h3>
+  1101→  1101→        {convertJobs.length === 0 ? (
+  1102→  1102→          <EmptyState
+  1103→  1103→            icon={<Wand2 className="h-10 w-10" />}
+  1104→  1104→            title="No conversions yet"
+  1105→  1105→            hint="Upload a WAV or WebM file and pick a target format — converted files appear here with download and delete."
+  1106→  1106→          />
+  1107→  1107→        ) : (
+  1108→  1108→          <div className="space-y-3">
+  1109→  1109→            {convertJobs.map((j) => (
+  1110→  1110→              <div key={j.id} className="bean-glass rounded-xl p-4">
+  1111→  1111→                <div className="mb-2 flex flex-wrap items-center gap-2">
+  1112→  1112→                  {j.status === 'completed' ? (
+  1113→  1113→                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+  1114→  1114→                  ) : j.status === 'failed' ? (
+  1115→  1115→                    <XCircle className="h-3.5 w-3.5 text-red-400" />
+  1116→  1116→                  ) : (
+  1117→  1117→                    <Clock className="h-3.5 w-3.5 text-[#d4af37]" />
+  1118→  1118→                  )}
+  1119→  1119→                  <span className="max-w-[220px] truncate text-[12px] font-medium text-white/80">{j.displayName}</span>
+  1120→  1120→                  <span className="text-[11px] uppercase text-[#f0c75e]">→ {j.target}</span>
+  1121→  1121→                  <span className="text-[11px] text-white/35">{timeAgo(j.queuedAt)}</span>
+  1122→  1122→                  <GoldBadge tone={j.status === 'completed' ? 'green' : j.status === 'failed' ? 'red' : 'gold'}>{j.status}</GoldBadge>
+  1123→  1123→                  {j.status === 'completed' ? (
+  1124→  1124→                    <span className="ml-auto inline-flex items-center gap-1.5">
+  1125→  1125→                      <a
+  1126→  1126→                        href={`${j.audioUrl}?download=1`}
+  1127→  1127→                        download
+  1128→  1128→                        className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2 py-1 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
+  1129→  1129→                      >
+  1130→  1130→                        <Download className="h-3 w-3" /> Download
+  1131→  1131→                      </a>
+  1132→  1132→                      <button
+  1133→  1133→                        onClick={() => onDelete(j.id)}
+  1134→  1134→                        className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2 py-1 text-[11px] text-white/50 hover:border-red-500/40 hover:text-red-300"
+  1135→  1135→                      >
+  1136→  1136→                        <Trash2 className="h-3 w-3" />
+  1137→  1137→                      </button>
+  1138→  1138→                    </span>
+  1139→  1139→                  ) : null}
+  1140→  1140→                </div>
+  1141→  1141→                {j.status === 'completed' && j.audioUrl ? (
+  1142→  1142→                  <audio controls preload="none" src={j.audioUrl} className="h-9 w-full" />
+  1143→  1143→                ) : j.status === 'failed' ? (
+  1144→  1144→                  <p className="text-xs text-red-300">{j.errorMessage ?? 'Conversion failed.'}{j.errorCode ? ` (${j.errorCode})` : ''}</p>
+  1145→  1145→                ) : (
+  1146→  1146→                  <div className="py-1">
+  1147→  1147→                    <div className="mb-1.5 text-xs text-white/50">Converting… {j.progress}%</div>
+  1148→  1148→                    <Progress value={j.progress} className="h-1.5 bg-white/5" />
+  1149→  1149→                  </div>
+  1150→  1150→                )}
+  1151→  1151→              </div>
+  1152→  1152→            ))}
+  1153→  1153→          </div>
+  1154→  1154→        )}
+  1155→  1155→      </div>
+  1156→  1156→    </div>
+  1157→  1157→  )
+  1158→  1158→}
+  1159→  1159→

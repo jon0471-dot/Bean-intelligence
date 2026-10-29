@@ -1,0 +1,146 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["Who is the current Chief Minister of Tamil Nadu?","Who is the current Chief Minister of Tamil Nadu? India"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"C","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":".","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Joseph","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Vij","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"ay","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" is","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" the","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" current","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Chief","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Minister","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" of","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Tamil","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Nadu","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" [","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"3","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"][","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"4","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"][","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"5","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"].","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" He","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" is","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" a","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" former","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" actor","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" who","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" entered","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" politics","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" and","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" was","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" sworn","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" in","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" as","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Chief","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Minister","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" in","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" May","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" ","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"202","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"6","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" [","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"5","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"].","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Vij","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"ay","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" chairs","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" the","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Tamil","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Nadu","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" Cabinet","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" meetings","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":",","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" with","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" one","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" such","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" meeting","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" scheduled","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" for","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" October","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" ","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"29","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":",","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" ","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"202","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"6","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":" [","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"1","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"delta":"].","conversationId":"cmvsxwjl10005qb8c0wx7qicm"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvsxwjl10005qb8c0wx7qicm","durationMs":7918,"partial":false,"messageId":"cmvsxwpp00009qb8ccnxovyo8","firstTokenMs":7569,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"CM Vijay to chair Tamil Nadu Cabinet meeting on October 29","url":"https://www.thehindu.com/news/national/tamil-nadu/cm-vijay-to-chair-tn-cabinet-meeting-on-october-29/article71631327.ece","hostName":"www.thehindu.com","date":"2026-10-27T18:21:53+05:30","official":false,"social":false,"pageRead":true},{"id":3,"title":"C. Joseph Vijay","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay","hostName":"en.wikipedia.org","date":null,"official":false,"social":false,"pageRead":false},{"id":4,"title":"Council of Ministers","url":"https://www.tn.gov.in/minister_list.php","hostName":"www.tn.gov.in","date":null,"official":true,"social":false,"pageRead":false},{"id":5,"title":"Tamil film star Vijay is Indian state chief minister after days","url":"https://www.bbc.com/news/articles/ce8p2d97482o","hostName":"www.bbc.com","date":"May 10, 2026","official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 2 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":6705},{"stage":"verifying","durationMs":7}],"degraded":[],"retrievedAt":"2026-10-29T02:44:29.073Z","verificationNote":"Publication dates could not be verified for 2 of the cited sources — the latest status is stated only as of the dated reports","timings":{"totalMs":7910,"understandMs":1,"researchMs":6704,"searchMs":5388,"pageReadMs":1269,"solveTtftMs":860,"solveMs":1196,"verifyMs":7,"solvePasses":1}}}
+

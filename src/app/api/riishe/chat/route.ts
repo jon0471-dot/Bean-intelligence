@@ -12,20 +12,36 @@ import { buildConversationDigest } from '@/lib/riishe/summarize'
 import type { AttachedDocument } from '@/lib/riishe/orchestrator'
 import type { ToolContext } from '@/lib/riishe/tools/types'
 import { metadataToJson, type MessageMetadata } from '@/lib/riishe/states'
+import { upstreamStreamErrorPayload, upstreamErrorCode } from '@/lib/upstream/gateway'
 import type { ChatTurn } from '@/lib/adapters/types'
 
 const schema = z.object({
   conversationId: z.string().min(1).optional(),
   message: z.string().min(1, 'Enter a message.').max(12000),
-  /** Live-retrieval control: policy decides by default. */
-  searchMode: z.enum(['auto', 'on', 'off']).default('auto'),
-  /** Explicit per-request opt-in for sandboxed code execution. */
-  allowCodeExecution: z.boolean().default(false),
-  /** Documents (already uploaded) to ground this turn on. */
-  documentIds: z.array(z.string().min(1)).max(2).optional(),
+  /** Files (already uploaded, ownership-checked) to ground this turn on. */
+  documentIds: z.array(z.string().min(1)).max(3).optional(),
   /** Regenerate: drop the trailing assistant message before answering. */
   retry: z.boolean().default(false),
+  /** Regenerate a SPECIFIC earlier response: the conversation's messages
+   *  from that exchange onward (the assistant reply, its user turn, and
+   *  everything after) are removed first, so history stays an honest,
+   *  coherent sequence. Owner-checked below. */
+  retryFromMessageId: z.string().min(1).optional(),
 })
+
+/**
+ * Pure predicate for the dangling-retry collapse: TRUE when the conversation's
+ * trailing row is the SAME user message with no assistant reply after it —
+ * the exact residue of a turn that failed before answering (e.g. upstream
+ * HTTP 429). Re-sending that question is the retry, so the route replaces
+ * the dangling row instead of accumulating duplicate user turns.
+ */
+export function isDanglingDuplicateUserRow(
+  trailing: { role: string; content: string } | null,
+  incoming: string,
+): trailing is { role: string; content: string } {
+  return trailing !== null && trailing.role === 'user' && trailing.content === incoming
+}
 
 /**
  * RIISHE conversational endpoint. SSE streaming when the client asks,
@@ -40,9 +56,14 @@ const schema = z.object({
  */
 export async function POST(request: Request) {
   return handle(async () => {
+    const tRequest = Date.now()
     const user = await requireUser()
     const body = await parseBody(request, schema)
     const { backend, adapter, release } = await preflight(user.id, 'riishe', 'chat')
+    // Request validation + orchestration pre-flight (auth, body parse, rate
+    // limits, quotas, concurrency, capability resolution) — measured so
+    // non-model overhead is never mistaken for model latency.
+    const preflightMs = Date.now() - tRequest
     if (!adapter.chat || !adapter.chatStream) {
       release()
       throw new BeanApiError('NO_BACKEND', 'The chat backend is missing its adapter.')
@@ -63,6 +84,24 @@ export async function POST(request: Request) {
       conversationId = conv.id
     }
 
+    // Dangling-retry collapse: a previous turn that failed BEFORE producing
+    // any assistant reply leaves a trailing user row with no answer. When the
+    // user sends that same question again (the natural retry after a rate
+    // limit), the dangling row is removed first so the conversation keeps ONE
+    // honest record of the retried turn instead of accumulating duplicates.
+    // Never triggers after an ANSWERED turn (the trailing row is the
+    // assistant's), and never for regenerate flows (they manage rows below).
+    if (!body.retry && !body.retryFromMessageId) {
+      const trailing = await db.message.findFirst({
+        where: { conversationId },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, role: true, content: true },
+      })
+      if (isDanglingDuplicateUserRow(trailing, body.message)) {
+        await db.message.delete({ where: { id: trailing.id } })
+      }
+    }
+
     // Regenerate: the previous attempt for this trailing turn is removed
     // (owner-checked above) so history stays a clean, honest sequence.
     if (body.retry) {
@@ -72,6 +111,33 @@ export async function POST(request: Request) {
       })
       if (last && last.role === 'assistant') {
         await db.message.delete({ where: { id: last.id } })
+      }
+    } else if (body.retryFromMessageId) {
+      // Regenerate from an EARLIER response: delete that assistant message,
+      // its preceding user turn, and every message after it.
+      const target = await db.message.findFirst({
+        where: { id: body.retryFromMessageId, conversationId, role: 'assistant' },
+      })
+      if (target) {
+        const all = await db.message.findMany({
+          where: { conversationId },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, role: true },
+        })
+        const idx = all.findIndex((m) => m.id === target.id)
+        if (idx >= 0) {
+          // Walk back to the user turn that produced this reply, then drop
+          // everything from that user turn onward.
+          let start = idx
+          for (let i = idx - 1; i >= 0; i -= 1) {
+            start = i
+            if (all[i].role === 'user') break
+          }
+          const idsToDelete = all.slice(start).map((m) => m.id)
+          await db.message.deleteMany({ where: { id: { in: idsToDelete } } })
+          // A summary digest computed over deleted turns is stale.
+          await db.conversation.update({ where: { id: conversationId }, data: { summary: null, summaryCount: 0 } })
+        }
       }
     }
 
@@ -135,7 +201,11 @@ export async function POST(request: Request) {
     }
 
     const toolContext: ToolContext = {
-      permissions: new Set(body.allowCodeExecution ? ['allowCodeExecution'] : []),
+      // Code execution is a SERVER-SIDE policy (no client toggle): the
+      // permission is always granted; the orchestrator's selectTools only
+      // offers run_code for tasks where executing code genuinely helps, and
+      // the tool registry still gates every actual execution.
+      permissions: new Set(['allowCodeExecution']),
       documents: new Map(documents.map((d) => [d.id, { name: d.name, text: d.text, truncated: d.truncated }])),
     }
 
@@ -160,7 +230,6 @@ export async function POST(request: Request) {
           adapter,
           nonStreaming: true,
           backendCapabilities: CHAT_BACKEND_CAPABILITIES,
-          searchMode: body.searchMode,
           toolContext,
           documents,
           digest,
@@ -186,12 +255,23 @@ export async function POST(request: Request) {
           durationMs: result.durationMs,
           success: true,
         })
+        logger.info('riishe.performance', {
+          path: 'json',
+          conversationId,
+          task: result.task,
+          preflightMs,
+          ...(result.metadata.timings ?? {}),
+        })
         return ok({
           conversationId,
           content: result.content,
           durationMs: result.durationMs,
           metadata: result.metadata,
         })
+      } catch (e) {
+        // Typed upstream failures map to their honest BeanApiError codes so
+        // the JSON path reports rate-limited as 429 (not a generic 500).
+        throw new BeanApiError(upstreamErrorCode(e), e instanceof Error ? e.message : 'The backend call failed.')
       } finally {
         release()
       }
@@ -205,7 +285,9 @@ export async function POST(request: Request) {
         const t0 = Date.now()
         let succeeded = false
         let full = ''
+        let firstTokenAt: number | null = null
         let finalMetadata: MessageMetadata | null = null
+        let assistantMessageId: string | null = null
         try {
           const result = await orchestrateTurn({
             userMessage: body.message,
@@ -213,18 +295,24 @@ export async function POST(request: Request) {
             caps,
             adapter,
             backendCapabilities: CHAT_BACKEND_CAPABILITIES,
-            searchMode: body.searchMode,
             toolContext,
             documents,
             digest,
             onEvent: (e) => {
               if (e.type === 'delta') {
+                if (firstTokenAt === null) firstTokenAt = Date.now()
                 full += e.delta
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({ delta: e.delta, conversationId: convId })}\n\n`,
                   ),
                 )
+              } else if (e.type === 'reset') {
+                // Reset protocol: a verification rewrite replaced the streamed
+                // draft — the client must CLEAR what it has so the final
+                // answer replaces it instead of concatenating.
+                full = ''
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ reset: true })}\n\n`))
               } else if (e.type === 'stage') {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`))
               } else if (e.type === 'research') {
@@ -238,8 +326,18 @@ export async function POST(request: Request) {
           })
           finalMetadata = result.metadata
           succeeded = full.trim().length > 0
+          logger.info('riishe.performance', {
+            path: 'sse',
+            conversationId: convId,
+            task: result.task,
+            preflightMs,
+            // User-perceived time to first streamed token (null when the turn
+            // was buffered end-to-end — tool loop / injection gate).
+            firstTokenMs: firstTokenAt !== null ? firstTokenAt - t0 : null,
+            ...(result.metadata.timings ?? {}),
+          })
           if (succeeded) {
-            await db.message.create({
+            const assistantRow = await db.message.create({
               data: {
                 conversationId: convId,
                 role: 'assistant',
@@ -250,6 +348,7 @@ export async function POST(request: Request) {
                 metadata: metadataToJson(result.metadata),
               },
             })
+            assistantMessageId = assistantRow.id
           }
           await recordUsage({
             userId: user.id,
@@ -269,14 +368,33 @@ export async function POST(request: Request) {
                 conversationId: convId,
                 durationMs: Date.now() - t0,
                 partial: !succeeded,
+                // The persisted message id lets the client wire Regenerate
+                // on ANY assistant message (not just the trailing one).
+                ...(assistantMessageId ? { messageId: assistantMessageId } : {}),
+                ...(firstTokenAt !== null ? { firstTokenMs: firstTokenAt - t0 } : {}),
                 ...(finalMetadata ? { meta: finalMetadata } : {}),
               })}\n\n`,
             ),
           )
         } catch (e) {
-          logger.warn('riishe.stream_failed', {
-            message: e instanceof Error ? e.message : String(e),
-          })
+          const errorMessage = e instanceof Error ? e.message : String(e)
+          logger.warn('riishe.stream_failed', { message: errorMessage.slice(0, 300) })
+          // Honest failure classification: the upstream status (embedded by the
+          // SDK in the error text) decides the story. A 429 is temporary
+          // throttling; 401/403 is an operator action; 402 is an account
+          // action; anything else is an application failure. Research-layer
+          // failures never reach this catch — they degrade into the evidence
+          // pack — so a rate-limit here is the chat/LLM endpoint, and the
+          // wording says so instead of blaming the research gateway.
+          const payload = upstreamStreamErrorPayload(e)
+          const errorCode =
+            payload.code === 'UPSTREAM_RATE_LIMITED'
+              ? 'UPSTREAM_RATE_LIMITED'
+              : payload.code === 'UPSTREAM_AUTH'
+                ? 'UPSTREAM_AUTH'
+                : payload.code === 'UPSTREAM_BILLING'
+                  ? 'UPSTREAM_BILLING'
+                  : 'BACKEND_FAILURE'
           await recordUsage({
             userId: user.id,
             product: 'riishe',
@@ -285,15 +403,10 @@ export async function POST(request: Request) {
             tokensIn: Math.ceil(body.message.length / 4),
             durationMs: Date.now() - t0,
             success: false,
-            errorCode: 'BACKEND_FAILURE',
+            errorCode,
           })
           controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                error: 'The response stream failed before completion. Partial text is labeled as incomplete.',
-                partial: true,
-              })}\n\n`,
-            ),
+            encoder.encode(`data: ${JSON.stringify(payload)}\n\n`),
           )
         } finally {
           release()

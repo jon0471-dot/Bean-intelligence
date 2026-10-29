@@ -11,6 +11,10 @@ export interface HealthReport {
   checkedAt: string
   latencyMs: number | null
   detail: string
+  /** True when this report is served from the short-lived probe cache —
+   *  it reflects the last REAL probe (checkedAt is that probe's time),
+   *  never a fabricated fresh success. */
+  cached?: boolean
 }
 
 export interface ChatTurn {

@@ -1,0 +1,44 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["What is the latest stable version of Next.js"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"The","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":" latest","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":" stable","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":" version","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":" of","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":" Next","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":".js","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":" is","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":" ","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":"16","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":".","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":"4","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":".","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":"3","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":" [","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":"2","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"delta":"].","conversationId":"cmvrq0x39008hr4o7fl2953we"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrq0x39008hr4o7fl2953we","durationMs":12721,"partial":false,"messageId":"cmvrq16wo008lr4o70nkjtap0","firstTokenMs":12716,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":2,"title":"Next.js","url":"https://www.npmjs.com/package/next","hostName":"www.npmjs.com","date":"Oct 23, 2026","official":false,"pageRead":true}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":12077},{"stage":"verifying","durationMs":0}],"degraded":["page read failed: page_reader timed out after 10000ms"],"retrievedAt":"2026-10-28T06:16:14.902Z","timings":{"totalMs":12717,"understandMs":0,"researchMs":12077,"searchMs":2072,"pageReadMs":10003,"solveTtftMs":639,"solveMs":640,"verifyMs":0,"solvePasses":1}}}
+
