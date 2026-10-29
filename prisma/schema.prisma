@@ -24,6 +24,7 @@ model User {
   jobs          GenerationJob[]
   usageRecords  UsageRecord[]
   documents     Document[]
+  codeProjects  CodeProject[]
 }
 
 model Session {
@@ -82,6 +83,10 @@ model Document {
   size           Int // uploaded bytes
   text           String // extracted text actually used as evidence (may be truncated)
   truncated      Boolean      @default(false)
+  kind           String       @default("text") // detected capability: text|pdf|docx|data|image|audio|video|archive|code|binary
+  status         String       @default("ready") // ready | unsupported | failed
+  note           String? // honest processing explanation (why unsupported / what was extracted)
+  metaJson       String? // capability-specific metadata (ffprobe fields, vision model note, archive summary)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -140,4 +145,43 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+model CodeProject {
+  id        String        @id @default(cuid())
+  userId    String
+  title     String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  CodeMessage[]
+  files     CodeFile[]
+
+  @@index([userId, updatedAt])
+}
+
+model CodeMessage {
+  id        String      @id @default(cuid())
+  projectId String
+  role      String // user | assistant
+  content   String
+  metaJson  String? // file changes summary (added/modified/diffs) for honest UI history
+  createdAt DateTime    @default(now())
+  project   CodeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+model CodeFile {
+  id        String      @id @default(cuid())
+  projectId String
+  path      String
+  content   String
+  origin    String      @default("generated") // generated | modified
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  project   CodeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, path])
+  @@index([projectId])
 }

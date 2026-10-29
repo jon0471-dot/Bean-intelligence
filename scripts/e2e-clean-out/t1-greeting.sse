@@ -1,0 +1,42 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"conversationId":"cmvoog060003xtptu1iepvmvl","userMessageId":"cmvoog064003ztptunqn1uyve"}
+
+data: {"delta":"I","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":"'m","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" doing","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" well","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":",","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" thank","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" you","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" for","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" asking","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":"!","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" How","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" can","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" I","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" help","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" you","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":" today","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"delta":"?","conversationId":"cmvoog060003xtptu1iepvmvl"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvoog060003xtptu1iepvmvl","durationMs":608,"partial":false,"messageId":"cmvoog0my0041tptu09ypobho","userMessageId":"cmvoog064003ztptunqn1uyve","content":"I'm doing well, thank you for asking! How can I help you today?","meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: greeting/small talk"],"searchMode":"auto"}}
+

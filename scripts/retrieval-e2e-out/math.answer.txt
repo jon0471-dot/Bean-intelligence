@@ -1,0 +1,12 @@
+Let's solve this step by step:
+
+1. First, perform the multiplication: 17 × 23 = 391
+2. Then, perform the division: 8 ÷ 2 = 4
+3. Finally, add the results: 391 + 4 = 395
+
+The answer is 395.
+
+SELF_CHECK:
+CHECK: 17*23 = 391
+CHECK: 8/2 = 4
+CHECK: 391+4 = 395

@@ -1,293 +1,435 @@
 /**
- * BEAN Intelligence — research-quality fix tests.
- * Run: bun test tests/unit/research-quality.test.ts
+ * Research-quality contracts (final work order):
+ *   - source selection: social/video platforms demoted and labeled;
+ *     syndicated same-title copies collapse; URL-titled reposts cleaned
+ *   - page-read content verification: error/blocked pages NEVER enter the
+ *     grounding context as "article content"
+ *   - ongoing-case follow-up: newer reporting is hunted once before an
+ *     evolving case is summarized
+ *   - allegation attribution + name grounding audits
+ *   - verification note: undated cited sources, allegations, ungrounded names
+ *   - structured research-answer protocol for ongoing news
  *
- * Covers the final research-quality requirements:
- *  - the exact acceptance query ("Research a current topic: ...") triggers
- *    live search and is treated as a sensitive ongoing case,
- *  - source selection: official/gov.in domains, social-host demotion,
- *  - publication-date extraction from page HTML metadata,
- *  - staleness warnings for undated/old evidence on time-sensitive questions,
- *  - cross-pipeline source deduplication with citation-id remapping,
- *  - unattributed-allegation scanning for sensitive cases,
- *  - research synthesis + sensitive-case prompt protocols.
- * All pure — no network.
+ * Only the SDK boundary is scripted where needed; rank/pipeline/claims/
+ * policy/prompts are the REAL production code. No fake successes anywhere.
+ *
+ * Run: bun test tests/unit/research-quality.test.ts
  */
-import { describe, test, expect } from 'bun:test'
-import { shouldSearch } from '../../src/lib/research/policy'
-import { detectSensitiveCase, coreTopic, scanForUnattributedAllegations } from '../../src/lib/research/sensitive'
-import { rankSources, stalenessWarning, isOfficialHost, isSocialHost, classifyHost, type RankedSource } from '../../src/lib/research/rank'
-import { extractPublishedTime } from '../../src/lib/research/provider'
-import { buildQuerySet, formatEvidenceBlock, type EvidenceSource } from '../../src/lib/research/pipeline'
-import { dedupeSourcesByUrl, remapCitationIds, auditCitations } from '../../src/lib/verify/citations'
+import { describe, test, expect, mock } from 'bun:test'
+
+import {
+  authorityScore,
+  ugcNewsPenalty,
+  cleanSourceTitle,
+  rankSources,
+  isSocialHost,
+} from '../../src/lib/research/rank'
+import {
+  isUsablePageText,
+  PAGE_MIN_USEFUL_CHARS,
+  newestSourceAgeDays,
+} from '../../src/lib/research/pipeline'
+import { isOngoingCaseQuery, isNewsEventQuery } from '../../src/lib/research/policy'
+import { auditClaimSupport } from '../../src/lib/riishe/claims'
+import { buildVerificationNote } from '../../src/lib/riishe/orchestrator'
 import { buildSystemPrompt } from '../../src/lib/riishe/prompts'
-import type { WebSearchResult } from '../../src/lib/research/provider'
 
-function src(partial: Partial<WebSearchResult> & { url: string }): WebSearchResult {
-  return {
-    title: partial.title ?? 'Title',
-    snippet: partial.snippet ?? 'snippet text',
-    hostName: partial.hostName ?? new URL(partial.url).hostname,
-    rank: partial.rank ?? 1,
-    date: partial.date ?? null,
-    ...partial,
-  }
-}
-
-function ranked(partial: Partial<RankedSource> & { id: number }): RankedSource {
-  return {
-    url: partial.url ?? 'https://example.com/a',
-    title: partial.title ?? 'T',
-    snippet: partial.snippet ?? 's',
-    hostName: partial.hostName ?? 'example.com',
-    date: partial.date ?? null,
-    freshness: partial.freshness ?? null,
-    year: partial.year ?? null,
-    authority: partial.authority ?? 0.5,
-    official: partial.official ?? false,
-    social: partial.social ?? false,
-    sourceType: partial.sourceType ?? 'other',
-    score: partial.score ?? 0.5,
-    ...partial,
-  }
-}
-
-describe('acceptance query: Research a current topic: Gingee girl missing', () => {
-  const QUERY = 'Research a current topic: Gingee girl missing'
-
-  test('triggers live search (root cause: it previously did NOT search)', () => {
-    const d = shouldSearch(QUERY)
-    expect(d.search).toBe(true)
-    // ongoing incident => high risk with a bounded recency window
-    expect(d.risk).toBe('high')
-    expect(d.recencyDays).toBeGreaterThan(0)
-  })
-
-  test('is detected as a sensitive ongoing case', () => {
-    const s = detectSensitiveCase(QUERY)
-    expect(s.sensitive).toBe(true)
-    expect(s.kind).toBe('missing_person')
-  })
-
-  test('core topic extraction strips the wrapper for freshness queries', () => {
-    expect(coreTopic(QUERY)).toBe('Gingee girl missing')
-  })
-
-  test('buildQuerySet adds a deterministic newest-coverage query for incidents', () => {
-    const out = buildQuerySet(QUERY, ['Gingee girl missing case'], false)
-    expect(out.addedFreshnessQuery).toBe('Gingee girl missing latest update')
-    expect(out.queries).toContain('Gingee girl missing latest update')
-  })
-
-  test('incident search still yields to math/creative/greeting exclusions', () => {
-    expect(shouldSearch('Calculate 17 * 23').search).toBe(false)
-    expect(shouldSearch('Write a haiku about autumn').search).toBe(false)
-    expect(shouldSearch('hi there').search).toBe(false)
-  })
-
-  test('coding messages about "missing" symbols are not incident searches', () => {
-    const d = shouldSearch('My python function is missing a semicolon, how do I fix it?')
-    expect(d.search).toBe(false)
-    expect(detectSensitiveCase('My python function is missing a semicolon').sensitive).toBe(false)
-  })
+const result = (over: Partial<Parameters<typeof rankSources>[1][number]>) => ({
+  url: 'https://example.com/a',
+  title: 't',
+  snippet: 's',
+  hostName: 'example.com',
+  rank: 1,
+  date: null,
+  ...over,
 })
 
-describe('sensitive-case detection', () => {
-  test('detects missing persons, crime cases and disasters', () => {
-    expect(detectSensitiveCase('A 7-year-old girl went missing in Gingee').sensitive).toBe(true)
-    expect(detectSensitiveCase('missing person case in Villupuram').sensitive).toBe(true)
-    expect(detectSensitiveCase('the murder case probe continues').sensitive).toBe(true)
-    expect(detectSensitiveCase('building collapse death toll rises').sensitive).toBe(true)
-  })
-
-  test('ordinary topics are not sensitive', () => {
-    expect(detectSensitiveCase('Tell me about the Eiffel Tower').sensitive).toBe(false)
-    expect(detectSensitiveCase('I miss my hometown').sensitive).toBe(false)
-    expect(detectSensitiveCase('What is the capital of France?').sensitive).toBe(false)
-  })
-})
-
-describe('unattributed allegation scan', () => {
-  test('flags accusatory sentences with no citation and no attribution', () => {
-    const flags = scanForUnattributedAllegations('Ravi Kumar abducted the girl from the school. The search continues.')
-    expect(flags.length).toBe(1)
-    expect(flags[0].sentence).toContain('abducted')
-  })
-
-  test('cited or attributed accusations pass', () => {
-    expect(scanForUnattributedAllegations('Ravi Kumar abducted the girl, according to police [2].').length).toBe(0)
-    expect(scanForUnattributedAllegations('Police said the girl was allegedly taken by a neighbour [3].').length).toBe(0)
-    expect(scanForUnattributedAllegations('A man was arrested on suspicion of abduction [1].').length).toBe(0)
-  })
-
-  test('neutral sentences never flag', () => {
-    expect(scanForUnattributedAllegations('The girl was reported missing on October 12 [1]. Search teams continue [2].').length).toBe(0)
-  })
-})
-
-describe('source selection', () => {
-  test('gov.in / nic.in hosts are official', () => {
-    expect(isOfficialHost('tnpolice.gov.in')).toBe(true)
-    expect(isOfficialHost('viluppuram.nic.in')).toBe(true)
-    expect(isOfficialHost('www.pib.gov.in')).toBe(true)
-    expect(isOfficialHost('tn.gov.in')).toBe(true)
-  })
-
-  test('social hosts are classified and demoted', () => {
-    expect(isSocialHost('x.com')).toBe(true)
+describe('source selection: social and video platforms are last-resort evidence', () => {
+  test('video platforms count as social/UGC with weak authority', () => {
+    expect(authorityScore('www.youtube.com')).toBe(0.2)
+    expect(authorityScore('youtu.be')).toBe(0.2)
+    expect(isSocialHost('m.youtube.com')).toBe(true)
     expect(isSocialHost('www.facebook.com')).toBe(true)
-    expect(classifyHost('twitter.com')).toMatchObject({ social: true, sourceType: 'social' })
-    expect(classifyHost('timesofindia.indiatimes.com')).toMatchObject({ official: false, social: false, sourceType: 'news' })
-    expect(classifyHost('en.wikipedia.org')).toMatchObject({ sourceType: 'reference' })
-
-    const results = [
-      src({ url: 'https://x.com/user/status/123', title: 'Twitter thread claims', rank: 1 }),
-      src({ url: 'https://www.thehindu.com/news/national/tamil-nadu/gingee', title: 'The Hindu report', rank: 2, date: new Date().toISOString() }),
-    ]
-    const rankedOut = rankSources('gingee girl', results, { freshnessMatters: true, limit: 2 })
-    expect(rankedOut[0].sourceType).toBe('news')
-    expect(rankedOut[0].social).toBe(false)
-    expect(rankedOut.find((r) => r.sourceType === 'social')).toBeTruthy()
+    expect(isSocialHost('www.thehindu.com')).toBe(false)
   })
 
-  test('social source is labeled in the evidence block for the solver', () => {
-    const pack = {
-      sources: [
-        {
-          id: 1,
-          url: 'https://x.com/u/status/1',
-          title: 'A post',
-          snippet: 'claims',
-          hostName: 'x.com',
-          date: null,
-          freshness: null,
-          year: null,
-          authority: 0.2,
-          official: false,
-          social: true,
-          sourceType: 'social' as const,
-          score: 0.3,
-          pageRead: false,
-          excerpt: null,
-        } satisfies EvidenceSource,
-      ],
-      queries: ['q'],
-      degraded: [],
-      staleness: null,
-      durationMs: 1,
-    }
-    const block = formatEvidenceBlock(pack)
-    expect(block).toContain('SOCIAL MEDIA')
-    expect(block).toContain('no publication date found')
-  })
-})
-
-describe('publication-date extraction from HTML', () => {
-  test('reads JSON-LD datePublished', () => {
-    const html = '<html><head><script type="application/ld+json">{"@type":"NewsArticle","datePublished":"2026-10-12T08:30:00+05:30","headline":"x"}</script></head><body>hi</body></html>'
-    expect(extractPublishedTime(html)).toBe('2026-10-12T08:30:00+05:30')
+  test('freshness-sensitive queries stack a UGC penalty on top of low authority', () => {
+    expect(ugcNewsPenalty('www.facebook.com', true)).toBeGreaterThan(0)
+    expect(ugcNewsPenalty('www.facebook.com', false)).toBe(0)
+    expect(ugcNewsPenalty('www.thehindu.com', true)).toBe(0)
   })
 
-  test('reads article:published_time meta and <time datetime>', () => {
-    const meta = '<meta property="article:published_time" content="2026-10-12T00:00:00Z">'
-    expect(extractPublishedTime(meta)).toBe('2026-10-12T00:00:00Z')
-    const time = '<article><time datetime="2026-10-12">Oct 12</time></article>'
-    expect(extractPublishedTime(time)).toBe('2026-10-12')
+  test('a dated local report outranks an undated social post at equal relevance', () => {
+    const query = 'Gingee girl missing Tamil Nadu India'
+    const datedNews = result({
+      url: 'https://www.thehindu.com/news/national/tamil-nadu/article9.ece',
+      title: 'CB-CID steps up search for missing Gingee girl',
+      snippet: 'The Crime Branch-CID intensified the search for the seven-year-old girl missing near Gingee in Villupuram, Tamil Nadu, police said.',
+      hostName: 'www.thehindu.com',
+      date: 'Oct 23, 2026',
+      rank: 4,
+    })
+    const socialPost = result({
+      url: 'https://www.facebook.com/dtnext/posts/a-suspect-has-been-detained/1545795717583162',
+      title: 'https://www.dtnext.in/news/tamilnadu/suspect-in-tn-girls',
+      snippet: 'A suspect has been detained in connection with the disappearance of a seven-year-old girl missing near Gingee.',
+      hostName: 'www.facebook.com',
+      date: null,
+      rank: 1,
+    })
+    const ranked = rankSources(query, [socialPost, datedNews], { freshnessMatters: true, limit: 6 })
+    expect(ranked[0].url).toBe(datedNews.url)
+    expect(ranked.find((s) => s.social)?.url).toBe(socialPost.url)
   })
 
-  test('returns null when no date metadata exists (never guesses)', () => {
-    expect(extractPublishedTime('<html><body>plain text</body></html>')).toBeNull()
-    expect(extractPublishedTime('<meta name="author" content="someone 2026">')).toBeNull()
-  })
-})
-
-describe('staleness warnings for time-sensitive questions', () => {
-  test('undated evidence on a time-sensitive question warns', () => {
-    const sources = [ranked({ id: 1, date: null, year: null })]
-    expect(stalenessWarning(sources, { timeSensitive: true })).toContain('No retrieved source states a publication date')
-  })
-
-  test('time-sensitive question with only month-old sources warns about newer coverage', () => {
-    const fortyDaysAgo = new Date(Date.now() - 40 * 86_400_000).toISOString()
-    const sources = [ranked({ id: 1, date: fortyDaysAgo, year: new Date().getFullYear() })]
-    const w = stalenessWarning(sources, { timeSensitive: true })
-    expect(w).toContain('days old')
-    expect(w).toContain('may have changed')
-  })
-
-  test('recent sources produce no warning', () => {
-    const now = new Date().toISOString()
-    const sources = [ranked({ id: 1, date: now, year: new Date().getFullYear() })]
-    expect(stalenessWarning(sources, { timeSensitive: true })).toBeNull()
-  })
-})
-
-describe('cross-pipeline source dedup with citation remapping', () => {
-  test('keeps first occurrence, renumbers, maps duplicates to the canonical id', () => {
-    const input = [
-      { id: 1, url: 'https://a.example/x', title: 'A1' },
-      { id: 2, url: 'https://b.example/y', title: 'B' },
-      { id: 3, url: 'https://a.example/x?utm=1', title: 'A dup' }, // same page as id 1
-      { id: 4, url: 'https://c.example/z', title: 'C' },
-    ]
-    const { kept, idMap, duplicatesRemoved } = dedupeSourcesByUrl(input)
-    expect(duplicatesRemoved).toBe(1)
-    expect(kept.map((s) => [s.id, s.url])).toEqual([
-      [1, 'https://a.example/x'],
-      [2, 'https://b.example/y'],
-      [3, 'https://c.example/z'],
-    ])
-    expect(idMap.get(1)).toBe(1)
-    expect(idMap.get(2)).toBe(2)
-    expect(idMap.get(3)).toBe(1) // duplicate -> canonical id
-    expect(idMap.get(4)).toBe(3)
-  })
-
-  test('remapCitationIds rewrites answer markers through the map', () => {
-    const { idMap } = dedupeSourcesByUrl([
-      { id: 1, url: 'https://a.example/x' },
-      { id: 2, url: 'https://b.example/y' },
-      { id: 3, url: 'https://a.example/x?utm=1' },
-    ])
-    expect(idMap.get(3)).toBe(1)
-    expect(remapCitationIds('Dup [3] and pair [2,3] stay valid; [9] untouched.', idMap)).toBe(
-      'Dup [1] and pair [2,1] stay valid; [9] untouched.',
+  test('URL-like repost titles are rendered as honest social-post labels', () => {
+    expect(cleanSourceTitle('https://www.dtnext.in/news/tamilnadu/suspect-in-tn-girls', 'www.facebook.com')).toBe(
+      'Social media post linking to dtnext.in',
+    )
+    expect(cleanSourceTitle('https://www.facebook.com/photo?fbid=1', 'www.facebook.com')).toBe(
+      'Social media post on facebook.com',
+    )
+    expect(cleanSourceTitle('CB-CID steps up search for missing girl', 'www.thehindu.com')).toBe(
+      'CB-CID steps up search for missing girl',
     )
   })
 
-  test('audited citations resolve after remapping a duplicate-heavy answer', () => {
-    const sources = [
-      { id: 1, url: 'https://a.example/x' },
-      { id: 2, url: 'https://b.example/y' },
-      { id: 3, url: 'https://a.example/x?utm=1' },
-    ]
-    const { idMap } = dedupeSourcesByUrl(sources)
-    const answer = 'Claim one [3]. Claim two [2].'
-    const remapped = remapCitationIds(answer, idMap)
-    const audit = auditCitations(remapped, dedupeSourcesByUrl(sources).kept)
-    expect(audit.invalidIds).toEqual([])
-    expect(audit.usedSources.map((s) => s.id).sort()).toEqual([1, 2])
+  test('syndicated copies of the same story collapse to one source', () => {
+    const original = result({
+      url: 'https://theprint.in/india/cb-cid-steps-up-search-for-missing-7-year-old-gingee-girl/3080047',
+      title: 'CB-CID steps up search for missing 7-year-old Gingee girl',
+      snippet: 'The Crime Branch-CID police intensified the search for a seven-year-old girl who remains untraced.',
+      hostName: 'theprint.in',
+      date: 'Oct 23, 2026',
+      rank: 2,
+    })
+    const syndicated = result({
+      url: 'https://www.thesamaja.com/en/sports/cb-cid-steps-up-search-for-missing-7-year-old-gingee-girl',
+      title: 'CB-CID steps up search for missing 7-year-old Gingee girl',
+      snippet: 'The class II student went missing in the early hours of October 12, hours after celebrating her seventh birthday.',
+      hostName: 'www.thesamaja.com',
+      date: null,
+      rank: 1,
+    })
+    const ranked = rankSources('Gingee girl missing Tamil Nadu India', [original, syndicated], {
+      freshnessMatters: true,
+      limit: 6,
+    })
+    expect(ranked).toHaveLength(1)
+    expect(ranked[0].hostName).toBe('theprint.in') // higher-scoring copy survives
+    expect(ranked[0].id).toBe(1)
+  })
+
+  test('distinct stories with different titles are never collapsed', () => {
+    const a = result({ url: 'https://a.example/one', title: 'CB-CID steps up Gingee search', hostName: 'a.example' })
+    const b = result({ url: 'https://b.example/two', title: 'Villupuram police hold review meeting', hostName: 'b.example' })
+    const ranked = rankSources('Gingee girl missing', [a, b], { freshnessMatters: true, limit: 6 })
+    expect(ranked).toHaveLength(2)
   })
 })
 
-describe('prompt protocols', () => {
-  test('sensitive researched turn includes synthesis + sensitive protocols', () => {
-    const p = buildSystemPrompt({ evidenceBlock: 'EV', task: 'research', staleness: null, sensitiveCase: true })
-    expect(p).toContain('Current-topic synthesis protocol')
-    expect(p).toContain('Sensitive ongoing-case protocol')
-    expect(p).toContain('SOCIAL MEDIA')
-    expect(p).toContain('PUBLISHED, not when the events happened')
+describe('page-read content verification (error pages never become evidence)', () => {
+  test('blocked-page interstitials are rejected', () => {
+    const blocked =
+      'webleap.lifestyle webleap.lifestyle is blocked This page has been blocked by Chrome ERR_BLOCKED_BY_CLIENT Reload This page has been blocked by Chrome'
+    expect(isUsablePageText(blocked)).toBe(false)
   })
 
-  test('plain researched turn gets synthesis but not the sensitive protocol', () => {
-    const p = buildSystemPrompt({ evidenceBlock: 'EV', task: 'research', staleness: null })
-    expect(p).toContain('Current-topic synthesis protocol')
-    expect(p).not.toContain('Sensitive ongoing-case protocol')
+  test('404 bodies and consent walls are rejected', () => {
+    expect(isUsablePageText('404 Not Found')).toBe(false)
+    expect(isUsablePageText('Enable JavaScript and cookies to continue Sign in to confirm you are not a bot')).toBe(false)
   })
 
-  test('ordinary conversation stays clean', () => {
-    const p = buildSystemPrompt({ evidenceBlock: null, task: 'general', staleness: null })
-    expect(p).not.toContain('Current-topic synthesis protocol')
-    expect(p).not.toContain('Sensitive ongoing-case protocol')
+  test('too-short text is rejected; a real article passes', () => {
+    expect(isUsablePageText('Short body')).toBe(false)
+    const article =
+      'The Crime Branch-CID police intensified the search for a seven-year-old girl who remains untraced ' +
+      'eleven days after she went missing from her home near Gingee. Police said more than 100 officers are ' +
+      'involved and the Director General of Police reviews the progress daily. '.repeat(3)
+    expect(article.length).toBeGreaterThan(PAGE_MIN_USEFUL_CHARS)
+    expect(isUsablePageText(article)).toBe(true)
+  })
+
+  test('an article that merely MENTIONS an error later in the body still passes', () => {
+    const article =
+      'The Crime Branch-CID intensified the search for the missing girl near Gingee in Villupuram district. ' +
+      'Police said the investigation continues and asked the public to avoid speculation. '.repeat(6) +
+      'Readers reported a 404 error on an older version of this page.'
+    expect(isUsablePageText(article)).toBe(true)
+  })
+})
+
+describe('ongoing-case detection and newest-source age', () => {
+  test('missing/kidnap/rescue vocabulary marks an ongoing case', () => {
+    expect(isOngoingCaseQuery('Gingee girl missing')).toBe(true)
+    expect(isOngoingCaseQuery('research the kidnapping case in Villupuram')).toBe(true)
+    expect(isOngoingCaseQuery('who is the cm of tamilnadu')).toBe(false)
+    expect(isOngoingCaseQuery('latest stable version of Next.js')).toBe(false)
+  })
+
+  test('news-event detection drives the structured research shape', () => {
+    expect(isNewsEventQuery('Research a current topic: Gingee girl missing')).toBe(true)
+    expect(isNewsEventQuery('who is the cm of tamilnadu')).toBe(false)
+    expect(isNewsEventQuery('What is the latest stable version of Next.js?')).toBe(false)
+  })
+
+  test('newestSourceAgeDays returns the minimum age across dated sources', () => {
+    const src = (date: string | null) => ({
+      id: 1, url: 'u', title: 't', snippet: 's', hostName: 'h', date,
+      freshness: null, year: null, authority: 0, official: false, social: false, sourceType: 'other' as const, score: 0,
+    })
+    const now = Date.now()
+    const fiveDays = new Date(now - 5 * 86_400_000).toISOString()
+    const twentyDays = new Date(now - 20 * 86_400_000).toISOString()
+    expect(newestSourceAgeDays([src(fiveDays), src(twentyDays)]) as number).toBeGreaterThanOrEqual(4)
+    expect(newestSourceAgeDays([src(fiveDays)]) as number).toBeLessThanOrEqual(6)
+    expect(newestSourceAgeDays([src(null)])).toBeNull()
+    expect(newestSourceAgeDays([])).toBeNull()
+  })
+})
+
+describe('claim audits: allegation attribution + name grounding', () => {
+  const resolved = new Set([1, 2])
+
+  test('a bare allegation is flagged; an attributed one is not', () => {
+    const bare = 'A suspect has been detained in connection with the disappearance of the seven-year-old girl [1].'
+    const attributed =
+      'The Hindu reported, citing police, that a suspect had been detained in connection with the disappearance [2].'
+    const bareAudit = auditClaimSupport(bare, resolved, new Map([[1, 'girl missing near Gingee Villupuram CB-CID search']]))
+    expect(bareAudit.unattributedAllegations).toHaveLength(1)
+    const attributedAudit = auditClaimSupport(attributed, resolved, new Map([[2, 'girl missing near Gingee Villupuram CB-CID search']]))
+    expect(attributedAudit.unattributedAllegations).toHaveLength(0)
+  })
+
+  test('a cited name absent from the cited sources text is flagged', () => {
+    const text = 'The girl, Hemavathi, remains untraced near Gingee [1].'
+    const corpus = new Map([[1, 'The Hindu: extensive searches for the missing girl in Gingee fail to yield results; CB-CID begins its probe']])
+    const audit = auditClaimSupport(text, resolved, corpus)
+    expect(audit.ungroundedNames).toContain('Hemavathi')
+  })
+
+  test('a name present in the cited source text passes', () => {
+    const text = 'The girl, Hemalatha, remains untraced near Gingee [1].'
+    const corpus = new Map([[1, 'The search continued for Hemalatha, the seven-year-old missing near Gingee in Villupuram']])
+    const audit = auditClaimSupport(text, resolved, corpus)
+    expect(audit.ungroundedNames).toHaveLength(0)
+  })
+
+  test('uncited sentences skip the name audit (coverage flags them already)', () => {
+    const text = 'The girl, Zarquinia, remains untraced near Gingee.'
+    const corpus = new Map([[1, 'unrelated text']])
+    const audit = auditClaimSupport(text, resolved, corpus)
+    expect(audit.uncovered).toHaveLength(1)
+    expect(audit.ungroundedNames).toHaveLength(0)
+  })
+})
+
+describe('verification note: research-quality limitations surface once', () => {
+  const base = {
+    researchRan: true,
+    hasSources: true,
+    citationsValid: true as const,
+    invalidMarkerCount: 0,
+    uncitedEvidence: false,
+    support: null,
+    staleness: null,
+    geoWarning: null,
+    dateConflicts: [] as string[],
+    undatedCitedCount: 0,
+  }
+
+  test('undated cited sources produce the currency limitation', () => {
+    const note = buildVerificationNote({ ...base, undatedCitedCount: 2 })
+    expect(note?.toLowerCase()).toContain('publication dates could not be verified for 2 of the cited sources')
+    expect(note).toContain('the latest status is stated only as of the dated reports')
+  })
+
+  test('unattributed allegations and ungrounded names are named', () => {
+    const note = buildVerificationNote({
+      ...base,
+      support: {
+        materialCount: 3,
+        supportedCount: 2,
+        coverage: 2 / 3,
+        unsupported: [],
+        uncitedSupported: [],
+        unsupportedTotal: 0,
+        uncitedSupportedTotal: 0,
+        uncovered: [],
+        unattributedAllegations: ['A suspect has been detained in connection with the disappearance.'],
+        ungroundedNames: ['Hemavathi'],
+        repeatedHedges: [],
+        unattributedProbabilistic: [],
+        nameConflicts: [],
+      },
+    })
+    expect(note).toContain('without attribution')
+    expect(note).toContain('A suspect has been detained')
+    expect(note).toContain('Hemavathi')
+    expect(note).toContain('could not be located')
+  })
+
+  test('a clean research answer still carries no note', () => {
+    expect(buildVerificationNote(base)).toBeNull()
+  })
+})
+
+describe('structured research-answer protocol (ongoing news)', () => {
+  test('news-shaped research turns get the timeline/latest-update protocol', () => {
+    const prompt = buildSystemPrompt({ evidenceBlock: '[1] report', task: 'research', staleness: null, researchShape: 'news' })
+    expect(prompt).toContain('Confirmed timeline')
+    expect(prompt).toContain('Latest verified update')
+    expect(prompt).toContain('State any limitation ONCE')
+    expect(prompt).toContain('social-media post')
+  })
+
+  test('ordinary lookups keep natural prose (no timeline scaffolding)', () => {
+    const prompt = buildSystemPrompt({ evidenceBlock: '[1] report', task: 'research', staleness: null, researchShape: null })
+    expect(prompt).not.toContain('Confirmed timeline')
+    const noEvidence = buildSystemPrompt({ evidenceBlock: null, task: 'research', staleness: null, researchShape: 'news' })
+    expect(noEvidence).not.toContain('Confirmed timeline')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Pipeline-level: the ongoing-case follow-up really runs ONE bounded extra
+// search when the newest dated source is older than ~3 days — and does NOT
+// run when fresh reporting exists. Scripted at the SDK boundary only.
+// ---------------------------------------------------------------------------
+const searchCalls: string[] = []
+let scriptedDate: string | null = null
+const scriptedZai = {
+  functions: {
+    invoke: async (_tool: string, args: { query: string }) => {
+      searchCalls.push(args.query)
+      return [
+        {
+          url: `https://news.example.com/${encodeURIComponent(args.query)}`,
+          name: `Report for ${args.query}`,
+          snippet:
+            'A substantive report carrying the grounded fact with enough context to answer the question directly. '.repeat(3),
+          host_name: 'news.example.com',
+          rank: 1,
+          date: scriptedDate,
+        },
+      ]
+    },
+  },
+  chat: {
+    completions: { create: async () => { throw new Error('no query refinement in this test') } },
+  },
+}
+mock.module('z-ai-web-dev-sdk', () => ({ default: { create: async () => scriptedZai } }))
+
+const { runResearch } = await import('../../src/lib/research/pipeline')
+const { clearResearchCache } = await import('../../src/lib/research/cache')
+
+// ---- orchestrator-level: allegation repair adopts an attributed rewrite ----
+import type { TaskAdapter } from '../../src/lib/adapters/types'
+
+function scriptedAdapter(replies: string[]): TaskAdapter & { calls: number; prompts: string[] } {
+  let n = 0
+  const prompts: string[] = []
+  return {
+    get calls() {
+      return n
+    },
+    prompts,
+    backendId: 'stub-rq',
+    async health() {
+      return { healthy: true, checkedAt: new Date().toISOString(), latencyMs: 1, detail: 'stub' }
+    },
+    async *chatStream(init: { messages: Array<{ role: string; content: string }> }) {
+      prompts.push(init.messages.map((m) => m.content).join('\n'))
+      const reply = replies[Math.min(n, replies.length - 1)]
+      n += 1
+      for (const chunk of reply.match(/[\s\S]{1,12}/g) ?? []) yield chunk
+    },
+  }
+}
+
+describe('allegation repair through the orchestrator (real pipeline + audits)', () => {
+  test('a bare allegation from social evidence is flagged, repaired with attribution, and honestly noted', async () => {
+    clearResearchCache()
+    // The snippet genuinely reports the detention (so the claim is grounded),
+    // but only through a SOCIAL post — the answer must attribute it.
+    const origInvoke = scriptedZai.functions.invoke
+    scriptedZai.functions.invoke = async (tool: string, args: { query: string }) => {
+      searchCalls.push(args.query)
+      return [
+        {
+          url: 'https://www.facebook.com/dtnext/posts/detention-report/123',
+          name: 'Report for the case',
+          snippet:
+            'A suspect has been detained in connection with the disappearance of the girl near Zumbalandia, the post states. '.repeat(3),
+          host_name: 'www.facebook.com',
+          rank: 1,
+          date: null,
+        },
+      ]
+    }
+    const { orchestrateTurn } = await import('../../src/lib/riishe/orchestrator')
+    const adapter = scriptedAdapter([
+      // Pass 1: the allegation stated as bare fact, unattributed.
+      'A suspect has been detained in connection with the disappearance of the seven-year-old girl [1].',
+      // Repair pass: attribution added (the phrasing the repair prompt asks for).
+      'Police said a suspect had been detained in connection with the disappearance, according to a social media report [1].',
+    ])
+    let r
+    try {
+      r = await orchestrateTurn({
+        history: [],
+        caps: { maxPromptChars: 12_000, maxHistoryMessages: 20 },
+        userMessage: 'Zumbalandia girl missing case update right now',
+        adapter,
+      })
+    } finally {
+      scriptedZai.functions.invoke = origInvoke // restore even on failure
+    }
+
+    expect(adapter.calls).toBe(2) // repair really ran
+    expect(r.metadata.timings?.repairMs).toBeDefined()
+    expect(r.metadata.degraded.some((d) => d.includes('repaired'))).toBe(true)
+    // The shipped answer carries the attribution, not the bare allegation.
+    expect(r.content).toContain('Police said a suspect had been detained')
+    expect(r.content).not.toContain('A suspect has been detained in connection')
+    // The repair prompt really demanded attribution.
+    expect(adapter.prompts[1]).toContain('WITHOUT attribution')
+    // Grounded + covered -> honest full verification.
+    expect(r.metadata.states).toContain('VERIFIED_FROM_SOURCES')
+  })
+})
+
+describe('ongoing-case follow-up search (real pipeline, scripted provider)', () => {
+  test('week-old evidence on a missing-person case triggers exactly one newer-reporting search', async () => {
+    clearResearchCache()
+    searchCalls.length = 0
+    scriptedDate = new Date(Date.now() - 7 * 86_400_000).toISOString()
+    const message = 'Zumbalandia girl missing research probe'
+    const decision = { search: true, risk: 'high' as const, recencyDays: 180, reason: 'test' }
+    const pack = await runResearch(message, decision)
+    expect(searchCalls.length).toBeGreaterThanOrEqual(2)
+    expect(searchCalls.some((q) => q.includes('latest news update'))).toBe(true)
+    expect(pack.queries.some((q) => q.includes('latest news update'))).toBe(true)
+  })
+
+  test('fresh evidence (<= 3 days) does not pay the follow-up latency', async () => {
+    clearResearchCache()
+    searchCalls.length = 0
+    scriptedDate = new Date(Date.now() - 2 * 86_400_000).toISOString()
+    const message = 'Zumbalandia girl missing research probe'
+    const decision = { search: true, risk: 'high' as const, recencyDays: 180, reason: 'test' }
+    await runResearch(message, decision)
+    expect(searchCalls.filter((q) => q.includes('latest news update'))).toHaveLength(0)
+  })
+
+  test('non-ongoing high-risk questions keep the old stale-only trigger', async () => {
+    clearResearchCache()
+    searchCalls.length = 0
+    scriptedDate = new Date(Date.now() - 2 * 86_400_000).toISOString()
+    const message = 'Zumbalandia export policy research probe'
+    const decision = { search: true, risk: 'high' as const, recencyDays: 180, reason: 'test' }
+    await runResearch(message, decision)
+    expect(searchCalls.filter((q) => q.includes('latest news update'))).toHaveLength(0)
   })
 })

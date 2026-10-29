@@ -1,0 +1,54 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Hi","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" there","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":"!","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" I","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":"'m","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" RI","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":"IS","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":"HE","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":",","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" the","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" AI","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" assistant","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" from","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" BE","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":"AN","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" Intelligence","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":".","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" How","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" can","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" I","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" help","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" you","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":" today","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"delta":"?","conversationId":"cmvrpdowh0011r4o7io4xf5lf"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrpdowh0011r4o7io4xf5lf","durationMs":562,"partial":false,"messageId":"cmvrpdpc70015r4o7otvuh62y","firstTokenMs":522,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":1}],"degraded":["search not warranted: greeting/small talk"],"timings":{"totalMs":558,"understandMs":5,"researchMs":null,"solveTtftMs":517,"solveMs":552,"verifyMs":1,"solvePasses":1}}}
+

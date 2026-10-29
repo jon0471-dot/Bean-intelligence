@@ -1,0 +1,12 @@
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"conversationId":"cmvoog0ps0045tptu6nqh41hr","userMessageId":"cmvoog0qg0047tptu1g8htcpr"}
+
+data: {"delta":"17 * 23 - 45 = 361\n\nLet me break that down step by step:\n\n1. First, multiply 17 by 23:\n   17 * 23 = 391\n\n2. Then subtract 45 from that result:\n   391 - 45 = 346\n\nSo the answer is 346.\n\nSELF_CHECK:\nCHECK: 17*23 = 391\nCHECK: 391-45 = 346","conversationId":"cmvoog0ps0045tptu6nqh41hr"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvoog0ps0045tptu6nqh41hr","durationMs":6478,"partial":false,"messageId":"cmvoog5qc0049tptu9wutj9fe","userMessageId":"cmvoog0qg0047tptu1g8htcpr","content":"17 * 23 - 45 = 361\n\nLet me break that down step by step:\n\n1. First, multiply 17 by 23:\n   17 * 23 = 391\n\n2. Then subtract 45 from that result:\n   391 - 45 = 346\n\nSo the answer is 346.","meta":{"states":["COMPUTATION_VERIFIED"],"sources":[],"verification":[{"check":"arithmetic: 17*23","status":"passed","detail":"claimed 391 -> evaluated 391"},{"check":"arithmetic: 391-45","status":"passed","detail":"claimed 346 -> evaluated 346"}],"stages":[{"stage":"tools","durationMs":1438},{"stage":"verifying","durationMs":1}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge; semantic router: Basic arithmetic calculation using stable knowledge."],"searchMode":"auto"}}
+

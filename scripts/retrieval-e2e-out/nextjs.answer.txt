@@ -1,0 +1,3 @@
+Based on the evidence provided, the latest stable version of Next.js is 16.4.3 [1]. This is confirmed by the npm package listing which shows version 16.4.3 as the current public release published 5 days ago [1].
+
+There are newer canary versions available (such as v16.5.0-canary.28) [5], but these are preview releases and not considered stable. The documentation also mentions that a newer stable release is available [4], but doesn't specify which version that is.

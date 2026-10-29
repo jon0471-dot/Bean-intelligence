@@ -1,0 +1,1068 @@
+     1→'use client'
+     2→
+     3→/**
+     4→ * BEAN Intelligence — RIISHE workspace (conversational AI).
+     5→ *
+     6→ * Real orchestration events from the BEAN API drive the UI:
+     7→ *  - `stage: researching` shows a genuine "Searching the web" indicator
+     8→ *    (never decorative — it only appears when search actually runs).
+     9→ *  - `stage: tools` / `tool` events show REAL server-side tool executions.
+    10→ *  - `meta` carries response states, evidence sources, tool runs and the
+    11→ *    verification summary assigned from ACTUAL execution. Fabricated or
+    12→ *    decorative badges are not possible: the frontend only renders what the
+    13→ *    server's verification recorded.
+    14→ *
+    15→ * Citations: [n] markers that resolve to a retrieved source render as
+    16→ * compact superscript chips with a hover/focus preview (title, domain,
+    17→ * date, link); clicking one opens the Sources section and highlights the
+    18→ * entry. Dangling markers never become chips (the server strips them).
+    19→ *
+    20→ * Actions: Copy / Regenerate / View sources appear under EVERY assistant
+    21→ * response in every mode. Copy uses the response text without internal
+    22→ * citation identifiers; Regenerate replays the original question with the
+    23→ * mode recorded for that answer; View sources appears only when sources
+    24→ * exist. Controls are disabled while a stream is in progress and carry
+    25→ * hover, focus-visible and keyboard states.
+    26→ */
+    27→import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+    28→import { Button } from '@/components/ui/button'
+    29→import { Textarea } from '@/components/ui/textarea'
+    30→import { ScrollArea } from '@/components/ui/scroll-area'
+    31→import { Markdown, Spinner, timeAgo, beanFetch, EmptyState } from './shared'
+    32→import { cn } from '@/lib/utils'
+    33→import { linkifyCitations, stripCitationMarkers } from '@/lib/riishe/citation-view'
+    34→import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+    35→import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+    36→import {
+    37→  Plus,
+    38→  Send,
+    39→  Trash2,
+    40→  MessageSquareText,
+    41→  AlertTriangle,
+    42→  Globe,
+    43→  ShieldCheck,
+    44→  ShieldAlert,
+    45→  ExternalLink,
+    46→  ChevronDown,
+    47→  Paperclip,
+    48→  FileText,
+    49→  X,
+    50→  Square,
+    51→  RefreshCw,
+    52→  Copy,
+    53→  Check,
+    54→  Terminal,
+    55→} from 'lucide-react'
+    56→
+    57→interface Conv { id: string; title: string; messages: number; updatedAt: string }
+    58→interface SourceView {
+    59→  id: number
+    60→  title: string
+    61→  url: string
+    62→  hostName: string
+    63→  date: string | null
+    64→  official: boolean
+    65→  pageRead: boolean
+    66→  cited?: boolean
+    67→}
+    68→interface VerificationView { check: string; status: 'passed' | 'failed' | 'not_applicable'; detail: string }
+    69→interface ToolRunView { tool: string; ok: boolean; durationMs: number }
+    70→interface MsgMeta {
+    71→  states: string[]
+    72→  sources: SourceView[]
+    73→  verification: VerificationView[]
+    74→  degraded: string[]
+    75→  toolRuns?: ToolRunView[]
+    76→  digestUsed?: boolean
+    77→  retrievedAt?: string
+    78→  searchMode?: 'auto' | 'on' | 'off'
+    79→  grounding?: {
+    80→    checked: boolean
+    81→    regenerated: boolean
+    82→    contradicted: number
+    83→    unsupported: number
+    84→    passed: boolean
+    85→    unavailable?: string
+    86→  }
+    87→}
+    88→interface DocMeta { id: string; name: string; characters?: number; truncated?: boolean }
+    89→interface Msg {
+    90→  id: string
+    91→  role: 'user' | 'assistant'
+    92→  content: string
+    93→  partial?: boolean
+    94→  pending?: boolean
+    95→  meta?: MsgMeta
+    96→}
+    97→
+    98→type SearchMode = 'auto' | 'on' | 'off'
+    99→
+   100→const STATE_BADGES: Record<string, { label: string; tone: 'gold' | 'amber' | 'red' }> = {
+   101→  VERIFIED_FROM_SOURCES: { label: 'Evidence-backed', tone: 'gold' },
+   102→  COMPUTATION_VERIFIED: { label: 'Math verified', tone: 'gold' },
+   103→  EXECUTION_VERIFIED: { label: 'Execution verified', tone: 'gold' },
+   104→  PARTIALLY_VERIFIED: { label: 'Partially verified', tone: 'amber' },
+   105→  TOOL_UNAVAILABLE: { label: 'Research unavailable', tone: 'amber' },
+   106→  // UNVERIFIED renders no badge: ordinary conversation needs no disclaimer.
+   107→}
+   108→
+   109→const SEARCH_MODES: Array<{ id: SearchMode; label: string; title: string }> = [
+   110→  { id: 'auto', label: 'Auto', title: 'RIISHE searches when the question needs current information' },
+   111→  { id: 'on', label: 'Web', title: 'Always search the live web for this turn' },
+   112→  { id: 'off', label: 'Off', title: 'Never search this turn (answer from stable knowledge)' },
+   113→]
+   114→
+   115→const ACTION_BUTTON_CLS =
+   116→  'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 transition-colors hover:bg-white/10 hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[#d4af37]'
+   117→
+   118→function useCopy(): [boolean, (text: string) => void] {
+   119→  const [copied, setCopied] = useState(false)
+   120→  const copy = useCallback((text: string) => {
+   121→    const done = () => {
+   122→      setCopied(true)
+   123→      setTimeout(() => setCopied(false), 1600)
+   124→    }
+   125→    if (navigator.clipboard?.writeText) {
+   126→      navigator.clipboard.writeText(text).then(done).catch(done)
+   127→    } else {
+   128→      const ta = document.createElement('textarea')
+   129→      ta.value = text
+   130→      document.body.appendChild(ta)
+   131→      ta.select()
+   132→      document.execCommand('copy')
+   133→      document.body.removeChild(ta)
+   134→      done()
+   135→    }
+   136→  }, [])
+   137→  return [copied, copy]
+   138→}
+   139→
+   140→/** Code block with real syntax highlighting and a working copy button. */
+   141→function CodeBlock({ code, lang }: { code: string; lang?: string }) {
+   142→  const [copied, copy] = useCopy()
+   143→  return (
+   144→    <div className="group/code relative my-2 overflow-hidden rounded-[10px] border border-[rgba(212,175,55,0.18)]">
+   145→      <div className="flex items-center justify-between bg-black/60 px-3 py-1">
+   146→        <span className="text-[10px] uppercase tracking-wider text-white/35">{lang || 'code'}</span>
+   147→        <button
+   148→          onClick={() => copy(code)}
+   149→          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 transition-colors hover:bg-white/10 hover:text-white/80"
+   150→          aria-label="Copy code"
+   151→        >
+   152→          {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+   153→          {copied ? 'Copied' : 'Copy'}
+   154→        </button>
+   155→      </div>
+   156→      <SyntaxHighlighter
+   157→        language={lang || 'text'}
+   158→        style={vscDarkPlus}
+   159→        customStyle={{ margin: 0, background: '#0c0c0f', fontSize: '12.5px', padding: '12px 14px' }}
+   160→        wrapLongLines={false}
+   161→      >
+   162→        {code}
+   163→      </SyntaxHighlighter>
+   164→    </div>
+   165→  )
+   166→}
+   167→
+   168→/** Compact superscript citation chip with hover/focus source preview. */
+   169→function CitationChip({
+   170→  id,
+   171→  source,
+   172→  previewed,
+   173→  onPreview,
+   174→  onLeave,
+   175→  onJump,
+   176→}: {
+   177→  id: number
+   178→  source: SourceView
+   179→  previewed: boolean
+   180→  onPreview: (id: number) => void
+   181→  onLeave: () => void
+   182→  onJump: (id: number) => void
+   183→}) {
+   184→  return (
+   185→    <sup className="relative inline-flex align-super" onMouseLeave={onLeave}>
+   186→      <a
+   187→        href={`#bean-src-${id}`}
+   188→        onClick={(e) => {
+   189→          e.preventDefault()
+   190→          onJump(id)
+   191→        }}
+   192→        onMouseEnter={() => onPreview(id)}
+   193→        onFocus={() => onPreview(id)}
+   194→        onBlur={onLeave}
+   195→        aria-label={`Citation ${id}: ${source.title} (${source.hostName})`}
+   196→        className="ml-[3px] mr-[1px] inline-flex h-[15px] min-w-[15px] cursor-pointer items-center justify-center rounded-full border border-[rgba(212,175,55,0.45)] bg-[rgba(212,175,55,0.14)] px-[3px] text-[9.5px] font-bold leading-none text-[#f0c75e] no-underline transition-colors hover:bg-[rgba(212,175,55,0.35)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-[#f0c75e]"
+   197→      >
+   198→        {id}
+   199→      </a>
+   200→      {previewed ? (
+   201→        <span
+   202→          role="tooltip"
+   203→          className="absolute bottom-[calc(100%+7px)] left-1/2 z-50 w-64 max-w-[calc(100vw-3rem)] -translate-x-1/2 rounded-lg border border-[rgba(212,175,55,0.35)] bg-[#0b0b0e] p-2.5 text-left shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+   204→        >
+   205→          <span className="block text-[11px] font-medium leading-snug text-white/85">{source.title}</span>
+   206→          <span className="mt-1 block text-[10px] text-white/40">
+   207→            {source.hostName}
+   208→            {source.date ? ` · ${source.date.slice(0, 10)}` : ''}
+   209→            {source.official ? ' · official' : ''}
+   210→          </span>
+   211→          <a
+   212→            href={source.url}
+   213→            target="_blank"
+   214→            rel="noopener noreferrer"
+   215→            className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-[#f0c75e] hover:underline"
+   216→            onClick={(e) => e.stopPropagation()}
+   217→          >
+   218→            Open source <ExternalLink className="h-2.5 w-2.5" />
+   219→          </a>
+   220→        </span>
+   221→      ) : null}
+   222→    </sup>
+   223→  )
+   224→}
+   225→
+   226→/** One row in the compact Sources section. */
+   227→function SourceEntry({
+   228→  s,
+   229→  highlighted,
+   230→  registerRef,
+   231→}: {
+   232→  s: SourceView
+   233→  highlighted: boolean
+   234→  registerRef: (id: number, el: HTMLLIElement | null) => void
+   235→}) {
+   236→  return (
+   237→    <li
+   238→      ref={(el) => registerRef(s.id, el)}
+   239→      className={cn(
+   240→        'scroll-mt-6 rounded-md px-1.5 py-1 transition-colors duration-500',
+   241→        highlighted
+   242→          ? 'bg-[rgba(212,175,55,0.16)] ring-1 ring-[rgba(212,175,55,0.45)]'
+   243→          : 'ring-0',
+   244→      )}
+   245→    >
+   246→      <div className="flex items-start gap-1.5">
+   247→        <span className="mt-[2px] inline-flex h-[15px] min-w-[15px] shrink-0 items-center justify-center rounded-full border border-[rgba(212,175,55,0.35)] bg-[rgba(212,175,55,0.08)] px-[3px] text-[9px] font-bold leading-none text-[#f0c75e]">
+   248→          {s.id}
+   249→        </span>
+   250→        <div className="min-w-0">
+   251→          <a
+   252→            href={s.url}
+   253→            target="_blank"
+   254→            rel="noopener noreferrer"
+   255→            className="break-words text-[11.5px] leading-snug text-[#f0c75e] hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-[#f0c75e]"
+   256→          >
+   257→            {s.title}
+   258→            <ExternalLink className="ml-1 inline h-2.5 w-2.5" />
+   259→          </a>
+   260→          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-white/35">
+   261→            <span className="truncate">{s.hostName}</span>
+   262→            {s.date ? <span>· {s.date.slice(0, 10)}</span> : <span>· no date supplied</span>}
+   263→            {s.official ? (
+   264→              <span className="rounded border border-[rgba(212,175,55,0.35)] px-1 text-[9px] text-[#f0c75e]">official</span>
+   265→            ) : null}
+   266→            {s.pageRead ? (
+   267→              <span className="rounded border border-white/15 px-1 text-[9px] text-white/45">full page read</span>
+   268→            ) : null}
+   269→            {s.cited ? (
+   270→              <span className="rounded border border-[rgba(212,175,55,0.45)] bg-[rgba(212,175,55,0.1)] px-1 text-[9px] text-[#f0c75e]">cited</span>
+   271→            ) : null}
+   272→          </div>
+   273→        </div>
+   274→      </div>
+   275→    </li>
+   276→  )
+   277→}
+   278→
+   279→/**
+   280→ * Compact, expandable Sources section. The server orders sources cited-first
+   281→ * (direct support for the answer) and dedups by canonical URL; collapsed
+   282→ * state shows the three most useful rows with an explicit expander.
+   283→ */
+   284→function SourcesSection({
+   285→  sources,
+   286→  open,
+   287→  onOpenChange,
+   288→  highlightId,
+   289→  registerRef,
+   290→}: {
+   291→  sources: SourceView[]
+   292→  open: boolean
+   293→  onOpenChange: (open: boolean) => void
+   294→  highlightId: number | null
+   295→  registerRef: (id: number, el: HTMLLIElement | null) => void
+   296→}) {
+   297→  const citedCount = sources.filter((s) => s.cited).length
+   298→  const visible = open ? sources : sources.slice(0, 3)
+   299→  return (
+   300→    <div className="mt-2">
+   301→      <button
+   302→        onClick={() => onOpenChange(!open)}
+   303→        aria-expanded={open}
+   304→        className="inline-flex cursor-pointer items-center gap-1 rounded text-[11px] text-white/45 transition-colors hover:text-white/70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[#d4af37]"
+   305→      >
+   306→        <Globe className="h-3 w-3" />
+   307→        Sources ({sources.length})
+   308→        {citedCount > 0 ? <span className="text-white/30">· {citedCount} cited</span> : null}
+   309→        <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} />
+   310→      </button>
+   311→      <ol className={cn('mt-1.5 space-y-1 pl-1', !open && 'border-l border-[rgba(212,175,55,0.12)]')}>
+   312→        {visible.map((s) => (
+   313→          <SourceEntry key={s.id} s={s} highlighted={highlightId === s.id} registerRef={registerRef} />
+   314→        ))}
+   315→      </ol>
+   316→      {!open && sources.length > 3 ? (
+   317→        <button
+   318→          onClick={() => onOpenChange(true)}
+   319→          className="mt-1 rounded px-1 text-[10.5px] text-white/40 transition-colors hover:text-[#f0c75e] focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[#d4af37]"
+   320→        >
+   321→          Show all {sources.length} sources
+   322→        </button>
+   323→      ) : null}
+   324→    </div>
+   325→  )
+   326→}
+   327→
+   328→/** Copy / Regenerate / View sources — under EVERY assistant response. */
+   329→function MessageActions({
+   330→  copyText,
+   331→  disabled,
+   332→  hasSources,
+   333→  sourcesOpen,
+   334→  onToggleSources,
+   335→  onRegenerate,
+   336→  modeLabel,
+   337→}: {
+   338→  copyText: string
+   339→  disabled: boolean
+   340→  hasSources: boolean
+   341→  sourcesOpen: boolean
+   342→  onToggleSources: () => void
+   343→  onRegenerate: () => void
+   344→  modeLabel?: 'auto' | 'on' | 'off'
+   345→}) {
+   346→  const [copied, copy] = useCopy()
+   347→  const regenTitle = modeLabel
+   348→    ? `Regenerate with the original mode (${modeLabel}) and conversation context`
+   349→    : 'Regenerate with the original conversation context'
+   350→  return (
+   351→    <div
+   352→      className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-[rgba(212,175,55,0.12)] pt-2"
+   353→      role="group"
+   354→      aria-label="Response actions"
+   355→    >
+   356→      <button
+   357→        onClick={() => copy(copyText)}
+   358→        disabled={disabled}
+   359→        className={ACTION_BUTTON_CLS}
+   360→        aria-label="Copy response"
+   361→      >
+   362→        {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+   363→        {copied ? 'Copied' : 'Copy response'}
+   364→      </button>
+   365→      <button
+   366→        onClick={onRegenerate}
+   367→        disabled={disabled}
+   368→        className={ACTION_BUTTON_CLS}
+   369→        aria-label="Regenerate response"
+   370→        title={regenTitle}
+   371→      >
+   372→        <RefreshCw className="h-3 w-3" /> Regenerate
+   373→      </button>
+   374→      {hasSources ? (
+   375→        <button
+   376→          onClick={onToggleSources}
+   377→          aria-expanded={sourcesOpen}
+   378→          className={ACTION_BUTTON_CLS}
+   379→          aria-label={sourcesOpen ? 'Hide sources' : 'View sources'}
+   380→        >
+   381→          <Globe className="h-3 w-3" /> {sourcesOpen ? 'Hide sources' : 'View sources'}
+   382→        </button>
+   383→      ) : null}
+   384→    </div>
+   385→  )
+   386→}
+   387→
+   388→export function Riishe() {
+   389→  const [conversations, setConversations] = useState<Conv[]>([])
+   390→  const [activeId, setActiveId] = useState<string | null>(null)
+   391→  const [messages, setMessages] = useState<Msg[]>([])
+   392→  const [input, setInput] = useState('')
+   393→  const [streaming, setStreaming] = useState(false)
+   394→  const [researching, setResearching] = useState(false)
+   395→  const [runningTool, setRunningTool] = useState<string | null>(null)
+   396→  const [researchQueries, setResearchQueries] = useState<string[]>([])
+   397→  const [error, setError] = useState<string | null>(null)
+   398→  const [searchMode, setSearchMode] = useState<SearchMode>('auto')
+   399→  const [allowCodeExecution, setAllowCodeExecution] = useState(false)
+   400→  const [documents, setDocuments] = useState<DocMeta[]>([])
+   401→  const [uploadingDoc, setUploadingDoc] = useState(false)
+   402→  const endRef = useRef<HTMLDivElement>(null)
+   403→  const streamedRef = useRef('')
+   404→  const abortRef = useRef<AbortController | null>(null)
+   405→  const fileInputRef = useRef<HTMLInputElement>(null)
+   406→
+   407→  const loadConversations = useCallback(async () => {
+   408→    try {
+   409→      const d = await beanFetch<{ conversations: Conv[] }>('/api/riishe/chat')
+   410→      setConversations(d.conversations)
+   411→    } catch { /* non-fatal */ }
+   412→  }, [])
+   413→
+   414→  useEffect(() => { void loadConversations() }, [loadConversations])
+   415→
+   416→  useEffect(() => {
+   417→    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+   418→  }, [messages, streaming, researching, runningTool])
+   419→
+   420→  async function openConversation(id: string) {
+   421→    setActiveId(id)
+   422→    setError(null)
+   423→    setDocuments([])
+   424→    try {
+   425→      const d = await beanFetch<{
+   426→        conversation: { messages: Array<{ id: string; role: string; content: string; metadata?: MsgMeta | null }> }
+   427→      }>(`/api/riishe/conversations/${id}`)
+   428→      setMessages(
+   429→        d.conversation.messages.map((m) => ({
+   430→          id: m.id,
+   431→          role: m.role as 'user' | 'assistant',
+   432→          content: m.content,
+   433→          meta: m.metadata ?? undefined,
+   434→        })),
+   435→      )
+   436→    } catch (e) {
+   437→      setError((e as Error).message)
+   438→    }
+   439→  }
+   440→
+   441→  async function deleteConversation(id: string) {
+   442→    try {
+   443→      await beanFetch(`/api/riishe/conversations/${id}`, { method: 'DELETE' })
+   444→      if (activeId === id) { setActiveId(null); setMessages([]) }
+   445→      void loadConversations()
+   446→    } catch (e) {
+   447→      setError((e as Error).message)
+   448→    }
+   449→  }
+   450→
+   451→  function newConversation() {
+   452→    setActiveId(null)
+   453→    setMessages([])
+   454→    setError(null)
+   455→    setDocuments([])
+   456→  }
+   457→
+   458→  async function uploadDocument(file: File) {
+   459→    if (uploadingDoc || documents.length >= 2) return
+   460→    setUploadingDoc(true)
+   461→    setError(null)
+   462→    try {
+   463→      const form = new FormData()
+   464→      form.append('file', file)
+   465→      const res = await fetch('/api/riishe/documents', { method: 'POST', body: form })
+   466→      const data = await res.json().catch(() => ({}))
+   467→      if (!res.ok) {
+   468→        if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
+   469→        throw new Error(data?.error?.message ?? `Upload failed (${res.status})`)
+   470→      }
+   471→      setDocuments((prev) => [...prev, data.document].slice(0, 2))
+   472→    } catch (e) {
+   473→      setError((e as Error).message)
+   474→    } finally {
+   475→      setUploadingDoc(false)
+   476→      if (fileInputRef.current) fileInputRef.current.value = ''
+   477→    }
+   478→  }
+   479→
+   480→  function stopGeneration() {
+   481→    abortRef.current?.abort()
+   482→  }
+   483→
+   484→  /**
+   485→   * Shared SSE reader for a single assistant turn (send + regenerate).
+   486→   * Streams into the pending bubble `asstId` and finalizes honestly.
+   487→   */
+   488→  async function streamChat(opts: {
+   489→    message: string
+   490→    asstId: string
+   491→    searchMode: SearchMode
+   492→    retry?: boolean
+   493→    regenerateMessageId?: string
+   494→    /** Local id of the just-added user bubble; replaced by the real server id. */
+   495→    localUserMsgId?: string
+   496→  }) {
+   497→    const convAtStart = activeId
+   498→    const asstId = opts.asstId
+   499→    const controller = new AbortController()
+   500→    abortRef.current = controller
+   501→
+   502→    try {
+   503→      const res = await fetch(`/api/riishe/chat?stream=1${convAtStart ? `&conversationId=${convAtStart}` : ''}`, {
+   504→        method: 'POST',
+   505→        headers: { 'content-type': 'application/json' },
+   506→        body: JSON.stringify({
+   507→          message: opts.message,
+   508→          conversationId: convAtStart ?? undefined,
+   509→          searchMode: opts.searchMode,
+   510→          allowCodeExecution,
+   511→          documentIds: documents.length > 0 ? documents.map((d) => d.id) : undefined,
+   512→          retry: opts.retry ?? false,
+   513→          regenerateMessageId: opts.regenerateMessageId,
+   514→        }),
+   515→        signal: controller.signal,
+   516→      })
+   517→      if (!res.ok || !res.body) {
+   518→        // Keep the global identity in sync: a 401 here means the session is
+   519→        // gone server-side; drop the signed-in shell immediately.
+   520→        if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
+   521→        const data = await res.json().catch(() => ({}))
+   522→        throw new Error(data?.error?.message ?? `Request failed (${res.status})`)
+   523→      }
+   524→      const reader = res.body.getReader()
+   525→      const decoder = new TextDecoder()
+   526→      let buffer = ''
+   527→      let convId: string | null = convAtStart
+   528→      let failed = false
+   529→
+   530→      while (true) {
+   531→        const { done, value } = await reader.read()
+   532→        if (done) break
+   533→        buffer += decoder.decode(value, { stream: true })
+   534→        const lines = buffer.split('\n')
+   535→        buffer = lines.pop() ?? ''
+   536→        for (const line of lines) {
+   537→          if (!line.startsWith('data: ')) continue
+   538→          let evt: {
+   539→            delta?: string
+   540→            done?: boolean
+   541→            error?: string
+   542→            conversationId?: string
+   543→            partial?: boolean
+   544→            userMessageId?: string
+   545→            messageId?: string | null
+   546→            stage?: 'researching' | 'tools' | 'solving' | 'verifying'
+   547→            research?: { queries?: string[] }
+   548→            tool?: { name: string; status: 'started' | 'done' | 'failed' }
+   549→            meta?: MsgMeta
+   550→          }
+   551→          try { evt = JSON.parse(line.slice(6)) } catch { continue }
+   552→          if (evt.conversationId) convId = evt.conversationId
+   553→          if (evt.userMessageId && opts.localUserMsgId) {
+   554→            // Adopt the real persisted id for the user turn so per-message
+   555→            // actions address server rows.
+   556→            const serverId = evt.userMessageId
+   557→            const localId = opts.localUserMsgId
+   558→            setMessages((prev) => prev.map((m) => (m.id === localId ? { ...m, id: serverId } : m)))
+   559→          }
+   560→          if (evt.stage === 'researching') { setResearching(true); setResearchQueries([]) }
+   561→          if (evt.stage === 'tools') { setResearching(false); setRunningTool('working') }
+   562→          if (evt.stage === 'solving' || evt.stage === 'verifying') { setResearching(false); setRunningTool(null) }
+   563→          if (evt.tool) {
+   564→            if (evt.tool.status === 'started') setRunningTool(evt.tool.name)
+   565→            else setRunningTool(null)
+   566→          }
+   567→          if (evt.research?.queries) setResearchQueries(evt.research.queries)
+   568→          if (evt.error) { failed = true; setError(evt.error) }
+   569→          if (evt.delta) {
+   570→            streamedRef.current += evt.delta
+   571→            setMessages((prev) =>
+   572→              prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current, pending: false } : m)),
+   573→            )
+   574→          }
+   575→          if (evt.done) {
+   576→            setResearching(false)
+   577→            setRunningTool(null)
+   578→            if (convId && !convAtStart) setActiveId(convId)
+   579→            const serverAsstId = evt.messageId ?? null
+   580→            setMessages((prev) =>
+   581→              prev.map((m) =>
+   582→                m.id === asstId ? { ...m, id: serverAsstId ?? m.id, meta: evt.meta ?? m.meta } : m,
+   583→              ),
+   584→            )
+   585→          }
+   586→        }
+   587→      }
+   588→      // If nothing streamed (failed, or the server reported an empty partial),
+   589→      // drop the empty assistant bubble — the error banner already explains
+   590→      // what happened, and a perpetual "thinking" indicator would be a lie.
+   591→      if (streamedRef.current === '') {
+   592→        setMessages((prev) => prev.filter((m) => m.id !== asstId))
+   593→      } else if (failed) {
+   594→        setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
+   595→      }
+   596→      void loadConversations()
+   597→    } catch (e) {
+   598→      if ((e as Error).name === 'AbortError') {
+   599→        // User pressed stop: keep what arrived and label it honestly.
+   600→        if (streamedRef.current !== '') {
+   601→          setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
+   602→        } else {
+   603→          setMessages((prev) => prev.filter((m) => m.id !== asstId))
+   604→        }
+   605→      } else {
+   606→        setError((e as Error).message)
+   607→        setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
+   608→      }
+   609→    } finally {
+   610→      setStreaming(false)
+   611→      setResearching(false)
+   612→      setRunningTool(null)
+   613→      abortRef.current = null
+   614→      setMessages((prev) => prev.map((m) => ({ ...m, pending: false })))
+   615→    }
+   616→  }
+   617→
+   618→  async function send(overrideMessage?: string, retry = false) {
+   619→    const message = (overrideMessage ?? input).trim()
+   620→    if (!message || streaming) return
+   621→    if (overrideMessage === undefined) setInput('')
+   622→    setError(null)
+   623→    setStreaming(true)
+   624→    setResearching(false)
+   625→    setRunningTool(null)
+   626→    setResearchQueries([])
+   627→    streamedRef.current = ''
+   628→
+   629→    const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: message }
+   630→    const asstId = `a-${Date.now()}`
+   631→    setMessages((prev) => [...prev, userMsg, { id: asstId, role: 'assistant', content: '', pending: true }])
+   632→    await streamChat({ message, asstId, searchMode, retry, localUserMsgId: userMsg.id })
+   633→  }
+   634→
+   635→  /**
+   636→   * Regenerate ANY assistant response in place: the old answer (and every
+   637→   * message after it) is discarded locally and server-side; the original
+   638→   * question is re-answered with the mode recorded for THAT answer, so the
+   639→   * regeneration reflects the original context and retrieval choice. While
+   640→   * a stream is running the action is disabled — no duplicate requests.
+   641→   */
+   642→  async function regenerateFrom(messageId: string) {
+   643→    if (streaming) return
+   644→    const idx = messages.findIndex((m) => m.id === messageId)
+   645→    if (idx < 0) return
+   646→    const target = messages[idx]
+   647→    if (target.role !== 'assistant' || target.pending) return
+   648→    const userBefore = idx > 0 ? messages[idx - 1] : null
+   649→    if (!userBefore || userBefore.role !== 'user') return
+   650→    const mode: SearchMode = target.meta?.searchMode ?? searchMode
+   651→
+   652→    setError(null)
+   653→    setStreaming(true)
+   654→    setResearching(false)
+   655→    setRunningTool(null)
+   656→    setResearchQueries([])
+   657→    streamedRef.current = ''
+   658→    const asstId = `a-${Date.now()}`
+   659→    setMessages((prev) => [
+   660→      ...prev.slice(0, idx),
+   661→      { id: asstId, role: 'assistant' as const, content: '', pending: true },
+   662→    ])
+   663→    await streamChat({ message: userBefore.content, asstId, searchMode: mode, regenerateMessageId: messageId })
+   664→  }
+   665→
+   666→  const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant' && !m.pending)?.id
+   667→
+   668→  return (
+   669→    <div className="flex h-[calc(100vh-3.5rem-2rem)] min-h-[540px] lg:h-[calc(100vh-3.5rem-1.5rem)]">
+   670→      {/* Conversation rail */}
+   671→      <aside className="hidden w-60 shrink-0 flex-col border-r border-[rgba(212,175,55,0.1)] md:flex">
+   672→        <div className="p-3">
+   673→          <Button onClick={newConversation} className="w-full justify-start bg-[rgba(212,175,55,0.12)] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.2)]" variant="outline">
+   674→            <Plus className="mr-1.5 h-4 w-4" /> New conversation
+   675→          </Button>
+   676→        </div>
+   677→        <ScrollArea className="flex-1 px-2 pb-3">
+   678→          {conversations.length === 0 ? (
+   679→            <p className="px-2 py-6 text-center text-xs text-white/30">No conversations yet</p>
+   680→          ) : (
+   681→            conversations.map((c) => (
+   682→              <div
+   683→                key={c.id}
+   684→                className={cn(
+   685→                  'group mb-0.5 flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-[13px] transition-colors',
+   686→                  activeId === c.id ? 'bg-[rgba(212,175,55,0.1)] text-[#f0c75e]' : 'text-white/60 hover:bg-white/5',
+   687→                )}
+   688→                onClick={() => openConversation(c.id)}
+   689→              >
+   690→                <div className="min-w-0">
+   691→                  <div className="truncate">{c.title}</div>
+   692→                  <div className="text-[10px] text-white/30">{c.messages} msgs · {timeAgo(c.updatedAt)}</div>
+   693→                </div>
+   694→                <button
+   695→                  className="ml-2 hidden text-white/30 hover:text-red-400 group-hover:block"
+   696→                  onClick={(e) => { e.stopPropagation(); void deleteConversation(c.id) }}
+   697→                  aria-label={`Delete ${c.title}`}
+   698→                >
+   699→                  <Trash2 className="h-3.5 w-3.5" />
+   700→                </button>
+   701→              </div>
+   702→            ))
+   703→          )}
+   704→        </ScrollArea>
+   705→      </aside>
+   706→
+   707→      {/* Chat column */}
+   708→      <div className="flex min-w-0 flex-1 flex-col">
+   709→        <div className="flex items-center gap-2 border-b border-[rgba(212,175,55,0.1)] px-5 py-3">
+   710→          <MessageSquareText className="h-4 w-4 text-[#d4af37]" />
+   711→          <div className="text-sm font-semibold tracking-wide">RIISHE</div>
+   712→          <span className="text-xs text-white/35">Conversational AI · research · verified reasoning</span>
+   713→        </div>
+   714→
+   715→        <div className="bean-scroll flex-1 overflow-y-auto px-5 py-4">
+   716→          {messages.length === 0 ? (
+   717→            <EmptyState
+   718→              icon={<MessageSquareText className="h-10 w-10" />}
+   719→              title="Start a conversation"
+   720→              hint="Ask questions, request derivations, code help or research on current topics. RIISHE searches live sources when a question needs them, runs real tools, and verifies its arithmetic before answering. Attach a document for grounded analysis."
+   721→            />
+   722→          ) : (
+   723→            <div className="mx-auto max-w-3xl space-y-4">
+   724→              {messages.map((m) =>
+   725→                m.role === 'user' ? (
+   726→                  <div key={m.id} className="flex justify-end">
+   727→                    <div className="max-w-[85%] rounded-2xl bg-[rgba(212,175,55,0.14)] px-4 py-3 text-white/90">
+   728→                      <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed">{m.content}</p>
+   729→                    </div>
+   730→                  </div>
+   731→                ) : (
+   732→                  <AssistantMessage
+   733→                    key={m.id}
+   734→                    m={m}
+   735→                    researching={researching}
+   736→                    runningTool={runningTool}
+   737→                    researchQueries={researchQueries}
+   738→                    streaming={streaming}
+   739→                    isLatest={m.id === lastAssistantId}
+   740→                    onRegenerate={() => void regenerateFrom(m.id)}
+   741→                  />
+   742→                ),
+   743→              )}
+   744→              <div ref={endRef} />
+   745→            </div>
+   746→          )}
+   747→        </div>
+   748→
+   749→        {error ? (
+   750→          <div className="mx-5 mb-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>
+   751→        ) : null}
+   752→
+   753→        {/* Attachments */}
+   754→        {documents.length > 0 ? (
+   755→          <div className="mx-auto flex w-full max-w-3xl flex-wrap gap-2 px-4 pb-1">
+   756→            {documents.map((d) => (
+   757→              <span key={d.id} className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(212,175,55,0.3)] bg-[rgba(212,175,55,0.08)] px-2.5 py-1 text-[11px] text-[#f0c75e]">
+   758→                <FileText className="h-3 w-3" />
+   759→                {d.name}
+   760→                {typeof d.characters === 'number' ? <span className="text-white/35">· {d.characters.toLocaleString()} chars</span> : null}
+   761→                {d.truncated ? <span className="text-amber-300">· truncated</span> : null}
+   762→                <button
+   763→                  onClick={() => setDocuments((prev) => prev.filter((x) => x.id !== d.id))}
+   764→                  className="ml-0.5 text-white/40 hover:text-white/80"
+   765→                  aria-label={`Remove ${d.name}`}
+   766→                >
+   767→                  <X className="h-3 w-3" />
+   768→                </button>
+   769→              </span>
+   770→            ))}
+   771→          </div>
+   772→        ) : null}
+   773→
+   774→        <div className="border-t border-[rgba(212,175,55,0.1)] p-4">
+   775→          <div className="mx-auto max-w-3xl">
+   776→            {/* Controls row: search mode, attach, sandbox opt-in */}
+   777→            <div className="mb-2 flex flex-wrap items-center gap-2">
+   778→              <div className="inline-flex overflow-hidden rounded-lg border border-[rgba(212,175,55,0.25)]" role="group" aria-label="Web search mode">
+   779→                {SEARCH_MODES.map((m) => (
+   780→                  <button
+   781→                    key={m.id}
+   782→                    onClick={() => setSearchMode(m.id)}
+   783→                    title={m.title}
+   784→                    className={cn(
+   785→                      'px-2.5 py-1 text-[11px] transition-colors',
+   786→                      searchMode === m.id
+   787→                        ? 'bg-[rgba(212,175,55,0.2)] text-[#f0c75e]'
+   788→                        : 'bg-transparent text-white/45 hover:bg-white/5 hover:text-white/70',
+   789→                    )}
+   790→                  >
+   791→                    <Globe className="mr-1 inline h-3 w-3" />
+   792→                    {m.label}
+   793→                  </button>
+   794→                ))}
+   795→              </div>
+   796→              <button
+   797→                onClick={() => fileInputRef.current?.click()}
+   798→                disabled={uploadingDoc || documents.length >= 2}
+   799→                className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(212,175,55,0.25)] px-2.5 py-1 text-[11px] text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 disabled:opacity-50"
+   800→                title="Attach a document (txt, md, csv, json, pdf — max 10 MB, up to 2)"
+   801→              >
+   802→                {uploadingDoc ? <Spinner className="h-3 w-3" /> : <Paperclip className="h-3 w-3" />}
+   803→                Attach document
+   804→              </button>
+   805→              <input
+   806→                ref={fileInputRef}
+   807→                type="file"
+   808→                accept=".txt,.md,.csv,.json,.log,.pdf"
+   809→                className="hidden"
+   810→                onChange={(e) => {
+   811→                  const f = e.target.files?.[0]
+   812→                  if (f) void uploadDocument(f)
+   813→                }}
+   814→              />
+   815→              <button
+   816→                onClick={() => setAllowCodeExecution((v) => !v)}
+   817→                title="Allow RIISHE to run short JavaScript/TypeScript snippets in the restricted sandbox for this conversation"
+   818→                className={cn(
+   819→                  'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] transition-colors',
+   820→                  allowCodeExecution
+   821→                    ? 'border-[rgba(212,175,55,0.45)] bg-[rgba(212,175,55,0.14)] text-[#f0c75e]'
+   822→                    : 'border-[rgba(212,175,55,0.25)] text-white/55 hover:bg-white/5 hover:text-white/80',
+   823→                )}
+   824→                aria-pressed={allowCodeExecution}
+   825→              >
+   826→                <Terminal className="h-3 w-3" />
+   827→                Code sandbox {allowCodeExecution ? 'on' : 'off'}
+   828→              </button>
+   829→            </div>
+   830→
+   831→            <div className="flex items-end gap-2">
+   832→              <Textarea
+   833→                value={input}
+   834→                onChange={(e) => setInput(e.target.value)}
+   835→                onKeyDown={(e) => {
+   836→                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() }
+   837→                }}
+   838→                placeholder="Message RIISHE… (Enter to send, Shift+Enter for a new line)"
+   839→                rows={Math.min(4, Math.max(1, input.split('\n').length))}
+   840→                maxLength={12000}
+   841→                disabled={streaming}
+   842→                className="max-h-40 min-h-[46px] resize-none bg-black/30"
+   843→                aria-label="Message RIISHE"
+   844→              />
+   845→              {streaming ? (
+   846→                <Button onClick={stopGeneration} className="h-[46px] bg-[rgba(212,175,55,0.15)] px-4 text-[#f0c75e] hover:bg-[rgba(212,175,55,0.25)]" variant="outline" aria-label="Stop generating">
+   847→                  <Square className="h-4 w-4" />
+   848→                </Button>
+   849→              ) : (
+   850→                <Button onClick={() => void send()} disabled={!input.trim()} className="h-[46px] bg-[#d4af37] px-4 text-black hover:bg-[#e6c25a]" aria-label="Send message">
+   851→                  <Send className="h-4 w-4" />
+   852→                </Button>
+   853→              )}
+   854→            </div>
+   855→          </div>
+   856→        </div>
+   857→      </div>
+   858→    </div>
+   859→  )
+   860→}
+   861→
+   862→/**
+   863→ * One assistant message: markdown with citation chips, evidence panel,
+   864→ * compact sources and the Copy/Regenerate/View-sources action row. The
+   865→ * action row renders for EVERY assistant response (short or long), in every
+   866→ * mode — never only for the latest one.
+   867→ */
+   868→function AssistantMessage({
+   869→  m,
+   870→  researching,
+   871→  runningTool,
+   872→  researchQueries,
+   873→  streaming,
+   874→  isLatest,
+   875→  onRegenerate,
+   876→}: {
+   877→  m: Msg
+   878→  researching: boolean
+   879→  runningTool: string | null
+   880→  researchQueries: string[]
+   881→  streaming: boolean
+   882→  isLatest: boolean
+   883→  onRegenerate: () => void
+   884→}) {
+   885→  const meta = m.meta
+   886→  const [previewId, setPreviewId] = useState<number | null>(null)
+   887→  const [sourcesOpen, setSourcesOpen] = useState(false)
+   888→  const [highlightId, setHighlightId] = useState<number | null>(null)
+   889→  const entryRefs = useRef(new Map<number, HTMLLIElement | null>())
+   890→
+   891→  const registerRef = useCallback((id: number, el: HTMLLIElement | null) => {
+   892→    entryRefs.current.set(id, el)
+   893→  }, [])
+   894→
+   895→  // Citation chip click: open the Sources section and spotlight the entry.
+   896→  const jumpToSource = useCallback((id: number) => {
+   897→    setSourcesOpen(true)
+   898→    setHighlightId(id)
+   899→    window.setTimeout(() => {
+   900→      entryRefs.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+   901→    }, 80)
+   902→    window.setTimeout(() => setHighlightId((cur) => (cur === id ? null : cur)), 2400)
+   903→  }, [])
+   904→
+   905→  const sources = meta?.sources ?? []
+   906→  const hasSources = sources.length > 0
+   907→
+   908→  const mdComponents = {
+   909→    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+   910→      if (href?.startsWith('#bean-src-')) {
+   911→        const id = Number(href.replace('#bean-src-', ''))
+   912→        const source = sources.find((s) => s.id === id)
+   913→        if (!source) return <span className="text-white/60">{children}</span>
+   914→        return (
+   915→          <CitationChip
+   916→            id={id}
+   917→            source={source}
+   918→            previewed={previewId === id}
+   919→            onPreview={setPreviewId}
+   920→            onLeave={() => setPreviewId(null)}
+   921→            onJump={jumpToSource}
+   922→          />
+   923→        )
+   924→      }
+   925→      return (
+   926→        <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#f0c75e] underline decoration-[rgba(212,175,55,0.4)] hover:decoration-[#f0c75e]">
+   927→          {children}
+   928→        </a>
+   929→      )
+   930→    },
+   931→    pre: ({ children }: { children?: React.ReactNode }) => {
+   932→      // React-markdown nests <code> inside <pre>; extract for highlighting.
+   933→      const child = Array.isArray(children) ? children[0] : children
+   934→      const props = (child as { props?: { className?: string; children?: ReactNode } })?.props
+   935→      const lang = props?.className?.replace(/language-/, '') || undefined
+   936→      const code = String(props?.children ?? '').replace(/\n$/, '')
+   937→      if (code === '') return <pre>{children}</pre>
+   938→      return <CodeBlock code={code} lang={lang} />
+   939→    },
+   940→  }
+   941→
+   942→  return (
+   943→    <div className="flex justify-start">
+   944→      <div className="bean-glass max-w-[92%] rounded-2xl px-4 py-3 text-white/85 sm:max-w-[85%]">
+   945→        {m.content ? (
+   946→          <>
+   947→            <Markdown content={linkifyCitations(m.content, sources)} components={mdComponents} />
+   948→            {m.pending ? <Spinner className="ml-1 mt-1" /> : null}
+   949→            {m.partial ? (
+   950→              <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
+   951→                <AlertTriangle className="h-3 w-3" /> Incomplete — the stream was stopped or ended early
+   952→              </div>
+   953→            ) : null}
+   954→            {meta ? <AnswerEvidence meta={meta} /> : null}
+   955→            {hasSources && meta ? (
+   956→              <SourcesSection
+   957→                sources={sources}
+   958→                open={sourcesOpen}
+   959→                onOpenChange={setSourcesOpen}
+   960→                highlightId={highlightId}
+   961→                registerRef={registerRef}
+   962→              />
+   963→            ) : null}
+   964→            {!m.pending ? (
+   965→              <MessageActions
+   966→                copyText={stripCitationMarkers(m.content)}
+   967→                disabled={streaming}
+   968→                hasSources={hasSources}
+   969→                sourcesOpen={sourcesOpen}
+   970→                onToggleSources={() => setSourcesOpen((v) => !v)}
+   971→                onRegenerate={onRegenerate}
+   972→                modeLabel={meta?.searchMode}
+   973→              />
+   974→            ) : null}
+   975→          </>
+   976→        ) : researching && isLatest ? (
+   977→          <span className="inline-flex items-center gap-2 text-xs text-white/50">
+   978→            <Globe className="h-3.5 w-3.5 animate-pulse text-[#d4af37]" /> Searching the web…
+   979→            {researchQueries.length > 0 ? (
+   980→              <span className="text-white/30">({researchQueries.slice(0, 2).join(' · ')})</span>
+   981→            ) : null}
+   982→          </span>
+   983→        ) : runningTool && isLatest ? (
+   984→          <span className="inline-flex items-center gap-2 text-xs text-white/50">
+   985→            <Terminal className="h-3.5 w-3.5 animate-pulse text-[#d4af37]" />
+   986→            {runningTool === 'working' ? 'Running server-side tools…' : `Running ${runningTool}…`}
+   987→          </span>
+   988→        ) : (
+   989→          <span className="inline-flex items-center gap-2 text-xs text-white/40">
+   990→            <Spinner /> RIISHE is thinking…
+   991→          </span>
+   992→        )}
+   993→      </div>
+   994→    </div>
+   995→  )
+   996→}
+   997→
+   998→/** Evidence panel: state badges, verification summary and honest degradation. */
+   999→function AnswerEvidence({ meta }: { meta: MsgMeta }) {
+  1000→  const badges = meta.states
+  1001→    .map((s) => STATE_BADGES[s])
+  1002→    .filter((b): b is { label: string; tone: 'gold' | 'amber' | 'red' } => Boolean(b))
+  1003→  const checks = meta.verification ?? []
+  1004→  const toolRuns = meta.toolRuns ?? []
+  1005→
+  1006→  if (badges.length === 0 && checks.length === 0) return null
+  1007→
+  1008→  return (
+  1009→    <div className="mt-3 space-y-2 border-t border-[rgba(212,175,55,0.12)] pt-2">
+  1010→      {badges.length > 0 ? (
+  1011→        <div className="flex flex-wrap gap-1.5">
+  1012→          {badges.map((b) => (
+  1013→            <span
+  1014→              key={b.label}
+  1015→              className={cn(
+  1016→                'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium',
+  1017→                b.tone === 'gold' && 'border border-[rgba(212,175,55,0.35)] bg-[rgba(212,175,55,0.1)] text-[#f0c75e]',
+  1018→                b.tone === 'amber' && 'border border-amber-500/30 bg-amber-500/10 text-amber-300',
+  1019→                b.tone === 'red' && 'border border-red-500/30 bg-red-500/10 text-red-300',
+  1020→              )}
+  1021→            >
+  1022→              {b.tone === 'gold' ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
+  1023→              {b.label}
+  1024→            </span>
+  1025→          ))}
+  1026→        </div>
+  1027→      ) : null}
+  1028→
+  1029→      {meta.retrievedAt ? (
+  1030→        <div className="text-[10px] text-white/35" title={new Date(meta.retrievedAt).toLocaleString()}>
+  1031→          Last checked {timeAgo(meta.retrievedAt)} · live retrieval {(meta.sources ?? []).length > 0 ? 'succeeded' : 'failed'}
+  1032→        </div>
+  1033→      ) : null}
+  1034→
+  1035→      {toolRuns.length > 0 ? (
+  1036→        <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-white/40">
+  1037→          <Terminal className="h-3 w-3" />
+  1038→          {toolRuns.map((t, i) => (
+  1039→            <span key={`${t.tool}-${i}`} className="rounded border border-white/15 px-1.5 py-0.5">
+  1040→              {t.tool} {t.ok ? '✓' : '✗'} · {t.durationMs}ms
+  1041→            </span>
+  1042→          ))}
+  1043→        </div>
+  1044→      ) : null}
+  1045→
+  1046→      {checks.length > 0 ? (
+  1047→        <details className="group">
+  1048→          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11px] text-white/45 hover:text-white/70">
+  1049→            <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+  1050→            Verification ({checks.filter((c) => c.status === 'passed').length}/{checks.length} checks passed)
+  1051→          </summary>
+  1052→          <ul className="mt-1.5 space-y-1 pl-4">
+  1053→            {checks.map((c, i) => (
+  1054→              <li key={`${c.check}-${i}`} className="text-[11px] leading-snug">
+  1055→                <span className={c.status === 'passed' ? 'text-[#8fd694]' : 'text-red-400'}>
+  1056→                  {c.status === 'passed' ? '✓' : '✗'}
+  1057→                </span>{' '}
+  1058→                <span className="text-white/60">{c.check}</span>
+  1059→                <span className="text-white/35"> — {c.detail}</span>
+  1060→              </li>
+  1061→            ))}
+  1062→          </ul>
+  1063→        </details>
+  1064→      ) : null}
+  1065→    </div>
+  1066→  )
+  1067→}
+  1068→

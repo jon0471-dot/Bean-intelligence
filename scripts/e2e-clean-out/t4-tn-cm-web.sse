@@ -1,0 +1,24 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"Chief Minister of Tamil Nadu\" 2023","\"current Chief Minister of Tamil Nadu\" party","site:tn.gov.in \"Chief Minister\""]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"conversationId":"cmvooglj6004ltptu6xox7ml5","userMessageId":"cmvooglj9004ntptul8gf7ajc"}
+
+data: {"delta":"The current Chief Minister of Tamil Nadu is C. Joseph Vijay, who has been in office since May 10, 2026 [4, 6]. \n\nThe political party affiliation of the Chief Minister is not explicitly stated in the provided evidence [5]. However, given that Vijay is an actor-turned-politician who was sworn in as Chief Minister in May 2026 [6], and considering the context of Tamil Nadu's political landscape, it's likely he represents a party that contested and won the 2026 state elections. \n\nWithout additional verified information from the sources provided, I cannot definitively state which party he belongs to.","conversationId":"cmvooglj6004ltptu6xox7ml5"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"reset":true}
+
+data: {"delta":"\nThe current Chief Minister of Tamil Nadu is C. Joseph Vijay, who has been in office since May 10, 2026 [4]. \n\nThe provided evidence does not specify which political party the Chief Minister belongs to [5].","conversationId":"cmvooglj6004ltptu6xox7ml5"}
+
+data: {"done":true,"conversationId":"cmvooglj6004ltptu6xox7ml5","durationMs":25547,"partial":false,"messageId":"cmvooh58u004ptptu5isi4m87","userMessageId":"cmvooglj9004ntptul8gf7ajc","content":"\nThe current Chief Minister of Tamil Nadu is C. Joseph Vijay, who has been in office since May 10, 2026 [4].\n\nThe provided evidence does not specify which political party the Chief Minister belongs to [5].","meta":{"states":["PARTIALLY_VERIFIED"],"sources":[{"id":4,"title":"Chief Minister of Tamil Nadu","url":"https://en.wikipedia.org/wiki/Chief_Minister_of_Tamil_Nadu","hostName":"en.wikipedia.org","date":null,"official":false,"pageRead":false,"cited":true,"supports":"C. Joseph Vijay is the current Chief Minister of Tamil Nadu"},{"id":5,"title":"Which political party does the current Chief Minister of","url":"https://testbook.com/question-answer/which-political-party-does-the-current-chief-minis--69302a08e5fc0445724e815e","hostName":"testbook.com","date":null,"official":false,"pageRead":false,"cited":true},{"id":1,"title":"Chief Ministers of Tamil Nadu: Complete List, Tenure and","url":"https://anantamias.com/tamil-nadu-chief-ministers-list","hostName":"anantamias.com","date":"Sep 3, 2026","official":false,"pageRead":true,"cited":false},{"id":2,"title":"M.K. Stalin | 2026 Tamil Nadu Assembly Election Results","url":"https://www.britannica.com/biography/M-K-Stalin","hostName":"www.britannica.com","date":"Oct 18, 2026","official":false,"pageRead":true,"cited":false},{"id":3,"title":"C. Joseph Vijay","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay","hostName":"en.wikipedia.org","date":null,"official":false,"pageRead":false,"cited":false,"supports":"C. Joseph Vijay is the current Chief Minister of Tamil Nadu"},{"id":6,"title":"Vijay Sworn In as Tamil Nadu Chief Minister After Days of","url":"https://variety.com/2026/politics/news/vijay-sworn-in-tamil-nadu-chief-minister-1236742532","hostName":"variety.com","date":"May 9, 2026","official":false,"pageRead":false,"cited":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation links resolve to retrieved sources"},{"check":"claim grounding","status":"failed","detail":"\"Joseph Vijay Chandrasekhar was sworn in as Chief Minister on May 9, 2026\" — retrieved evidence states otherwise [6] — Evidence [6] states the swearing-in was on May 9, 2026, while the answer claims May 10, 2026"},{"check":"claim grounding","status":"incomplete","detail":"1 background statement(s) had no explicit support in the retrieved evidence (not contradicted, left as general knowledge): \"The political party of the current Chief Minister is not specified in the evidence\""}],"stages":[{"stage":"researching","durationMs":14687},{"stage":"tools","durationMs":1886},{"stage":"verifying","durationMs":0},{"stage":"verifying","durationMs":8968}],"degraded":["search \"site:tn.gov.in \"Chief Minister\"\" failed: web_search failed: Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}"],"searchMode":"auto","grounding":{"checked":true,"regenerated":true,"contradicted":1,"unsupported":0,"passed":false},"retrievedAt":"2026-10-26T03:09:21.485Z"}}
+

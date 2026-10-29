@@ -1,0 +1,97 @@
+{
+  "startedAt": "2026-10-27T05:41:13.879Z",
+  "text": "GANGZII beep probe line one.",
+  "voice": "tongtong",
+  "results": [
+    {
+      "label": "wav-call1",
+      "format": "wav",
+      "ok": true,
+      "bytes": 302736,
+      "latencyMs": 4059,
+      "parsedWav": {
+        "sampleRate": 24000,
+        "channels": 1,
+        "bits": 16,
+        "dataBytes": 302400
+      },
+      "analysis": {
+        "tone0_06": -88.5,
+        "tone0_18": -77.2,
+        "tone0_30": -77.7,
+        "rms0_06": -60,
+        "rms0_18": -23.3,
+        "rms0_30": -15.5
+      }
+    },
+    {
+      "label": "pcm-call2",
+      "format": "pcm",
+      "ok": true,
+      "bytes": 222880,
+      "latencyMs": 2893,
+      "analysis": {
+        "tone0_06": -34.8,
+        "tone0_18": -31.3,
+        "tone0_30": -120,
+        "rms0_06": -30,
+        "rms0_18": -28.3,
+        "rms0_30": -200
+      }
+    },
+    {
+      "label": "pcm-call3",
+      "format": "pcm",
+      "ok": true,
+      "bytes": 204640,
+      "latencyMs": 2544,
+      "analysis": {
+        "tone0_06": -34.8,
+        "tone0_18": -31.3,
+        "tone0_30": -120,
+        "rms0_06": -30,
+        "rms0_18": -28.3,
+        "rms0_30": -200
+      }
+    },
+    {
+      "label": "wav-call4",
+      "format": "wav",
+      "ok": true,
+      "bytes": 218256,
+      "latencyMs": 3067,
+      "parsedWav": {
+        "sampleRate": 24000,
+        "channels": 1,
+        "bits": 16,
+        "dataBytes": 217920
+      },
+      "analysis": {
+        "tone0_06": -94.3,
+        "tone0_18": -67,
+        "tone0_30": -61.4,
+        "rms0_06": -55.9,
+        "rms0_18": -19.4,
+        "rms0_30": -12.2
+      }
+    }
+  ],
+  "artifacts": {
+    "wav-call1": "/home/z/my-project/scripts/beep-probe-out/wav-call1.wav",
+    "pcm-call2": "/home/z/my-project/scripts/beep-probe-out/pcm-call2.wav",
+    "pcm-call3": "/home/z/my-project/scripts/beep-probe-out/pcm-call3.wav",
+    "wav-call4": "/home/z/my-project/scripts/beep-probe-out/wav-call4.wav"
+  },
+  "interpretation": {
+    "beepToneHz": 1650,
+    "beepPresentIn": [
+      "pcm-call2",
+      "pcm-call3"
+    ],
+    "beepAbsentIn": [
+      "wav-call1",
+      "wav-call4"
+    ]
+  },
+  "finishedAt": "2026-10-27T05:41:13.879Z"
+}

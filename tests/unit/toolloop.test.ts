@@ -135,54 +135,61 @@ describe('runToolLoop (real loop + registry)', () => {
   })
 })
 
-describe('resolveSearchDecision (user control vs policy)', () => {
-  test('auto defers to the freshness policy', () => {
-    expect(resolveSearchDecision('Who is the current CEO of Apple?', 'auto').search).toBe(true)
-    expect(resolveSearchDecision('What is 17 multiplied by 23?', 'auto').search).toBe(false)
-    expect(resolveSearchDecision('What is 17 multiplied by 23?', 'auto').reason).toBe(
+describe('resolveSearchDecision (fully automatic policy)', () => {
+  test('retrieval is decided purely by the freshness policy', () => {
+    expect(resolveSearchDecision('Who is the current CEO of Apple?').search).toBe(true)
+    expect(resolveSearchDecision('What is 17 multiplied by 23?').search).toBe(false)
+    expect(resolveSearchDecision('What is 17 multiplied by 23?').reason).toBe(
       shouldSearch('What is 17 multiplied by 23?').reason,
     )
   })
 
-  test('on forces retrieval even for stable questions', () => {
-    const d = resolveSearchDecision('Explain recursion in one paragraph', 'on')
-    expect(d.search).toBe(true)
-    expect(d.reason).toContain('user explicitly requested')
-  })
-
-  test('off suppresses retrieval even for freshness-sensitive questions', () => {
-    const d = resolveSearchDecision('Who is the current Chancellor of Germany?', 'off')
-    expect(d.search).toBe(false)
-    expect(d.reason).toContain('user disabled')
+  test('there is no user-facing override anymore (composer has no mode toggle)', () => {
+    // The policy is the ONLY decision path; same question always resolves
+    // the same way regardless of who asks.
+    expect(resolveSearchDecision('Explain recursion in one paragraph').search).toBe(false)
+    expect(resolveSearchDecision('What is the latest stable Next.js version right now?').search).toBe(true)
   })
 })
 
-describe('selectTools (least-privilege enablement)', () => {
+describe('selectTools (capability-driven, server-side policy)', () => {
   test('stable general turn: no tools, direct streaming path', () => {
     expect(
-      selectTools({ searchMode: 'auto', searchNeeded: false, task: 'general', hasDocuments: false, allowCodeExecution: false }),
+      selectTools({ searchNeeded: false, task: 'general', hasDocuments: false, allowCodeExecution: true, researchFailed: false }),
     ).toEqual([])
   })
 
   test('math enables the deterministic calculator', () => {
     expect(
-      selectTools({ searchMode: 'auto', searchNeeded: false, task: 'math', hasDocuments: false, allowCodeExecution: false }),
+      selectTools({ searchNeeded: false, task: 'math', hasDocuments: false, allowCodeExecution: false, researchFailed: false }),
     ).toContain('calculate')
   })
 
-  test('forced search and documents enable web tools + read_document', () => {
-    const forced = selectTools({ searchMode: 'on', searchNeeded: true, task: 'general', hasDocuments: false, allowCodeExecution: false })
-    expect(forced).toContain('web_search')
-    const docs = selectTools({ searchMode: 'auto', searchNeeded: false, task: 'document', hasDocuments: true, allowCodeExecution: false })
+  test('documents enable read_document + web tools (follow-up lookups)', () => {
+    const docs = selectTools({ searchNeeded: false, task: 'document', hasDocuments: true, allowCodeExecution: false, researchFailed: false })
     expect(docs).toContain('read_document')
     expect(docs).toContain('web_search')
   })
 
-  test('run_code appears ONLY with the explicit opt-in', () => {
-    const off = selectTools({ searchMode: 'auto', searchNeeded: false, task: 'coding', hasDocuments: false, allowCodeExecution: false })
-    expect(off).not.toContain('run_code')
-    const on = selectTools({ searchMode: 'auto', searchNeeded: false, task: 'coding', hasDocuments: false, allowCodeExecution: true })
-    expect(on).toContain('run_code')
+  test('a research turn with SUCCESSFUL pipeline evidence does NOT re-run the tool loop (latency guard)', () => {
+    const ok = selectTools({ searchNeeded: true, task: 'research', hasDocuments: false, allowCodeExecution: true, researchFailed: false })
+    expect(ok).not.toContain('web_search')
+    expect(ok).not.toContain('read_url')
+  })
+
+  test('a research turn with FAILED retrieval gets web tools as bounded recovery', () => {
+    const recovery = selectTools({ searchNeeded: true, task: 'research', hasDocuments: false, allowCodeExecution: false, researchFailed: true })
+    expect(recovery).toContain('web_search')
+    expect(recovery).toContain('read_url')
+  })
+
+  test('run_code is server policy: granted per-task (math/coding/document), never for general chat', () => {
+    const general = selectTools({ searchNeeded: false, task: 'general', hasDocuments: false, allowCodeExecution: true, researchFailed: false })
+    expect(general).not.toContain('run_code')
+    const coding = selectTools({ searchNeeded: false, task: 'coding', hasDocuments: false, allowCodeExecution: true, researchFailed: false })
+    expect(coding).toContain('run_code')
+    const math = selectTools({ searchNeeded: false, task: 'math', hasDocuments: false, allowCodeExecution: true, researchFailed: false })
+    expect(math).toContain('run_code')
   })
 })
 
@@ -255,17 +262,56 @@ describe('conversation digest (long-conversation context management)', () => {
   })
 })
 
-describe('citation linkification (UI rendering contract)', () => {
-  test('markers with real sources become in-page links; dangling markers stay', () => {
+describe('citation linkification (clean-citations contract)', () => {
+  test('markers with real sources become concise SOURCE-NAME links (no numbers)', () => {
     const content = 'Vijay took office [1] and the budget was passed [7].'
-    const linked = linkifyCitations(content, [{ id: 1 }, { id: 2 }])
-    expect(linked).toContain('[1](#bean-src-1)')
-    expect(linked).toContain('[7]') // no source 7 -> left untouched, not faked
+    const linked = linkifyCitations(content, [
+      { id: 1, hostName: 'www.tn.gov.in' },
+      { id: 2, hostName: 'example.org' },
+    ])
+    expect(linked).toContain('[Tamil Nadu Government](#bean-src-1)')
+    expect(linked).not.toContain('[1]')
+    // Unresolved marker [7] is STRIPPED (work order: no orphaned clutter) —
+    // never faked into a working-looking link.
+    expect(linked).not.toContain('[7]')
     expect(linked).not.toContain('[7](#bean-src-7)')
   })
 
-  test('no sources -> content untouched', () => {
-    expect(linkifyCitations('plain [1] text')).toBe('plain [1] text')
+  test('grouped markers [2, 3, 4] expand to source-name links when every id resolves', () => {
+    // Measured defect: the live CM answer cited "[2, 3, 4]" and "[3, 4]" and
+    // the old single-marker regex left the raw brackets in the reading flow.
+    const content = 'He was sworn in May 2026 [2, 3]. The government site lists him [4].'
+    const linked = linkifyCitations(content, [
+      { id: 2, hostName: 'www.bbc.com' },
+      { id: 3, hostName: 'www.britannica.com' },
+      { id: 4, hostName: 'www.tn.gov.in' },
+    ])
+    expect(linked).toContain('[BBC News](#bean-src-2) [Britannica](#bean-src-3)')
+    expect(linked).toContain('[Tamil Nadu Government](#bean-src-4)')
+    expect(linked).not.toMatch(/\[\d/) // no raw numeric markers left behind
+  })
+
+  test('a group with ANY dangling id is fully stripped (no partial faking)', () => {
+    const content = 'Claim [1, 99] stands.'
+    const linked = linkifyCitations(content, [{ id: 1, hostName: 'a.example' }])
+    expect(linked).toBe('Claim  stands.')
+  })
+
+  test('no sources -> every numeric marker is orphaned and stripped', () => {
+    expect(linkifyCitations('plain [1] text')).toBe('plain  text')
+  })
+
+  test('code blocks and array indexing are never treated as citations', () => {
+    const content = 'Use `arr[0]` then:\n\n```js\nconst x = items[1];\n```\n\nHe said it [1].'
+    const linked = linkifyCitations(content, [{ id: 1, hostName: 'a.example' }])
+    expect(linked).toContain('`arr[0]`')
+    expect(linked).toContain('const x = items[1];')
+    expect(linked).toContain('[a.example](#bean-src-1)')
+  })
+
+  test('a marker glued to a word or digit (array indexing) stays untouched', () => {
+    const linked = linkifyCitations('x = arr[1] plus text', [{ id: 1, hostName: 'a.example' }])
+    expect(linked).toBe('x = arr[1] plus text')
   })
 })
 

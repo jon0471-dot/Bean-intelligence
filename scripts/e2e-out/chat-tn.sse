@@ -1,0 +1,16 @@
+data: {"started":true,"conversationId":"cmvp30myr005htpnnlezq3hxh"}
+
+data: {"type":"stage","stage":"researching"}
+
+: ping 4999ms
+
+: ping 10001ms
+
+data: {"research":{"queries":["Chief Minister of Tamil Nadu 2023","current Chief Minister Tamil Nadu","M.K. Stalin Chief Minister Tamil Nadu"]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"error":"The response stream failed before completion. Partial text is labeled as incomplete.","stage":"stream","partial":true}
+

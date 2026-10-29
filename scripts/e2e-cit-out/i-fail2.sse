@@ -1,0 +1,14 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"Chief Minister of Tamil Nadu\" 2023","\"M.K. Stalin\" Chief Minister Tamil Nadu","current Chief Minister Tamil Nadu"]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"I could not verify the current Chief Minister of Tamil Nadu through live research as the search tools were unavailable. Based on stable knowledge up to my last update, M.K. Stalin is the Chief Minister of Tamil Nadu, having assumed office in May 2021. However, I cannot confirm if this is still accurate today.","conversationId":"cmvomrxsb0017tptur4asqs7d"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvomrxsb0017tptur4asqs7d","durationMs":1898,"partial":false,"meta":{"states":["TOOL_UNAVAILABLE"],"sources":[],"verification":[],"stages":[{"stage":"researching","durationMs":833},{"stage":"tools","durationMs":1060},{"stage":"verifying","durationMs":0}],"degraded":["search \"\"Chief Minister of Tamil Nadu\" 2023\" failed: web_search failed: Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}","search \"\"M.K. Stalin\" Chief Minister Tamil Nadu\" failed: web_search failed: Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}","search \"current Chief Minister Tamil Nadu\" failed: web_search failed: Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}"],"searchMode":"auto","retrievedAt":"2026-10-26T02:21:47.700Z"}}
+

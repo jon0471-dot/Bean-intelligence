@@ -1,0 +1,27 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-music-selfhosted-candidate",
+  "product": "gangzii",
+  "task": "music-generation",
+  "status": "candidate-not-deployed",
+  "deploymentMode": "self-hosted",
+  "provider": "BEAN Intelligence (planned self-hosted GPU worker)",
+  "selectedCandidate": {
+    "repository": "https://github.com/ace-step/ACE-Step-1.5",
+    "codeLicense": "MIT (verified from repository LICENSE file, 2026-10-27)",
+    "weightsLicense": "NOT CONFIRMED — GitHub repo does not state a weights license; HuggingFace model card must be reviewed before any production enablement",
+    "hardware": "2B turbo ~<=6GB VRAM (LM disabled); XL with LM 1.7B ~16-24GB; full XL sft >=24GB",
+    "languages": "prompt/lyrics driven; language coverage per training data",
+    "inference": "Python GPU worker + async job queue; never in browser"
+  },
+  "alternativesEvaluated": [
+    { "repository": "https://github.com/facebookresearch/audiocraft", "codeLicense": "MIT", "weightsLicense": "CC-BY-NC 4.0 (LICENSE_weights)", "verdict": "REJECTED for commercial product — non-commercial weights" }
+  ],
+  "license": {
+    "name": "Under review — see docs/models/LICENSING-REPORT.md §6",
+    "commercialUse": "restricted",
+    "note": "Music generation is NOT enabled. BEAN does not simulate music jobs; a licensed GPU worker must be deployed and its weight licenses cleared before JAZMII-style honest enablement.",
+    "sourceUrl": "https://github.com/ace-step/ACE-Step-1.5",
+    "verifiedAt": "2026-10-27"
+  }
+}

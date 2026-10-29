@@ -1,0 +1,12 @@
+data: {"started":true,"conversationId":"cmvpezx05008htpnnrn0qpll0"}
+
+data: {"type":"stage","stage":"solving"}
+
+: ping 5000ms
+
+data: {"type":"stage","stage":"solving"}
+
+: ping 10003ms
+
+data: {"error":"The AI backend is rate-limited right now. Please retry in a moment.","code":"RATE_LIMITED","stage":"stream","partial":true}
+

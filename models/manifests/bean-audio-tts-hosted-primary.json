@@ -1,0 +1,41 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-audio-tts-hosted-primary",
+  "product": "gangzii",
+  "task": "speech-synthesis",
+  "status": "deployed",
+  "deploymentMode": "authorized-hosted",
+  "provider": "Z.ai authorized hosted inference gateway",
+  "modelIdentity": "Provider-managed text-to-speech model; exact checkpoint not disclosed to tenant",
+  "revision": null,
+  "endpointType": "managed-sdk",
+  "capabilities": {
+    "textToSpeech": true,
+    "voices": ["tongtong", "chuichui", "xiaochen", "jam", "kazi", "douji", "luodo"],
+    "speedRange": [0.5, 2.0],
+    "volumeRange": "(0, 10]",
+    "outputFormats": ["wav"],
+    "streaming": "not used by BEAN (batch synthesis)",
+    "voiceCloning": false,
+    "emotionControls": false,
+    "longText": "chunked synthesis: sentence-boundary chunks <=1024 chars, raw PCM concatenated under a single canonical 44-byte RIFF/WAVE header (24 kHz mono 16-bit)"
+  },
+  "limits": {
+    "maxCharsPerChunk": 1024,
+    "maxCharsPerRequest": 6000,
+    "maxChunksPerRequest": 12,
+    "sampleRateHz": 24000,
+    "channels": 1,
+    "bitsPerSample": 16,
+    "typicalLatencyMsPerChunk": 2000
+  },
+  "verifiedProbes": [
+    { "date": "2026-10-27", "test": "wav synthesis", "result": "PASS", "bytes": 266256, "magic": "RIFF....WAVE", "header": { "sampleRate": 24000, "channels": 1, "bitsPerSample": 16 } },
+    { "date": "2026-10-27", "test": "pcm synthesis + 2-chunk WAV assembly", "result": "PASS", "assembledDurationSec": 9.93, "asrHearsBothChunks": true },
+    { "date": "2026-10-27", "test": "all 7 documented voices", "result": "PASS" },
+    { "date": "2026-10-27", "test": "speed 0.5 / 1.5 / 2.0 duration scaling", "result": "PASS", "note": "speed 0.3 rejected by gateway (400)" },
+    { "date": "2026-10-27", "test": "mp3 response_format", "result": "FAIL — gateway rejects: response_format value not supported; WAV and PCM only" },
+    { "date": "2026-10-27", "test": "1025-char input", "result": "FAIL — gateway rejects with 'input length cannot exceed 1024 characters' (BEAN pre-validates)" }
+  ],
+  "license": { "name": "platform inference agreement", "sourceUrl": "https://z.ai", "verifiedAt": "2026-10-27" }
+}

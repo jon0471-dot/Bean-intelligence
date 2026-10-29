@@ -18,7 +18,9 @@
 import { spawn } from 'child_process'
 import { randomUUID } from 'crypto'
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
+import type { HealthReport } from '@/lib/adapters/types'
 
 const SANDBOX_ROOT = path.join(process.cwd(), 'sandbox-runs')
 const TIMEOUT_MS = 15_000
@@ -148,6 +150,94 @@ export async function runInSandbox(files: SandboxFile[]): Promise<SandboxRunResu
   })
 
   return { runId, files, ...result }
+}
+
+/**
+ * CODE GIFTZ sandbox-capability probe (2026-10-29 product-availability audit).
+ *
+ * The health endpoint previously marked CODE GIFTZ available/unavailable
+ * based ONLY on the hosted LLM probe, so a broken sandbox runtime would
+ * still render the product fully "Operational" while its isolated-execution
+ * capability (a documented part of the product) failed on every run.
+ *
+ * This probe measures the REAL runtime with a trivial spawn of the same
+ * binary and minimal-env contract runInSandbox uses (no files written, no
+ * user code involved):
+ *   - healthy   -> runtime spawned, exited 0 and produced the marker output;
+ *   - unhealthy -> spawn error, non-zero exit, timeout, or wrong output,
+ *                  with the measured reason in the detail.
+ */
+export async function probeSandboxHealth(): Promise<HealthReport> {
+  const t0 = Date.now()
+  const runtime = pickRuntime()
+  const checkedAt = new Date().toISOString()
+  const PROBE_TIMEOUT_MS = 5_000
+  const marker = 'sandbox-ok'
+
+  const outcome = await new Promise<{ ok: boolean; detail: string }>((resolve) => {
+    let child: ReturnType<typeof spawn>
+    try {
+      child = spawn(runtime, ['-e', `process.stdout.write('${marker}')`], {
+        cwd: os.tmpdir(),
+        env: {
+          PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+          HOME: os.tmpdir(),
+          NODE_ENV: process.env.NODE_ENV ?? 'production',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (e) {
+      resolve({ ok: false, detail: `Sandbox runtime "${runtime}" could not be spawned: ${e instanceof Error ? e.message : String(e)}` })
+      return
+    }
+
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    let settled = false
+    const finish = (ok: boolean, detail: string) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve({ ok, detail })
+    }
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill('SIGKILL')
+    }, PROBE_TIMEOUT_MS)
+
+    child.stdout.on('data', (d: Buffer) => {
+      if (stdout.length < MAX_OUTPUT_BYTES) stdout += d.toString('utf8')
+    })
+    child.stderr.on('data', (d: Buffer) => {
+      if (stderr.length < MAX_OUTPUT_BYTES) stderr += d.toString('utf8')
+    })
+    child.on('error', (err) => {
+      finish(false, `Sandbox runtime "${runtime}" is not usable: ${err.message}`)
+    })
+    child.on('close', (code) => {
+      if (timedOut) {
+        finish(false, `Sandbox probe timed out after ${PROBE_TIMEOUT_MS}ms and was killed.`)
+        return
+      }
+      if (code !== 0) {
+        finish(false, `Sandbox runtime "${runtime}" exited with code ${code}. ${stderr.slice(0, 200)}`.trim())
+        return
+      }
+      if (!stdout.includes(marker)) {
+        finish(false, `Sandbox runtime "${runtime}" ran but produced no marker output (stdout: ${JSON.stringify(stdout.slice(0, 100))}).`)
+        return
+      }
+      finish(true, `Sandbox runtime "${runtime}" executed a trivial script successfully (${Date.now() - t0}ms).`)
+    })
+  })
+
+  return {
+    healthy: outcome.ok,
+    checkedAt,
+    latencyMs: Date.now() - t0,
+    detail: outcome.detail,
+  }
 }
 
 /** Retention hygiene: delete workspaces older than RETENTION_HOURS (default 24). */

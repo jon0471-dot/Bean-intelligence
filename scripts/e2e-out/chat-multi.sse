@@ -1,0 +1,14 @@
+data: {"started":true,"conversationId":"cmvp30lsd0059tpnnpjt8fob6"}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"conversationId":"cmvp30lsd0059tpnnpjt8fob6","userMessageId":"cmvp30ltj005btpnnqckjycpb"}
+
+data: {"delta":"Here are all the files you attached with their types:\n\n1. test-doc.docx (document)\n2. test-chart.png (image)\n3. test-data.csv (document)\n4. test-data.xlsx (document)\n5. test-archive.zip (archive)\n6. test-audio.wav (audio)","conversationId":"cmvp30lsd0059tpnnpjt8fob6"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvp30lsd0059tpnnpjt8fob6","durationMs":1407,"partial":false,"messageId":"cmvp30mwu005dtpnn1lwqr9gj","userMessageId":"cmvp30ltj005btpnnqckjycpb","content":"Here are all the files you attached with their types:\n\n1. test-doc.docx (document)\n2. test-chart.png (image)\n3. test-data.csv (document)\n4. test-data.xlsx (document)\n5. test-archive.zip (archive)\n6. test-audio.wav (audio)","meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"tools","durationMs":1403},{"stage":"verifying","durationMs":0}],"degraded":["web retrieval skipped: the attached files are the evidence source for this turn","search not warranted: asks about recent/current developments"],"searchMode":"auto"}}
+

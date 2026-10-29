@@ -1,0 +1,44 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["What is the latest stable version of Next.js?"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"The","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":" latest","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":" stable","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":" version","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":" of","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":" Next","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":".js","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":" is","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":" ","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":"16","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":".","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":"4","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":".","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":"3","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":" [","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":"1","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"delta":"].","conversationId":"cmvsxwu2f000lqb8clc6nbdde"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvsxwu2f000lqb8clc6nbdde","durationMs":3277,"partial":false,"messageId":"cmvsxwwlg000pqb8co0vusteg","firstTokenMs":3268,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Next.js","url":"https://www.npmjs.com/package/next","hostName":"www.npmjs.com","date":"Thu, 29 Oct 2026 02:28:14 GMT","official":false,"social":false,"pageRead":true}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":2764},{"stage":"verifying","durationMs":1}],"degraded":[],"retrievedAt":"2026-10-29T02:44:38.018Z","timings":{"totalMs":3273,"understandMs":0,"researchMs":2764,"searchMs":1125,"pageReadMs":1636,"solveTtftMs":503,"solveMs":507,"verifyMs":1,"solvePasses":1}}}
+

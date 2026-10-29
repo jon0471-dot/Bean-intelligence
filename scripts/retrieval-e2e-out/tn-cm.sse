@@ -1,0 +1,112 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["Who is the Chief Minister of Tamil Nadu"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"C","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":".","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" Joseph","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" Vij","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"ay","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" is","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" the","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" current","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" Chief","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" Minister","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" of","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" Tamil","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" Nadu","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" [","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"3","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":",","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" ","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"4","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":",","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" ","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"6","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"].","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" He","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" was","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" sworn","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" in","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" on","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" May","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" ","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"9","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":",","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" ","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"202","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"6","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":",","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" after","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" transitioning","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" from","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" a","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" successful","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" Tamil","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" film","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" career","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" to","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" politics","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" [","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"2","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":",","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":" ","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"3","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"delta":"].","conversationId":"cmvrk2vap0017r4bhk9s0arwi"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrk2vap0017r4bhk9s0arwi","durationMs":2671,"partial":false,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Chief Minister of Tamil Nadu","url":"https://en.wikipedia.org/wiki/Chief_Minister_of_Tamil_Nadu","hostName":"en.wikipedia.org","date":"2004-04-13T13:46:50Z","official":false,"pageRead":true},{"id":2,"title":"C. Joseph Vijay","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay","hostName":"en.wikipedia.org","date":"2004-12-30T03:01:27Z","official":false,"pageRead":true},{"id":3,"title":"Tamil film star Vijay is Indian state chief minister after days","url":"https://www.bbc.com/news/articles/ce8p2d97482o","hostName":"www.bbc.com","date":"May 10, 2026","official":false,"pageRead":false},{"id":4,"title":"Shri Chandrasekar Joseph Vijay takes oath as the Chief","url":"https://www.facebook.com/IndianNationalCongress/posts/shri-chandrasekar-joseph-vijay-takes-oath-as-the-chief-minister-of-tamil-nadu-in/1603928677761311","hostName":"www.facebook.com","date":null,"official":false,"pageRead":false},{"id":5,"title":"Hon'ble Chief Minister of Tamil Nadu, Thiru C. Joseph Vijay","url":"https://www.facebook.com/VPI14/posts/honble-chief-minister-of-tamil-nadu-thiru-c-joseph-vijay-called-on-honble-vice-p/977162431776924","hostName":"www.facebook.com","date":null,"official":false,"pageRead":false},{"id":6,"title":"Council of Ministers","url":"https://www.tn.gov.in/minister_list.php","hostName":"www.tn.gov.in","date":null,"official":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":1904},{"stage":"verifying","durationMs":0}],"degraded":[],"retrievedAt":"2026-10-28T03:29:38.145Z"}}
+

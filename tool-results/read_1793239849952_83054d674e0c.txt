@@ -1,0 +1,662 @@
+     1→/**
+     2→ * BEAN Intelligence — research pipeline.
+     3→ *
+     4→ * Understand -> Retrieve: generates refined queries ONLY for complex or
+     5→ * compound questions (one fast LLM call, zod-validated — SKIPPED for
+     6→ * straightforward single-question lookups, where the user's own question is
+     7→ * already the strongest query), runs REAL web searches, dedups/ranks evidence
+     8→ * and reads top pages ONLY when the snippets alone would be over-interpreted.
+     9→ *
+    10→ * Latency design (measured evidence in worklog):
+    11→ *  - straightforward current-fact questions go straight to search with ONE
+    12→ *    strong query (no semantic-routing model call);
+    13→ *  - near-duplicate queries collapse before dispatch (no redundant searches);
+    14→ *  - search/page results are cached briefly with freshness-aware TTLs
+    15→ *    (research/cache.ts) and cache hits keep their ORIGINAL fetch time;
+    16→ *  - full-page retrieval happens only for sources whose snippet is too thin
+    17→ *    to ground the answer, or when snippets are missing entirely;
+    18→ *  - a provider failure or empty result triggers EXACTLY ONE bounded
+    19→ *    same-query retry (measured: the provider intermittently 422s queries it
+    20→ *    serves seconds later) — never an unbounded loop.
+    21→ *
+    22→ * Honesty contract: the returned EvidencePack contains only sources actually
+    23→ * retrieved by the provider (or served from a cache of a real provider
+    24→ * response). Failures degrade honestly (reported in `degraded`) — the
+    25→ * pipeline never invents or retries indefinitely.
+    26→ */
+    27→import ZAI from 'z-ai-web-dev-sdk'
+    28→import { z } from 'zod'
+    29→import { webSearch, readPage, WebSearchResult, PageContent, ResearchToolError } from './provider'
+    30→import { rankSources, stalenessWarning, RankedSource, parseSourceDate } from './rank'
+    31→import type { SearchDecision } from './policy'
+    32→import { getSearchCache, getPageCache } from './cache'
+    33→import { fastPathQueryVariants, regionContextFor, geoTermsOf } from './geo'
+    34→import { isOngoingCaseQuery } from './policy'
+    35→import { coreTopic, detectSensitiveCase } from './sensitive'
+    36→import { extractDatelineFromText } from './provider'
+    37→
+    38→const queriesSchema = z.object({
+    39→  queries: z.array(z.string().min(3).max(300)).min(1).max(3),
+    40→})
+    41→
+    42→interface QueryGenCompletion {
+    43→  choices?: Array<{
+    44→    message?: {
+    45→      content?: string
+    46→    }
+    47→  }>
+    48→}
+    49→
+    50→export interface EvidenceSource extends RankedSource {
+    51→  /** Whether the full page (not just the snippet) was read. */
+    52→  pageRead: boolean
+    53→  /** Excerpt used as grounding when the page was read. */
+    54→  excerpt: string | null
+    55→}
+    56→
+    57→export interface EvidencePack {
+    58→  sources: EvidenceSource[]
+    59→  queries: string[]
+    60→  degraded: string[]
+    61→  staleness: string | null
+    62→  /** Set when the topic named a place but NO selected source mentions it. */
+    63→  geoWarning: string | null
+    64→  durationMs: number
+    65→  /** Wall time spent inside provider search calls (parallel, cache-aware). */
+    66→  searchMs: number
+    67→  /** Wall time spent in full-page fetches (parallel, cache-aware). */
+    68→  pageReadMs: number
+    69→  /** How many provider searches actually ran (cache hits excluded). */
+    70→  searchCalls: number
+    71→  /** How many full-page reads actually ran (cache hits excluded). */
+    72→  pageReadCalls: number
+    73→  /** True when the ranked evidence came from a cache of a real fetch. */
+    74→  cacheHits: number
+    75→  /** ISO time of the ORIGINAL fetch backing this pack (cache-aware). */
+    76→  fetchedAt: string
+    77→}
+    78→
+    79→const QUERY_SYSTEM =
+    80→  'You generate concise web search queries for a fact-checking pipeline. ' +
+    81→  'Given a user question, output 1-3 search queries that would surface authoritative, current sources. ' +
+    82→  'Prefer the exact entities, names, versions or dates involved. No explanations.'
+    83→
+    84→/**
+    85→ * Straightforward-question detector: when the message is a short,
+    86→ * single-question lookup, the user's own wording IS the strong query and the
+    87→ * query-refinement model call is pure added latency. Complex, compound or
+    88→ * long questions still get refinement.
+    89→ */
+    90→export function isStraightforwardQuestion(message: string): boolean {
+    91→  const text = message.trim()
+    92→  if (text.length === 0 || text.length > 140) return false
+    93→  // Multiple sentences (excluding a single trailing '?') suggest compound asks.
+    94→  const sentences = text.replace(/[?!.]+\s*$/, '').split(/[?!.]\s+/).filter((s) => s.trim().length > 0)
+    95→  if (sentences.length > 1) return false
+    96→  // Comparison openers are compound by nature ("Compare X and Y", "X vs Y").
+    97→  if (/^(compare|difference|differences|which\s+is\s+better)\b/i.test(text)) return false
+    98→  // Multi-part coordination: multiple "and"/"or", or a conjunction followed
+    99→  // by another question word ("X and what changed in Y").
+   100→  if (/\b(and|or)\b/i.test(text) && (text.match(/\b(and|or)\b/gi) ?? []).length > 1) return false
+   101→  if (/\b(and|or)\s+(what|how|why|when|who|where|which)\b/i.test(text)) return false
+   102→  return true
+   103→}
+   104→
+   105→/** Generate 1-3 refined search queries with a fast LLM call; falls back to the raw message. */
+   106→export async function generateQueries(message: string, risk: SearchDecision): Promise<{ queries: string[]; usedFallback: boolean }> {
+   107→  const fallback = { queries: [truncateQuery(message)], usedFallback: true }
+   108→  try {
+   109→    const zai = await ZAI.create()
+   110→    const completion = await Promise.race([
+   111→      zai.chat.completions.create({
+   112→        messages: [
+   113→          { role: 'assistant', content: QUERY_SYSTEM },
+   114→          {
+   115→            role: 'user',
+   116→            content:
+   117→              `Question: ${message.slice(0, 2000)}\n` +
+   118→              `Freshness: ${risk.risk}${risk.recencyDays ? ` (results should be from the last ~${risk.recencyDays} days)` : ''}\n` +
+   119→              'Respond with JSON only: {"queries": ["...", "..."]}',
+   120→          },
+   121→        ],
+   122→        thinking: { type: 'disabled' },
+   123→      }),
+   124→      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('query-gen timeout')), 6_000)),
+   125→    ])
+   126→    const content = (completion as QueryGenCompletion).choices?.[0]?.message?.content ?? ''
+   127→    const jsonMatch = content.match(/\{[\s\S]*\}/)
+   128→    if (!jsonMatch) return fallback
+   129→    const parsed = queriesSchema.safeParse(JSON.parse(jsonMatch[0]))
+   130→    if (!parsed.success) return fallback
+   131→    return { queries: parsed.data.queries.slice(0, 3), usedFallback: false }
+   132→  } catch {
+   133→    return fallback
+   134→  }
+   135→}
+   136→
+   137→function truncateQuery(message: string): string {
+   138→  const q = message.replace(/\s+/g, ' ').trim()
+   139→  return q.length <= 280 ? q : `${q.slice(0, 277)}...`
+   140→}
+   141→
+   142→/**
+   143→ * Strip directive scaffolding the user wrapped around a lookup so the search
+   144→ * provider receives the SUBJECT, not the imperative. Measured failure class
+   145→ * (worklog): "Research a current topic: Gingee girl missing" searched (and
+   146→ * would have searched) for the literal sentence including the prefix.
+   147→ * Applied ONLY on the fast path; complex questions get LLM refinement.
+   148→ */
+   149→export function toSearchQuery(message: string): string {
+   150→  let q = message.replace(/\s+/g, ' ').trim()
+   151→  for (let i = 0; i < 3; i += 1) {
+   152→    const next = q
+   153→      .replace(/^(?:please\s+)?(?:kindly\s+)?(?:research|search(?:\s+(?:the\s+web|the\s+internet|online))?(?:\s+for)?|google|look\s+up|lookup|find(?:\s+out)?|check(?:\s+online)?|browse)\b[\s:,-]*/i, '')
+   154→      .replace(/^(?:a\s+|an\s+|the\s+)?(?:current|recent|latest|breaking)\s+(?:topic|topics|news|story|stories|event|events|affairs?|developments?)\s*[:\-—]\s*/i, '')
+   155→      .replace(/\s*(?:right\s+now|as\s+of\s+(?:now|today)|these\s+days)\s*[?!.]*\s*$/i, '')
+   156→      .trim()
+   157→    if (next === q || next.length === 0) break
+   158→    q = next
+   159→  }
+   160→  return q.length > 0 ? (q.length <= 280 ? q : `${q.slice(0, 277)}...`) : truncateQuery(message)
+   161→}
+   162→
+   163→/**
+   164→ * True when a freshness-sensitive (news) query deserves ONE bounded follow-up
+   165→ * search for newer reporting: every selected source is either undated or the
+   166→ * newest dated source is older than 45 days. Older reporting still ranks —
+   167→ * as background, never presented as the latest development.
+   168→ */
+   169→export function needsFreshnessFollowUp(ranked: RankedSource[]): boolean {
+   170→  if (ranked.length === 0) return false
+   171→  const ages = ranked.map((r) => parseSourceDate(r.date).ageDays).filter((a): a is number => a !== null)
+   172→  if (ages.length === 0) return true
+   173→  return Math.min(...ages) > 45
+   174→}
+   175→
+   176→/** Build the bounded follow-up query used to hunt for newer reporting. */
+   177→export function buildFollowUpQuery(baseQuery: string): string {
+   178→  const base = baseQuery.replace(/\s+/g, ' ').trim().slice(0, 200)
+   179→  return `${base} latest news update`
+   180→}
+   181→
+   182→/**
+   183→ * Age in days of the NEWEST dated source (null when none carry a parseable
+   184→ * date). Used by the ongoing-case follow-up trigger below.
+   185→ */
+   186→export function newestSourceAgeDays(ranked: RankedSource[]): number | null {
+   187→  const ages = ranked
+   188→    .map((r) => parseSourceDate(r.date).ageDays)
+   189→    .filter((a): a is number => a !== null)
+   190→  return ages.length > 0 ? Math.min(...ages) : null
+   191→}
+   192→/** Collapse near-duplicate queries (normalized word-set equality) before dispatch. */
+   193→export function dedupeQueries(queries: string[]): string[] {
+   194→  const seen = new Set<string>()
+   195→  const out: string[] = []
+   196→  for (const q of queries) {
+   197→    const key = q.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').sort().join(' ')
+   198→    if (key.length === 0 || seen.has(key)) continue
+   199→    seen.add(key)
+   200→    out.push(q)
+   201→  }
+   202→  return out
+   203→}
+   204→
+   205→/**
+   206→ * Sensitive-case deterministic query set (work order: prioritize official
+   207→ * police/government statements AND search for newer reporting before
+   208→ * summarizing an ongoing case). Added on top of the policy/LLM queries and
+   209→ * BEFORE dedupe so near-duplicates collapse; bounded so a sensitive turn
+   210→ * never fans out unbounded searches.
+   211→ *
+   212→ * Returns the (possibly re-anchored) query list plus the freshness query
+   213→ * actually appended (for the honest degraded note), or null.
+   214→ */
+   215→export function buildSensitiveQuerySet(
+   216→  message: string,
+   217→  queries: string[],
+   218→): { queries: string[]; addedFreshnessQuery: string | null; addedOfficialQuery: string | null } {
+   219→  const sensitive = detectSensitiveCase(message)
+   220→  if (!sensitive.sensitive) return { queries, addedFreshnessQuery: null, addedOfficialQuery: null }
+   221→  const core = coreTopic(message) ?? queries[0] ?? null
+   222→  if (!core) return { queries, addedFreshnessQuery: null, addedOfficialQuery: null }
+   223→  const next = [...queries]
+   224→  // Anchor the set to the core topic when the generated queries drifted.
+   225→  const coreKey = core.toLowerCase().slice(0, 24)
+   226→  if (!next.some((q) => q.toLowerCase().includes(coreKey))) {
+   227→    next.unshift(truncateQuery(core))
+   228→  }
+   229→  const lowerJoined = next.join(' \n ').toLowerCase()
+   230→  const freshnessQuery = truncateQuery(`${core} latest update`)
+   231→  const officialQuery = truncateQuery(`${core} police official statement`)
+   232→  let addedFreshnessQuery: string | null = null
+   233→  let addedOfficialQuery: string | null = null
+   234→  // Skip an extra when an existing query ALREADY targets that intent —
+   235→  // near-duplicate searches burn the (rate-limited) gateway for nothing.
+   236→  const targetsFreshness = /\b(latest|newest|update|updates|today|now)\b/i.test(lowerJoined)
+   237→  const targetsOfficial = /\b(police|official|government|statement|cb-cid|cbcid)\b/i.test(lowerJoined)
+   238→  if (!targetsFreshness) {
+   239→    next.push(freshnessQuery)
+   240→    addedFreshnessQuery = freshnessQuery
+   241→  }
+   242→  if (!targetsOfficial) {
+   243→    next.push(officialQuery)
+   244→    addedOfficialQuery = officialQuery
+   245→  }
+   246→  return { queries: next.slice(0, 5), addedFreshnessQuery, addedOfficialQuery }
+   247→}
+   248→
+   249→export interface RunResearchOptions {
+   250→  maxSources?: number
+   251→  /** How many top sources to read in full (0 disables page reading). */
+   252→  readTopN?: number
+   253→}
+   254→
+   255→/**
+   256→ * Decide how many top-ranked pages to read in full. Snippets that already
+   257→ * carry substantial grounded text make page retrieval pure added latency;
+   258→ * thin snippets (or high-risk questions where snippet over-interpretation is
+   259→ * likely) justify reading the source. Ongoing-case questions get one extra
+   260→ * read: identifying details (names, dates, statuses) in snippets are
+   261→ * frequently wrong or compressed — the work order requires verifying the
+   262→ * article's actual content, and for an evolving case the cost is bounded.
+   263→ */
+   264→export function decidePageReads(
+   265→  ranked: RankedSource[],
+   266→  decision: SearchDecision,
+   267→  opts: RunResearchOptions,
+   268→  ongoingCase = false,
+   269→): number {
+   270→  const configured =
+   271→    opts.readTopN ??
+   272→    (decision.risk === 'high' ? (ongoingCase ? 3 : 2) : decision.risk === 'moderate' ? 1 : 0)
+   273→  const count = Math.min(Math.max(0, configured), ranked.length)
+   274→  if (count === 0) return 0
+   275→  // Snippet sufficiency: if every page we WOULD read already has a
+   276→  // substantial snippet, skip page retrieval entirely.
+   277→  const SUBSTANTIAL_SNIPPET = 260
+   278→  const allSubstantial = ranked.slice(0, count).every((s) => s.snippet.length >= SUBSTANTIAL_SNIPPET)
+   279→  return allSubstantial ? 0 : count
+   280→}
+   281→
+   282→/**
+   283→ * Backoff before the single bounded search retry. Measured evidence
+   284→ * (worklog): the provider intermittently rejects a query it serves seconds
+   285→ * later (HTTP 422 "No search results available" on a healthy index), so one
+   286→ * short-delay retry recovers grounding without unbounded calls.
+   287→ */
+   288→export const SEARCH_RETRY_BACKOFF_MS = 1_200
+   289→
+   290→/**
+   291→ * Wall-time budget for ONE full-page fetch. Measured evidence (baseline
+   292→ * perf run): the provider occasionally takes ~20s for a slow page while the
+   293→ * p50 is well under 4s — an unbounded tail dominated total user-perceived
+   294→ * latency for multi-source research (pageReadMs 19.9s of a 23.6s turn).
+   295→ * A read that exceeds the budget is discarded HONESTLY: it surfaces as a
+   296→ * degraded note and the answer is grounded on the snippets we already have.
+   297→ */
+   298→export const PAGE_READ_BUDGET_MS = 10_000
+   299→
+   300→/**
+   301→ * Page-read content validation. Measured failure (work order evidence): the
+   302→ * page reader returned Chrome's ERR_BLOCKED_BY_CLIENT interstitial for a
+   303→ * news site and a literal "404 Not Found" body for a YouTube playlist — both
+   304→ * were recorded as successful reads and their garbage text entered the
+   305→ * grounding context as "verified article content". A read whose extracted
+   306→ * text is an error/wall page (or too short to be an article) is treated as a
+   307→ * FAILED read: the source falls back to its search snippet and the failure
+   308→ * degrades honestly. No fabricated content verification.
+   309→ */
+   310→const PAGE_ERROR_SIGNATURES: RegExp[] = [
+   311→  /err[_-]blocked[_-]by[_-]client/i,
+   312→  /this page has been blocked/i,
+   313→  /\b404\b\s*(not found)?\b/i,
+   314→  /page not found/i,
+   315→  /access (denied|forbidden)/i,
+   316→  /enable javascript/i,
+   317→  /sign in to confirm/i,
+   318→  /just a moment\.{3,}/i,
+   319→  /checking your browser/i,
+   320→  /attention required/i,
+   321→  /unusual traffic from your computer/i,
+   322→  /are you a robot/i,
+   323→  /consent\.youtube\.com/i,
+   324→]
+   325→/** Minimum extracted text for a read to count as real article content. */
+   326→export const PAGE_MIN_USEFUL_CHARS = 200
+   327→
+   328→export function isUsablePageText(text: string): boolean {
+   329→  const trimmed = text.trim()
+   330→  if (trimmed.length < PAGE_MIN_USEFUL_CHARS) return false
+   331→  // A single error signature near the START of the text means the body we
+   332→  // captured IS the error page, not an article that merely mentions one.
+   333→  const head = trimmed.slice(0, 400)
+   334→  return !PAGE_ERROR_SIGNATURES.some((re) => re.test(head))
+   335→}
+   336→
+   337→/**
+   338→ * In-flight dedup: identical concurrent retrieval work (same normalized
+   339→ * query / same URL) shares ONE provider call instead of racing duplicates.
+   340→ * Bounded naturally — entries live only for the duration of the call.
+   341→ */
+   342→const inFlightSearches = new Map<string, Promise<WebSearchResult[]>>()
+   343→const inFlightPages = new Map<string, Promise<PageContent>>()
+   344→
+   345→function searchInFlightKey(q: string, opts: { num?: number; recencyDays?: number }): string {
+   346→  return `${q.toLowerCase().replace(/\s+/g, ' ').trim()}|${opts.recencyDays ?? ''}|${opts.num ?? ''}`
+   347→}
+   348→
+   349→export function runSharedSearch(q: string, opts: { num?: number; recencyDays?: number } = {}): Promise<WebSearchResult[]> {
+   350→  const key = searchInFlightKey(q, opts)
+   351→  const existing = inFlightSearches.get(key)
+   352→  if (existing) return existing
+   353→  const p = webSearch(q, opts).finally(() => inFlightSearches.delete(key))
+   354→  inFlightSearches.set(key, p)
+   355→  return p
+   356→}
+   357→
+   358→export function runSharedPageRead(url: string): Promise<PageContent> {
+   359→  const key = url
+   360→  const existing = inFlightPages.get(key)
+   361→  if (existing) return existing
+   362→  const p = readPage(url, PAGE_READ_BUDGET_MS).finally(() => inFlightPages.delete(key))
+   363→  inFlightPages.set(key, p)
+   364→  return p
+   365→}
+   366→
+   367→/**
+   368→ * One search attempt with EXACTLY ONE bounded retry: a provider failure or a
+   369→ * zero-result response triggers a single same-query retry after a short
+   370→ * backoff. Never loops, never fabricates, NEVER throws — the outcome carries
+   371→ * the honest attempt count (even when both attempts fail) and the real
+   372→ * provider error for the pack's degraded notes.
+   373→ */
+   374→export interface BoundedSearchOutcome {
+   375→  results: WebSearchResult[]
+   376→  /** Real provider calls made (0 for cache hits, 1-2 otherwise). */
+   377→  attempts: number
+   378→  retried: boolean
+   379→  /** Most recent provider error message when the search ultimately failed. */
+   380→  error: string | null
+   381→}
+   382→
+   383→export async function searchWithBoundedRetry(
+   384→  q: string,
+   385→  opts: { num?: number; recencyDays?: number },
+   386→): Promise<BoundedSearchOutcome> {
+   387→  try {
+   388→    const first = await runSharedSearch(q, opts)
+   389→    if (first.length > 0) return { results: first, attempts: 1, retried: false, error: null }
+   390→  } catch {
+   391→    // First attempt failed (transient provider error) — fall through to retry.
+   392→  }
+   393→  await new Promise((r) => setTimeout(r, SEARCH_RETRY_BACKOFF_MS))
+   394→  try {
+   395→    const second = await runSharedSearch(q, opts)
+   396→    return { results: second, attempts: 2, retried: true, error: null }
+   397→  } catch (e) {
+   398→    return {
+   399→      results: [],
+   400→      attempts: 2,
+   401→      retried: true,
+   402→      error: e instanceof Error ? e.message : 'unavailable',
+   403→    }
+   404→  }
+   405→}
+   406→
+   407→/**
+   408→ * Execute the full research pipeline for one question.
+   409→ * Never throws: all tool failures are collected into `degraded`.
+   410→ */
+   411→export async function runResearch(
+   412→  message: string,
+   413→  decision: SearchDecision,
+   414→  opts: RunResearchOptions = {},
+   415→): Promise<EvidencePack> {
+   416→  const t0 = Date.now()
+   417→  const degraded: string[] = []
+   418→  const maxSources = opts.maxSources ?? 6
+   419→
+   420→  let rawQueries: string[]
+   421→  if (isStraightforwardQuestion(message)) {
+   422→    // Fast path: no model call — the question (minus directive scaffolding)
+   423→    // is the strong query. When the topic names a place whose broader region
+   424→    // is missing from the wording, one region-anchored variant is added so
+   425→    // local reporting is actually retrievable (measured: "Gingee girl
+   426→    // missing" alone surfaced a stale, unrelated foreign article).
+   427→    rawQueries = fastPathQueryVariants(toSearchQuery(message))
+   428→  } else {
+   429→    const generated = await generateQueries(message, decision)
+   430→    if (generated.usedFallback) degraded.push('query refinement unavailable; searched the raw question')
+   431→    rawQueries = generated.queries
+   432→    // Same region guarantee for the refined path (bounded to 3 queries).
+   433→    const region = regionContextFor(message)
+   434→    if (region && !rawQueries.some((q) => q.toLowerCase().includes(region.toLowerCase()))) {
+   435→      rawQueries = [...rawQueries.slice(0, 2), `${rawQueries[0]} ${region}`]
+   436→    }
+   437→  }
+   438→  // Ongoing incident/case: deterministically target the NEWEST reporting and
+   439→  // official police/government statements (work-order priorities), bounded.
+   440→  const sensitiveSet = buildSensitiveQuerySet(message, rawQueries)
+   441→  rawQueries = sensitiveSet.queries
+   442→  if (sensitiveSet.addedFreshnessQuery) {
+   443→    degraded.push(`incident detected: added newest-coverage query "${sensitiveSet.addedFreshnessQuery.slice(0, 60)}"`)
+   444→  }
+   445→  if (sensitiveSet.addedOfficialQuery) {
+   446→    degraded.push(`incident detected: added official-statement query "${sensitiveSet.addedOfficialQuery.slice(0, 60)}"`)
+   447→  }
+   448→  const queries = dedupeQueries(rawQueries)
+   449→
+   450→  // --- retrieval (parallel, bounded, cache-aware) ---------------------------
+   451→  let searchCalls = 0
+   452→  let searchRetries = 0
+   453→  let cacheHits = 0
+   454→  let oldestFetchAt: number | null = null
+   455→  const tSearchStart = Date.now()
+   456→  const settled = await Promise.allSettled(
+   457→    queries.map(async (q): Promise<BoundedSearchOutcome> => {
+   458→      const cached = getSearchCache<WebSearchResult>(q, decision.recencyDays, decision.risk === 'none' ? 'moderate' : decision.risk)
+   459→      if (cached.hit) {
+   460→        cacheHits += 1
+   461→        oldestFetchAt = oldestFetchAt === null
+   462→          ? Date.parse(cached.fetchedAt)
+   463→          : Math.min(oldestFetchAt, Date.parse(cached.fetchedAt))
+   464→        return { results: cached.value, attempts: 0, retried: false, error: null }
+   465→      }
+   466→      const outcome = await searchWithBoundedRetry(q, {
+   467→        num: 6,
+   468→        ...(decision.recencyDays ? { recencyDays: decision.recencyDays } : {}),
+   469→      })
+   470→      if (outcome.error === null) {
+   471→        cached.put(outcome.results)
+   472→        oldestFetchAt = oldestFetchAt === null ? Date.now() : Math.min(oldestFetchAt, Date.now())
+   473→      }
+   474→      return outcome
+   475→    }),
+   476→  )
+   477→  const rawResults: WebSearchResult[] = []
+   478→  settled.forEach((s, i) => {
+   479→    if (s.status === 'fulfilled') {
+   480→      searchCalls += s.value.attempts
+   481→      if (s.value.retried) searchRetries += 1
+   482→      if (s.value.error !== null) {
+   483→        degraded.push(`search "${queries[i].slice(0, 60)}" failed: ${s.value.error}`)
+   484→      } else {
+   485→        rawResults.push(...s.value.results)
+   486→      }
+   487→    } else {
+   488→      degraded.push(
+   489→        `search "${queries[i].slice(0, 60)}" failed: ${
+   490→          s.reason instanceof ResearchToolError ? s.reason.message : 'unavailable'
+   491→        }`,
+   492→      )
+   493→    }
+   494→  })
+   495→  void searchRetries
+   496→  const searchMs = Date.now() - tSearchStart
+   497→
+   498→  if (rawResults.length === 0) {
+   499→    return {
+   500→      sources: [],
+   501→      queries,
+   502→      degraded: degraded.length > 0 ? degraded : ['web search returned no results'],
+   503→      staleness: null,
+   504→      geoWarning: null,
+   505→      durationMs: Date.now() - t0,
+   506→      searchMs,
+   507→      pageReadMs: 0,
+   508→      searchCalls,
+   509→      pageReadCalls: 0,
+   510→      cacheHits,
+   511→      fetchedAt: new Date(oldestFetchAt ?? Date.now()).toISOString(),
+   512→    }
+   513→  }
+   514→
+   515→  let ranked = rankSources(message, rawResults, { freshnessMatters: decision.risk === 'high', limit: maxSources })
+   516→
+   517→  // --- one bounded follow-up for newer reporting ----------------------------
+   518→  // Two triggers, ONE bounded follow-up (never loops; failures degrade
+   519→  // honestly):
+   520→  //  1. STALE EVIDENCE — every selected source is stale or undated for a
+   521→  //     freshness-sensitive question (existing trigger); a 30-day window
+   522→  //     hunts for newer reporting.
+   523→  //  2. ONGOING CASE — the question names an evolving case (missing person,
+   524→  //     rescue, accident investigation...) and the newest dated source is
+   525→  //     more than ~3 days old (work order: "search for newer relevant
+   526→  //     reporting before summarizing an ongoing case"). A case summary
+   527→  //     built on week-old reporting can silently miss a resolution; a
+   528→  //     10-day-window follow-up checks once, and older reporting still
+   529→  //     ranks only as background.
+   530→  if (decision.risk === 'high' && ranked.length > 0) {
+   531→    const newestAge = newestSourceAgeDays(ranked)
+   532→    const ongoing = isOngoingCaseQuery(queries[0])
+   533→    const staleEvidence = needsFreshnessFollowUp(ranked)
+   534→    const ongoingStale = ongoing && newestAge !== null && newestAge > 3
+   535→    const ongoingUndated = ongoing && newestAge === null
+   536→    if (staleEvidence || ongoingStale || ongoingUndated) {
+   537→      const followUpQuery = buildFollowUpQuery(queries[0])
+   538→      if (!queries.includes(followUpQuery)) {
+   539→        const recency = ongoing ? 10 : 30
+   540→        const outcome = await searchWithBoundedRetry(followUpQuery, { num: 6, recencyDays: recency })
+   541→        if (outcome.error !== null) {
+   542→          degraded.push(`freshness follow-up search failed: ${outcome.error}`)
+   543→        } else if (outcome.results.length > 0) {
+   544→          searchCalls += outcome.attempts
+   545→          rawResults.push(...outcome.results)
+   546→          ranked = rankSources(message, rawResults, { freshnessMatters: decision.risk === 'high', limit: maxSources })
+   547→          queries.push(followUpQuery)
+   548→        }
+   549→      }
+   550→    }
+   551→  }
+   552→
+   553→  // --- full-page reading, only where snippets are insufficient --------------
+   554→  const sources: EvidenceSource[] = ranked.map((r) => ({ ...r, pageRead: false, excerpt: null }))
+   555→  const ongoingCase = isOngoingCaseQuery(queries[0])
+   556→  const readCount = decidePageReads(ranked, decision, opts, ongoingCase)
+   557→  let pageReadCalls = 0
+   558→  let pageReadMs = 0
+   559→  if (readCount > 0) {
+   560→    const tPageStart = Date.now()
+   561→    const toRead = sources.slice(0, readCount)
+   562→    const readResults = await Promise.allSettled(
+   563→      toRead.map((s) => {
+   564→        const cached = getPageCache<{ url: string; text: string; publishedTime: string | null }>(s.url)
+   565→        if (cached.hit) {
+   566→          oldestFetchAt = oldestFetchAt === null
+   567→            ? Date.parse(cached.fetchedAt)
+   568→            : Math.min(oldestFetchAt, Date.parse(cached.fetchedAt))
+   569→          return Promise.resolve(cached.value)
+   570→        }
+   571→        pageReadCalls += 1
+   572→        return runSharedPageRead(s.url).then((page) => {
+   573→          const value = { url: page.url, text: page.text.slice(0, 6_000), publishedTime: page.publishedTime }
+   574→          cached.put(value)
+   575→          oldestFetchAt = oldestFetchAt === null ? Date.now() : Math.min(oldestFetchAt, Date.now())
+   576→          return value
+   577→        })
+   578→      }),
+   579→    )
+   580→    readResults.forEach((res) => {
+   581→      if (res.status === 'fulfilled') {
+   582→        const match = sources.find((s) => samePage(s.url, res.value.url))
+   583→        if (match) {
+   584→          if (isUsablePageText(res.value.text)) {
+   585→            match.pageRead = true
+   586→            match.excerpt = res.value.text
+   587→            // Publication-date verification: the page's own structured
+   588→            // metadata (JSON-LD/meta) is the authoritative publication date —
+   589→            // it OVERRIDES the search-engine-supplied date (often a crawl or
+   590→            // index date, not the article date).
+   591→            if (res.value.publishedTime) match.date = res.value.publishedTime
+   592→            // Last-resort date extraction from the article TEXT (dateline
+   593→            // "Published: 22 Oct 2026") when neither the provider nor the
+   594→            // page metadata supplied one. Explicit dateline only — never a
+   595→            // bare year mention in body copy.
+   596→            else if (!match.date) match.date = extractDatelineFromText(res.value.text)
+   597→          } else {
+   598→            // Content-verification failure: what came back is an error or
+   599→            // blocked page, NOT the article. Honest fallback to the snippet.
+   600→            degraded.push(
+   601→              `page read for ${match.hostName.replace(/^www\./, '')} returned an error or blocked page; grounded on the search snippet`,
+   602→            )
+   603→          }
+   604→        }
+   605→      } else {
+   606→        degraded.push(`page read failed: ${res.reason instanceof ResearchToolError ? res.reason.message : 'unavailable'}`)
+   607→      }
+   608→    })
+   609→    pageReadMs = Date.now() - tPageStart
+   610→  }
+   611→
+   612→  // re-parse freshness in case page reading supplied a publishedTime
+   613→  // Geographic relevance audit: when the topic named a place and NO selected
+   614→  // source mentions it, the retrieved reports are probably about a different
+   615→  // case — the answer must say so instead of presenting them as the asked case.
+   616→  const geoTerms = geoTermsOf(message)
+   617→  const anyGeoMatch = geoTerms.length === 0 || sources.some((s) => {
+   618→    const hay = `${s.title} ${s.snippet} ${s.excerpt ?? ''}`.toLowerCase()
+   619→    return geoTerms.some((t) => hay.includes(t))
+   620→  })
+   621→  const geoWarning =
+   622→    geoTerms.length > 0 && !anyGeoMatch
+   623→      ? `none of the retrieved reports mention ${geoTerms.slice(0, 3).join(', ')}; the specific case or place may not be identified`
+   624→      : null
+   625→
+   626→  return {
+   627→    sources,
+   628→    queries,
+   629→    degraded,
+   630→    staleness: stalenessWarning(sources, decision.risk === 'high'),
+   631→    geoWarning,
+   632→    durationMs: Date.now() - t0,
+   633→    searchMs,
+   634→    pageReadMs,
+   635→    searchCalls,
+   636→    pageReadCalls,
+   637→    cacheHits,
+   638→    fetchedAt: new Date(oldestFetchAt ?? Date.now()).toISOString(),
+   639→  }
+   640→}
+   641→
+   642→function samePage(a: string, b: string): boolean {
+   643→  try {
+   644→    const ua = new URL(a)
+   645→    const ub = new URL(b)
+   646→    return ua.hostname.replace(/^www\./, '') === ub.hostname.replace(/^www\./, '') && ua.pathname === ub.pathname
+   647→  } catch {
+   648→    return a === b
+   649→  }
+   650→}
+   651→
+   652→/** Compact, numbered evidence block for the solver prompt. */
+   653→export function formatEvidenceBlock(pack: EvidencePack): string | null {
+   654→  if (pack.sources.length === 0) return null
+   655→  const lines = pack.sources.map((s) => {
+   656→    const date = s.date ? ` (dated ${s.date})` : ' (no date supplied)'
+   657→    const body = s.excerpt ? s.excerpt.slice(0, 1_200) : s.snippet.slice(0, 600)
+   658→    return `[${s.id}] ${s.title}${date}\nURL: ${s.url}\nEXCERPT: ${body}`
+   659→  })
+   660→  return lines.join('\n\n')
+   661→}
+   662→

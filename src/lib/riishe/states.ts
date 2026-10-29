@@ -27,8 +27,8 @@ export interface EvidenceSourceView {
   hostName: string
   date: string | null
   official: boolean
-  /** Social-media source: user-generated content, not reporting. */
-  social?: boolean
+  /** True when the source is a social/video platform (shown as provenance). */
+  social: boolean
   pageRead: boolean
 }
 
@@ -36,6 +36,34 @@ export interface VerificationCheckView {
   check: string // human label
   status: 'passed' | 'failed' | 'warning' | 'not_applicable'
   detail: string
+}
+
+/**
+ * Measured per-turn latency breakdown (all wall-clock, ms). Recorded by the
+ * orchestrator from real timestamps — never estimated. Fields that did not
+ * happen this turn are null/absent (e.g. ttft on the non-streaming path).
+ */
+export interface TurnTimings {
+  /** Total user-perceived orchestration wall time. */
+  totalMs: number
+  /** Classification + search policy + injection gate (understand phase). */
+  understandMs: number
+  /** Research pipeline wall time (null when no retrieval ran). */
+  researchMs: number | null
+  /** Inside research: provider search wall time (parallel, cache-aware). */
+  searchMs?: number
+  /** Inside research: full-page fetch wall time. */
+  pageReadMs?: number
+  /** Model gateway time to FIRST token of the solve pass (streaming path). */
+  solveTtftMs: number | null
+  /** Total solve wall time across all passes (tool loop excluded). */
+  solveMs: number
+  /** Arithmetic verification + citation audit + answer hygiene. */
+  verifyMs: number
+  /** Bounded claim-repair pass (present only when it ran). */
+  repairMs?: number
+  /** Solution passes executed (1 = single solve, 2 = one bounded retry). */
+  solvePasses: number
 }
 
 export interface MessageMetadata {
@@ -60,6 +88,14 @@ export interface MessageMetadata {
    *  output with a refusal. Set by the orchestrator only — never by the
    *  model. Absent (undefined) when the guard did not fire. */
   injectionBlocked?: boolean
+  /** Short, customer-facing note shown ONLY when verification is
+   *  incomplete or something material could not be confirmed (claims not
+   *  covered by retrieved evidence, stale sources, geographic mismatch).
+   *  Absent for ordinary answers — no badge noise. Composed by the
+   *  orchestrator from deterministic audits, never by the model. */
+  verificationNote?: string
+  /** Measured latency breakdown for this turn (performance reporting). */
+  timings?: TurnTimings
 }
 
 /** Build the customer-facing verification summary. Empty when nothing ran. */

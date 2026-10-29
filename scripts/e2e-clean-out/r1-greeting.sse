@@ -1,0 +1,34 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"conversationId":"cmvook3th0055tptu24xzm2ff","userMessageId":"cmvook3tk0057tptuwmq5qnj9"}
+
+data: {"delta":"I","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":"'m","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":" doing","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":" well","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":",","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":" thanks","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":" for","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":" asking","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":"!","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":" How","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":" about","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":" you","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"delta":"?","conversationId":"cmvook3th0055tptu24xzm2ff"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvook3th0055tptu24xzm2ff","durationMs":507,"partial":false,"messageId":"cmvook47m0059tptubenktp9k","userMessageId":"cmvook3tk0057tptuwmq5qnj9","content":"I'm doing well, thanks for asking! How about you?","meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: greeting/small talk"],"searchMode":"auto"}}
+

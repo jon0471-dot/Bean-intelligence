@@ -1,0 +1,84 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"The","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" play","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" Ham","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":"let","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" was","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" written","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" by","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" William","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" Shakespeare","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":",","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" widely","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" regarded","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" as","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" one","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" of","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" the","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" greatest","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" writers","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" in","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" the","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" English","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" language","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":".","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" It","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":"'s","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" believed","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" to","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" have","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" been","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" composed","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" between","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" ","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":"159","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":"9","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" and","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":" ","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":"160","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":"1","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"delta":".","conversationId":"cmvrpxd1w005xr4o79twozrcu"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrpxd1w005xr4o79twozrcu","durationMs":756,"partial":false,"messageId":"cmvrpxdmw0061r4o78pxmmpfc","firstTokenMs":544,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"timings":{"totalMs":751,"understandMs":0,"researchMs":null,"solveTtftMs":544,"solveMs":751,"verifyMs":0,"solvePasses":1}}}
+

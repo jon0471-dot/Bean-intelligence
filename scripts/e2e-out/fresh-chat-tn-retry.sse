@@ -1,0 +1,18 @@
+data: {"started":true,"conversationId":"cmvpftpwm009ttpnnmkk0u7fb"}
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["who is the cm of tamilnadu"]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+: ping 5000ms
+
+data: {"type":"stage","stage":"solving"}
+
+: ping 10000ms
+
+data: {"error":"The AI backend is rate-limited right now. Please retry in a moment.","code":"RATE_LIMITED","stage":"stream","partial":true}
+

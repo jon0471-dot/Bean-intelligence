@@ -1,0 +1,698 @@
+     1→/**
+     2→ * BEAN Intelligence — GANGZII audio adapter (provider seam).
+     3→ *
+     4→ * Wraps the authorized gateway's audio surface (TTS + ASR) and the local
+     5→ * ffmpeg converter. Provider payloads never leak past this boundary.
+     6→ *
+     7→ * Every capability here was MEASURED against the live gateway on 2026-10-27
+     8→ * (models/licenses/gangzii-stage0-audio-probe-evidence.json):
+     9→ *  - TTS returns WAV (24 kHz / mono / 16-bit) or raw PCM; mp3 is rejected.
+    10→ *  - BEEP ROOT CAUSE (measured 2026-10-27, scripts/beep-probe-out/):
+    11→ *    the gateway's raw-PCM stream (`response_format:'pcm'`) embeds a leading
+    12→ *    ~0.55 s 1650 Hz tone on EVERY synthesis call (tone power ≈ -35 dBFS),
+    13→ *    while `response_format:'wav'` responses are beep-free (≈ -88 dBFS).
+    14→ *    Chunked synthesis therefore requests WAV containers and extracts the
+    15→ *    PCM payload per chunk — the artifact is avoided at the SOURCE, not
+    16→ *    trimmed by a heuristic. A deterministic defensive guard
+    17→ *    (stripLeadingToneArtifact) still runs over the assembled stream in
+    18→ *    case the upstream signature ever reappears; it cuts only an exact
+    19→ *    leading-tone match and can never clip real speech (see unit tests).
+    20→ *  - Hard 1024-character limit per synthesis call. Long text is chunked on
+    21→ *    sentence boundaries and the PCM chunks are assembled under ONE valid
+    22→ *    WAV header (verified end-to-end by ffprobe duration + ASR content).
+    23→ *  - ASR accepts WAV and WebM ONLY (gateway error text verbatim:
+    24→ *    "only WAV and WebM are supported") and returns plain text — no word
+    25→ *    timestamps, no speaker diarization.
+    26→ *  - Speed is bounded to [0.5, 2.0]; voices are a fixed 7-voice set.
+    27→ *  - Output channels: the provider emits MONO only (measured). Stereo is a
+    28→ *    local, explicitly-labeled DUAL-MONO export (channel duplication via
+    29→ *    ffmpeg) — never spatial stereo.
+    30→ *
+    31→ * Health is measured, not assumed: probes hit the real gateway with tiny
+    32→ * payloads and are cached for 60s so /api/health stays cheap.
+    33→ */
+    34→import ZAI from 'z-ai-web-dev-sdk'
+    35→import { execFile } from 'child_process'
+    36→import { withTimeout } from './hosted-llm'
+    37→import type { HealthReport } from './types'
+    38→
+    39→// ---- measured constants (do not guess — see stage-0 evidence) -------------
+    40→
+    41→export const TTS_SAMPLE_RATE = 24_000
+    42→export const TTS_CHANNELS = 1
+    43→export const TTS_BITS_PER_SAMPLE = 16
+    44→export const TTS_MAX_CHARS_PER_CHUNK = 1024
+    45→export const TTS_MAX_CHUNKS_PER_REQUEST = 12
+    46→export const TTS_SPEED_MIN = 0.5
+    47→export const TTS_SPEED_MAX = 2.0
+    48→export const ASR_ACCEPTED_CONTAINERS = ['wav', 'webm'] as const
+    49→export const CONVERT_TARGET_FORMATS = ['mp3', 'ogg', 'flac', 'm4a', 'wav'] as const
+    50→export type ConvertTargetFormat = (typeof CONVERT_TARGET_FORMATS)[number]
+    51→export type ExportChannels = 1 | 2
+    52→
+    53→/**
+    54→ * The measured upstream beep artifact: a 1650 Hz sine, ~0.55 s long, that
+    55→ * the gateway prepends to raw-PCM synthesis responses. All detector
+    56→ * thresholds below are derived from the live A/B probe
+    57→ * (scripts/beep-probe-out/beep-probe-evidence.json): the tone shows up at
+    58→ * ≈ -35 dB Goertzel power while clean speech openings measure ≤ -77 dB in
+    59→ * the same band.
+    60→ */
+    61→export const BEEP_TONE_HZ = 1650
+    62→export const BEEP_MAX_SECONDS = 1.0 // never cut more than this — speech starts well inside it
+    63→
+    64→/**
+    65→ * Parse a RIFF/WAVE buffer and return its PCM payload. Used to unwrap
+    66→ * per-chunk `response_format:'wav'` gateway responses. Rejects anything
+    67→ * that is not PCM 16-bit at the expected TTS geometry — a wrong-format
+    68→ * chunk must fail loudly, never be silently concatenated.
+    69→ */
+    70→export function extractPcmFromWav(buf: Buffer, opts?: { sampleRateHz?: number; channels?: number; bitsPerSample?: number }): Buffer {
+    71→  const wantRate = opts?.sampleRateHz ?? TTS_SAMPLE_RATE
+    72→  const wantChannels = opts?.channels ?? TTS_CHANNELS
+    73→  const wantBits = opts?.bitsPerSample ?? TTS_BITS_PER_SAMPLE
+    74→  if (buf.length < 44 || buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WAVE') {
+    75→    throw new Error('UPSTREAM_WAV_INVALID: synthesis chunk is not a RIFF/WAVE container.')
+    76→  }
+    77→  let off = 12
+    78→  let fmt = false
+    79→  let dataOff = -1
+    80→  let dataLen = 0
+    81→  while (off + 8 <= buf.length) {
+    82→    const id = buf.toString('ascii', off, off + 4)
+    83→    const size = buf.readUInt32LE(off + 4)
+    84→    if (id === 'fmt ') {
+    85→      const audioFormat = buf.readUInt16LE(off + 8)
+    86→      const channels = buf.readUInt16LE(off + 10)
+    87→      const sampleRate = buf.readUInt32LE(off + 12)
+    88→      const bits = buf.readUInt16LE(off + 22)
+    89→      if (audioFormat !== 1) throw new Error(`UPSTREAM_WAV_INVALID: non-PCM audio format ${audioFormat}.`)
+    90→      if (sampleRate !== wantRate || channels !== wantChannels || bits !== wantBits) {
+    91→        throw new Error(
+    92→          `UPSTREAM_WAV_INVALID: chunk is ${sampleRate} Hz / ${channels}ch / ${bits}-bit; expected ${wantRate} Hz / ${wantChannels}ch / ${wantBits}-bit.`,
+    93→        )
+    94→      }
+    95→      fmt = true
+    96→    } else if (id === 'data') {
+    97→      dataOff = off + 8
+    98→      dataLen = Math.min(size, buf.length - off - 8)
+    99→    }
+   100→    off += 8 + size + (size % 2)
+   101→  }
+   102→  if (!fmt || dataOff < 0 || dataLen === 0) {
+   103→    throw new Error('UPSTREAM_WAV_INVALID: fmt/data chunk missing or empty.')
+   104→  }
+   105→  return buf.subarray(dataOff, dataOff + dataLen)
+   106→}
+   107→
+   108→/**
+   109→ * Goertzel power of a single frequency over a PCM window, reported as an
+   110→ * RMS-EQUIVALENT level (dBFS): for a pure sine AT that frequency the value
+   111→ * equals rmsDbfs of the same window (all energy sits in one bin). For speech
+   112→ * the value sits far below the window RMS because energy is spread across
+   113→ * many bins — which is exactly the discriminator the tone guard uses.
+   114→ * Pure + deterministic — unit-tested against synthetic tone/noise fixtures.
+   115→ */
+   116→export function goertzelPowerDb(
+   117→  pcm: Buffer,
+   118→  startSample: number,
+   119→  winSamples: number,
+   120→  freqHz: number,
+   121→  sampleRateHz = TTS_SAMPLE_RATE,
+   122→): number {
+   123→  const maxStart = Math.floor(pcm.length / 2) - winSamples
+   124→  const start = Math.min(startSample, maxStart)
+   125→  if (start < 0 || winSamples < 64) return -200
+   126→  let s1 = 0
+   127→  let s2 = 0
+   128→  const coeff = 2 * Math.cos((2 * Math.PI * freqHz) / sampleRateHz)
+   129→  for (let i = 0; i < winSamples; i++) {
+   130→    const x = pcm.readInt16LE((start + i) * 2)
+   131→    const s0 = x + coeff * s1 - s2
+   132→    s2 = s1
+   133→    s1 = s0
+   134→  }
+   135→  const power = s1 * s1 + s2 * s2 - coeff * s1 * s2
+   136→  // ×2 converts the |X(k)|² amplitude-squared measure to an RMS-squared
+   137→  // equivalent (a full-scale sine then reads 0 dBFS, matching rmsDbfs).
+   138→  return 10 * Math.log10(Math.max((2 * power) / (winSamples * winSamples * 32768 * 32768), 1e-12))
+   139→}
+   140→
+   141→/** RMS level (dBFS) over a PCM window. */
+   142→export function rmsDbfs(pcm: Buffer, startSample: number, winSamples: number): number {
+   143→  const maxStart = Math.floor(pcm.length / 2) - winSamples
+   144→  const start = Math.min(startSample, maxStart)
+   145→  if (start < 0 || winSamples <= 0) return -200
+   146→  let acc = 0
+   147→  for (let i = 0; i < winSamples; i++) acc += pcm.readInt16LE((start + i) * 2) ** 2
+   148→  const rms = Math.sqrt(acc / winSamples) / 32768
+   149→  return 20 * Math.log10(Math.max(rms, 1e-10))
+   150→}
+   151→
+   152→/**
+   153→ * Detect the measured beep signature at the very start of a PCM stream:
+   154→ * a stable pure tone at BEEP_TONE_HZ whose power dominates the first
+   155→ * windows and sits far above the broadband level. Returns the number of
+   156→ * leading SAMPLES occupied by the artifact, or 0 when absent.
+   157→ *
+   158→ * Strictness rules (all must hold) — this is what makes it impossible to
+   159→ * clip speech: the tone must dominate the first 120 ms window by a wide
+   160→ * margin, the audio right AFTER the candidate cut must not still be the
+   161→ * pure tone, and the cut is capped at BEEP_MAX_SECONDS.
+   162→ */
+   163→export function detectLeadingToneSamples(
+   164→  pcm: Buffer,
+   165→  opts?: { toneHz?: number; sampleRateHz?: number },
+   166→): number {
+   167→  const rate = opts?.sampleRateHz ?? TTS_SAMPLE_RATE
+   168→  const toneHz = opts?.toneHz ?? BEEP_TONE_HZ
+   169→  const totalSamples = Math.floor(pcm.length / 2)
+   170→  const maxScan = Math.min(Math.floor(rate * BEEP_MAX_SECONDS), totalSamples)
+   171→  if (maxScan < rate * 0.1) return 0
+   172→
+   173→  const win = Math.floor(rate * 0.06) // 60 ms analysis windows
+   174→  const toneAt = (s: number) => goertzelPowerDb(pcm, s, win, toneHz, rate)
+   175→  // A window is "tone" when the tone's RMS-equivalent level is within 6 dB
+   176→  // of the window's total RMS — i.e. the tone bin carries at least ~25% of
+   177→  // the window's energy. A pure tone carries 100%; speech concentrates at
+   178→  // most a few percent in any single 1 Hz-wide bin (harmonics are at least
+   179→  // ~12 dB below the fundamental and the bin is narrow), so speech can
+   180→  // never satisfy this — that is what makes the guard unable to clip it.
+   181→  const isTone = (s: number) => {
+   182→    const rms = rmsDbfs(pcm, s, win)
+   183→    if (rms < -55) return false // silence — not the artifact itself
+   184→    return toneAt(s) > rms - 6
+   185→  }
+   186→
+   187→  // The artifact must open the stream decisively.
+   188→  if (!isTone(0)) return 0
+   189→
+   190→  // Walk forward until the tone stops (or the cap). The cut point is the
+   191→  // END of the last tone-positive window, so no audible tail of the
+   192→  // artifact survives the cut (a mixed window may still contain a few ms
+   193→  // of tone decay — cutting through its end removes that too).
+   194→  let cursor = 0
+   195→  let lastToneEnd = 0
+   196→  while (cursor + win <= maxScan && isTone(cursor)) {
+   197→    lastToneEnd = cursor + win
+   198→    cursor += Math.floor(win / 2)
+   199→  }
+   200→  const cutSamples = Math.min(lastToneEnd, maxScan)
+   201→  // Require a decisive artifact: at least 200 ms of continuous tone.
+   202→  if (cutSamples < rate * 0.2) return 0
+   203→  return cutSamples
+   204→}
+   205→
+   206→/**
+   207→ * Defensive leading-tone guard for assembled synthesis PCM. Returns the
+   208→ * (possibly identical) input buffer plus a truthful report. Only strips an
+   209→ * exact artifact match — genuine speech, music intros and intentional
+   210→ * tones never match the strict signature.
+   211→ */
+   212→export function stripLeadingToneArtifact(pcm: Buffer): { pcm: Buffer; stripped: boolean; strippedSamples: number } {
+   213→  const cut = detectLeadingToneSamples(pcm)
+   214→  if (cut === 0) return { pcm, stripped: false, strippedSamples: 0 }
+   215→  return { pcm: pcm.subarray(cut * 2), stripped: true, strippedSamples: cut }
+   216→}
+   217→
+   218→// ---- pure helpers (unit-tested in tests/unit/gangzii.test.ts) --------------
+   219→
+   220→/**
+   221→ * Split text into synthesis chunks: sentence-boundary first, hard-split
+   222→ * only when a single sentence exceeds the per-call limit. Deterministic.
+   223→ */
+   224→export function chunkTextForTts(
+   225→  text: string,
+   226→  maxCharsPerChunk = TTS_MAX_CHARS_PER_CHUNK,
+   227→  maxChunks = TTS_MAX_CHUNKS_PER_REQUEST,
+   228→): string[] {
+   229→  const source = text.trim()
+   230→  if (source.length === 0) return []
+   231→
+   232→  // Split on sentence enders (latin + CJK), keeping the delimiter attached.
+   233→  const pieces = source
+   234→    .split(/(?<=[.!?。！？…；;])\s*/u)
+   235→    .map((s) => s.trim())
+   236→    .filter((s) => s.length > 0)
+   237→
+   238→  const chunks: string[] = []
+   239→  let current = ''
+   240→
+   241→  const pushCurrent = () => {
+   242→    if (current.length > 0) {
+   243→      chunks.push(current)
+   244→      current = ''
+   245→    }
+   246→  }
+   247→
+   248→  for (const piece of pieces) {
+   249→    if (piece.length > maxCharsPerChunk) {
+   250→      pushCurrent()
+   251→      // Hard-split the oversized sentence on the last usable boundary.
+   252→      let remaining = piece
+   253→      while (remaining.length > maxCharsPerChunk) {
+   254→        let cut = remaining.lastIndexOf(' ', maxCharsPerChunk)
+   255→        if (cut < maxCharsPerChunk / 2) cut = maxCharsPerChunk
+   256→        chunks.push(remaining.slice(0, cut).trim())
+   257→        remaining = remaining.slice(cut).trim()
+   258→      }
+   259→      if (remaining.length > 0) current = remaining
+   260→      continue
+   261→    }
+   262→    if (current.length + piece.length + 1 > maxCharsPerChunk) {
+   263→      pushCurrent()
+   264→    }
+   265→    current = current.length > 0 ? `${current} ${piece}` : piece
+   266→  }
+   267→  pushCurrent()
+   268→
+   269→  if (chunks.length > maxChunks) {
+   270→    throw new Error(
+   271→      `TEXT_TOO_LONG: text requires ${chunks.length} synthesis chunks; the limit is ${maxChunks} (about ${maxChunks * maxCharsPerChunk} characters).`,
+   272→    )
+   273→  }
+   274→  return chunks
+   275→}
+   276→
+   277→/** Canonical 44-byte PCM WAV header (24 kHz / mono / 16-bit). */
+   278→export function buildWavHeader(pcmByteLength: number): Buffer {
+   279→  const header = Buffer.alloc(44)
+   280→  header.write('RIFF', 0, 'ascii')
+   281→  header.writeUInt32LE(36 + pcmByteLength, 4)
+   282→  header.write('WAVE', 8, 'ascii')
+   283→  header.write('fmt ', 12, 'ascii')
+   284→  header.writeUInt32LE(16, 16) // fmt chunk size (PCM)
+   285→  header.writeUInt16LE(1, 20) // audio format: PCM
+   286→  header.writeUInt16LE(TTS_CHANNELS, 22)
+   287→  header.writeUInt32LE(TTS_SAMPLE_RATE, 24)
+   288→  header.writeUInt32LE(TTS_SAMPLE_RATE * TTS_CHANNELS * (TTS_BITS_PER_SAMPLE / 8), 28) // byte rate
+   289→  header.writeUInt16LE(TTS_CHANNELS * (TTS_BITS_PER_SAMPLE / 8), 32) // block align
+   290→  header.writeUInt16LE(TTS_BITS_PER_SAMPLE, 34)
+   291→  header.write('data', 36, 'ascii')
+   292→  header.writeUInt32LE(pcmByteLength, 40)
+   293→  return header
+   294→}
+   295→
+   296→/** Wrap raw PCM bytes in a single valid WAV container. */
+   297→export function assembleWavFromPcm(pcm: Buffer): Buffer {
+   298→  return Buffer.concat([buildWavHeader(pcm.length), pcm])
+   299→}
+   300→
+   301→/**
+   302→ * Magic-byte container sniffing for uploads. Returns null for anything the
+   303→ * gateway cannot consume. Extension strings are NOT trusted.
+   304→ */
+   305→export function sniffAudioContainer(buf: Buffer): 'wav' | 'webm' | null {
+   306→  if (buf.length < 12) return null
+   307→  if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WAVE') return 'wav'
+   308→  // EBML magic — WebM (and Matroska) start with 1A 45 DF A3.
+   309→  if (buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) return 'webm'
+   310→  return null
+   311→}
+   312→
+   313→/** Duration of 16-bit mono PCM at the fixed TTS sample rate, in seconds. */
+   314→export function pcmDurationSeconds(pcmByteLength: number): number {
+   315→  const byteRate = TTS_SAMPLE_RATE * TTS_CHANNELS * (TTS_BITS_PER_SAMPLE / 8)
+   316→  return pcmByteLength / byteRate
+   317→}
+   318→
+   319→// ---- adapter ----------------------------------------------------------------
+   320→
+   321→type TtsProgress = (info: { chunk: number; totalChunks: number }) => void
+   322→
+   323→export interface SynthesisResult {
+   324→  wav: Buffer
+   325→  chunks: number
+   326→  durationSec: number
+   327→  durationMs: number
+   328→  sampleRateHz: number
+   329→  /** True when the defensive guard found + removed a leading-tone artifact. */
+   330→  beepStripped: boolean
+   331→  beepStrippedSamples: number
+   332→}
+   333→
+   334→const PROBE_TTL_MS = 60_000
+   335→const FFMPEG_TTL_MS = 300_000
+   336→/** A 429 (gateway rate limit) is transient: cache the failure briefly. */
+   337→const RATE_LIMIT_TTL_MS = 10_000
+   338→const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+   339→
+   340→function isRateLimited(report: HealthReport): boolean {
+   341→  return !report.healthy && report.detail.includes('429')
+   342→}
+   343→
+   344→function cacheTtlFor(report: HealthReport): number {
+   345→  return isRateLimited(report) ? RATE_LIMIT_TTL_MS : PROBE_TTL_MS
+   346→}
+   347→
+   348→/**
+   349→ * Probe cache lives on globalThis, NOT on the module instance. Next.js dev
+   350→ * compilation can duplicate a shared module across route bundles; without
+   351→ * this bridge every route would re-probe the gateway and trip its tight
+   352→ * audio rate limit (measured: 429 within seconds). globalThis is shared by
+   353→ * the whole server process in both dev and production.
+   354→ */
+   355→interface ProbeCacheStore {
+   356→  tts?: { report: HealthReport; at: number }
+   357→  asr?: { report: HealthReport; at: number }
+   358→  ffmpeg?: { report: HealthReport; at: number }
+   359→  probeWav?: Buffer | null
+   360→  /** In-flight probe promises — collapse concurrent callers into one probe. */
+   361→  ttsInFlight?: Promise<HealthReport>
+   362→  asrInFlight?: Promise<HealthReport>
+   363→  ffmpegInFlight?: Promise<HealthReport>
+   364→}
+   365→const PROBE_STORE_KEY = '__bean_gangzii_audio_probe_cache__'
+   366→function probeStore(): ProbeCacheStore {
+   367→  const g = globalThis as unknown as Record<string, unknown>
+   368→  if (!g[PROBE_STORE_KEY]) g[PROBE_STORE_KEY] = {}
+   369→  return g[PROBE_STORE_KEY] as ProbeCacheStore
+   370→}
+   371→
+   372→class HostedAudioAdapter {
+   373→  readonly backendId = 'bean-audio-tts-hosted-primary'
+   374→
+   375→  private get cache(): ProbeCacheStore {
+   376→    return probeStore()
+   377→  }
+   378→
+   379→  /**
+   380→   * Chunked speech synthesis -> one assembled WAV buffer.
+   381→   *
+   382→   * Each gateway call requests a WAV container (`response_format:'wav'`,
+   383→   * measured beep-free — see the BEEP ROOT CAUSE note at the top of this
+   384→   * file); the per-chunk PCM payload is extracted and validated, then all
+   385→   * chunks are concatenated under ONE canonical 24 kHz mono header. A
+   386→   * defensive leading-tone guard runs over the assembled stream. Each call
+   387→   * is bounded by `timeoutMs`; the caller owns progress.
+   388→   */
+   389→  async synthesize(opts: {
+   390→    text: string
+   391→    voice: string
+   392→    speed: number
+   393→    timeoutMs: number
+   394→    onProgress?: TtsProgress
+   395→  }): Promise<SynthesisResult> {
+   396→    const chunks = chunkTextForTts(opts.text)
+   397→    const startedAt = Date.now()
+   398→    const zai = await ZAI.create()
+   399→    const pcmParts: Buffer[] = []
+   400→
+   401→    for (let i = 0; i < chunks.length; i++) {
+   402→      opts.onProgress?.({ chunk: i + 1, totalChunks: chunks.length })
+   403→      const res = (await withTimeout(
+   404→        zai.audio.tts.create({
+   405→          input: chunks[i],
+   406→          voice: opts.voice,
+   407→          speed: opts.speed,
+   408→          response_format: 'wav',
+   409→          stream: false,
+   410→        }),
+   411→        opts.timeoutMs,
+   412→        'Speech synthesis',
+   413→      )) as Response
+   414→      const ab = await res.arrayBuffer()
+   415→      if (ab.byteLength === 0) {
+   416→        throw new Error(`Upstream returned empty audio for chunk ${i + 1}/${chunks.length}.`)
+   417→      }
+   418→      // Validate the container geometry BEFORE concatenating: a format
+   419→      // drift must fail loudly instead of corrupting the assembled file.
+   420→      pcmParts.push(extractPcmFromWav(Buffer.from(new Uint8Array(ab))))
+   421→    }
+   422→
+   423→    const raw = Buffer.concat(pcmParts)
+   424→    const guarded = stripLeadingToneArtifact(raw)
+   425→    const pcm = guarded.pcm
+   426→    return {
+   427→      wav: assembleWavFromPcm(pcm),
+   428→      chunks: chunks.length,
+   429→      durationSec: pcmDurationSeconds(pcm.length),
+   430→      durationMs: Date.now() - startedAt,
+   431→      sampleRateHz: TTS_SAMPLE_RATE,
+   432→      beepStripped: guarded.stripped,
+   433→      beepStrippedSamples: guarded.strippedSamples,
+   434→    }
+   435→  }
+   436→
+   437→  /** Speech recognition (WAV/WebM only — enforced upstream AND by callers). */
+   438→  async transcribe(opts: { wavOrWebm: Buffer; timeoutMs: number }): Promise<string> {
+   439→    const zai = await ZAI.create()
+   440→    const res = (await withTimeout(
+   441→      zai.audio.asr.create({ file_base64: opts.wavOrWebm.toString('base64') }),
+   442→      opts.timeoutMs,
+   443→      'Speech recognition',
+   444→    )) as { text?: string }
+   445→    return (res?.text ?? '').trim()
+   446→  }
+   447→
+   448→  /**
+   449→   * Local deterministic ffmpeg transcode. No model involved.
+   450→   * `channels` (1|2) is an explicit output request: 2 duplicates the mono
+   451→   * source into L/R via `-ac 2` — a dual-mono export, NOT spatial stereo.
+   452→   */
+   453→  async convert(opts: {
+   454→    inputPath: string
+   455→    outputPath: string
+   456→    target: ConvertTargetFormat
+   457→    channels?: ExportChannels
+   458→    timeoutMs: number
+   459→  }): Promise<void> {
+   460→    const codecArgs: Record<ConvertTargetFormat, string[]> = {
+   461→      mp3: ['-c:a', 'libmp3lame', '-b:a', '192k'],
+   462→      ogg: ['-c:a', 'libvorbis', '-q:a', '5'],
+   463→      flac: ['-c:a', 'flac'],
+   464→      m4a: ['-c:a', 'aac', '-b:a', '192k'],
+   465→      wav: ['-c:a', 'pcm_s16le'],
+   466→    }
+   467→    const channelArgs = opts.channels === 2 ? ['-ac', '2'] : opts.channels === 1 ? ['-ac', '1'] : []
+   468→    const args = ['-y', '-i', opts.inputPath, ...codecArgs[opts.target], ...channelArgs, '-vn', opts.outputPath]
+   469→    await new Promise<void>((resolve, reject) => {
+   470→      execFile(
+   471→        'ffmpeg',
+   472→        args,
+   473→        { timeout: Math.floor(opts.timeoutMs), maxBuffer: 16 * 1024 * 1024 },
+   474→        (err, _stdout, stderr) => {
+   475→          if (err) {
+   476→            reject(new Error(`ffmpeg conversion failed: ${String(stderr).slice(-400) || err.message}`))
+   477→          } else {
+   478→            resolve()
+   479→          }
+   480→        },
+   481→      )
+   482→    })
+   483→  }
+   484→
+   485→  /**
+   486→   * Verify a produced audio file with ffprobe and return its REAL stream
+   487→   * metadata. Used after every conversion so the UI never guesses codec,
+   488→   * sample rate, channel count or duration.
+   489→   */
+   490→  async probeAudio(filePath: string, timeoutMs = 15_000): Promise<AudioStreamMetadata> {
+   491→    const raw = await new Promise<string>((resolve, reject) => {
+   492→      execFile(
+   493→        'ffprobe',
+   494→        [
+   495→          '-v', 'error',
+   496→          '-select_streams', 'a:0',
+   497→          '-show_entries', 'stream=codec_name,sample_rate,channels,duration:format=format_name',
+   498→          '-of', 'json',
+   499→          filePath,
+   500→        ],
+   501→        { timeout: Math.floor(timeoutMs), maxBuffer: 4 * 1024 * 1024 },
+   502→        (err, stdout, stderr) => {
+   503→          if (err) reject(new Error(`ffprobe failed: ${String(stderr).slice(-300) || err.message}`))
+   504→          else resolve(String(stdout))
+   505→        },
+   506→      )
+   507→    })
+   508→    const parsed = JSON.parse(raw) as {
+   509→      streams?: Array<{ codec_name?: string; sample_rate?: string; channels?: number; duration?: string }>
+   510→      format?: { format_name?: string }
+   511→    }
+   512→    const s = parsed.streams?.[0]
+   513→    if (!s?.codec_name || !s.sample_rate || !s.channels) {
+   514→      throw new Error('ffprobe could not read an audio stream from the produced file.')
+   515→    }
+   516→    return {
+   517→      codec: s.codec_name,
+   518→      sampleRateHz: Number(s.sample_rate),
+   519→      channels: s.channels,
+   520→      durationSec: s.duration ? Math.round(Number(s.duration) * 100) / 100 : null,
+   521→      container: parsed.format?.format_name ?? null,
+   522→    }
+   523→  }
+   524→
+   525→  // ---- measured health (TTL-cached, shared with /api/health) ----------------
+   526→
+   527→  async healthTts(force = false): Promise<HealthReport> {
+   528→    const cached = this.cache.tts
+   529→    if (!force && cached && Date.now() - cached.at < cacheTtlFor(cached.report)) return cached.report
+   530→    if (!force && this.cache.ttsInFlight) return this.cache.ttsInFlight
+   531→    const run = this.probeTts()
+   532→    this.cache.ttsInFlight = run
+   533→    try {
+   534→      return await run
+   535→    } finally {
+   536→      this.cache.ttsInFlight = undefined
+   537→    }
+   538→  }
+   539→
+   540→  private async probeTts(): Promise<HealthReport> {
+   541→    let report = await this.probeTtsOnce() // never throws
+   542→    // Health probes are not billable customer actions; exactly one retry
+   543→    // after a short pause keeps transient gateway 429s from flipping the
+   544→    // whole product to "unavailable". The retried result is what is cached.
+   545→    if (isRateLimited(report)) {
+   546→      await sleep(3_000)
+   547→      report = await this.probeTtsOnce()
+   548→    }
+   549→    this.cache.tts = { report, at: Date.now() }
+   550→    return report
+   551→  }
+   552→
+   553→  /** Single TTS probe attempt without retry logic. */
+   554→  private async probeTtsOnce(): Promise<HealthReport> {
+   555→    const t0 = Date.now()
+   556→    try {
+   557→      const zai = await ZAI.create()
+   558→      const res = (await withTimeout(
+   559→        zai.audio.tts.create({
+   560→          input: 'OK',
+   561→          voice: 'tongtong',
+   562→          speed: 1.0,
+   563→          response_format: 'wav',
+   564→          stream: false,
+   565→        }),
+   566→        30_000,
+   567→        'TTS probe',
+   568→      )) as Response
+   569→      const ab = await res.arrayBuffer()
+   570→      const bytes = Buffer.from(new Uint8Array(ab))
+   571→      const ok = bytes.length > 44 && bytes.toString('ascii', 0, 4) === 'RIFF'
+   572→      if (ok) this.cache.probeWav = bytes
+   573→      return {
+   574→        healthy: ok,
+   575→        checkedAt: new Date().toISOString(),
+   576→        latencyMs: Date.now() - t0,
+   577→        detail: ok
+   578→          ? 'Gateway synthesized a live WAV probe (after rate-limit retry).'
+   579→          : 'Gateway responded without valid WAV bytes.',
+   580→      }
+   581→    } catch (e) {
+   582→      return {
+   583→        healthy: false,
+   584→        checkedAt: new Date().toISOString(),
+   585→        latencyMs: Date.now() - t0,
+   586→        detail: `TTS probe failed: ${e instanceof Error ? e.message : String(e)}`,
+   587→      }
+   588→    }
+   589→  }
+   590→
+   591→  async healthAsr(force = false): Promise<HealthReport> {
+   592→    const cached = this.cache.asr
+   593→    if (!force && cached && Date.now() - cached.at < cacheTtlFor(cached.report)) return cached.report
+   594→    if (!force && this.cache.asrInFlight) return this.cache.asrInFlight
+   595→    const run = this.probeAsr()
+   596→    this.cache.asrInFlight = run
+   597→    try {
+   598→      return await run
+   599→    } finally {
+   600→      this.cache.asrInFlight = undefined
+   601→    }
+   602→  }
+   603→
+   604→  private async probeAsr(): Promise<HealthReport> {
+   605→    const t0 = Date.now()
+   606→    let report: HealthReport
+   607→    try {
+   608→      // Reuse the TTS probe bytes when available so the ASR check costs ONE
+   609→      // real gateway call, not two. No bytes -> honest skip, never a fake.
+   610→      if (!this.cache.probeWav) await this.healthTts()
+   611→      if (!this.cache.probeWav) {
+   612→        report = {
+   613→          healthy: false,
+   614→          checkedAt: new Date().toISOString(),
+   615→          latencyMs: null,
+   616→          detail: 'ASR probe skipped: no probe audio available (TTS probe unhealthy).',
+   617→        }
+   618→      } else {
+   619→        report = await this.probeAsrOnce()
+   620→        if (isRateLimited(report)) {
+   621→          await sleep(3_000)
+   622→          report = await this.probeAsrOnce()
+   623→        }
+   624→      }
+   625→    } catch (e) {
+   626→      report = {
+   627→        healthy: false,
+   628→        checkedAt: new Date().toISOString(),
+   629→        latencyMs: Date.now() - t0,
+   630→        detail: `ASR probe failed: ${e instanceof Error ? e.message : String(e)}`,
+   631→      }
+   632→    }
+   633→    this.cache.asr = { report, at: Date.now() }
+   634→    return report
+   635→  }
+   636→
+   637→  /** Single ASR probe attempt without retry logic. */
+   638→  private async probeAsrOnce(): Promise<HealthReport> {
+   639→    const t0 = Date.now()
+   640→    const wav = this.cache.probeWav
+   641→    if (!wav) {
+   642→      return {
+   643→        healthy: false,
+   644→        checkedAt: new Date().toISOString(),
+   645→        latencyMs: null,
+   646→        detail: 'ASR probe skipped: no probe audio available.',
+   647→      }
+   648→    }
+   649→    const text = await this.transcribe({ wavOrWebm: wav, timeoutMs: 30_000 })
+   650→    return {
+   651→      healthy: true, // a response (even empty text) proves the endpoint is live
+   652→      checkedAt: new Date().toISOString(),
+   653→      latencyMs: Date.now() - t0,
+   654→      detail: `Gateway recognized a live WAV probe (transcript ${text.length} chars).`,
+   655→    }
+   656→  }
+   657→
+   658→  async healthFfmpeg(force = false): Promise<HealthReport> {
+   659→    const cached = this.cache.ffmpeg
+   660→    if (!force && cached && Date.now() - cached.at < FFMPEG_TTL_MS) return cached.report
+   661→    const t0 = Date.now()
+   662→    let report: HealthReport
+   663→    try {
+   664→      const version = await new Promise<string>((resolve, reject) => {
+   665→        execFile('ffmpeg', ['-version'], { timeout: 5_000 }, (err, stdout) =>
+   666→          err ? reject(err) : resolve(String(stdout)),
+   667→        )
+   668→      })
+   669→      const v = version.split('\n')[0]?.trim() ?? 'ffmpeg'
+   670→      report = {
+   671→        healthy: true,
+   672→        checkedAt: new Date().toISOString(),
+   673→        latencyMs: Date.now() - t0,
+   674→        detail: `Local transcoder available (${v}).`,
+   675→      }
+   676→    } catch (e) {
+   677→      report = {
+   678→        healthy: false,
+   679→        checkedAt: new Date().toISOString(),
+   680→        latencyMs: Date.now() - t0,
+   681→        detail: `ffmpeg is not usable: ${e instanceof Error ? e.message : String(e)}`,
+   682→      }
+   683→    }
+   684→    this.cache.ffmpeg = { report, at: Date.now() }
+   685→    return report
+   686→  }
+   687→}
+   688→
+   689→export interface AudioStreamMetadata {
+   690→  codec: string
+   691→  sampleRateHz: number
+   692→  channels: number
+   693→  durationSec: number | null
+   694→  container: string | null
+   695→}
+   696→
+   697→export const hostedAudioAdapter = new HostedAudioAdapter()
+   698→
