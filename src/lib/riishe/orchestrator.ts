@@ -85,6 +85,19 @@ export interface OrchestrationInput {
   documents?: AttachedDocument[]
   /** Condensed digest of turns that fell out of the history window. */
   digest?: string | null
+  /**
+   * Test seam for the research boundary. When `runResearch` is provided it
+   * replaces the real pipeline call EXACTLY at the boundary (same signature,
+   * same EvidencePack contract) so orchestrator tests run hermetically —
+   * no production caller passes hooks, and the default is the real
+   * measured pipeline. This seam exists because the pre-seam tests either
+   * skipped orchestrateTurn entirely or silently fired REAL network calls
+   * (measured 2026-10-29: "stub" tests hit the live gateway and failed on
+   * an upstream 429 — a hermetic test that was neither).
+   */
+  hooks?: {
+    runResearch?: (message: string, decision: SearchDecision) => Promise<EvidencePack>
+  }
 }
 
 export interface OrchestrationResult {
@@ -354,7 +367,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   if (searchNeeded) {
     onEvent?.({ type: 'stage', stage: 'researching' })
     const tSearch = Date.now()
-    pack = await runResearch(userMessage, decision)
+    pack = input.hooks?.runResearch
+      ? await input.hooks.runResearch(userMessage, decision)
+      : await runResearch(userMessage, decision)
     stages.push({ stage: 'researching', durationMs: Date.now() - tSearch })
     degraded.push(...pack.degraded)
     onEvent?.({ type: 'research', queries: pack.queries })

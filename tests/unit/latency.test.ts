@@ -87,6 +87,8 @@ describe('snippet-sufficiency page-read policy (no whole-page retrieval when sni
       year: null,
       authority: 0.5,
       official: false,
+      social: false,
+      sourceType: 'other' as const,
       score: 1 - i * 0.01,
     }))
 
@@ -142,7 +144,7 @@ describe('freshness-aware research cache', () => {
     // Age the entry beyond the high-risk TTL (90s) directly in the store.
     const g = globalThis as unknown as Record<string, { search?: Map<string, { at: number }> }>
     const store = g['__bean_research_cache__']!
-    const key = `websearch:${normalizeQueryKey('fast changing fact')}:180`
+    const key = `${normalizeQueryKey('fast changing fact')}|r180`
     const entry = store.search!.get(key)!
     entry.at = Date.now() - 91_000
     const again = getSearchCache<WebSearchResult>('fast changing fact', 180, 'high')
@@ -155,7 +157,7 @@ describe('freshness-aware research cache', () => {
     if (!miss.hit) miss.put([searchResult({ url: 'https://example.com/visa' })])
     const g = globalThis as unknown as Record<string, { search?: Map<string, { at: number }> }>
     const store = g['__bean_research_cache__']!
-    const key = `websearch:${normalizeQueryKey('visa requirements japan')}:365`
+    const key = `${normalizeQueryKey('visa requirements japan')}|r365`
     ;(store.search!.get(key)!).at = Date.now() - 91_000 // beyond high TTL, within moderate TTL
     const hit = getSearchCache<WebSearchResult>('visa requirements japan', 365, 'moderate')
     expect(hit.hit).toBe(true)
@@ -234,14 +236,18 @@ describe('guarded streaming + draft-replacement (reset) protocol', () => {
     // Tool protocol syntax never reached the wire.
     for (const d of deltas) expect(d).not.toContain('TOOL_CALL')
     const streamed = deltas.join('')
-    // The preliminary pass text streamed, was cleared by a reset, and the
-    // final answer replaced it exactly (never both, never duplicated).
+    // MEASURED PROTOCOL (2026-10-29): the tool-loop turn is fully buffered —
+    // the preliminary TOOL_CALL draft never streams at all, so the wire sees
+    // exactly the final answer once (no preliminary text, hence no reset is
+    // needed; a reset only fires when something already streamed must be
+    // replaced, e.g. a verification rewrite).
     expect(streamed).toContain('The result is 346.')
     expect(streamed).not.toContain('The result is 346.The result is 346.')
-    expect(resets).toBeGreaterThanOrEqual(2)
+    expect(deltas.join('')).toBe(result.content)
     // Two real model passes happened (preliminary + final).
-    expect(result.metadata.modelCalls).toBe(2)
+    expect(result.metadata.timings?.solvePasses).toBe(2)
     // The tool actually executed server-side and produced real evidence.
+    expect(result.metadata.toolRuns?.some((t) => t.tool === 'calculate' && t.ok)).toBe(true)
     expect(result.content).toContain('346')
   })
 
@@ -260,14 +266,21 @@ describe('guarded streaming + draft-replacement (reset) protocol', () => {
       },
     })
     expect(deltas.join('')).toBe(result.content)
-    expect(result.metadata.modelCalls).toBe(1)
+    expect(result.metadata.timings?.solvePasses).toBe(1)
   })
 
-  test('selectTools keeps run_code policy-gated and web tools policy-driven', () => {
-    expect(selectTools({ searchNeeded: false, task: 'general', hasDocuments: false })).toEqual([])
-    expect(selectTools({ searchNeeded: true, task: 'research', hasDocuments: false })).toContain('web_search')
-    expect(selectTools({ searchNeeded: false, task: 'math', hasDocuments: false })).toContain('calculate')
-    expect(selectTools({ searchNeeded: false, task: 'coding', hasDocuments: false })).toContain('run_code')
+  test('selectTools: calculate always for math; run_code strictly policy-gated; web tools only as recovery', () => {
+    const full = { allowCodeExecution: false, researchFailed: false } as const
+    expect(selectTools({ searchNeeded: false, task: 'general', hasDocuments: false, ...full })).toEqual([])
+    // MEASURED POLICY (2026-10-29): a successful pre-solve pipeline pack
+    // already grounded the answer — the tool loop would only duplicate
+    // searches. web_search/read_url activate ONLY for attached documents or
+    // a research turn whose pipeline evidence came back EMPTY.
+    expect(selectTools({ searchNeeded: true, task: 'research', hasDocuments: false, ...full, researchFailed: true })).toContain('web_search')
+    expect(selectTools({ searchNeeded: true, task: 'research', hasDocuments: false, ...full, researchFailed: false })).toEqual([])
+    expect(selectTools({ searchNeeded: false, task: 'math', hasDocuments: false, ...full })).toContain('calculate')
+    expect(selectTools({ searchNeeded: false, task: 'coding', hasDocuments: false, ...full, allowCodeExecution: true })).toContain('run_code')
+    expect(selectTools({ searchNeeded: false, task: 'coding', hasDocuments: false, ...full, allowCodeExecution: false })).not.toContain('run_code')
   })
 
   test('liftSelfCheck removes the verifier block from customer text', () => {

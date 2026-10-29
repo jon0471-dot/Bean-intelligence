@@ -57,6 +57,10 @@ const HIGH_RISK_PATTERNS: Array<[RegExp, string]> = [
   [/\b(current|latest|newest|most\s+recent)\s+(version|release|update|price|rate|standings|score|schedule)\b/i, 'asks for the latest version/price/status'],
   [/\b(202[5-9]|203[0-9])\b/, 'references the current or a future year'],
   [/\b(share\s*price|stock\s*price|exchange\s*rate|market\s*cap|inflation\s*rate|interest\s*rate|gas\s*price)\b/i, 'asks for market/price data'],
+  // Weather/forecast conditions change by the hour — model memory is always
+  // stale for them (measured gap: "What is the weather in Chennai?" did not
+  // match any freshness signal and never searched).
+  [/\b(weather|temperature|forecast|raining|rainfall|snowfall|heat\s*wave|air\s*quality)\b/i, 'asks about weather/conditions that change daily'],
   [/\b(who\s+won|what\s+(is|are)\s+the\s+standings|schedule|fixture|results?\s+(of|from|for))\b/i, 'asks about sports results/schedules'],
   [/\b(is|are|was|were|did|has|have)\b.*\b(still|currently|now|yet)\b/i, 'asks whether a state still holds (time-sensitive)'],
   // News-type events: breaking reports, missing-person cases, disasters,

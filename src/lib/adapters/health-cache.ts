@@ -25,12 +25,30 @@ interface CacheEntry {
   expiresAt: number
 }
 
-const cache = new Map<string, CacheEntry>()
-const inFlight = new Map<string, Promise<HealthReport>>()
+/**
+ * globalThis-keyed (same pattern as the 429 breaker and the research cache):
+ * Next.js route-bundle module duplication fragments module-level Maps, which
+ * MEASURED 2026-10-29 — two /api/health requests seconds apart each ran a
+ * fresh probe because each request resolved a different module instance.
+ * Keying on globalThis makes the dedup actually hold across requests.
+ */
+const STORE_KEY = '__bean_health_probe_cache__'
+
+interface HealthCacheStore {
+  cache: Map<string, CacheEntry>
+  inFlight: Map<string, Promise<HealthReport>>
+}
+
+function store(): HealthCacheStore {
+  const g = globalThis as unknown as Record<string, unknown>
+  if (!g[STORE_KEY]) g[STORE_KEY] = { cache: new Map(), inFlight: new Map() }
+  return g[STORE_KEY] as HealthCacheStore
+}
 
 export function clearHealthCacheForTests(): void {
-  cache.clear()
-  inFlight.clear()
+  const s = store()
+  s.cache.clear()
+  s.inFlight.clear()
 }
 
 export async function cachedHealth(
@@ -40,6 +58,7 @@ export async function cachedHealth(
 ): Promise<HealthReport> {
   const ttlMs = opts?.ttlMs ?? HEALTH_CACHE_TTL_MS
   const now = Date.now()
+  const { cache, inFlight } = store()
   const hit = cache.get(key)
   if (hit && hit.expiresAt > now) {
     return { ...hit.report, cached: true }
