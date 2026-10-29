@@ -1,0 +1,72 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["Who is the Chief Minister of Tamil Nadu","Who is the Chief Minister of Tamil Nadu India"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"C","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":".","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" Joseph","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" Vij","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":"ay","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" is","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" the","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" current","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" Chief","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" Minister","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" of","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" Tamil","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" Nadu","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":".","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" He","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" assumed","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" office","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" on","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" May","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" ","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":"10","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":",","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" ","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":"202","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":"6","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" [","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":"3","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":",","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":" ","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":"4","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"delta":"].","conversationId":"cmvrpfy0l0041r4o7vb8tjfnx"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrpfy0l0041r4o7vb8tjfnx","durationMs":689,"partial":false,"messageId":"cmvrpfyjr0045r4o79cbx5qxr","firstTokenMs":570,"meta":{"states":["PARTIALLY_VERIFIED"],"sources":[{"id":3,"title":"C. Joseph Vijay","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay","hostName":"en.wikipedia.org","date":null,"official":false,"pageRead":false},{"id":4,"title":"Vijay | Chief Minister, 2026 Tamil Nadu Election Results","url":"https://www.britannica.com/biography/Vijay-actor","hostName":"www.britannica.com","date":"Sep 22, 2026","official":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":1},{"stage":"verifying","durationMs":0}],"degraded":[],"retrievedAt":"2026-10-28T05:59:44.293Z","verificationNote":"1 statement is not covered by the retrieved sources (e.g., \"C. Joseph Vijay is the current Chief Minister of Tamil Nadu.\") — treat it as unverified context","timings":{"totalMs":685,"understandMs":0,"researchMs":1,"solveTtftMs":569,"solveMs":684,"verifyMs":0,"solvePasses":1}}}
+

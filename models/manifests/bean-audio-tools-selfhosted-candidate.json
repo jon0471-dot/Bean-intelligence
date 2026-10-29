@@ -1,0 +1,41 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-audio-tools-selfhosted-candidate",
+  "product": "gangzii",
+  "task": "audio-tools",
+  "status": "candidate-not-deployed",
+  "deploymentMode": "self-hosted",
+  "provider": "BEAN Intelligence (planned self-hosted GPU/CPU workers)",
+  "features": {
+    "voiceCloning": {
+      "candidate": "https://github.com/QwenLM/Qwen3-TTS (0.6B/1.7B; 3s clone; Apache-2.0 code; per-checkpoint weights license review required)",
+      "alsoEvaluated": [
+        { "repository": "https://github.com/fishaudio/fish-speech", "verdict": "REJECTED — Fish Audio Community License; fish-speech-1.4 weights CC-BY-NC-SA-4.0; S2-Pro under Fish Audio Research License" },
+        { "repository": "https://github.com/RVC-Boss/GPT-SoVITS", "verdict": "DEFERRED — MIT code but weight provenance/licensing not stated; also elevated impersonation-misuse risk requiring rights controls first" }
+      ],
+      "safetyGate": "voice cloning requires explicit user authorization flow + anti-impersonation review BEFORE any enablement"
+    },
+    "sourceSeparation": {
+      "candidate": "https://github.com/Anjok07/ultimatevocalremovergui (MIT code; per-model weight license review required — UVR requests attribution)",
+      "alsoEvaluated": [{ "repository": "https://github.com/open-mmlab/Amphion", "verdict": "MIT code, 'free for research and commercial use'; individual checkpoint licenses vary — per-model review" }]
+    },
+    "denoising": {
+      "candidate": "https://github.com/k2-fsa/sherpa-onnx speech enhancement models (gtcrn/DPDFNet/VoxLock; Apache-2.0; per-model card check)",
+      "note": "CPU-capable — lightest audio-lab addition; model files must be installed out-of-band, never at app startup"
+    },
+    "offlineTranscription": {
+      "candidate": "https://github.com/SYSTRAN/faster-whisper (MIT; CTranslate2; Whisper weights MIT) — fallback when hosted ASR is unavailable",
+      "alsoEvaluated": [{ "repository": "https://github.com/openai/whisper", "verdict": "MIT but slower inference; faster-whisper preferred" }]
+    },
+    "realtimeConversation": {
+      "note": "No full-duplex speech model is enabled. Live Voice ships as an honest turn-based pipeline (WebM/Opus capture -> hosted ASR -> gateway LLM -> hosted TTS), labeled as such in the UI."
+    }
+  },
+  "license": {
+    "name": "Under review — see docs/models/LICENSING-REPORT.md §6",
+    "commercialUse": "restricted",
+    "note": "No self-hosted audio tool is deployed in this environment. Feature states are reported truthfully in the GANGZII UI.",
+    "sourceUrl": "https://github.com/QwenLM/Qwen3-TTS",
+    "verifiedAt": "2026-10-27"
+  }
+}

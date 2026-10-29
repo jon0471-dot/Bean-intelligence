@@ -3,13 +3,14 @@
  * fixture SDK boundary.
  *
  * The z-ai-web-dev-sdk boundary is the ONLY mock: it returns a FIXED search
- * result fixture (cross-query duplicates + a social-media result), a page
- * fixture with JSON-LD dates, and a two-pass solver script (first pass with
- * an unattributed allegation + a duplicate-source citation, second pass the
- * corrected rewrite). This proves the wiring — dedup, id remap, staleness,
- * incident freshness query, sensitive-case guard rewrite, citation audit —
- * against real production code. Live gateway acceptance is proven separately
- * by scripts/e2e-research-quality.sh (vendor 429s permitting).
+ * result fixture (cross-query duplicates + a social-media result + an
+ * official police domain), a page fixture with JSON-LD dates, and a
+ * two-pass solver script (first pass with an unattributed allegation + an
+ * invalid citation id, second pass the corrected, attributed rewrite). This
+ * proves the wiring — sensitive-case query set, page-read date extraction,
+ * claim-support repair, official/social flags, citation audit — against real
+ * production code. Live gateway acceptance is proven separately by the
+ * e2e script (vendor 429s permitting).
  */
 import { describe, test, expect, mock } from 'bun:test'
 import type { TaskAdapter } from '../../src/lib/adapters/types'
@@ -58,9 +59,11 @@ const SEARCH_RESULTS = [
   },
 ]
 
+const PAGE_TEXT =
+  'Police said the search for the missing girl continues and no arrest has been made. '.repeat(6)
 const PAGE_HTML =
   '<html><head><script type="application/ld+json">{"@type":"NewsArticle","datePublished":"2026-10-22T09:00:00+05:30"}</script></head>' +
-  '<body><article><p>Police said the search for the missing girl continues and no arrest has been made.</p></article></body></html>'
+  `<body><article><p>${PAGE_TEXT}</p></article></body></html>`
 
 let searchCalls = 0
 const fixtureZai = {
@@ -68,7 +71,7 @@ const fixtureZai = {
     invoke: async (tool: string, input: { query?: string; url?: string }) => {
       if (tool === 'web_search') {
         searchCalls += 1
-        // Both queries return the same fixture pool -> exercises dedup.
+        // Every query returns the same fixture pool -> exercises dedup.
         return SEARCH_RESULTS
       }
       if (tool === 'page_reader') {
@@ -80,13 +83,15 @@ const fixtureZai = {
   chat: {
     completions: {
       create: async () => {
-        // Query-gen: return a refined query set (JSON protocol).
+        // Query-gen: refined queries with NEITHER a freshness intent nor an
+        // official-statement intent, so the deterministic sensitive-case
+        // query set must supply both (that is the contract under test).
         return {
           choices: [
             {
               message: {
                 content:
-                  '{"queries": ["Gingee girl missing search update", "Gingee missing case police statement"]}',
+                  '{"queries": ["Gingee girl missing search", "Gingee missing case timeline"]}',
               },
             },
           ],
@@ -99,7 +104,7 @@ const fixtureZai = {
 mock.module('z-ai-web-dev-sdk', () => ({ default: { create: async () => fixtureZai } }))
 
 const { orchestrateTurn } = await import('../../src/lib/riishe/orchestrator')
-const { buildSystemPrompt } = await import('../../src/lib/riishe/prompts')
+const { clearResearchCache } = await import('../../src/lib/research/cache')
 
 /** Recording adapter with a scripted sequence of replies (per solve pass). */
 function scriptedAdapter(replies: string[]): TaskAdapter & { prompts: string[] } {
@@ -125,12 +130,12 @@ function scriptedAdapter(replies: string[]): TaskAdapter & { prompts: string[] }
 const CAPS = { maxPromptChars: 100_000, maxHistoryMessages: 12 }
 
 describe('research-quality integration (fixture SDK, real orchestrator)', () => {
-  test('incident turn: freshness query, dedup+remap, official/social flags, sensitive rewrite', async () => {
+  test('incident turn: sensitive queries, dedup, official/social flags, date extraction, repair', async () => {
+    clearResearchCache()
     searchCalls = 0
-    // Pass 1 cites the DUPLICATE id [5] (second Hindu entry in fixture order
-    // after rank/dedup this maps to the canonical id) and makes an
-    // unattributed allegation -> triggers the bounded rewrite.
-    // Pass 2 (the rewrite) attributes the allegation and cites properly.
+    // Pass 1 makes an unattributed allegation ("Ravi Kumar abducted the girl")
+    // and cites an out-of-range id [5] -> the bounded claim-repair pass must
+    // fire. Pass 2 is the attributed, properly cited rewrite.
     const adapter = scriptedAdapter([
       'Search teams expanded the operation. Ravi Kumar abducted the girl. [5]',
       'Search teams expanded the operation [1]. Local reporting attributed the claim to police, who stated no arrest has been made [2].',
@@ -145,17 +150,21 @@ describe('research-quality integration (fixture SDK, real orchestrator)', () => 
       backendCapabilities: ['general', 'math', 'coding', 'research', 'document'],
     })
 
-    // 1. incident detection added the deterministic newest-coverage query
+    // 1. the sensitive-case query set deterministically added BOTH targeted
+    //    searches (newest coverage + official statements)
     expect(result.metadata.degraded.some((d) => d.includes('newest-coverage query'))).toBe(true)
-    expect(searchCalls).toBeGreaterThanOrEqual(2) // LLM queries + freshness query
+    expect(result.metadata.degraded.some((d) => d.includes('official-statement query'))).toBe(true)
+    expect(searchCalls).toBeGreaterThanOrEqual(4) // 2 LLM queries + 2 deterministic
 
-    // 2. the solver prompt contained the sensitive-case protocol
+    // 2. the solver prompt contained the sensitive-case + research-shape protocols
     expect(adapter.prompts[0]).toContain('Sensitive ongoing-case protocol')
-    expect(adapter.prompts[0]).toContain('Current-topic synthesis protocol')
+    expect(adapter.prompts[0]).toContain('Research answer structure')
+    expect(adapter.prompts[0]).toContain('OFFICIALLY CONFIRMED')
 
-    // 3. the rewrite pass actually ran (second solve pass)
+    // 3. the repair pass actually ran (second solve pass)
     expect(adapter.prompts.length).toBe(2)
-    expect(adapter.prompts[1]).toContain('sensitive-case guard flagged')
+    expect(adapter.prompts[1]).toContain('claim-support audit found problems')
+    expect(adapter.prompts[1]).toContain('WITHOUT attribution')
 
     // 4. final content is the rewrite; allegation gone; citations canonical
     expect(result.content).toContain('no arrest has been made [2]')
@@ -168,10 +177,15 @@ describe('research-quality integration (fixture SDK, real orchestrator)', () => 
     expect(urls.some((u) => u.includes('tnpolice.gov.in'))).toBe(true)
     const police = sources.find((s) => s.url.includes('tnpolice.gov.in'))
     expect(police?.official).toBe(true)
-    const social = sources.find((s) => s.url.includes('x.com'))
-    expect(social?.social).toBe(true)
+    // Cited-only display contract: the answer cited the police note and the
+    // Hindu article, so the UNCITED social post is not listed as a displayed
+    // source (it supported nothing). The social classification itself is
+    // unit-tested in research-merge.test.ts.
+    expect(urls.some((u) => u.includes('x.com'))).toBe(false)
+    expect(sources.every((s) => !s.social)).toBe(true)
 
-    // 6. page-read date extraction filled the publication date from JSON-LD
+    // 6. page-read date extraction: the page's JSON-LD datePublishED is the
+    //    authoritative publication date and OVERRIDES the search date
     const hindu = sources.find((s) => s.url.includes('thehindu.com'))
     expect(hindu?.pageRead).toBe(true)
     expect(hindu?.date).toBe('2026-10-22T09:00:00+05:30')

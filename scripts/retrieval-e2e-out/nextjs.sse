@@ -1,0 +1,230 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["What is the latest stable version of Next.js"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Based","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" on","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" the","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" evidence","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" provided","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":",","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" the","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" latest","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" stable","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" version","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" of","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" Next","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".js","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" is","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" ","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"16","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"4","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"3","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" [","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"1","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"].","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" This","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" is","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" confirmed","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" by","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" the","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" npm","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" package","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" listing","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" which","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" shows","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" version","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" ","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"16","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"4","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"3","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" as","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" the","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" current","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" public","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" release","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" published","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" ","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"5","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" days","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" ago","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" [","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"1","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"].\n\n","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"There","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" are","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" newer","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" can","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"ary","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" versions","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" available","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" (","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"such","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" as","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" v","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"16","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"5","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"0","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"-can","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"ary","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"28","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":")","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" [","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"5","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"],","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" but","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" these","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" are","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" preview","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" releases","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" and","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" not","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" considered","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" stable","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" The","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" documentation","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" also","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" mentions","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" that","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" a","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" newer","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" stable","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" release","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" is","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" available","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" [","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"4","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"],","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" but","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" doesn","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":"'t","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" specify","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" which","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" version","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" that","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":" is","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"delta":".","conversationId":"cmvrk2xev001fr4bh9wpmm8xj"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrk2xev001fr4bh9wpmm8xj","durationMs":17435,"partial":false,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Next.js","url":"https://www.npmjs.com/package/next","hostName":"www.npmjs.com","date":"Oct 23, 2026","official":false,"pageRead":true},{"id":2,"title":"Current recommended version? : r/nextjs","url":"https://www.reddit.com/r/nextjs/comments/1p6mipm/current_recommended_version","hostName":"www.reddit.com","date":null,"official":false,"pageRead":true},{"id":3,"title":"Next.js Blog | Next.js by Vercel - The React Framework","url":"https://nextjs.org/blog","hostName":"nextjs.org","date":null,"official":false,"pageRead":false},{"id":4,"title":"A newer version is available","url":"https://nextjs.org/docs/messages/version-staleness","hostName":"nextjs.org","date":null,"official":false,"pageRead":false},{"id":5,"title":"Releases · vercel/next.js","url":"https://github.com/vercel/next.js/releases","hostName":"github.com","date":null,"official":false,"pageRead":false},{"id":6,"title":"Next.js by Vercel - The React Framework","url":"https://nextjs.org","hostName":"nextjs.org","date":null,"official":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":16122},{"stage":"verifying","durationMs":0}],"degraded":[],"retrievedAt":"2026-10-28T03:29:55.650Z"}}
+

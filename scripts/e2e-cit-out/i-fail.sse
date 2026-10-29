@@ -1,0 +1,20 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"Chief Minister of Tamil Nadu\" 2023","\"M K Stalin\" Chief Minister Tamil Nadu","Tamil Nadu Chief Minister current"]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"C. Joseph Vijay is the current Chief Minister of Tamil Nadu. He was sworn in on May 9, 2026, after the political uncertainty following the state elections [3, 4]. Vijay, a popular Tamil film actor who transitioned to politics, is also noted for being the first Christian to hold this position in Tamil Nadu [5]. He leads the TVK party and is the youngest Chief Minister in the state's history [6].","conversationId":"cmvomrbsr000ztptuttoof99u"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\nC. Joseph Vijay is the current Chief Minister of Tamil Nadu. He was sworn in on May 9, 2026, after the political uncertainty following the state elections [3, 4]. Vijay, a popular Tamil film actor who transitioned to politics, is also noted for being the first Christian to hold this position in Tamil Nadu [5]. He leads the TVK party [6].","conversationId":"cmvomrbsr000ztptuttoof99u"}
+
+data: {"done":true,"conversationId":"cmvomrbsr000ztptuttoof99u","durationMs":17023,"partial":false,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":3,"title":"Tamil film star Vijay is Indian state chief minister after days","url":"https://www.bbc.com/news/articles/ce8p2d97482o","hostName":"www.bbc.com","date":"May 10, 2026","official":false,"pageRead":false,"cited":true},{"id":4,"title":"Vijay Sworn In as Tamil Nadu Chief Minister After Days of","url":"https://variety.com/2026/politics/news/vijay-sworn-in-tamil-nadu-chief-minister-1236742532","hostName":"variety.com","date":"May 9, 2026","official":false,"pageRead":false,"cited":true},{"id":5,"title":"India's Tamil Nadu state elects first Christian chief minister","url":"https://www.christianpost.com/news/indias-tamil-nadu-state-elects-first-christian-chief-minister.html","hostName":"www.christianpost.com","date":"May 11, 2026","official":false,"pageRead":false,"cited":true},{"id":6,"title":"Congratulations to our new CM of #tamilnadu @actorvijay .","url":"https://www.facebook.com/Studio9Suresh/posts/congratulations-to-our-new-cm-of-tamilnadu-actorvijay-power-of-youth-my-heart-fu/1556530546038442","hostName":"www.facebook.com","date":null,"official":false,"pageRead":false,"cited":true},{"id":1,"title":"C. Joseph Vijay","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay","hostName":"en.wikipedia.org","date":"2004-12-30T03:01:27Z","official":false,"pageRead":true,"cited":false},{"id":2,"title":"Chief Minister of Tamil Nadu","url":"https://en.wikipedia.org/wiki/Chief_Minister_of_Tamil_Nadu","hostName":"en.wikipedia.org","date":"2004-04-13T13:46:50Z","official":false,"pageRead":true,"cited":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"claim grounding","status":"passed","detail":"all 5 factual claim(s) now match the retrieved evidence after one verification pass"}],"stages":[{"stage":"researching","durationMs":4359},{"stage":"tools","durationMs":1383},{"stage":"verifying","durationMs":0},{"stage":"verifying","durationMs":11275}],"degraded":["search \"\"M K Stalin\" Chief Minister Tamil Nadu\" failed: web_search failed: Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}"],"searchMode":"auto","grounding":{"checked":true,"regenerated":true,"contradicted":0,"unsupported":0,"passed":true},"retrievedAt":"2026-10-26T02:21:34.328Z"}}
+

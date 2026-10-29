@@ -15,6 +15,15 @@ import type {
   TaskAdapter,
 } from './types'
 import { estimateTokens } from '@/lib/api/validate'
+import {
+  classifyUpstreamError,
+  noteUpstream429,
+  noteUpstreamSkip,
+  upstreamCoolingDown,
+  UpstreamAuthError,
+  UpstreamBillingError,
+  UpstreamRateLimitError,
+} from '@/lib/upstream/gateway'
 
 const BACKEND_ID = 'bean-llm-hosted-primary'
 
@@ -55,25 +64,53 @@ function buildMessages(req: ChatRequest | CodeTaskRequest) {
 }
 
 /**
- * Bounded retry for transient gateway rejections (HTTP 429).
- * A 429 means the request was NOT processed upstream — exactly one retry
- * after a short backoff cannot double-charge or double-persist. Anything
- * else (4xx/5xx, network) propagates immediately; the router surfaces it
- * as BACKEND_FAILURE with honest degradation.
+ * Upstream-boundary guard for chat completions.
+ *
+ * MEASURED CHANGE (2026-10-29 root-cause work): the previous wrapper retried
+ * a 429 once after 2.5s. Server logs show both attempts failing back-to-back
+ * ("API request failed with status 429" twice for one solve call) and spaced
+ * single probes proving the throttle window lasts MINUTES — a 2.5s retry
+ * never succeeds and only deepens the throttle (two chat 429s became four
+ * calls per turn with the tool loop). So:
+ *  - while the chat breaker is open -> fail fast, NO network call;
+ *  - an observed 429 -> opens the breaker and propagates a typed
+ *    UpstreamRateLimitError immediately (no retry into a throttle);
+ *  - 401/403/402 -> typed auth/billing errors (distinct from throttling);
+ *  - anything else propagates unchanged (timeouts/5xx are the router's
+ *    BACKEND_TIMEOUT/BACKEND_FAILURE path — a blind retry there could
+ *    double-charge non-idempotent work).
+ * Recovery is verified by the next REAL call after the breaker opens —
+ * never assumed.
  */
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-async function createWithTransientRetry(
+async function createWithGatewayGuard(
   zai: Awaited<ReturnType<typeof ZAI.create>>,
   body: unknown,
 ): Promise<unknown> {
+  if (upstreamCoolingDown('chat')) {
+    noteUpstreamSkip('chat')
+    throw new UpstreamRateLimitError(
+      'chat',
+      'chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); ' +
+        'call skipped to avoid worsening the throttle',
+      false,
+    )
+  }
   try {
     return await zai.chat.completions.create(body as never)
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    if (!msg.includes('429')) throw e
-    await sleep(2_500)
-    return zai.chat.completions.create(body as never)
+    const failure = classifyUpstreamError(e)
+    const raw = e instanceof Error ? e.message : String(e)
+    if (failure.kind === 'rate_limited') {
+      noteUpstream429('chat')
+      throw new UpstreamRateLimitError('chat', `chat completion is rate-limited upstream (HTTP 429): ${raw.slice(0, 200)}`)
+    }
+    if (failure.kind === 'auth') {
+      throw new UpstreamAuthError(`chat completion failed: gateway rejected credentials (HTTP ${failure.status}): ${raw.slice(0, 200)}`, failure.status ?? 401)
+    }
+    if (failure.kind === 'billing') {
+      throw new UpstreamBillingError(`chat completion failed: gateway refused for account reasons (HTTP ${failure.status}): ${raw.slice(0, 200)}`, failure.status ?? 402)
+    }
+    throw e
   }
 }
 
@@ -84,10 +121,12 @@ export const hostedLlmAdapter: TaskAdapter = {
     const t0 = Date.now()
     try {
       const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
+      const completion = (await createWithGatewayGuard(zai, {
         messages: [{ role: 'user', content: 'Reply with exactly: OK' }],
         thinking: { type: 'disabled' },
-      })
+      })) as {
+        choices?: Array<{ message?: { content?: string } }>
+      }
       const content = completion.choices?.[0]?.message?.content ?? ''
       const healthy = content.trim().length > 0
       return {
@@ -97,11 +136,28 @@ export const hostedLlmAdapter: TaskAdapter = {
         detail: healthy ? 'Gateway responded to a live completion probe.' : 'Empty probe response.',
       }
     } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      // Honest failure classification: rate-limited / auth / billing are
+      // DIFFERENT states from an application error or timeout — named as
+      // such so operators and the UI never conflate them.
+      const failure = classifyUpstreamError(e)
+      const deferred = e instanceof UpstreamRateLimitError && !e.attempted
+      const detail =
+        failure.kind === 'rate_limited'
+          ? `Upstream gateway rate-limited (HTTP 429) — probe ${deferred ? 'deferred while the cooldown breaker is open (no network call was made)' : 'rejected'}. ${message}`
+          : failure.kind === 'auth'
+            ? `Upstream gateway rejected credentials (HTTP ${failure.status}). ${message}`
+            : failure.kind === 'billing'
+              ? `Upstream gateway reports an account/billing restriction (HTTP ${failure.status}). ${message}`
+              : `Probe failed: ${message}`
       return {
         healthy: false,
         checkedAt: new Date().toISOString(),
-        latencyMs: Date.now() - t0,
-        detail: `Probe failed: ${e instanceof Error ? e.message : String(e)}`,
+        // A deferred probe NEVER ran — a fail-fast wall-clock delta (~2ms)
+        // is not a probe latency and would misrepresent a skipped check as
+        // a measured one. null means "no latency was measured".
+        latencyMs: deferred ? null : Date.now() - t0,
+        detail,
       }
     }
   },
@@ -109,7 +165,7 @@ export const hostedLlmAdapter: TaskAdapter = {
   async chat(req: ChatRequest): Promise<ChatResult> {
     const t0 = Date.now()
     const zai = await ZAI.create()
-    const completion = (await createWithTransientRetry(zai, {
+    const completion = (await createWithGatewayGuard(zai, {
       messages: buildMessages(req),
       thinking: { type: req.thinkingEnabled ? 'enabled' : 'disabled' },
     })) as {
@@ -131,7 +187,7 @@ export const hostedLlmAdapter: TaskAdapter = {
 
   async *chatStream(req: ChatRequest): AsyncGenerator<string, void, unknown> {
     const zai = await ZAI.create()
-    const stream = (await createWithTransientRetry(zai, {
+    const stream = (await createWithGatewayGuard(zai, {
       messages: buildMessages(req),
       stream: true,
       thinking: { type: req.thinkingEnabled ? 'enabled' : 'disabled' },
@@ -142,10 +198,19 @@ export const hostedLlmAdapter: TaskAdapter = {
   async codeTask(req: CodeTaskRequest): Promise<CodeTaskResult> {
     const t0 = Date.now()
     const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
+    // MEASURED FIX (2026-10-29 product-availability audit): codeTask used to
+    // call the gateway DIRECTLY, bypassing the chat-class 429 breaker the
+    // chat/health paths honor — so CODE GIFTZ turns kept firing real requests
+    // into an actively throttling gateway while the dashboard correctly
+    // reported the product unavailable. Same endpoint class, same guard:
+    // fail fast while the breaker is open, typed auth/billing/429 otherwise,
+    // exactly one upstream attempt (no retry into a throttle).
+    const completion = (await createWithGatewayGuard(zai, {
       messages: buildMessages(req),
       thinking: { type: 'disabled' },
-    })
+    })) as {
+      choices?: Array<{ message?: { content?: string } }>
+    }
     const content = completion.choices?.[0]?.message?.content ?? ''
     if (!content) throw new Error('Upstream returned an empty completion')
     const durationMs = Date.now() - t0

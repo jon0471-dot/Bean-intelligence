@@ -1,0 +1,1 @@
+{"ok":false,"error":{"code":"UNSUPPORTED_CONTENT","message":"\"evil-traversal.zip\" could not be processed: This archive contains unsafe path entries (path traversal, e.g. \"/abs/evil.txt\") and was rejected."}}

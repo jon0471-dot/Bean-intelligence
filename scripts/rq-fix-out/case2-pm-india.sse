@@ -1,0 +1,14 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["Who is the current Prime Minister of India?","Who is the current Prime Minister of India? latest news update"]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Narendra Modi is the current Prime Minister of India [4]. He has held this position since May 26, 2014 [4, 6].","conversationId":"cmvsxwpr7000dqb8cezxi4u7g"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvsxwpr7000dqb8cezxi4u7g","durationMs":5540,"partial":false,"messageId":"cmvsxwu16000hqb8cil13bgfw","firstTokenMs":5535,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":4,"title":"Narendra Modi","url":"https://en.wikipedia.org/wiki/Narendra_Modi","hostName":"en.wikipedia.org","date":null,"official":false,"social":false,"pageRead":false},{"id":6,"title":"Shri Narendra Modi","url":"https://www.bjp.org/shri-narendra-modi","hostName":"www.bjp.org","date":null,"official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 2 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":4667},{"stage":"tools","durationMs":867},{"stage":"verifying","durationMs":1}],"degraded":[],"retrievedAt":"2026-10-29T02:44:34.696Z","verificationNote":"Publication dates could not be verified for 2 of the cited sources — the latest status is stated only as of the dated reports","timings":{"totalMs":5536,"understandMs":0,"researchMs":4667,"searchMs":1290,"pageReadMs":2312,"solveTtftMs":865,"solveMs":868,"verifyMs":1,"solvePasses":1}}}
+

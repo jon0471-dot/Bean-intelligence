@@ -23,17 +23,46 @@ export interface SearchDecision {
   reason: string
 }
 
+/**
+ * Titles whose HOLDER CHANGES over time. Asking who holds such an office is
+ * freshness-sensitive even when the user does not say "current": measured
+ * failure (worklog) — "who is the cm of tamilnadu" skipped retrieval entirely
+ * and the model answered from stale memory with zero sources.
+ */
+const OFFICE_TITLES = [
+  'president', 'vice\\s+president', 'prime\\s*minister', 'chief\\s+minister',
+  'home\\s+minister', 'finance\\s+minister', 'defence\\s+minister', 'external\\s+affairs\\s+minister',
+  'education\\s+minister', 'chief\\s+justice', 'attorney\\s+general', 'governor',
+  'cm', 'mla', 'mlc', 'mp', 'mayor', 'chancellor', 'pope',
+  'ceo', 'cto', 'cfo', 'coo', 'chairman', 'chairperson', 'chair',
+  'secretary[- ]general', 'secretary', 'treasurer', 'speaker', 'senator',
+  'congressman', 'congresswoman', 'ambassador', 'monarch', 'king', 'queen', 'emperor',
+]
+const OFFICE_TITLES_RE = OFFICE_TITLES.join('|')
+// Jurisdiction form without "cm": "18 cm of rope" is a length, not an
+// officeholder (measured false-positive class). "cm of <jurisdiction>" gets a
+// dedicated pattern guarded by a digit lookbehind.
+const OFFICE_TITLES_JUR = OFFICE_TITLES.filter((t) => t !== 'cm').join('|')
+
 /** Patterns that strongly signal a freshness-sensitive factual question. */
 const HIGH_RISK_PATTERNS: Array<[RegExp, string]> = [
-  [/\b(who|what)\s+is\s+the\s+(current|present|incumbent)\b/i, 'asks about a current officeholder/appointment'],
-  [/\b(current|present|incumbent)\s+(president|prime\s*minister|ceo|cto|cfo|chancellor|governor|mayor|pope|secretary|chairman|chair|director)\b/i, 'asks about a current officeholder'],
-  [/\b(today|yesterday|this\s+(week|month|year)|right\s+now|as\s+of\s+(now|today)|latest|newest|breaking)\b/i, 'asks about recent/current developments'],
+  // "who is the <office>" — officeholder questions are time-sensitive even
+  // without the word "current" (titles change hands; model memory goes stale).
+  [new RegExp(`\\b(?:who|whom)\\s+(?:is|are|was|were)\\s+(?:the\\s+|our\\s+|\\w+'s\\s+)?(?:current|present|incumbent)?\\s*(?:${OFFICE_TITLES_RE})\\b`, 'i'), 'asks who holds an office (officeholders change)'],
+  // "current/present/incumbent <office>" and "<office> of <jurisdiction>".
+  [new RegExp(`\\b(?:current|present|incumbent)\\s+(?:${OFFICE_TITLES_RE})\\b`, 'i'), 'asks about a current officeholder'],
+  [new RegExp(`\\b(?:${OFFICE_TITLES_JUR})\\b\\s+(?:of|for|in)\\s+\\p{L}`, 'u'), 'references the holder of an office/jurisdiction'],
+  [new RegExp(`(?<!\\d\\s)(?<!\\d\\.)\\bcm\\b\\s+(?:of|for|in)\\s+\\p{L}`, 'u'), 'references the Chief Minister of a jurisdiction'],
+  [/\b(today|yesterday|tonight|this\s+(week|month|year)|right\s+now|as\s+of\s+(now|today)|latest|newest|breaking|current|currently|recent|recently|ongoing|newly)\b/i, 'asks about recent/current developments'],
   [/\b(current|latest|newest|most\s+recent)\s+(version|release|update|price|rate|standings|score|schedule)\b/i, 'asks for the latest version/price/status'],
   [/\b(202[5-9]|203[0-9])\b/, 'references the current or a future year'],
   [/\b(share\s*price|stock\s*price|exchange\s*rate|market\s*cap|inflation\s*rate|interest\s*rate|gas\s*price)\b/i, 'asks for market/price data'],
   [/\b(who\s+won|what\s+(is|are)\s+the\s+standings|schedule|fixture|results?\s+(of|from|for))\b/i, 'asks about sports results/schedules'],
   [/\b(is|are|was|were|did|has|have)\b.*\b(still|currently|now|yet)\b/i, 'asks whether a state still holds (time-sensitive)'],
-  [/\b(news|announce[dm]?|declared|appointed|elected|resigned|lawsuit|verdict)\b/i, 'references recent events or announcements'],
+  // News-type events: breaking reports, missing-person cases, disasters,
+  // elections and legal developments are inherently fresh (measured failure:
+  // "Research a current topic: Gingee girl missing" never searched).
+  [/\b(news|headline|announce[dm]?|declared|appointed|elected|resigned|lawsuit|verdict|missing|kidnapp\w*|abduct\w*|arrest(ed|s|ing)?|shooting|stabbed|earthquake|cyclone|hurricane|typhoon|flood\w*|wildfire|landslide|death\s+toll|evacuat\w*|election)\b/i, 'references recent events or announcements'],
 ]
 
 /** Moderate risk: laws, regulations, docs, APIs — stable-ish but do change. */
@@ -45,25 +74,9 @@ const MODERATE_RISK_PATTERNS: Array<[RegExp, string]> = [
 
 /** Explicit user request to look things up. */
 const EXPLICIT_SEARCH: Array<[RegExp, string]> = [
-  [/\b(search|google|look\s*up|browse|find\s+online|check\s+online|latest\s+news\s+(about|on)|verify\s+online)\b/i, 'user explicitly requested a lookup'],
-  // "Research a current topic: X" — "research" must count as an explicit
-  // lookup request even though \bsearch\b cannot match inside the word.
-  [/\b(research(?:ing)?|fact-?\s*check|find\s+out\s+about|look\s+this\s+up|investigate)\b/i, 'user explicitly requested research'],
-]
-
-/**
- * Ongoing incident / case patterns (evaluated BEFORE the generic explicit
- * rule): missing persons, crimes, deaths and disasters demand the newest
- * reporting — days-old coverage is the known failure mode for these topics.
- */
-const INCIDENT_PATTERNS: Array<[RegExp, string]> = [
-  [/\bmissing\s+(girl|boy|child|children|woman|women|man|men|person|people|student|teen|teenager|toddler|infant|baby|family|couple|hiker|trekker|fisherman|fishermen|worker|tourist|pilgrim|swimmer)\b/i, 'ongoing missing-person case; newest reporting required'],
-  [/\b(girl|boy|child|woman|man|person|student|teen|toddler|family|hiker|trekker|fisherman|tourist)\s+(went\s+missing|missing|abducted|kidnapped)\b/i, 'ongoing missing-person case; newest reporting required'],
-  [/\b(missing|abduction|kidnapping)\s+(case|incident|report)\b/i, 'ongoing missing-person case; newest reporting required'],
-  [/\b(murder|homicide|rape|assault|kidnapping|abduction|trafficking|harassment|molestation)\s+(case|probe|investigation|accused|arrest)\b/i, 'ongoing crime case; newest reporting required'],
-  [/\b(fir|chargesheet|charge\s+sheet|arrested|post-?mortem|custodial|autopsy|found\s+dead|death\s+toll)\b/i, 'ongoing incident/case; newest reporting required'],
-  [/\b(building\s+collapse|bridge\s+collapse|stampede|boat\s+capsiz\w+|gas\s+leak|derail\w+|plane\s+crash|bus\s+accident)\b/i, 'ongoing accident/disaster; newest reporting required'],
-  [/\b(suicide|gang\s+rape|mass\s+shooting|bomb\s+blast)\b/i, 'ongoing violent incident; newest reporting required'],
+  // "research" could never match \bsearch\b (word boundary sits inside the
+  // word) — measured failure: "Research a current topic: ..." was skipped.
+  [/\b(research|search|google|look\s*up|browse|find\s+online|check\s+online|latest\s+news\s+(about|on)|verify\s+online)\b/i, 'user explicitly requested a lookup'],
 ]
 
 /** Exclusions: tasks where searching adds cost, not accuracy. */
@@ -73,6 +86,22 @@ const EXCLUSION_PATTERNS: Array<[RegExp, string]> = [
   [/^\s*(hi|hello|hey|thanks|thank you|good\s*(morning|evening|afternoon))\b/i, 'greeting/small talk'],
   [/\b(code|function|bug|error|stack\s*trace|compile|refactor|debug|python|javascript|typescript)\b/i, 'coding task — answered from expertise and conversation context'],
 ]
+
+/**
+ * A greeting only excludes retrieval when the message really IS small talk.
+ * "hi, who is the cm of tamilnadu" carries a real question after the greeting
+ * (measured failure class) — the remainder must be short filler ("there",
+ * "everyone", "!") for the exclusion to apply.
+ */
+const GREETING_RE = /^\s*(hi|hello|hey|thanks|thank you|good\s*(morning|evening|afternoon))\b[\s!,.?]*(.*)$/i
+
+function greetingExclusion(text: string): string | null {
+  const m = text.match(GREETING_RE)
+  if (!m) return null
+  const remainder = (m[3] ?? '').trim()
+  if (remainder.length <= 12) return 'greeting/small talk'
+  return null
+}
 
 export function shouldSearch(message: string): SearchDecision {
   const text = message.trim()
@@ -84,22 +113,27 @@ export function shouldSearch(message: string): SearchDecision {
   const highRisk = HIGH_RISK_PATTERNS.find(([re]) => re.test(text))
   const explicit = EXPLICIT_SEARCH.find(([re]) => re.test(text))
   const moderate = MODERATE_RISK_PATTERNS.find(([re]) => re.test(text))
-  const incident = INCIDENT_PATTERNS.find(([re]) => re.test(text))
 
   for (const [re, reason] of EXCLUSION_PATTERNS) {
     if (!re.test(text)) continue
-    // math/creative/greeting exclusions are absolute
-    if (reason.startsWith('mathematical') || reason.startsWith('creative') || reason.startsWith('greeting')) {
+    // math/creative exclusions are absolute
+    if (reason.startsWith('mathematical') || reason.startsWith('creative')) {
       return { search: false, risk: 'none', reason }
     }
-    // coding exclusion yields to freshness-sensitive and incident signals
-    if (!highRisk && !explicit && !incident) return { search: false, risk: 'none', reason }
+    // greeting: only pure small talk is excluded
+    if (reason.startsWith('greeting')) {
+      const g = greetingExclusion(text)
+      if (g) return { search: false, risk: 'none', reason: g }
+      continue
+    }
+    // coding exclusion yields to freshness-sensitive signals
+    if (!highRisk && !explicit) return { search: false, risk: 'none', reason }
   }
-  // Ongoing incidents outrank the generic explicit rule: they need the
-  // newest reporting, not just any coverage within the window.
-  if (incident) return { search: true, risk: 'high', recencyDays: 180, reason: incident[1] }
-  if (explicit) return { search: true, risk: 'moderate', recencyDays: 90, reason: explicit[1] }
+  // HIGH freshness signals dominate the explicit-moderate classification so
+  // "Research a current topic: <news>" gets the short high-risk cache TTL and
+  // the wide recency window (news beats lookup phrasing).
   if (highRisk) return { search: true, risk: 'high', recencyDays: 180, reason: highRisk[1] }
+  if (explicit) return { search: true, risk: 'moderate', recencyDays: 90, reason: explicit[1] }
   if (moderate) return { search: true, risk: 'moderate', recencyDays: 365, reason: moderate[1] }
   return {
     search: false,
@@ -115,4 +149,28 @@ export function shouldSearch(message: string): SearchDecision {
  */
 export function isDocumentLike(message: string): boolean {
   return message.length > 4000
+}
+
+/**
+ * The news-event signal from the high-risk table above, as a standalone
+ * classifier: the orchestrator uses it to switch the solver into the
+ * structured research-answer protocol (timeline + latest verified update)
+ * for ongoing news, while officeholder/version lookups keep natural prose.
+ */
+export function isNewsEventQuery(message: string): boolean {
+  return /\b(news|headline|announce[dm]?|declared|appointed|elected|resigned|lawsuit|verdict|missing|kidnapp\w*|abduct\w*|arrest(ed|s|ing)?|shooting|stabbed|earthquake|cyclone|hurricane|typhoon|flood\w*|wildfire|landslide|death\s+toll|evacuat\w*|election)\b/i.test(
+    message,
+  )
+}
+
+/**
+ * Ongoing-case signal: investigations and emergencies whose status can
+ * change day-to-day (measured: the Gingee missing-girl case). A research
+ * answer for such a case must hunt for newer reporting before it summarizes
+ * the status, even when the newest retrieved source is only days old.
+ */
+export function isOngoingCaseQuery(message: string): boolean {
+  return /\b(missing|kidnap\w*|abduct\w*|untraced|traced|found dead|body (of|recovered)|murder\w*|manslaughter|hit[- ]and[- ]run|road accident|crash|stabb\w*|shooting|search (continues|operation)|rescue (operation|team)| rubble|collapse\w*)\b/i.test(
+    message,
+  )
 }
