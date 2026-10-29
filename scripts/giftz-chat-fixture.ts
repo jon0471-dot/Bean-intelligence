@@ -60,13 +60,13 @@ async function main() {
   const project = await db.codeProject.create({
     data: {
       userId: user.id,
-      name: 'UI fixture: counter app (test data, deleted after verification)',
+      title: 'UI fixture: counter app (test data, deleted after verification)',
       files: {
         create: [
-          { path: 'index.html', content: INDEX_HTML, status: 'generated', version: 1 },
-          { path: 'styles.css', content: STYLES_CSS, status: 'generated', version: 1 },
-          { path: 'app.js', content: APP_JS, status: 'generated', version: 1 },
-          { path: 'hello.js', content: HELLO_JS, status: 'generated', version: 1 },
+          { path: 'index.html', content: INDEX_HTML, origin: 'generated' },
+          { path: 'styles.css', content: STYLES_CSS, origin: 'generated' },
+          { path: 'app.js', content: APP_JS, origin: 'generated' },
+          { path: 'hello.js', content: HELLO_JS, origin: 'generated' },
         ],
       },
       messages: {

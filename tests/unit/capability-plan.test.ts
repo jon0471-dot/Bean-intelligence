@@ -7,6 +7,7 @@ import { describe, test, expect } from 'bun:test'
 import { planCapabilities } from '../../src/lib/riishe/capability-plan'
 import { selectTools, orchestrateTurn } from '../../src/lib/riishe/orchestrator'
 import type { TaskAdapter } from '../../src/lib/adapters/types'
+import type { EvidencePack } from '../../src/lib/research/pipeline'
 
 describe('planCapabilities (automatic code execution decision)', () => {
   test('explicit execution requests are granted', () => {
@@ -32,30 +33,36 @@ describe('planCapabilities (automatic code execution decision)', () => {
   })
 })
 
-describe('selectTools (image attachments activate the vision tool)', () => {
-  test('image attachments add analyze_image', () => {
+describe('selectTools (attached documents activate document + follow-up web tools)', () => {
+  // MEASURED CONTRACT (2026-10-29): there is NO 'analyze_image' tool in the
+  // registry — attached images are handled as documents (the document block
+  // carries the extracted/summarized text), so the tools are read_document
+  // plus web follow-ups. A test asserting a vision tool would pin a
+  // capability the product does not have.
+  test('attached documents activate read_document plus web follow-up tools', () => {
     const tools = selectTools({
-      searchMode: 'auto',
       searchNeeded: false,
       task: 'general',
       hasDocuments: true,
-      hasImages: true,
       allowCodeExecution: false,
+      researchFailed: false,
     })
-    expect(tools).toContain('analyze_image')
     expect(tools).toContain('read_document')
+    expect(tools).toContain('web_search')
+    expect(tools).toContain('read_url')
   })
 
-  test('no images → no vision tool', () => {
+  test('no documents and no failed research → no document or web tools', () => {
     const tools = selectTools({
-      searchMode: 'auto',
       searchNeeded: false,
       task: 'general',
-      hasDocuments: true,
-      hasImages: false,
+      hasDocuments: false,
       allowCodeExecution: false,
+      researchFailed: false,
     })
-    expect(tools).not.toContain('analyze_image')
+    expect(tools).not.toContain('read_document')
+    expect(tools).not.toContain('analyze_image') // the vision tool does not exist
+    expect(tools).toEqual([])
   })
 })
 
@@ -64,20 +71,41 @@ describe('attachment-scoped retrieval (regression: image questions must not web-
   function stubAdapter(content: string): TaskAdapter {
     return {
       backendId: 'stub',
-      health: async () => ({ ok: true, detail: '' }) as never,
+      health: async () => ({ healthy: true, checkedAt: new Date().toISOString(), latencyMs: 1, detail: 'stub' }),
       chat: async () => ({ content, tokensInEst: 1, tokensOutEst: 1, durationMs: 1 }),
       chatStream: async function* () {
         yield content
       },
     }
   }
+  // AttachedDocument shape: { id, name, text, truncated } — an attached image
+  // arrives with its extracted/summarized text pre-filled by the route.
   const imageDoc = {
     id: 'img1',
     name: 'chart.png',
-    text: '',
+    text: '[IMAGE SUMMARY] A chart titled "BEAN Q3 REPORT" with revenue 4.2 million USD.',
     truncated: false,
-    kind: 'image',
-    summary: 'A chart titled "BEAN Q3 REPORT" with revenue 4.2 million USD.',
+  }
+  const pack: EvidencePack = {
+    sources: [
+      {
+        id: 1, url: 'https://example.com/bean-revenue', title: 'BEAN revenue report',
+        snippet: 'BEAN revenue was 4.1 million USD.', hostName: 'example.com', date: '2026-10-01',
+        freshness: 0.1, year: 2026, authority: 1, official: false, score: 0.9, pageRead: false,
+        excerpt: 'BEAN revenue was 4.1 million USD.', social: false, sourceType: 'other',
+      },
+    ],
+    queries: ['bean revenue'],
+    degraded: [],
+    staleness: null,
+    geoWarning: null,
+    durationMs: 1,
+    searchMs: 1,
+    pageReadMs: 0,
+    searchCalls: 1,
+    pageReadCalls: 0,
+    cacheHits: 0,
+    fetchedAt: new Date().toISOString(),
   }
 
   test('a file-scoped question does NOT run web retrieval (files are the evidence)', async () => {
@@ -88,12 +116,11 @@ describe('attachment-scoped retrieval (regression: image questions must not web-
       caps,
       adapter: stubAdapter('The revenue on the chart is 4.2 million USD.'),
       backendCapabilities: ['general', 'research', 'document'],
-      searchMode: 'auto',
       documents: [imageDoc],
       hooks: {
         runResearch: async () => {
           researchRan = true
-          return { sources: [], queries: [], degraded: [], staleness: null, durationMs: 1 }
+          return { ...pack, sources: [], queries: [] }
         },
       },
     })
@@ -108,23 +135,9 @@ describe('attachment-scoped retrieval (regression: image questions must not web-
       caps,
       adapter: stubAdapter('External reports state 4.1 million USD [1].'),
       backendCapabilities: ['general', 'research', 'document'],
-      searchMode: 'auto',
       documents: [imageDoc],
       hooks: {
-        runResearch: async () => ({
-          sources: [
-            {
-              id: 1, url: 'https://example.com/bean-revenue', title: 'BEAN revenue report',
-              snippet: 'BEAN revenue was 4.1 million USD.', hostName: 'example.com', date: '2026-10-01',
-              freshness: 0.1, year: 2026, authority: 1, official: false, score: 0.9, pageRead: false,
-              excerpt: 'BEAN revenue was 4.1 million USD.',
-            },
-          ],
-          queries: ['bean revenue'],
-          degraded: [],
-          staleness: null,
-          durationMs: 1,
-        }),
+        runResearch: async () => pack,
       },
     })
     expect(result.searchRan).toBe(true)

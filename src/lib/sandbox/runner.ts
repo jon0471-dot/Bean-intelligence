@@ -206,6 +206,13 @@ export async function probeSandboxHealth(): Promise<HealthReport> {
       child.kill('SIGKILL')
     }, PROBE_TIMEOUT_MS)
 
+    // stdio is explicitly ['ignore','pipe','pipe'], but the ChildProcess
+    // typings make the streams nullable — guard honestly instead of asserting.
+    if (!child.stdout || !child.stderr) {
+      finish(false, `Sandbox runtime "${runtime}" produced no capturable output streams.`)
+      return
+    }
+
     child.stdout.on('data', (d: Buffer) => {
       if (stdout.length < MAX_OUTPUT_BYTES) stdout += d.toString('utf8')
     })

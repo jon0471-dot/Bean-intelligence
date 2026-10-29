@@ -35,21 +35,61 @@ function normalizeSentence(s: string): string {
     .trim()
 }
 
-/** Headings, quotes, tables and list bullets keep their line structure. */
+/**
+ * Numbered list items ("1. ", "2) ") keep their line structure — deduped as
+ * WHOLE LINES only. They must never flow through the prose splitter:
+ * "2. First step" split as prose yields the fragments "2." + "First step",
+ * and removing the duplicated fragment corrupts the numbering (measured
+ * defect). Numbering is sequential semantics, so even an item whose text
+ * repeats an earlier item stays (the repeat may be intentional restatement
+ * under a new step).
+ */
+const NUMBERED_ITEM_RE = /^\s*\d{1,3}[.)]\s/
+
+/**
+ * Headings, quotes and table rows: structural, deduped as whole lines.
+ */
 function isStructuralLine(line: string): boolean {
   return /^\s*(#|>|\|)/.test(line)
 }
 
 /**
  * Sentence splitter shared by the audits: split after ., !, ? but NOT after
- * a person-initial ("C. Joseph Vijay") — a single capital letter + period is
- * an abbreviation, not a sentence end.
+ * an abbreviation chain ("M.K. Stalin", "C. Joseph Vijay", "the U.S. government").
+ *
+ * Implementation: split on every sentence-ender, then MERGE fragments that
+ * consist ONLY of single-capital initials ("M.", "K.", "U.S." -> "M.", "K.")
+ * with the fragment that follows them. A lookbehind alone cannot express
+ * this: `(?<![A-Z]\.)` correctly protects "M.K." but also wrongly glues
+ * sentences ending in an acronym ("...leads the DMK. M.K. Stalin..." never
+ * split, measured defect), while a "word-initial capital" guard is
+ * ambiguous for exactly the initials this splitter exists to protect.
  */
 export function splitIntoSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])(?<![A-Z]\.)\s+/)
+  const pieces = text
+    .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
+  const out: string[] = []
+  for (const piece of pieces) {
+    const prev = out[out.length - 1]
+    // A fragment that begins after an abbreviation boundary is a CONTINUATION,
+    // not a new sentence. Two shapes are re-joined:
+    //  - prev is purely an initial chain ("M.K." + "Stalin is ...");
+    //  - prev ends with an abbreviation token ("The U.S." + "government ...",
+    //    "See e.g." + "reports ...") — single letters/groups separated by
+    //    periods cannot end a sentence. An acronym like "DMK." is a real
+    //    final word (D,M,K before the period) and still ends the sentence.
+    if (
+      prev !== undefined &&
+      /(?:^|\s)(?:[A-Za-z]\.)+$/.test(prev)
+    ) {
+      out[out.length - 1] = `${prev} ${piece}`
+      continue
+    }
+    out.push(piece)
+  }
+  return out
 }
 
 /**
@@ -69,8 +109,9 @@ export function removeDuplicateSentences(content: string): { text: string; remov
         .split('\n')
         .map((line) => {
           if (line.trim().length === 0) return line
-          if (isStructuralLine(line)) {
-            // Structural lines dedupe as whole lines (exact repeats only).
+          if (isStructuralLine(line) || NUMBERED_ITEM_RE.test(line)) {
+            // Structural lines and numbered items dedupe as whole lines
+            // (exact repeats only) — never at fragment granularity.
             const key = normalizeSentence(line)
             if (key.length === 0) return line
             if (seenLines.has(key)) {
@@ -80,10 +121,14 @@ export function removeDuplicateSentences(content: string): { text: string; remov
             seenLines.add(key)
             return line
           }
-          // Prose line: dedupe at sentence granularity. Fragments with no
-          // letters/digits at all (e.g. a bare citation marker left after a
-          // duplicate was removed) carry no content and are dropped.
-          const sentences = splitIntoSentences(line)
+          // Bulleted items ("- point") keep their marker, but their CONTENT
+          // joins the same sentence-dedupe space as prose: a bullet and a
+          // later prose sentence repeating the same claim are duplicates.
+          // Numbered items never reach this branch (see NUMBERED_ITEM_RE).
+          const bullet = /^\s*[-*+]\s+/.exec(line)
+          const body = bullet ? line.slice(bullet[0].length) : line
+          const prefix = bullet ? bullet[0] : ''
+          const sentences = splitIntoSentences(body)
           const kept: string[] = []
           for (const s of sentences) {
             const key = normalizeSentence(s)
@@ -95,8 +140,12 @@ export function removeDuplicateSentences(content: string): { text: string; remov
             seenSentences.add(key)
             kept.push(s)
           }
-          if (kept.length === 0) return null // whole line was duplicates
-          return kept.join(' ')
+          if (kept.length === 0) {
+            // Whole line was duplicates (or a bare citation marker left
+            // after its duplicate was removed) — no content, drop it.
+            return null
+          }
+          return prefix + kept.join(' ')
         })
         .filter((l) => l !== null)
         .join('\n')

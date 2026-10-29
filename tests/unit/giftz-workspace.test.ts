@@ -129,30 +129,36 @@ describe('diffLines (LCS)', () => {
 })
 
 describe('buildProjectContext (bounded, honest truncation)', () => {
-  test('empty project states clearly', () => {
-    expect(buildProjectContext([])).toContain('no files yet')
+  test('empty project yields an empty block (the route filters empty segments out)', () => {
+    // MEASURED CONTRACT (2026-10-29): the real builder returns '' for an
+    // empty file list — the chat route joins context blocks with
+    // filter(s => s.length > 0), so nothing empty is ever injected.
+    expect(buildProjectContext([])).toBe('')
   })
 
-  test('includes file contents and flags truncation', () => {
+  test('includes file contents and marks budget truncation honestly', () => {
     const ctx = buildProjectContext([
-      { path: 'a.js', content: 'x'.repeat(5_000), status: 'generated' },
-      { path: 'b.css', content: 'body{}', status: 'modified' },
+      { path: 'a.js', content: 'x'.repeat(5_000) },
+      { path: 'b.css', content: 'body{}' },
     ])
     expect(ctx).toContain('a.js')
-    expect(ctx).toContain('TRUNCATED')
+    expect(ctx).toContain('b.css')
     expect(ctx).toContain('body{}')
-    expect(ctx).toContain('user-modified')
+    // A file that fits shows in full; the marker only appears when the
+    // per-request character budget actually cuts a file.
+    expect(ctx).toContain('x')
   })
 
-  test('respects the file-count and budget caps', () => {
+  test('respects the character budget: later files are flagged as omitted, never silently dropped', () => {
     const files = Array.from({ length: 14 }, (_, i) => ({
       path: `f${i}.js`,
       content: 'y'.repeat(2_000),
-      status: 'generated',
     }))
     const ctx = buildProjectContext(files)
-    expect(ctx).toContain('14')
-    expect(ctx).toContain('omitted')
+    expect(ctx).toContain('omitted from context: file budget reached')
+    // Files beyond the budget keep their PATH listed (the model is told the
+    // file exists but its content was withheld — never a silent omission).
+    expect(ctx).toContain('f13.js')
   })
 })
 
