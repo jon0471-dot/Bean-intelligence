@@ -34,7 +34,10 @@ export interface EvidenceSourceView {
 
 export interface VerificationCheckView {
   check: string // human label
-  status: 'passed' | 'failed' | 'warning' | 'not_applicable'
+  /** 'incomplete' = the check could not run (e.g. the claim check was
+   *  unavailable) — a visible honest gap, distinct from a failure (the check
+   *  ran and found a problem) and from a warning (ran, found a caveat). */
+  status: 'passed' | 'failed' | 'warning' | 'incomplete' | 'not_applicable'
   detail: string
 }
 

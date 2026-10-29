@@ -1,16 +1,23 @@
 /**
- * Research provider error classification + bounded retry.
+ * Research provider error classification at the upstream boundary.
  *
- * Proves the explicit upstream-failure contract added after the measured
- * 502 diagnosis:
- *   - transient failures (429 / 5xx) get exactly ONE bounded retry;
- *   - a retry that succeeds returns real results (no fabrication);
- *   - a retry that fails again surfaces a TYPED error carrying the real
- *     provider reason (never a generic "unavailable");
- *   - timeouts and malformed payloads are NOT retried (they would double
- *     the latency budget for no benefit).
+ * MEASURED CONTRACT (rewritten 2026-10-29 for the upstream-429 root-cause
+ * fix): the provider makes EXACTLY ONE attempt per call — there is no retry
+ * at this layer anymore. A 429 opens the per-endpoint-class cooldown breaker
+ * (a retry here would fire into an actively throttling gateway; the bounded
+ * transient-failure retry lives one layer up, in the pipeline, and is covered
+ * by research-retry.test.ts). Typed failures:
+ *   - 429         -> UpstreamRateLimitError (attempted=true) + breaker opens
+ *   - breaker open -> UpstreamRateLimitError (attempted=false), ZERO network
+ *   - 401/403     -> UpstreamAuthError; 402 -> UpstreamBillingError
+ *   - timeout     -> ResearchToolError (timeout wording), NOT retried
+ *   - other/malformed -> ResearchToolError with the REAL provider text
+ *
+ * Only the SDK boundary is scripted; the provider code under test is the
+ * real production module. The breaker is process-global, so every test
+ * resets it first.
  */
-import { describe, test, expect, mock } from 'bun:test'
+import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test'
 
 /** Scripted SDK: each tool call consumes the next behavior in the script. */
 function scriptedZai(script: Array<() => unknown>) {
@@ -41,39 +48,85 @@ const SEARCH_OK = [
 
 // Import AFTER the mock registers.
 const { webSearch, readPage, ResearchToolError } = await import('../../src/lib/research/provider')
+const {
+  UpstreamRateLimitError,
+  UpstreamAuthError,
+  UpstreamBillingError,
+  _resetUpstreamCooldownForTests,
+} = await import('../../src/lib/upstream/gateway')
 
-describe('provider failure classification + bounded retry', () => {
-  test('429 then success: one bounded retry recovers real results', async () => {
+beforeEach(() => {
+  _resetUpstreamCooldownForTests()
+})
+
+afterEach(() => {
+  // Never leak an open breaker into other test files in the same process.
+  _resetUpstreamCooldownForTests()
+})
+
+describe('provider failure classification (one attempt, typed errors, breaker)', () => {
+  test('429 is a typed rate_limited error with the real reason, EXACTLY ONE attempt (no retry into a throttle)', async () => {
     const calls = mockSdk([
       () => new Error('Function invoke failed with status 429: {"error":"Too many requests"}'),
       () => SEARCH_OK,
-    ])
-    const results = await webSearch('current office holder', { num: 3 })
-    expect(calls()).toBe(2)
-    expect(results).toHaveLength(1)
-    expect(results[0].url).toBe('https://example.gov/office')
-  })
-
-  test('429 twice: typed rate_limited error with the real reason, exactly two attempts', async () => {
-    const calls = mockSdk([
-      () => new Error('Function invoke failed with status 429: {"error":"Too many requests"}'),
-      () => new Error('Function invoke failed with status 429: {"error":"Too many requests"}'),
     ])
     try {
       await webSearch('current office holder')
       throw new Error('expected webSearch to reject')
     } catch (e) {
-      expect(e).toBeInstanceOf(ResearchToolError)
-      const err = e as InstanceType<typeof ResearchToolError>
-      expect(err.kind).toBe('rate_limited')
+      expect(e).toBeInstanceOf(UpstreamRateLimitError)
+      const err = e as InstanceType<typeof UpstreamRateLimitError>
+      expect(err.endpointClass).toBe('functions')
+      expect(err.attempted).toBe(true)
       expect(err.message).toContain('429')
+    }
+    expect(calls()).toBe(1) // one attempt — the second scripted step is never consumed
+  })
+
+  test('an observed 429 opens the breaker: the next call fails fast with ZERO network traffic', async () => {
+    const calls = mockSdk([
+      () => new Error('Function invoke failed with status 429: {"error":"Too many requests"}'),
+    ])
+    await webSearch('first').catch(() => undefined)
+    expect(calls()).toBe(1)
+
+    try {
+      await webSearch('second within cooldown')
+      throw new Error('expected webSearch to reject')
+    } catch (e) {
+      expect(e).toBeInstanceOf(UpstreamRateLimitError)
+      const err = e as InstanceType<typeof UpstreamRateLimitError>
+      expect(err.attempted).toBe(false) // deferred, never sent
+      expect(err.message).toContain('not attempted')
+    }
+    expect(calls()).toBe(1) // breaker absorbed the second call — no new traffic
+  })
+
+  test('auth (401) and billing (402) are typed distinctly and do NOT open the breaker', async () => {
+    const calls = mockSdk([
+      () => new Error('Function invoke failed with status 401: {"error":"unauthorized"}'),
+      () => new Error('Function invoke failed with status 402: {"error":"payment required"}'),
+    ])
+    try {
+      await webSearch('a')
+      throw new Error('expected webSearch to reject')
+    } catch (e) {
+      expect(e).toBeInstanceOf(UpstreamAuthError)
+      expect((e as InstanceType<typeof UpstreamAuthError>).status).toBe(401)
+    }
+    // The 401 did not open the breaker: this call reaches the gateway.
+    try {
+      await webSearch('b')
+      throw new Error('expected webSearch to reject')
+    } catch (e) {
+      expect(e).toBeInstanceOf(UpstreamBillingError)
+      expect((e as InstanceType<typeof UpstreamBillingError>).status).toBe(402)
     }
     expect(calls()).toBe(2)
   })
 
-  test('upstream 503 is retried once; if it persists the typed error says so', async () => {
+  test('a non-429 upstream failure (503) stays a ResearchToolError with the REAL provider text, one attempt', async () => {
     const calls = mockSdk([
-      () => new Error('Function invoke failed with status 503: backend unavailable'),
       () => new Error('Function invoke failed with status 503: backend unavailable'),
     ])
     try {
@@ -81,10 +134,10 @@ describe('provider failure classification + bounded retry', () => {
       throw new Error('expected webSearch to reject')
     } catch (e) {
       expect(e).toBeInstanceOf(ResearchToolError)
-      expect((e as InstanceType<typeof ResearchToolError>).kind).toBe('upstream_error')
-      expect((e as InstanceType<typeof ResearchToolError>).message).toContain('503')
+      expect((e as InstanceType<typeof ResearchToolError>).tool).toBe('web_search')
+      expect((e as Error).message).toContain('503')
     }
-    expect(calls()).toBe(2)
+    expect(calls()).toBe(1) // the bounded 5xx retry lives in the pipeline layer, not here
   })
 
   test('timeout is NOT retried (one attempt only)', async () => {
@@ -99,9 +152,7 @@ describe('provider failure classification + bounded retry', () => {
       throw new Error('expected webSearch to reject')
     } catch (e) {
       expect(e).toBeInstanceOf(ResearchToolError)
-      const err = e as InstanceType<typeof ResearchToolError>
-      expect(err.kind).toBe('timeout')
-      expect(err.message).toContain('timed out after 200ms')
+      expect((e as Error).message).toContain('timed out after 200ms')
     }
     expect(calls()).toBe(1)
   }, 10_000)
@@ -113,7 +164,7 @@ describe('provider failure classification + bounded retry', () => {
       throw new Error('expected webSearch to reject')
     } catch (e) {
       expect(e).toBeInstanceOf(ResearchToolError)
-      expect((e as InstanceType<typeof ResearchToolError>).kind).toBe('malformed')
+      expect((e as Error).message).toContain('Malformed search response')
     }
     expect(calls()).toBe(1)
   })
@@ -125,9 +176,16 @@ describe('provider failure classification + bounded retry', () => {
       throw new Error('expected readPage to reject')
     } catch (e) {
       expect(e).toBeInstanceOf(ResearchToolError)
-      expect((e as InstanceType<typeof ResearchToolError>).kind).toBe('malformed')
       expect((e as InstanceType<typeof ResearchToolError>).tool).toBe('page_reader')
     }
     expect(calls()).toBe(1)
+  })
+
+  test('a healthy response passes through unchanged (no extra provider call)', async () => {
+    const calls = mockSdk([() => SEARCH_OK])
+    const results = await webSearch('current office holder', { num: 3 })
+    expect(calls()).toBe(1)
+    expect(results).toHaveLength(1)
+    expect(results[0].url).toBe('https://example.gov/office')
   })
 })

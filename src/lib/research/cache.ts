@@ -103,10 +103,29 @@ export function getSearchCache<T>(
   }
 }
 
+/**
+ * Page-cache key: canonicalized so the same logical page fetched through
+ * different URL spellings (www prefix, #fragment, trailing scheme casing)
+ * shares one entry — page reads are the most expensive calls in the pipeline
+ * and a fragmented cache would re-pay them. Query strings are kept (they can
+ * change page content).
+ */
+function pageCacheKey(url: string): string {
+  try {
+    const u = new URL(url)
+    u.hash = ''
+    if (u.hostname.startsWith('www.')) u.hostname = u.hostname.slice(4)
+    return u.toString()
+  } catch {
+    return url // not a parseable URL — fall back to the raw string
+  }
+}
+
 /** Read a cached page fetch (10-minute TTL, content moves slower than rankings). */
 export function getPageCache<T>(url: string): CachedResult<T> | MissToken<T> {
   const map = store().page ?? (store().page = new Map())
-  const entry = map.get(url)
+  const key = pageCacheKey(url)
+  const entry = map.get(key)
   if (entry && Date.now() - entry.at < PAGE_TTL_MS) {
     return {
       value: entry.value as T,
@@ -118,7 +137,7 @@ export function getPageCache<T>(url: string): CachedResult<T> | MissToken<T> {
   return {
     hit: false,
     put: (value: T) => {
-      map.set(url, { value, at: Date.now() })
+      map.set(key, { value, at: Date.now() })
       evictOldest(map, MAX_ENTRIES)
     },
   }

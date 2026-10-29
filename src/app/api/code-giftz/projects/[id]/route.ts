@@ -23,22 +23,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return ok({
       project: {
         id: project.id,
-        name: project.name,
+        // Schema truth (2026-10-29): CodeProject stores the display name in
+        // `title`; files carry `origin` (generated|modified) — there is no
+        // version column; messages keep their changes summary in `metaJson`.
+        title: project.title,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
         files: project.files.map((f) => ({
           id: f.id,
           path: f.path,
           content: f.content,
-          status: f.status,
-          version: f.version,
+          origin: f.origin,
           updatedAt: f.updatedAt,
         })),
         messages: project.messages.map((m) => ({
           id: m.id,
           role: m.role,
           content: m.content,
-          metadata: m.metadata,
+          metaJson: m.metaJson,
           createdAt: m.createdAt,
         })),
       },
