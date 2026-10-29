@@ -1,0 +1,134 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["Who is the Chief Minister of Tamil Nadu","Who is the Chief Minister of Tamil Nadu India"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"The","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" current","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" Chief","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" Minister","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" of","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" Tamil","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" Nadu","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" is","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" Th","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"ir","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"u","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" C","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":".","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" Joseph","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" Vij","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"ay","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":",","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" who","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" has","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" been","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" serving","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" in","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" this","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" position","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" since","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" May","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" ","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"10","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":",","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" ","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"202","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"6","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" [","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"3","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":",","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" ","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"4","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"].","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" He","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" is","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" a","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" politician","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" and","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" former","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" actor","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" who","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" was","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" sworn","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" in","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" as","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" the","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" ","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"9","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"th","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" chief","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" minister","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" of","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" Tamil","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" Nadu","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":" [","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"3","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"delta":"].","conversationId":"cmvrpflng003lr4o7v3y681nc"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrpflng003lr4o7v3y681nc","durationMs":6906,"partial":false,"messageId":"cmvrpfqza003pr4o771v6lgu0","firstTokenMs":6544,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":3,"title":"C. Joseph Vijay","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay","hostName":"en.wikipedia.org","date":null,"official":false,"pageRead":false},{"id":4,"title":"Vijay | Chief Minister, 2026 Tamil Nadu Election Results","url":"https://www.britannica.com/biography/Vijay-actor","hostName":"www.britannica.com","date":"Sep 22, 2026","official":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":5822},{"stage":"verifying","durationMs":4}],"degraded":[],"retrievedAt":"2026-10-28T05:59:34.485Z","timings":{"totalMs":6902,"understandMs":0,"researchMs":5822,"searchMs":3942,"pageReadMs":1855,"solveTtftMs":722,"solveMs":1076,"verifyMs":4,"solvePasses":1}}}
+

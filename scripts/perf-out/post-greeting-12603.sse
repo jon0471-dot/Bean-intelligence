@@ -1,0 +1,52 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Hello","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":"!","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" I","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":"'m","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" RI","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":"IS","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":"HE","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":",","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" the","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" AI","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" assistant","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" from","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" BE","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":"AN","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" Intelligence","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":".","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" How","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" can","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" I","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" help","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" you","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":" today","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"delta":"?","conversationId":"cmvrpwuoa004tr4o7056suokv"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrpwuoa004tr4o7056suokv","durationMs":625,"partial":false,"messageId":"cmvrpwv5p004xr4o77tfcttxq","firstTokenMs":586,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":2}],"degraded":["search not warranted: greeting/small talk"],"timings":{"totalMs":620,"understandMs":5,"researchMs":null,"solveTtftMs":580,"solveMs":613,"verifyMs":2,"solvePasses":1}}}
+

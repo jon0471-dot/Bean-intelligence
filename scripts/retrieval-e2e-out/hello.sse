@@ -1,0 +1,24 @@
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Hello","conversationId":"cmvrobf6t0005r4o77bu3wd4t"}
+
+data: {"delta":"!","conversationId":"cmvrobf6t0005r4o77bu3wd4t"}
+
+data: {"delta":" How","conversationId":"cmvrobf6t0005r4o77bu3wd4t"}
+
+data: {"delta":" can","conversationId":"cmvrobf6t0005r4o77bu3wd4t"}
+
+data: {"delta":" I","conversationId":"cmvrobf6t0005r4o77bu3wd4t"}
+
+data: {"delta":" help","conversationId":"cmvrobf6t0005r4o77bu3wd4t"}
+
+data: {"delta":" you","conversationId":"cmvrobf6t0005r4o77bu3wd4t"}
+
+data: {"delta":" today","conversationId":"cmvrobf6t0005r4o77bu3wd4t"}
+
+data: {"delta":"?","conversationId":"cmvrobf6t0005r4o77bu3wd4t"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvrobf6t0005r4o77bu3wd4t","durationMs":523,"partial":false,"messageId":"cmvrobflb0009r4o75waske5s","meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: greeting/small talk"]}}
+

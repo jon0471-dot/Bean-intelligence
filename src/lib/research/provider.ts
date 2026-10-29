@@ -14,6 +14,17 @@
  */
 import ZAI from 'z-ai-web-dev-sdk'
 import type { SearchFunctionResultItem } from 'z-ai-web-dev-sdk'
+import type { HealthReport } from '@/lib/adapters/types'
+import {
+  classifyUpstreamError,
+  noteUpstream429,
+  noteUpstreamSkip,
+  upstreamCoolingDown,
+  UpstreamAuthError,
+  UpstreamBillingError,
+  UpstreamRateLimitError,
+  type UpstreamEndpointClass,
+} from '@/lib/upstream/gateway'
 
 export interface WebSearchResult {
   url: string
@@ -50,6 +61,54 @@ export class ResearchToolError extends Error {
   }
 }
 
+/**
+ * Normalize ANY error from an upstream SDK call into the typed boundary:
+ *  - HTTP 429  -> UpstreamRateLimitError + the class's cooldown breaker opens
+ *    (measured: the throttle window lasts minutes — firing more requests into
+ *    it only deepens the throttle, so the breaker fails callers fast while
+ *    open; expiry is verified by a real probe call, never assumed).
+ *  - 401/403   -> UpstreamAuthError, 402 -> UpstreamBillingError (operator /
+ *    account action, distinct from throttling — never mislabeled).
+ *  - everything else stays a ResearchToolError with the REAL provider text.
+ * No error is ever swallowed or relabeled as success.
+ */
+function normalizeUpstreamError(
+  endpointClass: UpstreamEndpointClass,
+  tool: 'web_search' | 'page_reader',
+  e: unknown,
+): Error {
+  if (e instanceof ResearchToolError) return e // internal timeout guard keeps its own label
+  const failure = classifyUpstreamError(e)
+  const raw = e instanceof Error ? e.message : String(e)
+  if (failure.kind === 'rate_limited') {
+    noteUpstream429(endpointClass)
+    return new UpstreamRateLimitError(
+      endpointClass,
+      `${tool} is rate-limited upstream (HTTP 429): ${raw.slice(0, 200)}`,
+    )
+  }
+  if (failure.kind === 'auth') {
+    return new UpstreamAuthError(`${tool} failed: gateway rejected credentials (HTTP ${failure.status}): ${raw.slice(0, 200)}`, failure.status ?? 401)
+  }
+  if (failure.kind === 'billing') {
+    return new UpstreamBillingError(`${tool} failed: gateway refused for account reasons (HTTP ${failure.status}): ${raw.slice(0, 200)}`, failure.status ?? 402)
+  }
+  return new ResearchToolError(tool, `${tool} failed: ${raw.slice(0, 300)}`)
+}
+
+/** Fail fast (no network) while the class's cooldown breaker is open. */
+function assertGatewayOpen(endpointClass: UpstreamEndpointClass, tool: 'web_search' | 'page_reader'): void {
+  if (upstreamCoolingDown(endpointClass)) {
+    noteUpstreamSkip(endpointClass)
+    throw new UpstreamRateLimitError(
+      endpointClass,
+      `${tool} not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); ` +
+        `call skipped to avoid worsening the throttle`,
+      false,
+    )
+  }
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, tool: 'web_search' | 'page_reader'): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
@@ -63,6 +122,7 @@ export async function webSearch(query: string, opts: WebSearchOptions = {}): Pro
   const trimmed = query.trim()
   if (!trimmed) throw new ResearchToolError('web_search', 'Empty search query.')
   if (trimmed.length > 400) throw new ResearchToolError('web_search', 'Search query too long.')
+  assertGatewayOpen('functions', 'web_search')
   const zai = await ZAI.create()
   let raw: SearchFunctionResultItem[]
   try {
@@ -78,8 +138,7 @@ export async function webSearch(query: string, opts: WebSearchOptions = {}): Pro
   } catch (e) {
     // Normalize EVERY failure (raw SDK/network errors included) into the typed
     // error so degraded reports carry the real reason, not a bare "unavailable".
-    if (e instanceof ResearchToolError) throw e
-    throw new ResearchToolError('web_search', `web_search failed: ${e instanceof Error ? e.message : 'unknown error'}`)
+    throw normalizeUpstreamError('functions', 'web_search', e)
   }
 
   if (!Array.isArray(raw)) throw new ResearchToolError('web_search', 'Malformed search response.')
@@ -95,6 +154,64 @@ export async function webSearch(query: string, opts: WebSearchOptions = {}): Pro
     }))
 }
 
+/**
+ * RIISHE research-availability probe (functions endpoint class).
+ *
+ * MEASURED CHANGE (2026-10-29 product-availability audit): /api/health used
+ * to probe ONLY the chat endpoint class, so RIISHE could be reported fully
+ * "Operational" while every current-web research call was being rejected
+ * with HTTP 429 — the two endpoint classes are rate-limited SEPARATELY by
+ * the gateway. This probe measures the functions class with ONE real,
+ * minimal web_search call:
+ *   - breaker open   -> honest "deferred" report, ZERO network traffic
+ *     (the same fail-fast contract as research turns and chat probes);
+ *   - breaker closed -> exactly one search; a 429 opens the breaker
+ *     (recovery is verified by the next real probe, never assumed);
+ *   - success        -> measured healthy with result count + latency.
+ * The query is fixed and trivial; results are NOT used as research evidence.
+ */
+export async function probeResearchHealth(): Promise<HealthReport> {
+  const checkedAt = new Date().toISOString()
+  if (upstreamCoolingDown('functions')) {
+    noteUpstreamSkip('functions')
+    return {
+      healthy: false,
+      checkedAt,
+      // Deferred = no network call was made, so no latency was measured.
+      latencyMs: null,
+      detail:
+        'Research (web_search) deferred: the functions endpoint class is rate-limited upstream (HTTP 429 observed moments ago) and its cooldown breaker is open — no network call was made to avoid worsening the throttle. Recovery is verified by the next real probe.',
+    }
+  }
+  const t0 = Date.now()
+  try {
+    const results = await webSearch('ping', { num: 1, timeoutMs: 10_000 })
+    return {
+      healthy: true,
+      checkedAt,
+      latencyMs: Date.now() - t0,
+      detail: `Research gateway responded to a live web_search probe (${Array.isArray(results) ? results.length : 0} result(s) in ${Date.now() - t0}ms).`,
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    const failure = classifyUpstreamError(e)
+    const detail =
+      failure.kind === 'rate_limited'
+        ? `Research gateway rate-limited (HTTP 429): ${message}`
+        : failure.kind === 'auth'
+          ? `Research gateway rejected credentials (HTTP ${failure.status}): ${message}`
+          : failure.kind === 'billing'
+            ? `Research gateway reports an account/billing restriction (HTTP ${failure.status}): ${message}`
+            : `Research probe failed: ${message}`
+    return {
+      healthy: false,
+      checkedAt,
+      latencyMs: Date.now() - t0,
+      detail,
+    }
+  }
+}
+
 /** Fetch and extract readable text from a page (tags stripped). */
 export async function readPage(url: string, timeoutMs = 25_000): Promise<PageContent> {
   let parsed: URL
@@ -106,6 +223,7 @@ export async function readPage(url: string, timeoutMs = 25_000): Promise<PageCon
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     throw new ResearchToolError('page_reader', 'Only http(s) URLs are supported.')
   }
+  assertGatewayOpen('functions', 'page_reader')
   const zai = await ZAI.create()
   // invoke() is generically typed by the SDK's FunctionMap — no cast needed.
   let raw: { data?: { html?: unknown; url?: unknown; title?: unknown; publishedTime?: unknown } }
@@ -116,8 +234,7 @@ export async function readPage(url: string, timeoutMs = 25_000): Promise<PageCon
       'page_reader',
     )
   } catch (e) {
-    if (e instanceof ResearchToolError) throw e
-    throw new ResearchToolError('page_reader', `page_reader failed: ${e instanceof Error ? e.message : 'unknown error'}`)
+    throw normalizeUpstreamError('functions', 'page_reader', e)
   }
   const html = raw?.data?.html
   if (typeof html !== 'string' || html.length === 0) {
@@ -171,6 +288,29 @@ export function extractPublishedTime(html: string): string | null {
   m = /<time[^>]+datetime=["']([^"']+)["']/i.exec(limited)
   if (m && looksLikeDate(m[1])) return m[1].trim()
 
+  return null
+}
+
+/**
+ * Last-resort publication-date extraction from the ARTICLE TEXT itself
+ * (datelines like "Published: 22 Oct 2026", "Updated: October 23, 2026",
+ * "Posted on 22.10.2026"). Runs only when metadata yielded nothing, so a
+ * date is never guessed from a bare year mention in body copy. Returns the
+ * matched date phrase, or null. Exported pure for unit testing.
+ */
+export function extractDatelineFromText(text: string): string | null {
+  const head = text.slice(0, 2_000)
+  const patterns: RegExp[] = [
+    /\b(?:published|posted|dated)\s*(?:on|:)?\s*((?:\d{1,2}[\s./-])?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*,?\s*(?:\d{1,2}\s*,?\s*)?(?:19|20)\d{2})/i,
+    /\b(?:published|posted|dated)\s*(?:on|:)?\s*((?:19|20)\d{2}[-/.]\d{1,2}[-/.]\d{1,2})/i,
+    /\b(?:published|posted|dated)\s*(?:on|:)?\s*(\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+(?:19|20)\d{2})/i,
+    /\bupdated\s*(?:on|:)?\s*((?:\d{1,2}[\s./-])?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*,?\s*(?:\d{1,2}\s*,?\s*)?(?:19|20)\d{2})/i,
+    /\bupdated\s*(?:on|:)?\s*(\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+(?:19|20)\d{2})/i,
+  ]
+  for (const re of patterns) {
+    const m = re.exec(head)
+    if (m && looksLikeDate(m[1])) return m[1].replace(/\s+/g, ' ').trim()
+  }
   return null
 }
 

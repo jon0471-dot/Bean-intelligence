@@ -1,0 +1,230 @@
+{
+  "startedAt": "2026-10-27T01:18:53.107Z",
+  "tts": {
+    "wav": {
+      "ok": true,
+      "latencyMs": 1873,
+      "bytes": 266256,
+      "magicHex": "524946460410040057415645",
+      "magicAscii": "RIFF",
+      "wavHeader": {
+        "isRiff": true,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "durationSec": 5.54
+    },
+    "mp3": {
+      "ok": false,
+      "latencyMs": 69,
+      "error": "API request failed with status 400: {\"error\":{\"code\":\"1214\",\"message\":\"不支持当前response_format值\"}}"
+    },
+    "pcm": {
+      "ok": true,
+      "latencyMs": 2029,
+      "bytes": 294880,
+      "magicHex": "00002b00f5006b0238049105",
+      "magicAscii": "··+·",
+      "durationSec": null
+    }
+  },
+  "ttsVoices": {
+    "tongtong": {
+      "ok": true,
+      "latencyMs": 678,
+      "bytes": 66576,
+      "durationSec": 1.38
+    },
+    "chuichui": {
+      "ok": true,
+      "latencyMs": 1037,
+      "bytes": 76176,
+      "durationSec": 1.58
+    },
+    "xiaochen": {
+      "ok": true,
+      "latencyMs": 1029,
+      "bytes": 70416,
+      "durationSec": 1.46
+    },
+    "jam": {
+      "ok": true,
+      "latencyMs": 882,
+      "bytes": 78096,
+      "durationSec": 1.62
+    },
+    "kazi": {
+      "ok": true,
+      "latencyMs": 1378,
+      "bytes": 141456,
+      "durationSec": 2.94
+    },
+    "douji": {
+      "ok": true,
+      "latencyMs": 904,
+      "bytes": 121296,
+      "durationSec": 2.52
+    },
+    "luodo": {
+      "ok": true,
+      "latencyMs": 1256,
+      "bytes": 155856,
+      "durationSec": 3.24
+    },
+    "__invalid_voice__": {
+      "ok": false,
+      "latencyMs": 81,
+      "error": "API request failed with status 400: {\"error\":{\"code\":\"1214\",\"message\":\"音色不存在\"}}"
+    }
+  },
+  "ttsSpeed": {
+    "2": {
+      "ok": true,
+      "durationSec": 1.241667,
+      "bytes": 59936
+    },
+    "0.5": {
+      "ok": true,
+      "durationSec": 4.989708,
+      "bytes": 239842
+    },
+    "1.5": {
+      "ok": true,
+      "durationSec": 1.662792,
+      "bytes": 80150
+    },
+    "0.3": {
+      "ok": false,
+      "error": "API request failed with status 400: {\"error\":{\"code\":\"1210\",\"message\":\"API 调用参数有误，请检查文档。\"}}"
+    }
+  },
+  "ttsVolume": {
+    "ok": false,
+    "error": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+  },
+  "ttsLimit1024": {
+    "ok": false,
+    "error": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+  },
+  "ttsLimit1025": {
+    "ok": false,
+    "error": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+  },
+  "asr": {
+    "wavRoundTrip": {
+      "ok": false,
+      "latencyMs": 11,
+      "error": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+      "expected": "BEAN Intelligence audio probe. GANGZII will speak this line for verification.",
+      "got": null
+    }
+  },
+  "asrContainers": {
+    "webmOpus": {
+      "converted": true,
+      "ok": false,
+      "latencyMs": 10,
+      "error": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+      "got": null
+    },
+    "m4aAac": {
+      "converted": true,
+      "ok": false,
+      "latencyMs": 7,
+      "error": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+      "got": null
+    },
+    "oggVorbis": {
+      "converted": true,
+      "ok": false,
+      "latencyMs": 7,
+      "error": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+      "got": null
+    },
+    "flac": {
+      "converted": true,
+      "ok": false,
+      "latencyMs": 8,
+      "error": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+      "got": null
+    }
+  },
+  "chunkedAssembly": {
+    "ok": false,
+    "error": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+  },
+  "finishedAt": "2026-10-27T01:19:09.798Z",
+  "summary": {
+    "ttsWav": true,
+    "ttsMp3": false,
+    "ttsPcm": true,
+    "asrRoundTrip": true,
+    "chunkedAssembly": true,
+    "verdict": "One or more audio backends FAILED — do not claim capability.",
+    "volumeParam": true,
+    "limit1024": true,
+    "limit1025Rejected": true
+  },
+  "part2": {
+    "startedAt": "2026-10-27T01:20:07.075Z",
+    "volume": {
+      "ok": true,
+      "bytes": 68496
+    },
+    "limit1024": {
+      "ok": true,
+      "bytes": 7020816
+    },
+    "limit1025": {
+      "ok": false,
+      "error": "API request failed with status 400: {\"error\":{\"code\":\"1214\",\"message\":\"input:input length cannot exceed 1024 characters.\"}}"
+    },
+    "asrWavRoundTrip": {
+      "ok": true,
+      "latencyMs": 470,
+      "error": null,
+      "expected": "BEAN Intelligence audio probe. GANGZII will speak this line for verification.",
+      "got": "Bean Intelligence Audio Probe, Gensai will speak this line for verification."
+    },
+    "asrContainers": {
+      "webmOpus": {
+        "ok": true,
+        "latencyMs": 475,
+        "error": null,
+        "got": "Bean Intelligence Audio Probe, Gensai will speak this line for verification."
+      },
+      "m4aAac": {
+        "ok": false,
+        "latencyMs": 10,
+        "error": "API request failed with status 400: {\"error\":\"Audio format conversion failed: unsupported audio format: unknown, only WAV and WebM are supported\"}",
+        "got": null
+      },
+      "oggVorbis": {
+        "ok": false,
+        "latencyMs": 9,
+        "error": "API request failed with status 400: {\"error\":\"Audio format conversion failed: unsupported audio format: unknown, only WAV and WebM are supported\"}",
+        "got": null
+      },
+      "flac": {
+        "ok": false,
+        "latencyMs": 11,
+        "error": "API request failed with status 400: {\"error\":\"Audio format conversion failed: unsupported audio format: unknown, only WAV and WebM are supported\"}",
+        "got": null
+      }
+    },
+    "chunkedAssembly": {
+      "ok": true,
+      "chunkLatenciesMs": [
+        2002,
+        1729
+      ],
+      "assembledBytes": 476524,
+      "assembledDurationSec": 9.926667,
+      "asrText": "This is the first chunk of the long text assembly test, and this is the second chunk appended after the first one.",
+      "asrError": null,
+      "asrHearsBothChunks": true
+    },
+    "finishedAt": "2026-10-27T01:22:25.479Z"
+  }
+}

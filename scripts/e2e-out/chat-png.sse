@@ -1,0 +1,14 @@
+data: {"started":true,"conversationId":"cmvp30gfa004ttpnnhd87qmky"}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"conversationId":"cmvp30gfa004ttpnnhd87qmky","userMessageId":"cmvp30gff004vtpnnlb83r9ri"}
+
+data: {"delta":"Based on the attached image, the exact revenue number written on it is **4.2 million USD**.","conversationId":"cmvp30gfa004ttpnnhd87qmky"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvp30gfa004ttpnnhd87qmky","durationMs":1564,"partial":false,"messageId":"cmvp30hms004xtpnn9omiykgv","userMessageId":"cmvp30gff004vtpnnlb83r9ri","content":"Based on the attached image, the exact revenue number written on it is **4.2 million USD**.","meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"tools","durationMs":719},{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge; semantic router: Revenue number is a static value from an image."],"searchMode":"auto"}}
+

@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, MessageSquareText, Image as ImageIcon, Video, Code2, Sparkles } from 'lucide-react'
 import { beanFetch, GoldBadge, StatusDot, type BeanProductPublic } from './shared'
+import { productStatus, type ProductHealthEntry } from '@/lib/registry/status'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { ViewId } from './shell'
 
@@ -16,8 +17,19 @@ const ICONS: Record<string, React.ElementType> = {
   'code-giftz': Code2,
 }
 
+/**
+ * MEASURED CHANGE (2026-10-29): /api/health now reports the separately
+ * probed capabilities per product (research for RIISHE, sandbox for CODE
+ * GIFTZ). The dashboard maps them with the EXISTING badge atoms only:
+ * Operational (green) / Degraded (gold) / Unavailable (red) — no new styles.
+ * Degraded means: the product works, but a measured capability (e.g.
+ * current-web research) is failing upstream right now.
+ */
 interface HealthData {
-  products: Record<string, { available: boolean; probe: { detail: string; latencyMs: number | null } }>
+  products: Record<
+    string,
+    ProductHealthEntry & { probe: { detail: string; latencyMs: number | null } }
+  >
 }
 
 export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
@@ -55,35 +67,42 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
           if (!p) return <Skeleton key={i} className="h-44 rounded-xl bg-white/5" />
           const Icon = ICONS[p.id] ?? Sparkles
           const probe = health?.products?.[p.id]
-          const ok = p.available && (probe ? probe.available : true)
+          const status = productStatus(p.available, probe)
           return (
             <button
               key={p.id}
               onClick={() => onNavigate(p.id as ViewId)}
-              className="bean-glass bean-glass-hover group rounded-xl p-5 text-left"
+              className="bean-glass bean-glass-hover group min-w-0 overflow-hidden rounded-xl p-5 text-left"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[rgba(212,175,55,0.25)] bg-[rgba(212,175,55,0.07)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[rgba(212,175,55,0.25)] bg-[rgba(212,175,55,0.07)]">
                     <Icon className="h-5 w-5 text-[#d4af37]" />
                   </div>
-                  <div>
-                    <div className="text-[15px] font-semibold tracking-wide">{p.name}</div>
-                    <div className="text-xs text-white/45">{p.tagline}</div>
+                  <div className="min-w-0">
+                    <div className="break-words text-[15px] font-semibold tracking-wide">{p.name}</div>
+                    <div className="break-words text-xs text-white/45">{p.tagline}</div>
                   </div>
                 </div>
-                {ok ? (
-                  <GoldBadge tone="green"><span className="mr-1 inline-flex items-center gap-1.5"><StatusDot ok pulse={false} />Operational</span></GoldBadge>
-                ) : (
-                  <GoldBadge tone="red"><span className="mr-1 inline-flex items-center gap-1.5"><StatusDot ok={false} />Unavailable</span></GoldBadge>
-                )}
+                <span className="shrink-0 whitespace-nowrap">
+                  {status === 'operational' ? (
+                    <GoldBadge tone="green"><span className="mr-1 inline-flex items-center gap-1.5"><StatusDot ok pulse={false} />Operational</span></GoldBadge>
+                  ) : status === 'degraded' ? (
+                    /* Gold badge, deliberately without a status dot: the existing
+                       StatusDot only encodes ok/not-ok (green/red), and a degraded
+                       product is neither — the text carries the state. */
+                    <GoldBadge tone="gold">Degraded</GoldBadge>
+                  ) : (
+                    <GoldBadge tone="red"><span className="mr-1 inline-flex items-center gap-1.5"><StatusDot ok={false} />Unavailable</span></GoldBadge>
+                  )}
+                </span>
               </div>
-              <p className="mt-3 min-h-[40px] text-[13px] leading-relaxed text-white/55">{p.description}</p>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="text-[11px] text-white/35">
+              <p className="mt-3 min-h-[40px] break-words text-[13px] leading-relaxed text-white/55">{p.description}</p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <span className="whitespace-nowrap text-[11px] text-white/35">
                   {probe ? (probe.probe.latencyMs != null ? `probe ${probe.probe.latencyMs}ms` : 'probe —') : ''}
                 </span>
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-[#f0c75e] opacity-70 transition-opacity group-hover:opacity-100">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-[#f0c75e] opacity-70 transition-opacity group-hover:opacity-100">
                   Open workspace <ArrowRight className="h-3.5 w-3.5" />
                 </span>
               </div>

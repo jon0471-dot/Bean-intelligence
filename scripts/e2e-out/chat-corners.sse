@@ -1,0 +1,22 @@
+data: {"started":true,"conversationId":"cmvp30hpj0051tpnnqjb6ym5l"}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"tool":{"type":"tool","name":"analyze_image","status":"started"}}
+
+data: {"tool":{"type":"tool","name":"analyze_image","status":"done"}}
+
+data: {"type":"stage","stage":"solving"}
+
+: ping 5000ms
+
+data: {"conversationId":"cmvp30hpj0051tpnnqjb6ym5l","userMessageId":"cmvp30hqf0053tpnn3rimzbjc"}
+
+data: {"delta":"Based on my analysis of the image, the corners of the border frame are **sharp/square** (90-degree angles), not rounded. The gold/yellow border forms a perfect rectangle with crisp, right-angled corners at all four corners of the image.","conversationId":"cmvp30hpj0051tpnnqjb6ym5l"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvp30hpj0051tpnnqjb6ym5l","durationMs":5145,"partial":false,"messageId":"cmvp30lp90055tpnnvtmd2tgn","userMessageId":"cmvp30hqf0053tpnn3rimzbjc","content":"Based on my analysis of the image, the corners of the border frame are **sharp/square** (90-degree angles), not rounded. The gold/yellow border forms a perfect rectangle with crisp, right-angled corners at all four corners of the image.","meta":{"states":["UNVERIFIED"],"sources":[],"verification":[{"check":"tool: analyze_image","status":"passed","detail":"executed server-side in 1514ms"}],"stages":[{"stage":"tools","durationMs":4381},{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge; semantic router: Image analysis of static visual elements"],"toolRuns":[{"tool":"analyze_image","ok":true,"durationMs":1514}],"searchMode":"auto"}}
+

@@ -1,0 +1,31 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-audio-asr-hosted-primary",
+  "product": "gangzii",
+  "task": "audio-transcription",
+  "status": "deployed",
+  "deploymentMode": "authorized-hosted",
+  "provider": "Z.ai authorized hosted inference gateway",
+  "modelIdentity": "Provider-managed speech recognition model; exact checkpoint not disclosed to tenant",
+  "revision": null,
+  "endpointType": "managed-sdk",
+  "capabilities": {
+    "transcription": true,
+    "timestamps": false,
+    "speakerDiarization": false,
+    "wordTimings": false,
+    "inputFormats": ["wav", "webm"],
+    "note": "Gateway error text (measured 2026-10-27): 'only WAV and WebM are supported'. m4a/ogg/flac/mp3 rejected upstream; BEAN enforces the same allowlist pre-upload via magic bytes."
+  },
+  "limits": {
+    "maxUploadBytes": 26214400,
+    "maxDurationNote": "no upstream duration contract; BEAN caps upload at 25 MB",
+    "typicalLatencyMs": 500
+  },
+  "verifiedProbes": [
+    { "date": "2026-10-27", "test": "WAV round-trip (TTS output transcribed)", "result": "PASS", "latencyMs": 470, "note": "minor homophone variance on brand name, expected ASR behavior" },
+    { "date": "2026-10-27", "test": "WebM/Opus (browser MediaRecorder container)", "result": "PASS", "latencyMs": 475 },
+    { "date": "2026-10-27", "test": "m4a / ogg / flac", "result": "FAIL — upstream rejects: only WAV and WebM supported" }
+  ],
+  "license": { "name": "platform inference agreement", "sourceUrl": "https://z.ai", "verifiedAt": "2026-10-27" }
+}

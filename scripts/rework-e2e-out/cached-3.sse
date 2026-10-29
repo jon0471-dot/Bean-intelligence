@@ -1,0 +1,428 @@
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["What is the latest stable version of Node.js right now?"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Based","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" on","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" provided","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" evidence","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" I","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" can","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"'t","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" definit","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"ively","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" determine","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" absolute","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" latest","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" stable","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" version","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" of","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Node","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".js","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" right","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" now","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" because","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" newest","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" source","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" is","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" from","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" ","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"202","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"2","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" [","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"5","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"],","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" and","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Node","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".js","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" releases","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" new","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" versions","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" regularly","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".\n\n","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"However","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" I","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" can","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" share","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" what","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" evidence","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" tells","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" us","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" about","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Node","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".js","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" version","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"ing","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":":\n\n","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"-","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Histor","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"ically","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" odd","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"-number","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"ed","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" releases","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" (","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"like","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" ","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"9","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" ","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"11","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":")","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" became","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" unsupported","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" after","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" six","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" months","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" while","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" even","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"-number","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"ed","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" releases","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" (","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"like","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" ","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"10","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" ","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"12","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":")","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" moved","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" to","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Active","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" LTS","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" status","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" [","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"1","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"].\n","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"-","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Starting","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" with","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Node","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".js","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" ","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"27","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" release","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" cycle","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" will","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" become","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" annual","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" with","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" every","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" major","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" version","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" moving","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" to","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" LTS","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" status","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" after","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" its","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" six","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"-month","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Current","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" phase","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" [","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"1","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"].\n","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"-","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" npm","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" shows","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" version","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" ","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"26","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"12","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"1","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" as","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" latest","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" version","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" listed","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" on","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" their","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" package","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" page","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" [","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"4","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"],","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" but","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" this","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" doesn","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"'t","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" necessarily","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" mean","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" it","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"'s","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" most","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" current","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" version","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" available","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".\n\n","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"For","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" most","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" up","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"-to","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"-date","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" information","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" on","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" latest","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" stable","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Node","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".js","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" version","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" I","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"'d","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" recommend","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" checking","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" official","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" Node","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".js","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" website","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" directly","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" at","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" node","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":"js","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".org","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":",","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" as","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" they","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" would","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" have","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" the","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" most","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" current","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" release","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":" information","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"delta":".","conversationId":"cmvribtmk002mr4tzw0pj1fir"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvribtmk002mr4tzw0pj1fir","durationMs":2270,"partial":false,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Node.js Releases","url":"https://nodejs.org/fr/about/previous-releases","hostName":"nodejs.org","date":null,"official":false,"pageRead":true},{"id":2,"title":"How to determine latest stable version of node from nvm?","url":"https://stackoverflow.com/questions/71902980/how-to-determine-latest-stable-version-of-node-from-nvm","hostName":"stackoverflow.com","date":null,"official":false,"pageRead":true},{"id":3,"title":"What is the most stable Node.js version?","url":"https://www.quora.com/What-is-the-most-stable-Node-js-version","hostName":"www.quora.com","date":null,"official":false,"pageRead":false},{"id":4,"title":"node","url":"https://www.npmjs.com/package/node","hostName":"www.npmjs.com","date":null,"official":false,"pageRead":false},{"id":5,"title":"Node.js 19 is now available!","url":"https://nodejs.org/en/blog/announcements/v19-release-announce","hostName":"nodejs.org","date":"Oct 18, 2022","official":false,"pageRead":false},{"id":6,"title":"Which version of Node should I use?","url":"https://www.reddit.com/r/node/comments/4sbpu1/which_version_of_node_should_i_use","hostName":"www.reddit.com","date":null,"official":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"source freshness","status":"passed","detail":"Newest retrieved source is dated 2022; the question is time-sensitive, so the answer may be out of date."}],"stages":[{"stage":"researching","durationMs":1},{"stage":"verifying","durationMs":0}],"degraded":[],"retrievedAt":"2026-10-28T02:40:36.252Z"}}
+

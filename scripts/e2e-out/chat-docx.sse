@@ -1,0 +1,16 @@
+data: {"started":true,"conversationId":"cmvp309o3004ltpnnic9x5cmo"}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+: ping 5000ms
+
+data: {"conversationId":"cmvp309o3004ltpnnic9x5cmo","userMessageId":"cmvp309o7004ntpnnrzfrl813"}
+
+data: {"delta":"According to the attached memo, the quarterly BEAN revenue was 4.2 million dollars, and the main product is RIISHE, a conversational AI platform with live research and verified reasoning.","conversationId":"cmvp309o3004ltpnnic9x5cmo"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvp309o3004ltpnnic9x5cmo","durationMs":8662,"partial":false,"messageId":"cmvp30gcr004ptpnn97elahh2","userMessageId":"cmvp309o7004ntpnnrzfrl813","content":"According to the attached memo, the quarterly BEAN revenue was 4.2 million dollars, and the main product is RIISHE, a conversational AI platform with live research and verified reasoning.","meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"tools","durationMs":7960},{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge; semantic router: Analyzing attached memo for static data"],"searchMode":"auto"}}
+
