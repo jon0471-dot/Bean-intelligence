@@ -98,7 +98,10 @@ function modelsDir(): string {
 }
 
 function pythonBin(): string {
-  return process.env.LAXII_WORKER_PYTHON || 'python3'
+  // Windows installers expose `python.exe` (no `python3` shim), so default to
+  // the platform-appropriate name; LAXII_WORKER_PYTHON always wins (e.g. a
+  // venv path like D:\laxii\.venv\Scripts\python.exe on the GPU host).
+  return process.env.LAXII_WORKER_PYTHON || (process.platform === 'win32' ? 'python' : 'python3')
 }
 
 function killProc(state: WorkerSingleton, why: string): void {

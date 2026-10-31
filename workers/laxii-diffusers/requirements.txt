@@ -1,38 +1,53 @@
-# LAXII local Diffusers worker — Python requirements
+# LAXII local Diffusers worker — Python requirements (GPU host, 2026-10-31 matrix)
 #
 # ⚠️ NOT INSTALLED in the BEAN development sandbox (mission constraint: no
-# large model dependencies in the disk-full remote dev environment). This file
-# is the documented dependency set for the GPU host (RTX 5060 Ti 16 GB target).
-# Install into a dedicated venv on that host:
+# large model dependencies in the disk-full remote dev environment — measured
+# 7.8 GB free, no GPU). This file is the DOCUMENTED, PINNED dependency set for
+# the local GPU host (Windows, RTX 5060 Ti 16 GB). Install it ONLY there:
 #
-#   python3 -m venv .venv && . .venv/bin/activate
-#   pip install -r requirements.txt
+#   powershell -ExecutionPolicy Bypass -File windows\setup.ps1   # does all of it
 #
 # The worker's preflight reports exactly which of these are missing on any
 # host; BEAN never claims inference capability until a real run completes.
 
-# --- core inference runtime (CUDA build on the GPU host) ---
-# torch>=2.4 with CUDA wheels: https://pytorch.org/get-started/locally/
+# --- core inference runtime -------------------------------------------------
+# RTX 5060 Ti is Blackwell (compute capability sm_120): it REQUIRES CUDA 12.8+
+# wheels. torch 2.11.0 is the newest release published on the cu128 index
+# (verified 2026-10-31; torch/torchvision are installed FIRST by setup.ps1 with
+#   pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+# so the resolver below keeps them). Python 3.11–3.13; 3.12 recommended.
 torch>=2.4
 torchvision
 
-# --- diffusion pipelines (Apache-2.0) ---
-# txt2img / inpaint / IP-Adapter loading; >=0.42 verified current 2026-10-31
-diffusers>=0.42
-transformers>=4.44
-accelerate>=0.33
-safetensors>=0.4
+# --- diffusion pipelines (Apache-2.0) ----------------------------------------
+# diffusers 0.42.1: current 2026-10-31; needs Python >= 3.11 and
+# huggingface_hub >= 1.32,<3.0. transformers 5.x satisfies diffusers' >=4.41.2
+# floor; if the LOCAL run reports a transformers incompatibility, fall back to
+# transformers==4.57.6 + huggingface_hub==1.33.0 and RECORD the change in
+# worklog.md (fix only demonstrated problems).
+diffusers==0.42.1
+transformers==5.22.1
+accelerate==1.15.0
+huggingface_hub==2.4.0
+safetensors==0.8.0
 
-# --- image + math (BSD/MIT/Apache) ---
-numpy>=1.26
-Pillow>=10.0
-opencv-python>=4.9          # Apache-2.0; DNN runtime for YuNet + SFace ONNX
+# --- image + math (BSD/MIT/Apache) -------------------------------------------
+# numpy pinned <2: basicsr/realesrgan are 2022-era packages; the windows/
+# patch_basicsr.py step fixes their removed-alias usage, and 1.26.4 keeps the
+# whole matrix on one verified line (Python 3.12 wheel exists).
+numpy==1.26.4
+Pillow>=10.0,<12
+opencv-python==4.14.0.94     # Apache-2.0; DNN runtime for YuNet + SFace ONNX
+                             # (opencv 5.x is excluded — too new for this matrix)
 
-# --- upscaling (Real-ESRGAN, BSD-3-Clause) ---
-# NOTE: basicsr is pinned <1.2 to avoid its torchvision functional_tensor
-# import breakage with modern torchvision; if a newer fix lands, unpin.
-basicsr>=1.4.2
-realesrgan>=0.3.0
+# --- upscaling (Real-ESRGAN, BSD-3-Clause) ------------------------------------
+# basicsr 1.4.2 is the last published release; windows/patch_basicsr.py MUST run
+# after install (setup.ps1 does): it fixes the removed
+# torchvision.transforms.functional_tensor import and numpy aliases, then PROVES
+# the import chain (basicsr -> RRDBNet -> RealESRGANer) by importing it.
+basicsr==1.4.2
+realesrgan==0.3.0
 
-# --- optional but recommended ---
-# xformers  # memory-efficient attention for SDXL on 16 GB cards
+# --- optional but recommended ---------------------------------------------------
+# xformers  # memory-efficient attention for SDXL on 16 GB cards — evaluate
+#           # separately on Blackwell; attention_slicing is the enabled default

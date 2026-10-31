@@ -35,7 +35,20 @@ import sys
 import threading
 import time
 
-WORKER_VERSION = "0.3.0"
+WORKER_VERSION = "0.3.1"
+# 0.3.1 (Phase 8, 2026-10-31) — deployment-prep fixes found by code inspection
+# BEFORE the first GPU-host run (each was a certain first-run failure):
+#   1. from_single_file() was handed a model DIRECTORY (or from_pretrained() a
+#      single FILE) — both would raise. Weight resolution is now explicit.
+#   2. SDXL masked inpainting requires the diffusers-layout directory (fp16
+#      variants); the lone single-file checkpoint cannot provide the 9-channel
+#      inpaint UNet. Now enforced with a truthful MODEL_MISSING.
+#   3. IP-Adapter checkpoint id/path mismatch between preflight (ip-adapter*)
+#      and reference_generate (ip-adapter-h94-sd15) — preflight could report
+#      "present" while the method reported MODEL_MISSING. Aligned to 'ip-adapter'.
+#   4. reference-guided generation needs a BASE SD1.5 txt2img host (the inpaint
+#      checkpoint's 9-channel UNet cannot serve it); 'sd15-base' registered.
+#   5. huggingface_hub is reported by preflight (it is a real runtime dep).
 
 # ---------------------------------------------------------------------------
 # Lazy import helpers (preflight must work with NO ML deps installed)
@@ -76,6 +89,7 @@ def log(msg):
 
 REQUIRED_PACKAGES = {
     "torch": "inference runtime (CUDA build)",
+    "huggingface_hub": "checkpoint download/loading backend for diffusers",
     "diffusers": "pipelines (txt2img / inpaint / IP-Adapter)",
     "transformers": "CLIP/text encoders",
     "accelerate": "device placement / cpu offload",
@@ -188,8 +202,9 @@ def check_models(models_dir):
 
     declared = [
         ("sd15-inpaint", ["sd-v1-5-inpainting", "stable-diffusion-v1-5"], 3.0),
-        ("sdxl-base-1.0", ["sd_xl_base_1.0.safetensors", "stable-diffusion-xl-base-1.0"], 6.0),
-        ("ip-adapter-h94-sd15", ["ip-adapter_sd15.safetensors", "ip-adapter"], 0.5),
+        ("sd15-base", ["sd15-base", "v1-5-pruned-emaonly.safetensors"], 2.0),
+        ("sdxl-base-1.0", ["sdxl-base-1.0", "sd_xl_base_1.0.safetensors", "stable-diffusion-xl-base-1.0"], 6.0),
+        ("ip-adapter-h94-sd15", ["ip-adapter"], 0.5),
         ("pulid-sdxl", ["pulid_sdxl.safetensors", "pulid"], 2.0),
         ("realesrgan-x4plus", ["RealESRGAN_x4plus.pth"], 0.05),
         ("big-lama", ["big-lama", "lama_fp32.jit"], 0.1),
@@ -297,21 +312,48 @@ class Engine:
         log("loading %s (%s) dtype=%s" % (model_id, task, dtype))
         t0 = time.time()
         base = model_path(model_id)
-        if task == "inpaint" and model_id == "sd15-inpaint":
+        if model_id == "sd15-inpaint" and task == "inpaint":
+            weights = _find_weights(base)
+            if not weights:
+                fail(request_id, "MODEL_MISSING",
+                     "No loadable SD1.5-inpaint checkpoint (.safetensors/.ckpt) under %s. Run local/download_models.py." % base)
+                return None
             pipe = diffusers.StableDiffusionInpaintPipeline.from_single_file(
-                base, torch_dtype=dtype)
-        elif task == "inpaint" and model_id == "sdxl-base-1.0":
+                weights, torch_dtype=dtype)
+        elif model_id == "sd15-base" and task == "txt2img":
+            weights = _find_weights(base)
+            if not weights:
+                fail(request_id, "MODEL_MISSING",
+                     "No loadable SD1.5-base checkpoint (.safetensors) under %s. Run local/download_models.py." % base)
+                return None
+            pipe = diffusers.StableDiffusionPipeline.from_single_file(
+                weights, torch_dtype=dtype)
+        elif model_id == "sdxl-base-1.0" and task == "inpaint":
+            if not _is_diffusers_dir(base):
+                fail(request_id, "MODEL_MISSING",
+                     "SDXL masked inpainting requires the diffusers-layout directory %s "
+                     "(model_index.json + fp16 variant weights); the lone single-file checkpoint "
+                     "cannot provide the 9-channel inpaint UNet. Run local/download_models.py." % base)
+                return None
             pipe = diffusers.StableDiffusionXLInpaintPipeline.from_pretrained(
                 base, torch_dtype=dtype, variant="fp16")
-        elif task == "txt2img" and model_id == "sdxl-base-1.0":
-            pipe = diffusers.StableDiffusionXLPipeline.from_pretrained(
-                base, torch_dtype=dtype, variant="fp16")
-        elif model_id == "sd15-inpaint":
-            pipe = diffusers.StableDiffusionPipeline.from_single_file(
-                base, torch_dtype=dtype)
+        elif model_id == "sdxl-base-1.0" and task == "txt2img":
+            if _is_diffusers_dir(base):
+                pipe = diffusers.StableDiffusionXLPipeline.from_pretrained(
+                    base, torch_dtype=dtype, variant="fp16")
+            else:
+                weights = _find_weights(base)
+                if not weights:
+                    fail(request_id, "MODEL_MISSING",
+                         "No SDXL checkpoint found under %s. Run local/download_models.py." % base)
+                    return None
+                pipe = diffusers.StableDiffusionXLPipeline.from_single_file(
+                    weights, torch_dtype=dtype)
         else:
             fail(request_id, "MODEL_UNSUPPORTED",
-                 "Model '%s' is not registered for task '%s'." % (model_id, task))
+                 "Model '%s' is not registered for task '%s'. Note: the SD1.5-inpaint "
+                 "checkpoint (9-channel UNet) cannot serve plain txt2img; use sd15-base "
+                 "or sdxl-base-1.0." % (model_id, task))
             return None
         if cuda:
             pipe = pipe.to("cuda")
@@ -346,9 +388,34 @@ def models_dir():
 def model_path(model_id):
     mapping = {
         "sd15-inpaint": "sd-v1-5-inpainting",
-        "sdxl-base-1.0": "sd_xl_base_1.0.safetensors",
+        "sd15-base": "sd15-base",
+        "sdxl-base-1.0": "sdxl-base-1.0",
+        "ip-adapter-h94-sd15": "ip-adapter",
     }
     return os.path.join(models_dir(), mapping.get(model_id, model_id))
+
+
+def _is_diffusers_dir(path):
+    """True when `path` is a diffusers-layout pipeline directory."""
+    return os.path.isdir(path) and os.path.isfile(os.path.join(path, "model_index.json"))
+
+
+def _find_weights(path):
+    """Resolve a concrete single-file checkpoint under `path` (or `path` itself
+    when it is a file). Prefers .safetensors over pickle formats (.ckpt/.pt/.bin).
+    Returns None for diffusers-layout directories (those load via from_pretrained)
+    and for anything with no loadable weights."""
+    if os.path.isfile(path):
+        return path
+    if not os.path.isdir(path) or _is_diffusers_dir(path):
+        return None
+    candidates = []
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            if name.endswith(".safetensors") or name.endswith((".ckpt", ".pt", ".bin")):
+                candidates.append(os.path.join(root, name))
+    candidates.sort(key=lambda p: (0 if p.endswith(".safetensors") else 1, p))
+    return candidates[0] if candidates else None
 
 
 # ---------------------------------------------------------------------------
@@ -436,23 +503,33 @@ def method_inpaint(engine, request_id, p):
 
 
 def method_reference_generate(engine, request_id, p):
-    if not engine._require(request_id, "torch", "diffusers", "PIL"):
+    if not engine._require(request_id, "torch", "diffusers", "transformers", "PIL"):
         return
-    model_id = p.get("model", "sd15-inpaint")
+    # IP-Adapter conditioning runs on a BASE txt2img host. The sd15-inpaint
+    # checkpoint is NOT valid here (its 9-channel UNet is inpaint-only), and
+    # the deployed h94 adapter set is the SD1.5 one — an SDXL host would need
+    # sdxl_models/* which is deliberately not deployed.
+    model_id = p.get("model", "sd15-base")
+    if model_id != "sd15-base":
+        fail(request_id, "MODEL_UNSUPPORTED",
+             "reference_generate currently supports model 'sd15-base' only (h94 SD1.5 "
+             "IP-Adapter set, Apache-2.0); got '%s'." % model_id)
+        return
     if not engine._need_model(request_id, model_id):
         return
     pipe = engine._load(request_id, model_id, "txt2img")
     if pipe is None:
         return
-    ip_dir = model_path("ip-adapter-h94-sd15")
-    if not os.path.isdir(ip_dir) and not os.path.isfile(ip_dir):
+    ip_dir = model_path("ip-adapter-h94-sd15")  # models/ip-adapter (h94 repo layout)
+    if not _is_ip_adapter_dir(ip_dir):
         fail(request_id, "MODEL_MISSING",
-             "IP-Adapter checkpoint missing (h94/IP-Adapter, Apache-2.0).")
+             "IP-Adapter checkpoint missing under %s — expected the h94/IP-Adapter layout "
+             "(models/ip-adapter_sd15.safetensors + models/image_encoder). Run local/download_models.py." % ip_dir)
         return
     try:
         pipe.load_ip_adapter(
-            os.path.dirname(ip_dir) if os.path.isfile(ip_dir) else ip_dir,
-            subfolder="models" if os.path.isdir(ip_dir) else "",
+            ip_dir,
+            subfolder="models",
             weight_name=p.get("ipAdapter", {}).get("weightName", "ip-adapter_sd15.safetensors"),
             image_encoder_folder="models/image_encoder",
         )
@@ -656,6 +733,16 @@ def _find_onnx(path):
             if name.endswith(".onnx"):
                 return os.path.join(path, name)
     return None
+
+
+def _is_ip_adapter_dir(path):
+    """The h94/IP-Adapter layout reference_generate loads offline:
+       <dir>/models/ip-adapter_sd15.safetensors + <dir>/models/image_encoder/."""
+    return (
+        os.path.isdir(path)
+        and os.path.isfile(os.path.join(path, "models", "ip-adapter_sd15.safetensors"))
+        and os.path.isdir(os.path.join(path, "models", "image_encoder"))
+    )
 
 
 def _snap(v):
