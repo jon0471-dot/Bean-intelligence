@@ -16,6 +16,7 @@ import { recordUsage } from '@/lib/observability/metering'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
 import { withTimeout } from '@/lib/adapters/hosted-llm'
 import { getBackend } from '@/lib/registry/backends'
+import { processEnhancementJob, processEditJob } from '@/lib/laxii/jobs'
 import fs from 'fs'
 import path from 'path'
 
@@ -55,7 +56,8 @@ async function processImageJob(job: JobRow): Promise<void> {
     // Persist artifact under BEAN storage; access is authorized per-user.
     const dir = path.join(STORAGE_ROOT, job.userId)
     fs.mkdirSync(dir, { recursive: true })
-    const filename = `${job.id}.jpg`
+    const ext = result.format === 'png' ? 'png' : 'jpg'
+    const filename = `${job.id}.${ext}`
     fs.writeFileSync(path.join(dir, filename), result.bytes)
 
     await updateJob(job.id, {
@@ -119,6 +121,10 @@ export function enqueueJob(jobId: string): void {
 
       if (job.task === 'image-generation') {
         await processImageJob(job)
+      } else if (job.task === 'image-enhancement') {
+        await processEnhancementJob(job)
+      } else if (job.task === 'image-editing') {
+        await processEditJob(job)
       } else {
         await updateJob(job.id, {
           status: 'failed',

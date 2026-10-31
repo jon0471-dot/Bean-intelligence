@@ -62,7 +62,9 @@ export async function POST(request: Request) {
   })
 }
 
-/** Job history for the caller (newest first). */
+/** Job history for the caller (newest first). Includes preservation-engine
+ *  jobs (enhance/edit) with their before/after/difference artifacts and the
+ *  computed preservation report — additive fields; legacy fields unchanged. */
 export async function GET() {
   return handle(async () => {
     const user = await requireUser()
@@ -74,14 +76,20 @@ export async function GET() {
     return ok({
       jobs: jobs.map((j) => {
         const result = j.resultJson ? (JSON.parse(j.resultJson) as Record<string, unknown>) : null
+        const params = j.paramsJson ? (JSON.parse(j.paramsJson) as Record<string, unknown>) : {}
         return {
           id: j.id,
+          task: j.task,
           status: j.status,
           progress: j.progress,
-          size: (JSON.parse(j.paramsJson) as { size?: string }).size ?? null,
+          size: (params.size as string | undefined) ?? null,
           errorCode: j.errorCode,
           errorMessage: j.errorMessage,
           imageUrl: result && j.status === 'completed' ? result.imageUrl : null,
+          originalUrl: result?.originalUrl ?? null,
+          diffUrl: result?.diffUrl ?? null,
+          report: result?.report ?? null,
+          provenance: result?.provenance ?? null,
           width: result?.width,
           height: result?.height,
           format: result?.format,

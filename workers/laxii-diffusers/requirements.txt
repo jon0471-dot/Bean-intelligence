@@ -1,0 +1,38 @@
+# LAXII local Diffusers worker — Python requirements
+#
+# ⚠️ NOT INSTALLED in the BEAN development sandbox (mission constraint: no
+# large model dependencies in the disk-full remote dev environment). This file
+# is the documented dependency set for the GPU host (RTX 5060 Ti 16 GB target).
+# Install into a dedicated venv on that host:
+#
+#   python3 -m venv .venv && . .venv/bin/activate
+#   pip install -r requirements.txt
+#
+# The worker's preflight reports exactly which of these are missing on any
+# host; BEAN never claims inference capability until a real run completes.
+
+# --- core inference runtime (CUDA build on the GPU host) ---
+# torch>=2.4 with CUDA wheels: https://pytorch.org/get-started/locally/
+torch>=2.4
+torchvision
+
+# --- diffusion pipelines (Apache-2.0) ---
+# txt2img / inpaint / IP-Adapter loading; >=0.42 verified current 2026-10-31
+diffusers>=0.42
+transformers>=4.44
+accelerate>=0.33
+safetensors>=0.4
+
+# --- image + math (BSD/MIT/Apache) ---
+numpy>=1.26
+Pillow>=10.0
+opencv-python>=4.9          # Apache-2.0; DNN runtime for YuNet + SFace ONNX
+
+# --- upscaling (Real-ESRGAN, BSD-3-Clause) ---
+# NOTE: basicsr is pinned <1.2 to avoid its torchvision functional_tensor
+# import breakage with modern torchvision; if a newer fix lands, unpin.
+basicsr>=1.4.2
+realesrgan>=0.3.0
+
+# --- optional but recommended ---
+# xformers  # memory-efficient attention for SDXL on 16 GB cards

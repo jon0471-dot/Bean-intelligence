@@ -19,6 +19,13 @@ import type { BeanProductId, BeanTask } from './products'
 
 export type DeploymentMode = 'authorized-hosted' | 'self-hosted'
 
+/**
+ * LAXII preservation engine (2026-10-31):
+ *  - 'local-process' marks a backend that runs IN this application process
+ *    (or as a child process on the same host) with no upstream service.
+ */
+export type ImageEndpointType = 'managed-sdk' | 'http' | 'gpu-worker' | 'local-process'
+
 export interface BackendDescriptor {
   id: string
   /** BEAN product this backend can serve. */
@@ -30,7 +37,7 @@ export interface BackendDescriptor {
   modelIdentity: string
   /** Immutable revision when the provider exposes one; null otherwise. */
   revision: string | null
-  endpointType: 'managed-sdk' | 'http' | 'gpu-worker'
+  endpointType: ImageEndpointType
   deploymentMode: DeploymentMode
   /** Runtime / hardware requirements (admin-visible, informational). */
   runtime: string
@@ -155,6 +162,97 @@ const HOSTED_IMAGE: BackendDescriptor = {
 }
 
 /**
+ * LAXII — deterministic local enhancement engine (Sharp, in-process).
+ * ENABLED because it is real and executed: masks, compositing, grading and
+ * metrics run on this host with no upstream dependency. It deliberately does
+ * NOT do generative work — see bean-image-selfhosted-diffusers below.
+ * License 'not-applicable': BEAN-local deterministic processing, no third
+ * party processes customer pixels.
+ */
+const LOCAL_SHARP_ENGINE: BackendDescriptor = {
+  id: 'bean-image-local-sharp',
+  productId: 'laxii',
+  task: 'image-enhancement',
+  provider: 'BEAN Intelligence (in-process deterministic engine)',
+  modelIdentity: 'Deterministic Sharp image operations — no ML model involved',
+  revision: null,
+  endpointType: 'local-process',
+  deploymentMode: 'self-hosted',
+  runtime: 'Node.js + Sharp 0.34.x on the application host (CPU)',
+  limits: {
+    maxInputPixels: 16_777_216, // 4096x4096 guard — larger uploads are rejected, not silently downscaled
+    ops: ['auto-orient', 'denoise', 'exposure-white-balance', 'grade', 'local-contrast', 'lanczos-upscale'],
+    generative: false,
+  },
+  license: {
+    name: 'Not applicable — BEAN-local deterministic processing (Sharp is Apache-2.0)',
+    commercialUse: 'not-applicable',
+    note:
+      'Customer pixels are processed by BEAN-owned code on the BEAN host. No upstream provider sees the image.',
+    sourceUrl: 'https://sharp.pixelplumbing.com',
+    verifiedAt: '2026-10-31',
+  },
+  dataHandling:
+    'Images never leave the application host. Artifacts are stored under BEAN storage with per-user access checks.',
+  metering: { unit: 'image', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 8 },
+  timeouts: { requestMs: 120_000, queueMs: 10_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
+ * LAXII — local Diffusers worker (generative editing: masked inpaint,
+ * reference-guided generation, identity conditioning, model upscaling).
+ *
+ * DISABLED until BOTH gates pass and are recorded in worklog.md:
+ *  1. The worker's hardware preflight passes on the target GPU host
+ *     (RTX 5060 Ti 16 GB — reported, not verified from this sandbox).
+ *  2. A REAL inference acceptance test completes (a generated/inpainted
+ *     image actually produced and verified).
+ * This sandbox has no GPU, no torch and ~7.6 GB free disk, so the worker
+ * code ships with an honest preflight that reports missing requirements
+ * here instead of pretending. Model/license selection:
+ * docs/models/LAXII-ENGINE-DECISION-MATRIX.md.
+ */
+const DIFFUSERS_WORKER: BackendDescriptor = {
+  id: 'bean-image-selfhosted-diffusers',
+  productId: 'laxii',
+  task: 'image-editing',
+  provider: 'BEAN Intelligence (planned local Diffusers worker)',
+  modelIdentity:
+    'Selected candidates: SD 1.5-inpaint / SDXL-base (OpenRAIL-M / OpenRAIL++-M), IP-Adapter (h94, Apache-2.0), PuLID-SDXL, Real-ESRGAN x4plus (BSD-3), big-lama (Apache-2.0), YuNet (MIT) — see decision matrix',
+  revision: null,
+  endpointType: 'gpu-worker',
+  deploymentMode: 'self-hosted',
+  runtime: 'Python 3.10+ worker, torch/CUDA, diffusers ≥0.42 — requires ≥8 GB free VRAM class GPU',
+  limits: {
+    note: 'Limits become enforceable only when this backend is enabled after a verified inference test.',
+  },
+  license: {
+    name: 'Mixed per component — see docs/models/LAXII-ENGINE-DECISION-MATRIX.md (verified 2026-10-31)',
+    commercialUse: 'restricted',
+    note:
+      'Selected set avoids non-commercial weights (InstantID/IP-Adapter-FaceID/FLUX-dev tiers rejected). SFace identity metric is provisional pending a training-data provenance review.',
+    sourceUrl: 'https://github.com/huggingface/diffusers',
+    verifiedAt: '2026-10-31',
+  },
+  dataHandling:
+    'Images and masks are processed by the BEAN worker on the BEAN GPU host. No external service receives customer pixels. Identity embeddings, when computed, stay local and are never exported.',
+  metering: { unit: 'image', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  enabled: false,
+  unavailableReason:
+    'Generative editing is not operational: the local Diffusers worker has not passed its hardware preflight and no real inference test has completed in this environment (no GPU). Deterministic enhancement (Strict Preserve without generative steps) remains available.',
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 2 },
+  timeouts: { requestMs: 300_000, queueMs: 30_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
  * JAZMII — video generation. NO compatible backend exists in this
  * environment (no GPU worker, no authorized video endpoint). The registry
  * records the PLANNED self-hosted candidate set honestly; the router will
@@ -241,6 +339,8 @@ const HOSTED_CODE_LLM: BackendDescriptor = {
 export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_LLM,
   HOSTED_IMAGE,
+  LOCAL_SHARP_ENGINE,
+  DIFFUSERS_WORKER,
   VIDEO_PLANNED,
   HOSTED_CODE_LLM,
 ]
