@@ -46,11 +46,13 @@ export interface ImageRequest {
 }
 
 export interface ImageResult {
-  /** JPEG bytes (gateway returns JPEG). */
+  /** Encoded image bytes. The managed gateway returns JPEG; the local
+   *  Diffusers worker returns PNG. Callers must honor this field, not
+   *  assume an extension. */
   bytes: Buffer
   width: number
   height: number
-  format: 'jpeg'
+  format: 'jpeg' | 'png'
   durationMs: number
 }
 

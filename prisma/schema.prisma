@@ -25,6 +25,7 @@ model User {
   usageRecords  UsageRecord[]
   documents     Document[]
   codeProjects  CodeProject[]
+  imageAssets   ImageAsset[]
 }
 
 model Session {
@@ -114,6 +115,25 @@ model GenerationJob {
 
   @@index([userId, product])
   @@index([status])
+}
+
+// LAXII preservation engine (2026-10-31): uploaded reference images,
+// originals to enhance/edit, brush masks and produced artifacts.
+// Additive table — existing models are untouched.
+model ImageAsset {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // reference | original | mask | result
+  mime      String
+  width     Int?
+  height    Int?
+  bytes     Int
+  path      String   @default("") // storage-relative path (ext from metaJson)
+  metaJson  String?  // ext, provenance, pipeline metadata
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
 }
 
 model UsageRecord {

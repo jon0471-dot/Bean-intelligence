@@ -1,6 +1,8 @@
 import { handle, ok } from '@/lib/api/errors'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
+import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
+import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import { cachedHealth } from '@/lib/adapters/health-cache'
 import { probeResearchHealth } from '@/lib/research/provider'
 import { probeSandboxHealth } from '@/lib/sandbox/runner'
@@ -41,11 +43,17 @@ import { getBackendsForProduct } from '@/lib/registry/backends'
  */
 export async function GET() {
   return handle(async () => {
-    const [llm, image, research, sandbox] = await Promise.all([
+    const [llm, image, research, sandbox, laxiiLocal, laxiiWorker] = await Promise.all([
       cachedHealth('llm-hosted-primary', () => hostedLlmAdapter.health()),
       cachedHealth('image-hosted-primary', () => hostedImageAdapter.health()),
       cachedHealth('research-functions-primary', () => probeResearchHealth()),
       cachedHealth('sandbox-runtime-primary', () => probeSandboxHealth()),
+      // LAXII preservation engine sub-states (2026-10-31):
+      //  deterministic -> real local Sharp capability (executed, not claimed)
+      //  generative    -> local Diffusers worker preflight (truthful on any
+      //                   host; registry-gated for traffic)
+      cachedHealth('laxii-local-sharp', () => localLaxiiAdapter.health()),
+      cachedHealth('laxii-diffusers-worker', () => diffusersWorkerAdapter.health()),
     ])
 
     const videoBackend = getBackendsForProduct('jazmii')[0]
@@ -61,7 +69,12 @@ export async function GET() {
           probe: llm,
           research: { available: research.healthy, probe: research },
         },
-        laxii: { available: image.healthy, probe: image },
+        laxii: {
+          available: image.healthy,
+          probe: image,
+          deterministic: { available: laxiiLocal.healthy, probe: laxiiLocal },
+          generative: { available: laxiiWorker.healthy, probe: laxiiWorker },
+        },
         jazmii: {
           available: false,
           probe: {

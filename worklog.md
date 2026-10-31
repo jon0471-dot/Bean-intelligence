@@ -494,3 +494,184 @@ HONEST LIMITS:
 - The dashboard consumer (dashboard.tsx) is unchanged by design; its badge mapping is pinned through productStatus unit tests plus the live API payloads. A browser-session screenshot was not taken (auth-gated UI, upstream-throttled states).
 - The health cache and breaker are per-process; a multi-instance deployment would need shared state (unchanged limitation, same as the research cache).
 - productStatus has three states by design (operational/degraded/unavailable); 'rate-limited' and 'misconfigured' are probe-level states surfaced in the probe detail strings (and pinned in tests), not separate dashboard badges.
+
+---
+Task ID: LAXII-ENGINE-1
+Agent: main (Z.ai)
+Task: "BEAN INTELLIGENCE — LAXII Professional Image Engine" (2026-10-31)
+
+Work Log:
+
+PHASE 0 — ARCHITECTURE AUDIT (inspect before changing, per mission §1):
+- Audited the existing LAXII implementation end-to-end: provider seam (adapters/types.ts
+  TaskAdapter), managed provider (hosted-image.ts, bean-image-hosted-primary, unchanged),
+  job queue, 3 API routes, UI studio, registry, storage. All preserved.
+- HONEST GAP REPORT (recorded, not hidden): the mission's "preserve" list contains items
+  that DID NOT EXIST: no local Diffusers + IP-Adapter Python worker, no LAXII_PROVIDER
+  behavior, no LAXII-local Sharp pipeline (Sharp was used only by document/file
+  processing). grep finds "diffusers" only in a JAZMII video manifest and the architecture
+  doc. Disposition: what existed is preserved untouched; what didn't exist is BUILT in
+  this task. Documented in docs/architecture/LAXII-PRESERVATION-ENGINE.md §2.
+- Repository/license decision matrix produced BEFORE any integration
+  (docs/models/LAXII-ENGINE-DECISION-MATRIX.md), licenses re-verified from official
+  repos/cards on 2026-10-31: diffusers Apache-2.0 (v0.42.1 active); h94/IP-Adapter
+  Apache-2.0; ComfyUI_IPAdapter_plus GPL-3.0 + maintenance-only → SKIP; PuLID Apache-2.0
+  (SDXL tier OK, FLUX tier non-commercial → excluded); InstantID REJECTED (mandatory
+  InsightFace antelopev2 is non-commercial research-only); Real-ESRGAN BSD-3-Clause;
+  big-lama Apache-2.0; YuNet MIT (detection); SFace MIT per directory but flagged
+  provisional (training-data provenance question, OpenCV Zoo issue #318).
+- Manifest models/manifests/bean-image-selfhosted-diffusers.json: checkpoints, licenses,
+  sizes, checksum policy "verified-at-download" (checksums are NOT invented — the worker
+  verifies SHA-256 against models.sha256 at load time and refuses mismatches).
+
+ENVIRONMENT CONSTRAINTS (measured): this sandbox has NO GPU (nvidia-smi absent), 3.9 GB
+RAM, ~7.5 GB free disk, Python 3.12 without torch/diffusers, Node 24 + Sharp 0.34.5.
+Therefore: no large model deps installed (mission §1); NO inference claim of any kind;
+the Diffusers worker ships with an honest preflight; only the deterministic engine is
+executed and tested here.
+
+PHASE 1+5 — PRESERVATION + ENHANCEMENT ENGINE (executed + tested HERE for real):
+- src/lib/laxii/metrics.ts: exact pixel change stats (changedPct/meanAbsDiff/PSNR),
+  region equality, amplified difference maps, noise/sharpness/exposure analysis with a
+  robust MAD-of-Laplacian estimator.
+- src/lib/laxii/preservation.ts: mask building from RGBA stroke PNGs at EXACT geometry
+  (mismatch = hard error, never silent rescale); positive/negative strokes; separable
+  dilate/erode/true-gaussian feather; face protection as a HARD geometric gate (zones
+  subtracted from the editable mask, feather clamped so it eats into the edit side, not
+  the face); compositePreserved with the BIT-EXACT guarantee (alpha==0 pixels take the
+  original bytes verbatim); validatePreservation computing dimensions/exact%/blend%/changed%/
+  protected-region equality/generative disclosure from actual buffers.
+- src/lib/laxii/enhance.ts: analysis-driven planner — only measured-needed ops run, each
+  with its reason recorded (denoise by noise sigma; exposure/WB by channel-means cast and
+  luma; grade by saturation; local contrast by Laplacian variance gated on noise; Lanczos
+  upscale on request). Auto-orient applied before analysis so the mask baseline matches
+  what the user saw.
+- DEFECTS FOUND AND FIXED BY THE TESTS (real TDD catches): (1) buildMask treated 1-channel
+  grayscale masks as opaque — now reads coverage by channel count (G/GA/RGB/RGBA), and the
+  canonical producer format (browser canvas → RGBA) is pinned by tests; (2) face-protection
+  feather leaked back INTO the protected zone — fixed by clamping the soft field with the
+  hard rect; (3) applyFaceProtection indexed the ShapedMask object instead of its alpha
+  field (NaN propagation) — fixed.
+- tests/unit/laxii-preservation.test.ts (17 tests, ~8.7k assertions) + laxii-enhance.test.ts
+  (18 tests): bit-exactness proven pixel-by-pixel, feather bands counted separately,
+  planner decisions pinned, determinism proven (identical input → identical output bytes),
+  pixel-cap guard, upscale dimensions.
+
+PHASE 2+3 — DIFFUSERS WORKER (shipped as code; NEVER claimed as runnable here):
+- workers/laxii-diffusers/worker.py: JSON-lines protocol (ready/progress/response frames);
+  methods preflight/health/unload/cancel/txt2img/inpaint/reference_generate(IP-Adapter)/
+  identity_prepare(YuNet+SFace)/identity_check(cosine drift gate)/upscale(Real-ESRGAN or
+  Lanczos)/object_removal(big-lama TorchScript); lazy imports everywhere so preflight runs
+  on bare Python; VRAM discipline (one resident pipeline, unload command); cooperative
+  cancellation checked every diffusion step; OOM/error paths return typed failures.
+- workers/laxii-diffusers/requirements.txt DOCUMENTED ONLY (not installed — disk-full env).
+- README with GPU-host deployment steps, checkpoint layout, license notes, honesty rules.
+- src/lib/laxii/worker.ts (Node client): spawn-on-demand singleton (globalThis-keyed),
+  typed truthful errors (WORKER_UNAVAILABLE/WORKER_TIMEOUT/WORKER_ERROR), progress
+  forwarding, cancel. DEFECTS FIXED BY TESTS: workerCancel returned void (result dropped);
+  missing proc 'error' handler (Bun throws spawn ENOENT synchronously — now converted to
+  WORKER_UNAVAILABLE; verified /nonexistent/python-binary maps to a truthful code).
+- MEASURED on this host (real runs, tests/unit/laxii-worker-protocol.test.ts + eval):
+  preflight returns ok=false with exact missing list [torch, diffusers, transformers,
+  accelerate, safetensors], CUDA unavailable, disk ~7.5 GB, 0/8 checkpoints; inpaint/
+  txt2img return UNAVAILABLE; identity_check returns MODEL_MISSING; unknown methods
+  rejected; cancel answers. The worker NEVER pretends.
+
+PHASE 6 — PROVIDER SELECTION + REGISTRY:
+- src/lib/laxii/provider.ts: LAXII_PROVIDER=diffusers|auto (default auto) with the honest
+  contract: text-to-image → managed provider; deterministic work → local engine;
+  generative ops → worker ONLY if the registry flag is enabled, else PROVIDER_UNAVAILABLE
+  (customer-safe 503; "Your image was not modified"). The managed provider is NEVER
+  silently substituted for masked editing.
+- Registry additions (src/lib/registry/backends.ts): bean-image-local-sharp
+  (image-enhancement, enabled — real, executed, generative:false) and
+  bean-image-selfhosted-diffusers (image-editing, DISABLED with the truthful reason;
+  flips only in code after a recorded real inference test). BeanTask extended with
+  image-enhancement/image-editing. ImageResult.format widened to 'jpeg'|'png' (worker
+  outputs PNG; queue + delivery route honor the recorded format).
+- src/lib/laxii/models.ts: capability-aware catalog (public-safe; licenses/commercial-use
+  per entry) + localPreflight() that runs the REAL worker preflight and a REAL Sharp
+  round-trip; canRun.generativeEditing requires registry-enabled AND preflight-ok
+  (preflight alone never enables).
+- /api/health extended: laxii.deterministic (real local engine probe) and laxii.generative
+  (worker preflight) reported as separate sub-states, mirroring the riishe.research
+  partial-availability contract.
+
+PHASE 4 — JOBS + API:
+- prisma/schema.prisma: additive ImageAsset table (+User.imageAssets) — existing models
+  untouched; db:push applied.
+- src/lib/laxii/assets.ts: owner-checked upload/store/load with server-measured geometry.
+- src/lib/laxii/jobs.ts: processEnhancementJob (deterministic path, runs today) and
+  processEditJob (generative path, registry-gated; generation at model-native resolution
+  then restored and RE-COMPOSITED so every unmasked pixel is enforced bit-exact original —
+  defense in depth; identity drift gate records a similarity estimate or the fact that the
+  gate could not run); stage progress with between-stage cancellation checks; honest
+  failure recording (BeanApiError codes land on the job row).
+- queue.ts: dispatches image-enhancement/image-editing; artifact extension follows format.
+- New routes: POST /api/laxii/assets, GET /api/laxii/assets/[id] (owner-checked bytes),
+  POST /api/laxii/enhance (preflight image-enhancement), POST+GET /api/laxii/edit
+  (provider resolved BEFORE any job row exists — while the worker is disabled the route
+  returns truthful 503 and queues nothing; GET returns per-mode capability truth),
+  GET /api/laxii/preflight, GET /api/laxii/models. Existing generate/jobs/images routes:
+  additive result fields only (originalUrl/diffUrl/report/provenance/task), format-aware
+  delivery.
+
+UI (existing design preserved, extended in place):
+- laxii.tsx: Create mode byte-identical in behavior; added Enhance mode (upload +
+  analysis-driven toggles + upscale), Edit mode with a VISIBLE mask editor (gold edit
+  strokes / blue protect strokes / erase, brush size; full-resolution hidden alpha
+  canvases so exports always match original geometry), Smart Edit button rendered
+  truthfully unavailable with the server's reason, Before/After/Diff comparison and the
+  computed preservation report (exact %, changed %, generative flag, protected-region
+  warnings, identity-similarity estimate labeled as an estimate). DEFECT FIXED during
+  build: coordinate-space mismatch between preview and full-resolution stroke history
+  (separate last-point refs).
+
+PHASE 7 — EVALUATION (REAL measured results, scripts/laxii-eval.ts + out/results.json):
+- Fixed fixture set generated SYNTHETICALLY with Sharp/SVG (10 files, incl. real rendered
+  text and logo): portrait-single, portrait-multi, product-watch, landscape, architecture,
+  poster-text, logo-badge, photo-lowres, background-complex, localized-edit. These are
+  procedural stand-ins — NOT real photographs (stated everywhere they appear).
+- MEASURED: A Strict-Preserve-no-generative PASS (0 generative ops, geometry intact);
+  B small-mask 1.76% coverage → 96.62% exact-preserved, 2.47% blend band PASS; C large-mask
+  50% coverage → 47.81% exact-preserved PASS; F 64x48→256x192 4× PASS; G 4096×4096 (16.7 MP)
+  PASS in 1.9 s, RSS 773 MB; H worker-unavailable → 3× honest PROVIDER_UNAVAILABLE PASS;
+  I cancel round-trip on the live worker PASS.
+- HONESTLY SKIPPED (with measured reasons recorded in results.json): D face identity
+  new-scene, E multi-face identity, J offline diffusers inference, J2 real SD-inpaint —
+  all blocked by the same measured fact: preflight ok=false (missing torch/diffusers/
+  transformers/accelerate/safetensors, CUDA unavailable, ~7.5 GB disk). No benchmark win
+  is claimed without measurement; no identity metric ran here.
+
+QUALITY GATES (final code, this session):
+- bun test tests/: 593 pass / 0 fail across 36 files (was 541/0; +52 new LAXII tests).
+- npx tsc --noEmit: 0 errors in src/ and tests/ (scripts/ backup debt unchanged, pre-existing).
+- npx eslint src tests --max-warnings 0: clean.
+- rm -rf .next && bun run build: compiled successfully; all new routes present
+  (/api/laxii/assets, /api/laxii/assets/[id], /api/laxii/edit, /api/laxii/enhance,
+  /api/laxii/preflight, /api/laxii/models).
+
+OPERATIONAL NOTE (honest): the auto dev server wedged when its Turbopack incremental
+cache was removed during the build step and did not self-recover (documented ENOENT/
+persist errors in dev.log). The wedged process was stopped; NO server was started or
+restarted via shell (mission constraint). The platform relaunches dev with the next
+session cycle; a live browser walk-through of the new UI is therefore NOT claimed —
+verified instead: unit tests (593), the eval harness end-to-end on real bytes, the
+production build, and the worker protocol against the real Python process.
+
+HONEST LIMITS / UNFINISHED:
+- NO inference test has completed anywhere: generative editing remains disabled and
+  refuses with PROVIDER_UNAVAILABLE until the GPU host passes preflight AND a real
+  acceptance test is recorded in this worklog. The final success definition
+  ("professional-quality images ... preserving identity outside approved regions") is
+  satisfied today ONLY on the deterministic axis (enhancement + masks + compositing +
+  validation), which is fully executed and measured; the generative axis is code-complete
+  and gated.
+- Identity metric (SFace) is provisional pending a training-data provenance review;
+  similarity scores are estimates by contract, never proof of identity.
+- PuLID-SDXL reference implementation lives in the worker code path but shares the same
+  enablement gate; IP-Adapter FaceID/InstantID/FLUX-dev remain excluded (non-commercial).
+- img2img full-image regeneration is deliberately NOT exposed as an unmasked operation;
+  strength<1 inpaint remains available through the masked path when the worker is enabled.
+- The managed provider remains unchanged; no unrelated product, route, auth, DB ownership
+  or theme was modified.

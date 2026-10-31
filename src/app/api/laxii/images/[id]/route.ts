@@ -27,17 +27,30 @@ export async function GET(
       throw new BeanApiError('NOT_FOUND', 'Image not found or not ready.')
     }
 
-    const file = path.join(STORAGE_ROOT, user.id, `${id}.jpg`)
+    // Extension/content-type follow the recorded result format (jpeg from
+    // the managed provider, png from local engines) — never an assumption.
+    let ext = 'jpg'
+    let mime = 'image/jpeg'
+    try {
+      const result = job.resultJson ? (JSON.parse(job.resultJson) as { format?: string }) : null
+      if (result?.format === 'png') {
+        ext = 'png'
+        mime = 'image/png'
+      }
+    } catch {
+      ext = 'jpg'
+    }
+    const file = path.join(STORAGE_ROOT, user.id, `${id}.${ext}`)
     if (!file.startsWith(STORAGE_ROOT) || !fs.existsSync(file)) {
       throw new BeanApiError('NOT_FOUND', 'Image file is no longer available.')
     }
     const bytes = fs.readFileSync(file)
     return new Response(new Uint8Array(bytes), {
       headers: {
-        'content-type': 'image/jpeg',
+        'content-type': mime,
         'content-length': String(bytes.length),
         'cache-control': 'private, max-age=3600',
-        'content-disposition': `inline; filename="bean-laxii-${id}.jpg"`,
+        'content-disposition': `inline; filename="bean-laxii-${id}.${ext}"`,
       },
     })
   } catch (err) {
