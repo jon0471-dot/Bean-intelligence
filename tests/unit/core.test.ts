@@ -43,11 +43,19 @@ describe('private backend registry (server-only source of truth)', () => {
     }
   })
 
-  test('backend tasks match their product task (no cross-task routing)', () => {
+  test('backend tasks are valid tasks for their product (no cross-product routing)', () => {
+    // 2026-10-31 (LAXII preservation engine): a product may serve several
+    // tasks (laxii: image-generation, image-enhancement, image-editing).
+    // The invariant that still holds: every backend task belongs to the
+    // product it is registered under, and is a known BeanTask.
+    const laxiiTasks = new Set(['image-generation', 'image-enhancement', 'image-editing'])
     for (const b of BACKEND_REGISTRY) {
       const product = getProduct(b.productId)
       expect(product).toBeDefined()
-      expect(b.task).toBe(product!.task)
+      const valid =
+        b.task === product!.task ||
+        (b.productId === 'laxii' && laxiiTasks.has(b.task))
+      expect(valid).toBe(true)
     }
   })
 
