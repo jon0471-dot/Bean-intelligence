@@ -1,0 +1,156 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-image-selfhosted-diffusers",
+  "product": "laxii",
+  "task": "image-editing",
+  "status": "not-deployed",
+  "deploymentMode": "self-hosted",
+  "provider": "BEAN Intelligence (local Diffusers worker)",
+  "modelIdentity": "Multi-component local stack — per-component identity below",
+  "revision": null,
+  "endpointType": "gpu-worker",
+  "worker": {
+    "entry": "workers/laxii-diffusers/worker.py",
+    "protocol": "JSON lines over stdin/stdout; methods: preflight, health, unload, txt2img, img2img, inpaint, reference_generate, identity_prepare, identity_check, upscale, object_removal",
+    "requirementsFile": "workers/laxii-diffusers/requirements.txt",
+    "requirementsInstalledInThisEnvironment": false,
+    "enableGates": [
+      "hardware preflight passes on the target GPU host (RTX 5060 Ti 16 GB reported target)",
+      "real inference acceptance test completed and recorded in worklog.md"
+    ]
+  },
+  "capabilities": {
+    "textToImage": true,
+    "imageToImage": true,
+    "maskedInpaint": true,
+    "referenceGuided": "IP-Adapter (h94, Apache-2.0)",
+    "identityConditioning": "PuLID-SDXL (subject to SDXL OpenRAIL++-M terms)",
+    "identityMetric": "YuNet (MIT) detection + SFace (provisional) cosine similarity",
+    "objectRemoval": "big-lama (Apache-2.0)",
+    "modelUpscale": "Real-ESRGAN x4plus (BSD-3-Clause)",
+    "outputFormat": "png"
+  },
+  "checkpoints": [
+    {
+      "id": "sd15-inpaint",
+      "sourceUrl": "https://huggingface.co/runwayml/stable-diffusion-v1-5",
+      "file": "sd-v1-5-inpainting.ckpt (official mirror) or diffusers in-place weights",
+      "license": "CreativeML OpenRAIL-M",
+      "commercialUse": "permitted-subject-to-use-restrictions",
+      "downloadSizeApproxGb": 4.3,
+      "vramClassGb": 4,
+      "role": "fast inpaint / IP-Adapter host",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded"
+    },
+    {
+      "id": "sdxl-base-1.0",
+      "sourceUrl": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0",
+      "file": "sd_xl_base_1.0.safetensors",
+      "license": "CreativeML Open RAIL++-M License",
+      "commercialUse": "permitted-subject-to-use-restrictions",
+      "downloadSizeApproxGb": 6.9,
+      "vramClassGb": 10,
+      "role": "photorealistic generation / PuLID host / SDXL inpaint",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded"
+    },
+    {
+      "id": "ip-adapter-h94-sd15",
+      "sourceUrl": "https://huggingface.co/h94/IP-Adapter",
+      "file": "models/image_encoder + ip-adapter_sd15(_plus)(-face).safetensors",
+      "license": "Apache-2.0 (repo + weights re-release)",
+      "commercialUse": "permitted",
+      "downloadSizeApproxGb": 5.0,
+      "vramClassGb": 2,
+      "role": "reference-guided conditioning",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded",
+      "excludedVariants": "h94/IP-Adapter-FaceID is NON-COMMERCIAL (insightface) — must not be deployed"
+    },
+    {
+      "id": "pulid-sdxl",
+      "sourceUrl": "https://huggingface.co/guozinan/PuLID",
+      "file": "pulid_sdxl.safetensors + EVA-CLIP encoder",
+      "license": "Apache-2.0 code / SDXL-derived weights (OpenRAIL++-M terms)",
+      "commercialUse": "permitted-subject-to-use-restrictions",
+      "downloadSizeApproxGb": 3.5,
+      "vramClassGb": 4,
+      "role": "face identity conditioning (Creative Generate only)",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded"
+    },
+    {
+      "id": "realesrgan-x4plus",
+      "sourceUrl": "https://github.com/xinntao/Real-ESRGAN/releases",
+      "file": "RealESRGAN_x4plus.pth",
+      "license": "BSD-3-Clause",
+      "commercialUse": "permitted",
+      "downloadSizeApproxGb": 0.07,
+      "vramClassGb": 1,
+      "role": "generative-class upscaling (optional step after Lanczos)",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded"
+    },
+    {
+      "id": "big-lama",
+      "sourceUrl": "https://github.com/advimman/lama",
+      "file": "big-lama.zip (Fourier convs inpainting)",
+      "license": "Apache-2.0",
+      "commercialUse": "permitted",
+      "downloadSizeApproxGb": 0.2,
+      "vramClassGb": 2,
+      "role": "object removal / large-mask structural inpaint",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded"
+    },
+    {
+      "id": "face-detection-yunet",
+      "sourceUrl": "https://huggingface.co/opencv/face_detection_yunet",
+      "file": "face_detection_yunet_2023mar.onnx",
+      "license": "MIT (model directory license)",
+      "commercialUse": "permitted",
+      "downloadSizeApproxGb": 0.001,
+      "vramClassGb": 0,
+      "role": "face-region detection for protection + drift gate",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded"
+    },
+    {
+      "id": "face-recognition-sface",
+      "sourceUrl": "https://huggingface.co/opencv/face_recognition_sface",
+      "file": "face_recognition_sface_2021dec.onnx",
+      "license": "MIT per model directory — PROVISIONAL: training-data provenance review required before commercial enablement (OpenCV Zoo issue #318)",
+      "commercialUse": "conditionally-permitted",
+      "downloadSizeApproxGb": 0.04,
+      "vramClassGb": 0,
+      "role": "identity similarity metric (drift gate) — similarity estimate, never proof of identity",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded"
+    },
+    {
+      "id": "flux1-schnell",
+      "sourceUrl": "https://huggingface.co/black-forest-labs/FLUX.1-schnell",
+      "file": "flux1-schnell.safetensors",
+      "license": "Apache-2.0 (verified 2026-10-24 in LICENSING-REPORT.md)",
+      "commercialUse": "permitted",
+      "downloadSizeApproxGb": 23.8,
+      "vramClassGb": 24,
+      "role": "CANDIDATE fast T2I tier — does not fit 16 GB at bf16; fp8/quant only after local preflight proves it. Never default",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded"
+    }
+  ],
+  "rejected": [
+    { "id": "InstantID", "reason": "mandatory InsightFace antelopev2 face model is non-commercial research-only" },
+    { "id": "h94/IP-Adapter-FaceID", "reason": "non-commercial (insightface face model) per maintainer statement 2024-01-22" },
+    { "id": "FLUX.1-dev (and PuLID-FLUX)", "reason": "FLUX.1-dev Non-Commercial License" },
+    { "id": "ComfyUI as required runtime", "reason": "GPL-3.0 node ecosystem + maintenance-only; diffusers covers the need under Apache-2.0" }
+  ],
+  "verifiedProbes": [],
+  "license": {
+    "name": "Mixed per component — see docs/models/LAXII-ENGINE-DECISION-MATRIX.md",
+    "sourceUrl": "https://github.com/huggingface/diffusers",
+    "verifiedAt": "2026-10-31"
+  }
+}

@@ -20,6 +20,8 @@ import { BeanApiError } from '@/lib/api/errors'
 import { checkDailyQuota, checkRateLimit } from '@/lib/auth/ratelimit'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
+import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
+import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import type {
   ChatRequest,
   ChatResult,
@@ -34,6 +36,10 @@ const ADAPTERS: Record<string, TaskAdapter> = {
   'bean-llm-hosted-primary': hostedLlmAdapter,
   'bean-code-llm-hosted-primary': hostedLlmAdapter,
   'bean-image-hosted-primary': hostedImageAdapter,
+  // LAXII preservation engine (2026-10-31): deterministic local engine +
+  // the (currently disabled) local Diffusers worker adapter.
+  'bean-image-local-sharp': localLaxiiAdapter,
+  'bean-image-selfhosted-diffusers': diffusersWorkerAdapter,
   'bean-video-selfhosted-candidate': {
     backendId: 'bean-video-selfhosted-candidate',
     health: async () => ({

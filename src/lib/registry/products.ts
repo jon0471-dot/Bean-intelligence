@@ -14,6 +14,13 @@ export type BeanProductId = 'riishe' | 'laxii' | 'jazmii' | 'code-giftz' | 'gang
 export type BeanTask =
   | 'chat'
   | 'image-generation'
+  | // LAXII preservation engine (2026-10-31): deterministic local enhancement is
+    // a real, executed capability; generative editing routes to the local
+    // Diffusers worker and stays honestly unavailable until that worker passes
+    // its hardware preflight AND a real inference test (see
+    // docs/models/LAXII-ENGINE-DECISION-MATRIX.md).
+    'image-enhancement'
+  | 'image-editing'
   | 'video-generation'
   | 'coding-task'
   // GANGZII audio tasks (server-side API surface):
@@ -54,9 +61,9 @@ export const BEAN_PRODUCTS: BeanProduct[] = [
   {
     id: 'laxii',
     name: 'LAXII',
-    tagline: 'Image generation studio',
+    tagline: 'Image creation & preservation studio',
     description:
-      'Generate images from text prompts with supported dimensions and aspect ratios, live job progress, previews and downloadable files.',
+      'Generate images from text prompts, enhance existing images with a preservation-first pipeline that keeps original pixels intact, and edit with brush masks that only ever change the region you approve. Availability of each capability is reported truthfully.',
     task: 'image-generation',
     accent: '#F0C75E',
     icon: 'image',
