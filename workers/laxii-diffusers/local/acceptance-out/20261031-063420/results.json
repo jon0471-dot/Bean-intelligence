@@ -1,0 +1,148 @@
+{
+  "runId": "20261031-063420",
+  "startedAt": "2026-10-31T06:34:20Z",
+  "phase": "LAXII-8",
+  "workerVersion": "0.3.1",
+  "honestyNote": "PASS = measured on this host during this run. Preflight/install success alone does not complete Phase 8.",
+  "environment": {
+    "platform": "Linux-5.10.134-013.15.kangaroo.al8.x86_64-x86_64-with-glibc2.41",
+    "python": "3.12.16",
+    "ramTotalGb": 3.95,
+    "gpu": {
+      "probe": "unavailable"
+    },
+    "note": "GPU numbers come from nvidia-smi (authoritative driver view).",
+    "packages": {
+      "error": "No module named 'torch'"
+    }
+  },
+  "preflight": {
+    "workerVersion": "0.3.1",
+    "ok": false,
+    "python": {
+      "version": "3.12.16",
+      "ok": true
+    },
+    "packages": {
+      "torch": {
+        "present": false,
+        "purpose": "inference runtime (CUDA build)"
+      },
+      "huggingface_hub": {
+        "present": true,
+        "version": null,
+        "purpose": "checkpoint download/loading backend for diffusers"
+      },
+      "diffusers": {
+        "present": false,
+        "purpose": "pipelines (txt2img / inpaint / IP-Adapter)"
+      },
+      "transformers": {
+        "present": false,
+        "purpose": "CLIP/text encoders"
+      },
+      "accelerate": {
+        "present": false,
+        "purpose": "device placement / cpu offload"
+      },
+      "safetensors": {
+        "present": false,
+        "purpose": "checkpoint format"
+      },
+      "numpy": {
+        "present": true,
+        "version": null,
+        "purpose": "mask/metric math"
+      },
+      "cv2": {
+        "present": true,
+        "version": null,
+        "purpose": "OpenCV DNN \u2014 YuNet face detection + SFace (opencv-python)"
+      },
+      "PIL": {
+        "present": true,
+        "version": null,
+        "purpose": "image decode/encode (Pillow)"
+      }
+    },
+    "missingPackages": [
+      "torch",
+      "diffusers",
+      "transformers",
+      "accelerate",
+      "safetensors"
+    ],
+    "torchMin": "2.4",
+    "diffusersMin": "0.42",
+    "cuda": {
+      "available": false,
+      "device": null,
+      "vramTotalGb": null,
+      "vramFreeGb": null,
+      "fp16": false,
+      "bf16": false
+    },
+    "disk": {
+      "modelsDir": "./models",
+      "freeGb": 7.71,
+      "sufficient": false
+    },
+    "models": [
+      {
+        "id": "sd15-inpaint",
+        "present": false,
+        "minGb": 3.0
+      },
+      {
+        "id": "sd15-base",
+        "present": false,
+        "minGb": 2.0
+      },
+      {
+        "id": "sdxl-base-1.0",
+        "present": false,
+        "minGb": 6.0
+      },
+      {
+        "id": "ip-adapter-h94-sd15",
+        "present": false,
+        "minGb": 0.5
+      },
+      {
+        "id": "pulid-sdxl",
+        "present": false,
+        "minGb": 2.0
+      },
+      {
+        "id": "realesrgan-x4plus",
+        "present": false,
+        "minGb": 0.05
+      },
+      {
+        "id": "big-lama",
+        "present": false,
+        "minGb": 0.1
+      },
+      {
+        "id": "face-detection-yunet",
+        "present": false,
+        "minGb": 0.001
+      },
+      {
+        "id": "face-recognition-sface",
+        "present": false,
+        "minGb": 0.03
+      }
+    ],
+    "notes": [
+      "ok=true means this HOST can run the worker; it is not proof any model has run.",
+      "Real capability evidence comes from an executed inference test recorded by BEAN."
+    ]
+  },
+  "checkpoints": null,
+  "tests": [],
+  "vramPeaksMb": {},
+  "summary": {
+    "verdict": "PREFLIGHT_GATE_FAILED"
+  }
+}

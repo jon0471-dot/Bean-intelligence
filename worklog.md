@@ -675,3 +675,136 @@ HONEST LIMITS / UNFINISHED:
   strength<1 inpaint remains available through the masked path when the worker is enabled.
 - The managed provider remains unchanged; no unrelated product, route, auth, DB ownership
   or theme was modified.
+
+---
+Task ID: LAXII-ENGINE-8-GPU-DEPLOYMENT-PREP
+Agent: main (Z.ai)
+Task: "LAXII Phase 8 — Local GPU Deployment and Real Inference Acceptance" (2026-10-31)
+
+Work Log:
+
+CONTEXT / HARD BOUNDARY (measured): the BEAN dev sandbox has NO GPU, no torch,
+~7.8 GB free disk — the mission forbids installing GPU dependencies here. The
+real inference of this phase can therefore only execute on the operator's local
+Windows PC (RTX 5060 Ti 16 GB). This session built and verified the complete
+deployment + acceptance kit and STOPPED at the honest boundary: nothing in this
+entry claims an inference ran, and the provider remains disabled.
+
+PHASE 8 STEP 1 — DEPLOYMENT PREPARATION (all inspected first: worker README,
+worker.py, requirements.txt, LAXII-PRESERVATION-ENGINE.md,
+LAXII-ENGINE-DECISION-MATRIX.md, worklog, worker.ts, manifest):
+- Version matrix re-verified from live sources on 2026-10-31 (URLs + PyPI +
+  download.pytorch.org indexes): RTX 5060 Ti = Blackwell sm_120 → CUDA 12.8
+  wheels REQUIRED; newest torch on the cu128 index = 2.11.0 (torchvision
+  0.26.0) — cp312 win_amd64 wheels confirmed present; diffusers 0.42.1
+  requires Python >= 3.11 and hub >=1.32,<3.0; pinned transformers 5.22.1
+  (documented fallback 4.57.6 + hub 1.33.0 if the local run proves otherwise);
+  opencv 4.14.0.94 (opencv 5 excluded as too new); numpy pinned 1.26.4;
+  driver >= 576.02 (first RTX 5060 Ti driver, 2025-04-16).
+- DEPLOYMENT-BLOCKING WORKER DEFECTS FOUND BY CODE INSPECTION (each was a
+  certain first-run failure; fixed pre-emptively in worker.py 0.3.1, logged
+  in-file, and covered by the protocol tests):
+    (1) from_single_file() was handed a model DIRECTORY / from_pretrained() a
+        single FILE — both raise. Added _find_weights()/_is_diffusers_dir()
+        explicit weight resolution.
+    (2) SDXL masked inpaint via from_pretrained() needs the diffusers-layout
+        directory with fp16 variants; the lone sd_xl_base_1.0.safetensors
+        cannot provide the 9-channel inpaint UNet. Now enforced truthfully
+        (MODEL_MISSING with fix instructions); single-file SDXL = txt2img only.
+    (3) IP-Adapter path mismatch: preflight checked ip-adapter* while
+        reference_generate loaded models/ip-adapter-h94-sd15 → preflight could
+        report "present" while the method failed. Aligned to models/ip-adapter
+        in the h94 repo layout (offline image encoder included).
+    (4) reference_generate had NO valid host: its default loaded the INPAINT
+        checkpoint as a txt2img pipeline (9-channel UNet mismatch). Registered
+        a real base host 'sd15-base' (sd-legacy/stable-diffusion-v1-5,
+        v1-5-pruned-emaonly.safetensors, OpenRAIL-M); other hosts rejected
+        with MODEL_UNSUPPORTED.
+    (5) huggingface_hub added to preflight's reported packages (real runtime
+        dependency). worker.ts: Windows default python binary (no python3
+        shim); LAXII_WORKER_PYTHON still overrides.
+- Checkpoint source corrections (the manifest still pointed at the REMOVED
+  runwayml repos): sd15-inpaint → sd-legacy/stable-diffusion-inpainting card,
+  file sd-v1-5-inpainting.safetensors via the webui mirror (safetensors, no
+  pickle execution); big-lama → smartywu/big-lama TorchScript packaging of the
+  Apache-2.0 upstream weights (the upstream repo ships no TorchScript);
+  SDXL entry documents the diffusers-layout requirement. All download URLs
+  HEAD-verified (200) before being written into code.
+- NEW workers/laxii-diffusers/windows/setup.ps1: Windows/OS check, nvidia-smi
+  GPU report, >=45 GB disk gate, Python 3.11-3.13 resolution (py launcher),
+  venv, torch 2.11.0+cu128 install, pinned requirements, patch_basicsr.py,
+  then THE GATE: the worker's own preflight, exit non-zero unless ok.
+- NEW windows/hardware_report.ps1: OS/CPU/RAM/GPU(name, driver, VRAM, compute
+  cap)/disk/Python report → hardware-report.json (read-only, explicitly NOT a
+  verdict).
+- NEW windows/patch_basicsr.py: applies the documented basicsr 1.4.2 fixes
+  (torchvision functional_tensor import; removed numpy aliases), .bak backups,
+  idempotent, then PROVES the import chain basicsr→RRDBNet→RealESRGANer.
+- requirements.txt rewritten as a pinned, dated matrix with the reasoning and
+  the documented transformers fallback rule.
+- NEW local/download_models.py: license table printed + --accept-licenses
+  required; downloads into the exact worker layout (~17 GB); per-file SHA-256
+  recorded at download into models/models.sha256 + models/download-record.json
+  (repo/revision/size/hash); idempotent re-runs; self-check re-verifies all
+  hashes before exiting. PuLID deliberately NOT downloaded (no worker method
+  wired — unused bytes are not deployed).
+
+PHASE 8 STEP 2-4 TOOLING (to be EXECUTED on the operator's PC):
+- NEW local/run_acceptance.py (acceptance harness, drives the EXISTING worker
+  JSON-lines protocol): Step 2 hardware snapshot + preflight GATE (stops with
+  exit 2 and a written results.json if unsuitable) + SHA-256 re-verification
+  of every checkpoint (exit 3 on mismatch, before any inference); Step 3 real
+  inference suite — T1 SDXL txt2img 1024 (+T1b determinism probe, informational),
+  T2 SD1.5-base txt2img, T3 IP-Adapter reference-guided generation, T4 masked
+  img2img enhancement (strength 0.35), T5 SD1.5 masked inpaint (strength 1.0,
+  raw worker output AND exact-composite both recorded), T6 SDXL masked inpaint
+  1024, T7 big-lama object removal + Real-ESRGAN x4, T8 cancellation + recovery
+  (cancel mid-run, expect CANCELLED, then a fresh inference must succeed),
+  T9 unload + VRAM release via health; Step 4 preservation suite — P1 exact
+  unmasked-pixel preservation aggregate (bit-exact outside mask is a HARD
+  assert per generative test), P2 face protection (YuNet zones bit-exact),
+  P3 multiple-face handling, P4 mask-boundary feather behaviour, P5 dimension
+  equality, P7 identity similarity for a regenerated face (--allow-face-
+  regeneration opt-in; SFace cosine recorded with the binding text "an
+  ESTIMATE against a threshold — never proof of identical identity"). Fixed
+  procedural test set (10 deterministic fixtures, explicitly NOT photographs)
+  generated into the run folder; face tests require operator-supplied rights-
+  cleared photos in local/testset-real/ and SKIP truthfully without them.
+  Every test records model id, seed, steps, wall time, sizes; VRAM sampled via
+  nvidia-smi every 250 ms with per-test peaks (device-level, stated as such).
+  Outputs: acceptance-out/<run>/{results.json, report.md, PNGs, testset/}.
+  Exit codes: 0 pass · 2 preflight · 3 checksums · 4 test failures · 5 worker died.
+- NEW local/ACCEPTANCE-RUNBOOK.md: prerequisites table, exact commands, photo
+  placement contract, expected durations, what to send back, troubleshooting
+  table (measured causes only), and the explicit rule that the operator must
+  NOT flip the provider flag themselves.
+
+MEASURED IN THIS SESSION (no claims beyond these):
+- worker.py 0.3.1 compiles; protocol tests re-run: 9 pass / 0 fail (preflight
+  honesty, UNAVAILABLE/MODEL_MISSING paths, cancel, Node client boundary faults).
+- The acceptance harness itself was smoke-run HERE: it printed the environment
+  snapshot, ran the REAL worker preflight (ok=false: missing torch/diffusers/
+  transformers/accelerate/safetensors, CUDA unavailable, 9 models declared,
+  0 present), wrote results.json with verdict PREFLIGHT_GATE_FAILED and exited
+  code 2 — the gate demonstrably stops an unsuitable host before any inference.
+  Artifact kept: workers/laxii-diffusers/local/acceptance-out/20261031-063405/.
+- All new Python files compile (py_compile); manifest JSON re-validated (10
+  checkpoint entries incl. new sd15-base).
+
+NOT DONE / NOT CLAIMED (the phase is NOT complete):
+- No hardware preflight on the RTX 5060 Ti host (it does not exist in this
+  sandbox); no checkpoints downloaded; no real inference; no VRAM numbers; no
+  preservation or identity measurements; no PNG outputs from a model.
+- bean-image-selfhosted-diffusers remains enabled:false with its truthful
+  reason; enablement happens only after BEAN reviews a real acceptance run.
+- Face-protection and identity tests remain UNEXECUTED (need operator photos
+  on the GPU host; procedural renders are explicitly not trusted for YuNet).
+
+NEXT ACTIONS (operator, on the Windows PC — see local/ACCEPTANCE-RUNBOOK.md):
+1) hardware_report.ps1 → confirm RTX 5060 Ti, driver >= 576.02, >= 45 GB free.
+2) setup.ps1 (creates .venv, installs cu128 stack, patches basicsr, preflight gate).
+3) download_models.py --accept-licenses (~17 GB, SHA-256 recorded).
+4) Optional but required for full acceptance: place 1-3 real, rights-cleared
+   photos in local/testset-real/ (face tests).
+5) run_acceptance.py [--allow-face-regeneration]; return acceptance-out/<run>/
+   + hardware-report.json for BEAN review before any enablement decision.

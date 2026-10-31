@@ -11,9 +11,17 @@
   "endpointType": "gpu-worker",
   "worker": {
     "entry": "workers/laxii-diffusers/worker.py",
-    "protocol": "JSON lines over stdin/stdout; methods: preflight, health, unload, txt2img, img2img, inpaint, reference_generate, identity_prepare, identity_check, upscale, object_removal",
+    "protocol": "JSON lines over stdin/stdout; methods: preflight, health, unload, txt2img, inpaint (masked img2img via strength<1), reference_generate, identity_prepare, identity_check, upscale, object_removal",
     "requirementsFile": "workers/laxii-diffusers/requirements.txt",
     "requirementsInstalledInThisEnvironment": false,
+    "localDeploymentKit": {
+      "runbook": "workers/laxii-diffusers/local/ACCEPTANCE-RUNBOOK.md",
+      "setup": "workers/laxii-diffusers/windows/setup.ps1",
+      "hardwareReport": "workers/laxii-diffusers/windows/hardware_report.ps1",
+      "downloader": "workers/laxii-diffusers/local/download_models.py",
+      "acceptanceHarness": "workers/laxii-diffusers/local/run_acceptance.py",
+      "targetHost": "Windows 11, RTX 5060 Ti 16 GB (Blackwell sm_120, requires torch cu128 wheels, driver >= 576.02)"
+    },
     "enableGates": [
       "hardware preflight passes on the target GPU host (RTX 5060 Ti 16 GB reported target)",
       "real inference acceptance test completed and recorded in worklog.md"
@@ -33,35 +41,47 @@
   "checkpoints": [
     {
       "id": "sd15-inpaint",
-      "sourceUrl": "https://huggingface.co/runwayml/stable-diffusion-v1-5",
-      "file": "sd-v1-5-inpainting.ckpt (official mirror) or diffusers in-place weights",
+      "sourceUrl": "https://huggingface.co/sd-legacy/stable-diffusion-inpainting",
+      "file": "sd-v1-5-inpainting.safetensors (downloaded from the webui/stable-diffusion-inpainting mirror of the deprecated runwayml repo; official license card: sd-legacy)",
       "license": "CreativeML OpenRAIL-M",
       "commercialUse": "permitted-subject-to-use-restrictions",
       "downloadSizeApproxGb": 4.3,
       "vramClassGb": 4,
-      "role": "fast inpaint / IP-Adapter host",
+      "role": "fast inpaint / masked img2img tier",
+      "checksum": "verified-at-download",
+      "status": "not-downloaded"
+    },
+    {
+      "id": "sd15-base",
+      "sourceUrl": "https://huggingface.co/sd-legacy/stable-diffusion-v1-5",
+      "file": "v1-5-pruned-emaonly.safetensors",
+      "license": "CreativeML OpenRAIL-M",
+      "commercialUse": "permitted-subject-to-use-restrictions",
+      "downloadSizeApproxGb": 4.3,
+      "vramClassGb": 4,
+      "role": "base txt2img host for IP-Adapter reference-guided generation (added Phase 8 — the inpaint checkpoint's 9-channel UNet cannot serve it)",
       "checksum": "verified-at-download",
       "status": "not-downloaded"
     },
     {
       "id": "sdxl-base-1.0",
       "sourceUrl": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0",
-      "file": "sd_xl_base_1.0.safetensors",
+      "file": "diffusers-layout directory (fp16 variants) — REQUIRED for masked inpaint; the lone sd_xl_base_1.0.safetensors single file serves txt2img only",
       "license": "CreativeML Open RAIL++-M License",
       "commercialUse": "permitted-subject-to-use-restrictions",
       "downloadSizeApproxGb": 6.9,
       "vramClassGb": 10,
-      "role": "photorealistic generation / PuLID host / SDXL inpaint",
+      "role": "photorealistic generation / SDXL masked inpaint / PuLID host (future)",
       "checksum": "verified-at-download",
       "status": "not-downloaded"
     },
     {
       "id": "ip-adapter-h94-sd15",
       "sourceUrl": "https://huggingface.co/h94/IP-Adapter",
-      "file": "models/image_encoder + ip-adapter_sd15(_plus)(-face).safetensors",
+      "file": "models/ip-adapter_sd15.safetensors + models/image_encoder (CLIP ViT-H, downloaded for offline use)",
       "license": "Apache-2.0 (repo + weights re-release)",
       "commercialUse": "permitted",
-      "downloadSizeApproxGb": 5.0,
+      "downloadSizeApproxGb": 2.6,
       "vramClassGb": 2,
       "role": "reference-guided conditioning",
       "checksum": "verified-at-download",
@@ -94,12 +114,11 @@
     },
     {
       "id": "big-lama",
-      "sourceUrl": "https://github.com/advimman/lama",
-      "file": "big-lama.zip (Fourier convs inpainting)",
+      "sourceUrl": "https://huggingface.co/smartywu/big-lama (TorchScript packaging; upstream weights: https://github.com/advimman/lama)",
+      "file": "big-lama/model.jit (TorchScript, extracted from big-lama.zip)",
       "license": "Apache-2.0",
       "commercialUse": "permitted",
       "downloadSizeApproxGb": 0.2,
-      "vramClassGb": 2,
       "role": "object removal / large-mask structural inpaint",
       "checksum": "verified-at-download",
       "status": "not-downloaded"

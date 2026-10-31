@@ -1,0 +1,758 @@
+     1→     1→#!/usr/bin/env python3
+     2→     2→"""
+     3→     3→BEAN Intelligence — LAXII local Diffusers worker.
+     4→     4→
+     5→     5→JSON-lines protocol over stdin/stdout (one request per line, responses and
+     6→     6→progress events on stdout, logs on stderr only):
+     7→     7→
+     8→     8→  request : {"id": "...", "method": "preflight|health|unload|txt2img|img2img|
+     9→     9→             inpaint|reference_generate|identity_prepare|identity_check|
+    10→    10→             upscale|object_removal|cancel", "params": {...}}
+    11→    11→  response: {"id": "...", "ok": true, "result": {...}}
+    12→    12→          | {"id": "...", "ok": false, "error": {"code": "...", "message": "..."}}
+    13→    13→  progress: {"id": "...", "type": "progress", "step": N, "total": M}
+    14→    14→
+    15→    15→HONESTY RULES (binding):
+    16→    16→  - This worker NEVER fakes a result. Every heavy dependency is imported
+    17→    17→    lazily; if torch/diffusers/models are missing, `preflight` reports the
+    18→    18→    exact missing items and every inference method returns UNAVAILABLE.
+    19→    19→  - No method claims success unless real bytes were produced by a real
+    20→    20→    model run.
+    21→    21→  - Identity similarity scores are similarity ESTIMATES. They are reported
+    22→    22→    with their threshold verdict, never as proof of identical identity.
+    23→    23→
+    24→    24→This file runs on a plain Python 3.10+ interpreter even with zero ML
+    25→    25→dependencies installed (preflight only needs the stdlib), so deployment
+    26→    26→hosts can always ask it what is missing.
+    27→    27→"""
+    28→    28→import argparse
+    29→    29→import base64
+    30→    30→import io
+    31→    31→import json
+    32→    32→import os
+    33→    33→import shutil
+    34→    34→import sys
+    35→    35→import threading
+    36→    36→import time
+    37→    37→
+    38→    38→WORKER_VERSION = "0.3.0"
+    39→    39→
+    40→    40→# ---------------------------------------------------------------------------
+    41→    41→# Lazy import helpers (preflight must work with NO ML deps installed)
+    42→    42→# ---------------------------------------------------------------------------
+    43→    43→
+    44→    44→_IMPORT_CACHE = {}
+    45→    45→
+    46→    46→
+    47→    47→def try_import(name):
+    48→    48→    if name in _IMPORT_CACHE:
+    49→    49→        return _IMPORT_CACHE[name]
+    50→    50→    try:
+    51→    51→        mod = __import__(name)
+    52→    52→        _IMPORT_CACHE[name] = mod
+    53→    53→        return mod
+    54→    54→    except Exception:
+    55→    55→        _IMPORT_CACHE[name] = None
+    56→    56→        return None
+    57→    57→
+    58→    58→
+    59→    59→def fail(request_id, code, message):
+    60→    60→    emit({"id": request_id, "ok": False, "error": {"code": code, "message": message}})
+    61→    61→
+    62→    62→
+    63→    63→def emit(obj):
+    64→    64→    sys.stdout.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    65→    65→    sys.stdout.flush()
+    66→    66→
+    67→    67→
+    68→    68→def log(msg):
+    69→    69→    sys.stderr.write("[laxii-worker] %s\n" % msg)
+    70→    70→    sys.stderr.flush()
+    71→    71→
+    72→    72→
+    73→    73→# ---------------------------------------------------------------------------
+    74→    74→# Preflight — runs with stdlib only; reports truth what exists and what's missing
+    75→    75→# ---------------------------------------------------------------------------
+    76→    76→
+    77→    77→REQUIRED_PACKAGES = {
+    78→    78→    "torch": "inference runtime (CUDA build)",
+    79→    79→    "diffusers": "pipelines (txt2img / inpaint / IP-Adapter)",
+    80→    80→    "transformers": "CLIP/text encoders",
+    81→    81→    "accelerate": "device placement / cpu offload",
+    82→    82→    "safetensors": "checkpoint format",
+    83→    83→    "numpy": "mask/metric math",
+    84→    84→    "cv2": "OpenCV DNN — YuNet face detection + SFace (opencv-python)",
+    85→    85→    "PIL": "image decode/encode (Pillow)",
+    86→    86→}
+    87→    87→
+    88→    88→MIN_DIFFUSERS_VERSION = "0.42"
+    89→    89→MIN_TORCH_VERSION = "2.4"
+    90→    90→MIN_VRAM_GB = 6.0
+    91→    91→MIN_DISK_GB = 12.0
+    92→    92→
+    93→    93→
+    94→    94→def run_preflight(params):
+    95→    95→    py_ok = sys.version_info >= (3, 10)
+    96→    96→    packages = {}
+    97→    97→    missing = []
+    98→    98→    for mod, purpose in REQUIRED_PACKAGES.items():
+    99→    99→        m = try_import(mod)
+   100→   100→        if m is None:
+   101→   101→            packages[mod] = {"present": False, "purpose": purpose}
+   102→   102→            missing.append(mod)
+   103→   103→        else:
+   104→   104→            version = None
+   105→   105→            if mod in ("torch", "diffusers", "transformers", "accelerate"):
+   106→   106→                version = getattr(m, "__version__", None)
+   107→   107→            packages[mod] = {"present": True, "version": version, "purpose": purpose}
+   108→   108→    diffusers_ok = packages["diffusers"]["present"] and _version_at_least(
+   109→   109→        packages["diffusers"].get("version"), MIN_DIFFUSERS_VERSION
+   110→   110→    )
+   111→   111→    torch_ok = packages["torch"]["present"] and _version_at_least(
+   112→   112→        packages["torch"].get("version"), MIN_TORCH_VERSION
+   113→   113→    )
+   114→   114→
+   115→   115→    cuda = {"available": False, "device": None, "vramTotalGb": None, "vramFreeGb": None,
+   116→   116→            "fp16": False, "bf16": False}
+   117→   117→    if torch_ok:
+   118→   118→        torch = _IMPORT_CACHE["torch"]
+   119→   119→        try:
+   120→   120→            cuda["available"] = torch.cuda.is_available()
+   121→   121→            if cuda["available"]:
+   122→   122→                props = torch.cuda.get_device_properties(0)
+   123→   123→                cuda["device"] = props.name
+   124→   124→                cuda["vramTotalGb"] = round(props.total_memory / 1024 ** 3, 2)
+   125→   125→                free, _total = torch.cuda.mem_get_info()
+   126→   126→                cuda["vramFreeGb"] = round(free / 1024 ** 3, 2)
+   127→   127→                cuda["fp16"] = torch.cuda.is_bf16_supported() or props.major >= 7
+   128→   128→                cuda["bf16"] = torch.cuda.is_bf16_supported()
+   129→   129→        except Exception as e:  # pragma: no cover - device-specific
+   130→   130→            cuda["error"] = str(e)
+   131→   131→
+   132→   132→    models_dir = params.get("modelsDir") or os.environ.get(
+   133→   133→        "LAXII_MODELS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+   134→   134→    )
+   135→   135→    disk = {"modelsDir": models_dir, "freeGb": None, "sufficient": None}
+   136→   136→    try:
+   137→   137→        free_bytes = shutil.disk_usage(models_dir if os.path.isdir(models_dir) else os.path.dirname(models_dir) or ".").free
+   138→   138→        disk["freeGb"] = round(free_bytes / 1024 ** 3, 2)
+   139→   139→        disk["sufficient"] = disk["freeGb"] >= MIN_DISK_GB
+   140→   140→    except Exception as e:
+   141→   141→        disk["error"] = str(e)
+   142→   142→
+   143→   143→    models = check_models(models_dir)
+   144→   144→
+   145→   145→    ok = (
+   146→   146→        py_ok
+   147→   147→        and not missing
+   148→   148→        and torch_ok
+   149→   149→        and diffusers_ok
+   150→   150→        and cuda["available"]
+   151→   151→        and (cuda["vramFreeGb"] or 0) >= MIN_VRAM_GB
+   152→   152→        and disk["sufficient"] is True
+   153→   153→    )
+   154→   154→    return {
+   155→   155→        "workerVersion": WORKER_VERSION,
+   156→   156→        "ok": ok,
+   157→   157→        "python": {"version": "%d.%d.%d" % sys.version_info[:3], "ok": py_ok},
+   158→   158→        "packages": packages,
+   159→   159→        "missingPackages": missing,
+   160→   160→        "torchMin": MIN_TORCH_VERSION,
+   161→   161→        "diffusersMin": MIN_DIFFUSERS_VERSION,
+   162→   162→        "cuda": cuda,
+   163→   163→        "disk": disk,
+   164→   164→        "models": models,
+   165→   165→        "notes": [
+   166→   166→            "ok=true means this HOST can run the worker; it is not proof any model has run.",
+   167→   167→            "Real capability evidence comes from an executed inference test recorded by BEAN.",
+   168→   168→        ],
+   169→   169→    }
+   170→   170→
+   171→   171→
+   172→   172→def _version_at_least(version, minimum):
+   173→   173→    if not version:
+   174→   174→        return False
+   175→   175→    def parts(v):
+   176→   176→        return [int(p) for p in v.split(".") if p.isdigit()]
+   177→   177→    try:
+   178→   178→        pv, pm = parts(version), parts(minimum)
+   179→   179→        return pv >= pm
+   180→   180→    except Exception:
+   181→   181→        return False
+   182→   182→
+   183→   183→
+   184→   184→def check_models(models_dir):
+   185→   185→    """Verify declared checkpoints exist on disk; checksums are verified
+   186→   186→    against models.sha256 when that file exists (never invented here)."""
+   187→   187→    import hashlib
+   188→   188→
+   189→   189→    declared = [
+   190→   190→        ("sd15-inpaint", ["sd-v1-5-inpainting", "stable-diffusion-v1-5"], 3.0),
+   191→   191→        ("sdxl-base-1.0", ["sd_xl_base_1.0.safetensors", "stable-diffusion-xl-base-1.0"], 6.0),
+   192→   192→        ("ip-adapter-h94-sd15", ["ip-adapter_sd15.safetensors", "ip-adapter"], 0.5),
+   193→   193→        ("pulid-sdxl", ["pulid_sdxl.safetensors", "pulid"], 2.0),
+   194→   194→        ("realesrgan-x4plus", ["RealESRGAN_x4plus.pth"], 0.05),
+   195→   195→        ("big-lama", ["big-lama", "lama_fp32.jit"], 0.1),
+   196→   196→        ("face-detection-yunet", ["face_detection_yunet_2023mar.onnx"], 0.001),
+   197→   197→        ("face-recognition-sface", ["face_recognition_sface_2021dec.onnx"], 0.03),
+   198→   198→    ]
+   199→   199→    sha_path = os.path.join(models_dir, "models.sha256")
+   200→   200→    sha_map = {}
+   201→   201→    if os.path.isfile(sha_path):
+   202→   202→        with open(sha_path, "r", encoding="utf-8") as fh:
+   203→   203→            for line in fh:
+   204→   204→                bits = line.strip().split()
+   205→   205→                if len(bits) == 2:
+   206→   206→                    sha_map[bits[1]] = bits[0]
+   207→   207→    results = []
+   208→   208→    for model_id, candidates, min_gb in declared:
+   209→   209→        found = None
+   210→   210→        for cand in candidates:
+   211→   211→            p = os.path.join(models_dir, cand)
+   212→   212→            if os.path.isdir(p) and os.listdir(p):
+   213→   213→                found = {"path": p, "kind": "directory"}
+   214→   214→                break
+   215→   215→            if os.path.isfile(p):
+   216→   216→                found = {"path": p, "kind": "file"}
+   217→   217→                break
+   218→   218→        entry = {"id": model_id, "present": found is not None, "minGb": min_gb}
+   219→   219→        if found:
+   220→   220→            entry.update(found)
+   221→   221→            if found["kind"] == "file":
+   222→   222→                size_gb = os.path.getsize(found["path"]) / 1024 ** 3
+   223→   223→                entry["sizeGb"] = round(size_gb, 3)
+   224→   224→                expected = sha_map.get(os.path.basename(found["path"]))
+   225→   225→                if expected:
+   226→   226→                    h = hashlib.sha256()
+   227→   227→                    with open(found["path"], "rb") as fh:
+   228→   228→                        for chunk in iter(lambda: fh.read(1 << 20), b""):
+   229→   229→                            h.update(chunk)
+   230→   230→                    entry["checksumVerified"] = h.hexdigest() == expected
+   231→   231→                else:
+   232→   232→                    entry["checksumVerified"] = None
+   233→   233→        results.append(entry)
+   234→   234→    return results
+   235→   235→
+   236→   236→
+   237→   237→# ---------------------------------------------------------------------------
+   238→   238→# Engine (lazy — only touchable after preflight-level deps are present)
+   239→   239→# ---------------------------------------------------------------------------
+   240→   240→
+   241→   241→class Engine:
+   242→   242→    def __init__(self):
+   243→   243→        self.lock = threading.Lock()
+   244→   244→        self.pipelines = {}
+   245→   245→        self.current_model = None
+   246→   246→        self.embeddings = {}  # handle -> {rects, embedding}
+   247→   247→        self._embed_counter = 0
+   248→   248→        self.cancelled = set()
+   249→   249→
+   250→   250→    # -- guards ------------------------------------------------------------
+   251→   251→
+   252→   252→    def _require(self, request_id, *modules):
+   253→   253→        missing = [m for m in modules if try_import(m) is None]
+   254→   254→        if missing:
+   255→   255→            fail(request_id, "UNAVAILABLE",
+   256→   256→                 "Worker cannot run: missing packages %s. Run preflight for the full report." % ", ".join(missing))
+   257→   257→            return False
+   258→   258→        return True
+   259→   259→
+   260→   260→    def _need_model(self, request_id, model_id):
+   261→   261→        models = check_models(models_dir())
+   262→   262→        entry = next((m for m in models if m["id"] == model_id), None)
+   263→   263→        if not entry or not entry.get("present"):
+   264→   264→            fail(request_id, "MODEL_MISSING",
+   265→   265→                 "Checkpoint '%s' is not downloaded to the models dir. Download it per the manifest; BEAN never fabricates results." % model_id)
+   266→   266→            return False
+   267→   267→        return True
+   268→   268→
+   269→   269→    def _b64_to_pil(self, b64):
+   270→   270→        from PIL import Image
+   271→   271→        return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+   272→   272→
+   273→   273→    def _pil_to_b64_png(self, image):
+   274→   274→        buf = io.BytesIO()
+   275→   275→        image.save(buf, format="PNG")
+   276→   276→        return base64.b64encode(buf.getvalue()).decode("ascii")
+   277→   277→
+   278→   278→    def _cancel_cb(self, request_id, total):
+   279→   279→        def _cb(pipe, step_index, timestep, callback_kwargs):
+   280→   280→            if request_id in self.cancelled:
+   281→   281→                raise _Cancelled()
+   282→   282→            emit({"id": request_id, "type": "progress",
+   283→   283→                  "step": step_index + 1, "total": total})
+   284→   284→            return callback_kwargs
+   285→   285→        return _cb
+   286→   286→
+   287→   287→    # -- model loading with VRAM discipline --------------------------------
+   288→   288→
+   289→   289→    def _load(self, request_id, model_id, task):
+   290→   290→        torch = _IMPORT_CACHE["torch"]
+   291→   291→        diffusers = _IMPORT_CACHE["diffusers"]
+   292→   292→        key = (model_id, task)
+   293→   293→        if key in self.pipelines:
+   294→   294→            return self.pipelines[key]
+   295→   295→        cuda = torch.cuda.is_available()
+   296→   296→        dtype = torch.float16 if cuda else torch.float32
+   297→   297→        log("loading %s (%s) dtype=%s" % (model_id, task, dtype))
+   298→   298→        t0 = time.time()
+   299→   299→        base = model_path(model_id)
+   300→   300→        if task == "inpaint" and model_id == "sd15-inpaint":
+   301→   301→            pipe = diffusers.StableDiffusionInpaintPipeline.from_single_file(
+   302→   302→                base, torch_dtype=dtype)
+   303→   303→        elif task == "inpaint" and model_id == "sdxl-base-1.0":
+   304→   304→            pipe = diffusers.StableDiffusionXLInpaintPipeline.from_pretrained(
+   305→   305→                base, torch_dtype=dtype, variant="fp16")
+   306→   306→        elif task == "txt2img" and model_id == "sdxl-base-1.0":
+   307→   307→            pipe = diffusers.StableDiffusionXLPipeline.from_pretrained(
+   308→   308→                base, torch_dtype=dtype, variant="fp16")
+   309→   309→        elif model_id == "sd15-inpaint":
+   310→   310→            pipe = diffusers.StableDiffusionPipeline.from_single_file(
+   311→   311→                base, torch_dtype=dtype)
+   312→   312→        else:
+   313→   313→            fail(request_id, "MODEL_UNSUPPORTED",
+   314→   314→                 "Model '%s' is not registered for task '%s'." % (model_id, task))
+   315→   315→            return None
+   316→   316→        if cuda:
+   317→   317→            pipe = pipe.to("cuda")
+   318→   318→            pipe.enable_attention_slicing()
+   319→   319→        else:
+   320→   320→            pipe.enable_model_cpu_offload()
+   321→   321→        self.pipelines = {key: pipe}  # keep ONE pipeline resident (VRAM discipline)
+   322→   322→        self.current_model = key
+   323→   323→        log("loaded %s in %.1fs" % (model_id, time.time() - t0))
+   324→   324→        return pipe
+   325→   325→
+   326→   326→    def unload(self):
+   327→   327→        torch = _IMPORT_CACHE.get("torch")
+   328→   328→        self.pipelines.clear()
+   329→   329→        self.current_model = None
+   330→   330→        if torch is not None and torch.cuda.is_available():
+   331→   331→            torch.cuda.empty_cache()
+   332→   332→            torch.cuda.ipc_collect()
+   333→   333→        return {"unloaded": True}
+   334→   334→
+   335→   335→
+   336→   336→class _Cancelled(Exception):
+   337→   337→    pass
+   338→   338→
+   339→   339→
+   340→   340→def models_dir():
+   341→   341→    return os.environ.get(
+   342→   342→        "LAXII_MODELS_DIR",
+   343→   343→        os.path.join(os.path.dirname(os.path.abspath(__file__)), "models"))
+   344→   344→
+   345→   345→
+   346→   346→def model_path(model_id):
+   347→   347→    mapping = {
+   348→   348→        "sd15-inpaint": "sd-v1-5-inpainting",
+   349→   349→        "sdxl-base-1.0": "sd_xl_base_1.0.safetensors",
+   350→   350→    }
+   351→   351→    return os.path.join(models_dir(), mapping.get(model_id, model_id))
+   352→   352→
+   353→   353→
+   354→   354→# ---------------------------------------------------------------------------
+   355→   355→# Methods
+   356→   356→# ---------------------------------------------------------------------------
+   357→   357→
+   358→   358→def method_txt2img(engine, request_id, p):
+   359→   359→    if not engine._require(request_id, "torch", "diffusers", "PIL"):
+   360→   360→        return
+   361→   361→    model_id = p.get("model", "sdxl-base-1.0")
+   362→   362→    if not engine._need_model(request_id, model_id):
+   363→   363→        return
+   364→   364→    pipe = engine._load(request_id, model_id, "txt2img")
+   365→   365→    if pipe is None:
+   366→   366→        return
+   367→   367→    gen = _make_generator(p.get("seed"))
+   368→   368→    kwargs = dict(
+   369→   369→        prompt=p["prompt"],
+   370→   370→        width=_snap(p.get("width", 1024)),
+   371→   371→        height=_snap(p.get("height", 1024)),
+   372→   372→        num_inference_steps=int(p.get("steps", 30)),
+   373→   373→        guidance_scale=float(p.get("guidance", 6.0)),
+   374→   374→    )
+   375→   375→    if p.get("negativePrompt"):
+   376→   376→        kwargs["negative_prompt"] = p["negativePrompt"]
+   377→   377→    if gen is not None:
+   378→   378→        kwargs["generator"] = gen
+   379→   379→    try:
+   380→   380→        with engine.lock:
+   381→   381→            out = pipe(callback_on_step_end=engine._cancel_cb(request_id, kwargs["num_inference_steps"]), **kwargs)
+   382→   382→    except _Cancelled:
+   383→   383→        engine.cancelled.discard(request_id)
+   384→   384→        fail(request_id, "CANCELLED", "Cancelled by request.")
+   385→   385→        return
+   386→   386→    images = [engine._pil_to_b64_png(im) for im in out.images]
+   387→   387→    used_seed = p.get("seed")
+   388→   388→    emit({"id": request_id, "ok": True, "result": {
+   389→   389→        "images": images, "model": model_id,
+   390→   390→        "seed": used_seed, "steps": kwargs["num_inference_steps"],
+   391→   391→        "guidance": kwargs["guidance_scale"],
+   392→   392→        "size": [kwargs["width"], kwargs["height"]],
+   393→   393→    }})
+   394→   394→
+   395→   395→
+   396→   396→def method_inpaint(engine, request_id, p):
+   397→   397→    if not engine._require(request_id, "torch", "diffusers", "numpy", "PIL"):
+   398→   398→        return
+   399→   399→    model_id = p.get("model", "sd15-inpaint")
+   400→   400→    if not engine._need_model(request_id, model_id):
+   401→   401→        return
+   402→   402→    pipe = engine._load(request_id, model_id, "inpaint")
+   403→   403→    if pipe is None:
+   404→   404→        return
+   405→   405→    import numpy as np
+   406→   406→    image = engine._b64_to_pil(p["image"])
+   407→   407→    mask_img = engine._b64_to_pil(p["mask"]).convert("L")
+   408→   408→    # Mask semantics: alpha>0 = EDITABLE (matches BEAN TS engine).
+   409→   409→    mask_arr = 255 - np.array(mask_img)  # diffusers: 0 = keep, 255 = regenerate
+   410→   410→    from PIL import Image as PILImage
+   411→   411→    mask_img = PILImage.fromarray(mask_arr.astype("uint8"))
+   412→   412→    kwargs = dict(
+   413→   413→        prompt=p["prompt"],
+   414→   414→        image=image,
+   415→   415→        mask_image=mask_img,
+   416→   416→        num_inference_steps=int(p.get("steps", 30)),
+   417→   417→        guidance_scale=float(p.get("guidance", 6.0)),
+   418→   418→        strength=float(p.get("strength", 1.0)),
+   419→   419→    )
+   420→   420→    if p.get("negativePrompt"):
+   421→   421→        kwargs["negative_prompt"] = p["negativePrompt"]
+   422→   422→    seed = p.get("seed")
+   423→   423→    if seed is not None:
+   424→   424→        kwargs["generator"] = _make_generator(seed)
+   425→   425→    try:
+   426→   426→        with engine.lock:
+   427→   427→            out = pipe(callback_on_step_end=engine._cancel_cb(request_id, kwargs["num_inference_steps"]), **kwargs)
+   428→   428→    except _Cancelled:
+   429→   429→        engine.cancelled.discard(request_id)
+   430→   430→        fail(request_id, "CANCELLED", "Cancelled by request.")
+   431→   431→        return
+   432→   432→    emit({"id": request_id, "ok": True, "result": {
+   433→   433→        "images": [engine._pil_to_b64_png(im) for im in out.images],
+   434→   434→        "model": model_id, "seed": seed, "steps": kwargs["num_inference_steps"],
+   435→   435→    }})
+   436→   436→
+   437→   437→
+   438→   438→def method_reference_generate(engine, request_id, p):
+   439→   439→    if not engine._require(request_id, "torch", "diffusers", "PIL"):
+   440→   440→        return
+   441→   441→    model_id = p.get("model", "sd15-inpaint")
+   442→   442→    if not engine._need_model(request_id, model_id):
+   443→   443→        return
+   444→   444→    pipe = engine._load(request_id, model_id, "txt2img")
+   445→   445→    if pipe is None:
+   446→   446→        return
+   447→   447→    ip_dir = model_path("ip-adapter-h94-sd15")
+   448→   448→    if not os.path.isdir(ip_dir) and not os.path.isfile(ip_dir):
+   449→   449→        fail(request_id, "MODEL_MISSING",
+   450→   450→             "IP-Adapter checkpoint missing (h94/IP-Adapter, Apache-2.0).")
+   451→   451→        return
+   452→   452→    try:
+   453→   453→        pipe.load_ip_adapter(
+   454→   454→            os.path.dirname(ip_dir) if os.path.isfile(ip_dir) else ip_dir,
+   455→   455→            subfolder="models" if os.path.isdir(ip_dir) else "",
+   456→   456→            weight_name=p.get("ipAdapter", {}).get("weightName", "ip-adapter_sd15.safetensors"),
+   457→   457→            image_encoder_folder="models/image_encoder",
+   458→   458→        )
+   459→   459→        pipe.set_ip_adapter_scale(float(p.get("ipAdapter", {}).get("scale", 0.6)))
+   460→   460→        ref = engine._b64_to_pil(p["referenceImage"])
+   461→   461→        kwargs = dict(
+   462→   462→            prompt=p["prompt"],
+   463→   463→            ip_adapter_image=ref,
+   464→   464→            width=_snap(p.get("width", 512)),
+   465→   465→            height=_snap(p.get("height", 512)),
+   466→   466→            num_inference_steps=int(p.get("steps", 30)),
+   467→   467→            guidance_scale=float(p.get("guidance", 6.0)),
+   468→   468→        )
+   469→   469→        seed = p.get("seed")
+   470→   470→        if seed is not None:
+   471→   471→            kwargs["generator"] = _make_generator(seed)
+   472→   472→        with engine.lock:
+   473→   473→            out = pipe(callback_on_step_end=engine._cancel_cb(request_id, kwargs["num_inference_steps"]), **kwargs)
+   474→   474→    except _Cancelled:
+   475→   475→        engine.cancelled.discard(request_id)
+   476→   476→        fail(request_id, "CANCELLED", "Cancelled by request.")
+   477→   477→        return
+   478→   478→    except Exception as e:
+   479→   479→        fail(request_id, "BACKEND_FAILURE", "Reference generation failed: %s" % e)
+   480→   480→        return
+   481→   481→    emit({"id": request_id, "ok": True, "result": {
+   482→   482→        "images": [engine._pil_to_b64_png(im) for im in out.images],
+   483→   483→        "model": model_id, "referenceConditioning": p.get("ipAdapter", {}),
+   484→   484→    }})
+   485→   485→
+   486→   486→
+   487→   487→def method_identity_prepare(engine, request_id, p):
+   488→   488→    """YuNet detect + SFace embed. Embeddings stay in worker memory (local
+   489→   489→    processing guarantee); only rects and a handle are returned."""
+   490→   490→    if not engine._require(request_id, "cv2", "numpy"):
+   491→   491→        return
+   492→   492→    import cv2
+   493→   493→    import numpy as np
+   494→   494→    yunet_path = model_path("face-detection-yunet")
+   495→   495→    sface_path = model_path("face-recognition-sface")
+   496→   496→    for path, label in ((yunet_path, "face-detection-yunet"), (sface_path, "face-recognition-sface")):
+   497→   497→        if not (os.path.isfile(path) or os.path.isdir(path)):
+   498→   498→            fail(request_id, "MODEL_MISSING", "Face model missing: %s" % label)
+   499→   499→            return
+   500→   500→    detector = cv2.FaceDetectorYN.create(os.path.realpath(yunet_path) if os.path.isfile(yunet_path) else _find_onnx(yunet_path), "", (320, 320))
+   501→   501→    recognizer = cv2.FaceRecognizerSF.create(
+   502→   502→        os.path.realpath(sface_path) if os.path.isfile(sface_path) else _find_onnx(sface_path), "")
+   503→   503→    img = cv2.imdecode(np.frombuffer(base64.b64decode(p["image"]), dtype=np.uint8), cv2.IMREAD_COLOR)
+   504→   504→    h, w = img.shape[:2]
+   505→   505→    detector.setInputSize((w, h))
+   506→   506→    _, faces = detector.detect(img)
+   507→   507→    rects = []
+   508→   508→    aligned_feats = []
+   509→   509→    if faces is not None:
+   510→   510→        for f in faces:
+   511→   511→            x, y, fw, fh = [int(v) for v in f[:4]]
+   512→   512→            rects.append({"x": x, "y": y, "width": fw, "height": fh})
+   513→   513→            aligned = recognizer.alignCrop(img, f)
+   514→   514→            aligned_feats.append(recognizer.feature(aligned))
+   515→   515→    handle = None
+   516→   516→    if aligned_feats:
+   517→   517→        engine._embed_counter += 1
+   518→   518→        handle = "emb-%d" % engine._embed_counter
+   519→   519→        engine.embeddings[handle] = aligned_feats
+   520→   520→    emit({"id": request_id, "ok": True, "result": {
+   521→   521→        "handle": handle,
+   522→   522→        "faces": rects,
+   523→   523→        "count": len(rects),
+   524→   524→        "metric": "SFace cosine (similarity estimate, not proof of identity)",
+   525→   525→        "processedLocally": True,
+   526→   526→    }})
+   527→   527→
+   528→   528→
+   529→   529→def method_identity_check(engine, request_id, p):
+   530→   530→    """Compare two images' faces. If both images contain exactly one face,
+   531→   531→    returns a single similarity; multi-face -> best-matching pair with all
+   532→   532→    scores attached (multi-face identity handling is explicit, not hidden)."""
+   533→   533→    if not engine._require(request_id, "cv2", "numpy"):
+   534→   534→        return
+   535→   535→    if not (engine._need_model(request_id, "face-detection-yunet")
+   536→   536→            and engine._need_model(request_id, "face-recognition-sface")):
+   537→   537→        return
+   538→   538→    import cv2
+   539→   539→    import numpy as np
+   540→   540→
+   541→   541→    def embed(b64):
+   542→   542→        yunet_path = _find_onnx(model_path("face-detection-yunet")) or model_path("face-detection-yunet")
+   543→   543→        sface_path = _find_onnx(model_path("face-recognition-sface")) or model_path("face-recognition-sface")
+   544→   544→        detector = cv2.FaceDetectorYN.create(yunet_path, "", (320, 320))
+   545→   545→        recognizer = cv2.FaceRecognizerSF.create(sface_path, "")
+   546→   546→        img = cv2.imdecode(np.frombuffer(base64.b64decode(b64), dtype=np.uint8), cv2.IMREAD_COLOR)
+   547→   547→        h, w = img.shape[:2]
+   548→   548→        detector.setInputSize((w, h))
+   549→   549→        _, faces = detector.detect(img)
+   550→   550→        out = []
+   551→   551→        if faces is not None:
+   552→   552→            for f in faces:
+   553→   553→                aligned = recognizer.alignCrop(img, f)
+   554→   554→                out.append(recognizer.feature(aligned))
+   555→   555→        return out
+   556→   556→
+   557→   557→    feats_a = embed(p["imageA"])
+   558→   558→    feats_b = embed(p["imageB"])
+   559→   559→    threshold = float(p.get("threshold", 0.363))
+   560→   560→    if not feats_a or not feats_b:
+   561→   561→        emit({"id": request_id, "ok": True, "result": {
+   562→   562→            "detectedA": len(feats_a), "detectedB": len(feats_b),
+   563→   563→            "verdict": "no-face-detected",
+   564→   564→            "note": "No face found; identity gate cannot run. Use user-approved face regions instead.",
+   565→   565→        }})
+   566→   566→        return
+   567→   567→    scores = [
+   568→   568→        float(cv2.FaceRecognizerSF.compare(feats_a[i], feats_b[j])[0])
+   569→   569→        for i in range(len(feats_a)) for j in range(len(feats_b))
+   570→   570→    ]
+   571→   571→    best = max(scores)
+   572→   572→    emit({"id": request_id, "ok": True, "result": {
+   573→   573→        "similarity": best,
+   574→   574→        "allScores": scores,
+   575→   575→        "threshold": threshold,
+   576→   576→        "passed": best >= threshold,
+   577→   577→        "metric": "SFace cosine",
+   578→   578→        "verdict": "within-range" if best >= threshold else "flagged",
+   579→   579→        "note": "A similarity score is an estimate against a configured threshold — never proof of identical identity.",
+   580→   580→    }})
+   581→   581→
+   582→   582→
+   583→   583→def method_upscale(engine, request_id, p):
+   584→   584→    if not engine._require(request_id, "torch", "numpy", "PIL"):
+   585→   585→        return
+   586→   586→    model = p.get("model", "realesrgan-x4plus")
+   587→   587→    if model == "lanczos":
+   588→   588→        from PIL import Image
+   589→   589→        img = engine._b64_to_pil(p["image"])
+   590→   590→        factor = int(p.get("factor", 4))
+   591→   591→        up = img.resize((img.width * factor, img.height * factor), Image.LANCZOS)
+   592→   592→        emit({"id": request_id, "ok": True, "result": {
+   593→   593→            "images": [engine._pil_to_b64_png(up)], "model": "lanczos"}})
+   594→   594→        return
+   595→   595→    if not engine._need_model(request_id, "realesrgan-x4plus"):
+   596→   596→        return
+   597→   597→    try:
+   598→   598→        import torch  # noqa: F401
+   599→   599→        from basicsr.archs.rrdbnet_arch import RRDBNet
+   600→   600→        from realesrgan import RealESRGANer
+   601→   601→    except Exception:
+   602→   602→        fail(request_id, "UNAVAILABLE",
+   603→   603→             "Real-ESRGAN requires the 'realesrgan' and 'basicsr' packages (see requirements.txt).")
+   604→   604→        return
+   605→   605→    rrdb = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
+   606→   606→    upsampler = RealESRGANer(
+   607→   607→        scale=4, model_path=model_path("realesrgan-x4plus"), model=rrdb,
+   608→   608→        tile=int(p.get("tile", 384)), tile_pad=10, pre_pad=0, half=True)
+   609→   609→    import numpy as np
+   610→   610→    img = engine._b64_to_pil(p["image"])
+   611→   611→    arr = np.array(img)[:, :, ::-1]
+   612→   612→    out, _ = upsampler.enhance(arr, outscale=int(p.get("factor", 4)))
+   613→   613→    from PIL import Image as PILImage
+   614→   614→    up = PILImage.fromarray(out[:, :, ::-1])
+   615→   615→    emit({"id": request_id, "ok": True, "result": {
+   616→   616→        "images": [engine._pil_to_b64_png(up)], "model": "realesrgan-x4plus"}})
+   617→   617→
+   618→   618→
+   619→   619→def method_object_removal(engine, request_id, p):
+   620→   620→    """LaMa big-lama (TorchScript) — large-mask structural inpaint."""
+   621→   621→    if not engine._require(request_id, "torch", "numpy", "PIL"):
+   622→   622→        return
+   623→   623→    if not engine._need_model(request_id, "big-lama"):
+   624→   624→        return
+   625→   625→    import numpy as np
+   626→   626→    import torch
+   627→   627→    from PIL import Image
+   628→   628→
+   629→   629→    jit_path = _find_onnx(model_path("big-lama")) or os.path.join(model_path("big-lama"), "model.jit")
+   630→   630→    if not os.path.isfile(jit_path):
+   631→   631→        fail(request_id, "MODEL_MISSING", "big-lama TorchScript file not found under %s." % model_path("big-lama"))
+   632→   632→        return
+   633→   633→    model = torch.jit.load(jit_path, map_location="cpu").eval()
+   634→   634→    img = engine._b64_to_pil(p["image"])
+   635→   635→    mask = np.array(engine._b64_to_pil(p["mask"]).convert("L")) > 127  # True = remove
+   636→   636→    arr = np.array(img).astype(np.float32) / 255.0
+   637→   637→    # Pad to multiples of 8 (LaMa requirement).
+   638→   638→    ph, pw = (8 - arr.shape[0] % 8) % 8, (8 - arr.shape[1] % 8) % 8
+   639→   639→    arr_p = np.pad(arr, ((0, ph), (0, pw), (0, 0)), mode="reflect")
+   640→   640→    mask_p = np.pad(mask, ((0, ph), (0, pw)), mode="reflect")
+   641→   641→    x = torch.from_numpy(arr_p.transpose(2, 0, 1)[None])
+   642→   642→    m = torch.from_numpy(mask_p[None, None].astype(np.float32))
+   643→   643→    with torch.no_grad():
+   644→   644→        pred = model(x, m)
+   645→   645→    out = pred[0].permute(1, 2, 0).clamp(0, 1).numpy()
+   646→   646→    out = (out[: arr.shape[0], : arr.shape[1]] * 255).astype(np.uint8)
+   647→   647→    emit({"id": request_id, "ok": True, "result": {
+   648→   648→        "images": [engine._pil_to_b64_png(Image.fromarray(out))], "model": "big-lama"}})
+   649→   649→
+   650→   650→
+   651→   651→def _find_onnx(path):
+   652→   652→    if os.path.isfile(path):
+   653→   653→        return path
+   654→   654→    if os.path.isdir(path):
+   655→   655→        for name in sorted(os.listdir(path)):
+   656→   656→            if name.endswith(".onnx"):
+   657→   657→                return os.path.join(path, name)
+   658→   658→    return None
+   659→   659→
+   660→   660→
+   661→   661→def _snap(v):
+   662→   662→    return max(64, int(round(v / 64.0)) * 64)
+   663→   663→
+   664→   664→
+   665→   665→def _make_generator(seed):
+   666→   666→    torch = _IMPORT_CACHE.get("torch")
+   667→   667→    if seed is None or torch is None:
+   668→   668→        return None
+   669→   669→    if torch.cuda.is_available():
+   670→   670→        return torch.Generator("cuda").manual_seed(int(seed))
+   671→   671→    return torch.Generator("cpu").manual_seed(int(seed))
+   672→   672→
+   673→   673→
+   674→   674→METHODS = {
+   675→   675→    "txt2img": method_txt2img,
+   676→   676→    "inpaint": method_inpaint,
+   677→   677→    "reference_generate": method_reference_generate,
+   678→   678→    "identity_prepare": method_identity_prepare,
+   679→   679→    "identity_check": method_identity_check,
+   680→   680→    "upscale": method_upscale,
+   681→   681→    "object_removal": method_object_removal,
+   682→   682→}
+   683→   683→
+   684→   684→
+   685→   685→# ---------------------------------------------------------------------------
+   686→   686→# Main loop
+   687→   687→# ---------------------------------------------------------------------------
+   688→   688→
+   689→   689→def main():
+   690→   690→    parser = argparse.ArgumentParser(description="LAXII local Diffusers worker")
+   691→   691→    parser.add_argument("--models-dir", default=None, help="checkpoint directory")
+   692→   692→    args = parser.parse_args()
+   693→   693→    if args.models_dir:
+   694→   694→        os.environ["LAXII_MODELS_DIR"] = args.models_dir
+   695→   695→
+   696→   696→    engine = Engine()
+   697→   697→    emit({"id": None, "type": "ready", "workerVersion": WORKER_VERSION,
+   698→   698→          "pid": os.getpid()})
+   699→   699→    for line in sys.stdin:
+   700→   700→        line = line.strip()
+   701→   701→        if not line:
+   702→   702→            continue
+   703→   703→        try:
+   704→   704→            req = json.loads(line)
+   705→   705→        except json.JSONDecodeError as e:
+   706→   706→            fail(None, "BAD_REQUEST", "Unparseable request line: %s" % e)
+   707→   707→            continue
+   708→   708→        rid = req.get("id")
+   709→   709→        method = req.get("method")
+   710→   710→        params = req.get("params") or {}
+   711→   711→        try:
+   712→   712→            if method == "preflight":
+   713→   713→                emit({"id": rid, "ok": True, "result": run_preflight(params)})
+   714→   714→            elif method == "health":
+   715→   715→                if engine.current_model:
+   716→   716→                    emit({"id": rid, "ok": True, "result": {
+   717→   717→                        "loaded": list("%s:%s" % k for k in engine.pipelines.keys()),
+   718→   718→                        "vramFreeGb": _vram_free()}})
+   719→   719→                else:
+   720→   720→                    emit({"id": rid, "ok": True, "result": {
+   721→   721→                        "loaded": [], "vramFreeGb": _vram_free(),
+   722→   722→                        "note": "No pipeline resident; models load on demand."}})
+   723→   723→            elif method == "unload":
+   724→   724→                emit({"id": rid, "ok": True, "result": engine.unload()})
+   725→   725→            elif method == "cancel":
+   726→   726→                target = params.get("targetId")
+   727→   727→                if target:
+   728→   728→                    engine.cancelled.add(target)
+   729→   729→                emit({"id": rid, "ok": True, "result": {"cancelled": target}})
+   730→   730→            elif method in METHODS:
+   731→   731→                engine.cancelled.discard(rid)
+   732→   732→                METHODS[method](engine, rid, params)
+   733→   733→            else:
+   734→   734→                fail(rid, "UNKNOWN_METHOD", "Unknown method '%s'." % method)
+   735→   735→        except _Cancelled:
+   736→   736→            fail(rid, "CANCELLED", "Cancelled by request.")
+   737→   737→        except BrokenPipeError:
+   738→   738→            break
+   739→   739→        except Exception as e:  # never crash the loop on a single failure
+   740→   740→            log("error in %s: %r" % (method, e))
+   741→   741→            fail(rid, "INTERNAL_ERROR", "%s: %s" % (type(e).__name__, e))
+   742→   742→    log("stdin closed; exiting")
+   743→   743→
+   744→   744→
+   745→   745→def _vram_free():
+   746→   746→    torch = _IMPORT_CACHE.get("torch")
+   747→   747→    if torch is not None and torch.cuda.is_available():
+   748→   748→        try:
+   749→   749→            free, _ = torch.cuda.mem_get_info()
+   750→   750→            return round(free / 1024 ** 3, 2)
+   751→   751→        except Exception:
+   752→   752→            return None
+   753→   753→    return None
+   754→   754→
+   755→   755→
+   756→   756→if __name__ == "__main__":
+   757→   757→    main()
+   758→   758→
