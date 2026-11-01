@@ -162,9 +162,13 @@ export async function localPreflight(): Promise<LocalPreflight> {
       'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAF0lEQVR4nGP8//8/AzGAiShVowoJAgCCTQMDzCTELAAAAABJRU5ErkJggg==',
       'base64',
     )
-    const out = await sharp(probe).resize(4, 4).raw().toBuffer()
+    // removeAlpha() makes the round-trip deterministic: the probe PNG is
+    // RGBA, so a bare .raw() yields 4 channels (64 B) and the 3-channel
+    // length check below false-negatived a working engine (measured
+    // 2026-11-01, sharp 0.34.5; same fix as local-adapter.ts).
+    const out = await sharp(probe).resize(4, 4).removeAlpha().raw().toBuffer()
     engineOk = out.length === 4 * 4 * 3
-    engineDetail = `Sharp engine probe completed in ${Date.now() - t0}ms (8x8 decode → 4x4 raw).`
+    engineDetail = `Sharp engine probe ${engineOk ? 'completed' : 'produced unexpected output'} in ${Date.now() - t0}ms (8x8 decode → 4x4 raw RGB).`
   } catch (e) {
     engineDetail = `Sharp engine probe FAILED: ${e instanceof Error ? e.message : String(e)}`
   }
