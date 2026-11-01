@@ -25,11 +25,23 @@ export interface TaskProfile {
   requireCitations: boolean
 }
 
+/** A single named routing signal that fired for this classification. */
+export interface RoutingSignal {
+  /** Which pattern family fired (freshness, code, math, document, wh). */
+  family: string
+  /** The matched fragment, clipped for safe logging/display. */
+  match: string
+}
+
 const MATH_PATTERNS: RegExp[] = [
   /\b(calculate|compute|evaluate|solve|simplify|factor|derivative|integral|limit|sum|product|probability|permutation|combination)\b/i,
   /\b(equation|inequality|matrix|vector|logarithm|exponent|modulo|prime|divisor|gcd|lcm|factorial)\b/i,
   /\b(prove|proof|theorem|lemma|induction|contradiction)\b/i,
   /\bhow\s+(many|much)\b.*\d|\d\s*[+\-*/^×÷]\s*\d/,
+  // Measured eval gap (extended.json reason-101): percentage word problems
+  // carry no operator token ("a 15% discount on $80 and $120"), so the
+  // router sent them to 'general' and the arithmetic went unverified.
+  /\b\d+(\.\d+)?\s*%\s*(discount|off|of|tax|increase|decrease)\b|\b(discount|discounted)\s+(of\s+)?\d+(\.\d+)?\s*%\b/i,
 ]
 
 const CODE_PATTERNS: RegExp[] = [
@@ -54,28 +66,99 @@ const FRESHNESS_PATTERNS: RegExp[] = [
 ]
 
 export function classifyTask(message: string): TaskProfile {
+  const { task, thinkingEnabled, verifyMath, requireCitations } = classifyTaskDetailed(message)
+  return { task, thinkingEnabled, verifyMath, requireCitations }
+}
+
+/**
+ * Confidence-bearing routing (Phase 2): same decision order and outcomes as
+ * classifyTask, but ALSO reports HOW STRONG the evidence for the decision
+ * was and which signals fired. Callers use confidence to observe routing
+ * quality (metadata/logs) — never to invent capabilities: a low-confidence
+ * turn still routes to its decided task, with the default 'general' acting
+ * as the safe fallback. Confidence bands:
+ *   >= 0.85  explicit, unambiguous signal (freshness pattern, multi-signal)
+ *   >= 0.70  one strong signal (code/math/doc match)
+ *   >= 0.55  weak signal (bare wh-question)
+ *    0.70    deliberate default (general conversation is the safe route)
+ */
+export function classifyTaskDetailed(
+  message: string,
+): TaskProfile & { confidence: number; signals: RoutingSignal[] } {
   const text = message.trim()
+  const signals: RoutingSignal[] = []
+  const collect = (family: string, patterns: RegExp[]) => {
+    for (const re of patterns) {
+      const m = text.match(re)
+      if (m) signals.push({ family, match: m[0].slice(0, 40) })
+    }
+    return signals.filter((s) => s.family === family).length
+  }
 
   // Freshness-sensitive questions about software are research, not coding:
   // model knowledge of versions/docs goes stale fastest.
-  if (FRESHNESS_PATTERNS.some((re) => re.test(text))) {
-    return { task: 'research', thinkingEnabled: false, verifyMath: false, requireCitations: true }
+  if (collect('freshness', FRESHNESS_PATTERNS) > 0) {
+    return {
+      task: 'research',
+      thinkingEnabled: false,
+      verifyMath: false,
+      requireCitations: true,
+      confidence: 0.9,
+      signals,
+    }
   }
-  if (CODE_PATTERNS.some((re) => re.test(text))) {
-    return { task: 'coding', thinkingEnabled: true, verifyMath: false, requireCitations: false }
+  const codeHits = collect('code', CODE_PATTERNS)
+  if (codeHits > 0) {
+    return {
+      task: 'coding',
+      thinkingEnabled: true,
+      verifyMath: false,
+      requireCitations: false,
+      confidence: codeHits >= 2 ? 0.9 : 0.75,
+      signals,
+    }
   }
-  if (MATH_PATTERNS.some((re) => re.test(text))) {
-    return { task: 'math', thinkingEnabled: true, verifyMath: true, requireCitations: false }
+  const mathHits = collect('math', MATH_PATTERNS)
+  if (mathHits > 0) {
+    return {
+      task: 'math',
+      thinkingEnabled: true,
+      verifyMath: true,
+      requireCitations: false,
+      confidence: mathHits >= 2 ? 0.9 : 0.75,
+      signals,
+    }
   }
-  if (DOC_HINTS.some((re) => re.test(text)) && text.length > 1500) {
-    return { task: 'document', thinkingEnabled: true, verifyMath: false, requireCitations: false }
+  if (collect('document', DOC_HINTS) > 0 && text.length > 1500) {
+    return {
+      task: 'document',
+      thinkingEnabled: true,
+      verifyMath: false,
+      requireCitations: false,
+      confidence: 0.85,
+      signals,
+    }
   }
   // research-leaning wh-questions: search policy decides; thinking stays off
   // for latency unless the question is long/complex.
-  if (RESEARCH_HINTS.some((re) => re.test(text)) && text.length > 24) {
-    return { task: 'research', thinkingEnabled: false, verifyMath: false, requireCitations: true }
+  if (collect('wh', RESEARCH_HINTS) > 0 && text.length > 24) {
+    return {
+      task: 'research',
+      thinkingEnabled: false,
+      verifyMath: false,
+      requireCitations: true,
+      confidence: 0.55,
+      signals,
+    }
   }
-  return { task: 'general', thinkingEnabled: false, verifyMath: false, requireCitations: false }
+  return {
+    task: 'general',
+    thinkingEnabled: false,
+    verifyMath: false,
+    requireCitations: false,
+    confidence: 0.7,
+    signals,
+  }
 }
 
 /**

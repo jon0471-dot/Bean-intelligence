@@ -714,6 +714,33 @@ export function computeGeoWarning(
     : `none of the retrieved reports mention ${geoTerms.slice(0, 3).join(', ')}; the specific case or place may not be identified`
 }
 
+/**
+ * Cross-source conflict check (pure, deterministic): when the retrieved
+ * sources carry publication dates that SPAN more than a year, the pack
+ * mixes current reporting with potentially outdated material. The solver
+ * is told explicitly so it prefers the newer sources and names the
+ * disagreement instead of blending stale and fresh claims.
+ */
+export function findDateDisagreement(
+  sources: ReadonlyArray<{ date: string | null; id: number; title: string }>,
+): string | null {
+  const dated = sources
+    .map((s) => ({ title: s.title, year: s.date ? parseSourceDate(s.date).year ?? null : null }))
+    .filter((s): s is { title: string; year: number } => s.year !== null)
+  if (dated.length < 2) return null
+  let newest = dated[0]
+  let oldest = dated[0]
+  for (const s of dated) {
+    if (s.year > newest.year) newest = s
+    if (s.year < oldest.year) oldest = s
+  }
+  if (newest.year - oldest.year <= 1) return null
+  return (
+    `NOTE: retrieved sources span a wide date range (${oldest.title.slice(0, 80)} vs ${newest.title.slice(0, 80)}). ` +
+    'Prefer the newer sources for anything time-sensitive, and say when sources disagree.'
+  )
+}
+
 /** Compact, numbered evidence block for the solver prompt. */
 export function formatEvidenceBlock(pack: EvidencePack): string | null {
   if (pack.sources.length === 0) return null
@@ -722,5 +749,6 @@ export function formatEvidenceBlock(pack: EvidencePack): string | null {
     const body = s.excerpt ? s.excerpt.slice(0, 1_200) : s.snippet.slice(0, 600)
     return `[${s.id}] ${s.title}${date}\nURL: ${s.url}\nEXCERPT: ${body}`
   })
-  return lines.join('\n\n')
+  const disagreement = findDateDisagreement(pack.sources)
+  return disagreement ? `${lines.join('\n\n')}\n\n${disagreement}` : lines.join('\n\n')
 }

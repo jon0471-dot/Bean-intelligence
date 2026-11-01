@@ -15,6 +15,7 @@ export type FileCapability =
   | 'code' // source/config files (analyzed as text with language hint)
   | 'pdf'
   | 'docx'
+  | 'pptx' // PowerPoint slide text extraction
   | 'data' // xlsx (tabular extraction)
   | 'image' // real vision analysis (createVision)
   | 'audio' // real transcription (hosted ASR) + ffprobe metadata
@@ -59,6 +60,7 @@ const BY_EXTENSION: Record<string, { capability: FileCapability; language?: stri
   // documents / data
   pdf: { capability: 'pdf' },
   docx: { capability: 'docx' },
+  pptx: { capability: 'pptx' },
   xlsx: { capability: 'data' },
   // images (vision-supported inputs)
   png: { capability: 'image' }, jpg: { capability: 'image' }, jpeg: { capability: 'image' },
@@ -79,6 +81,7 @@ export const CAPABILITY_LIMITS: Record<FileCapability, number> = {
   code: 10 * 1024 * 1024,
   pdf: 15 * 1024 * 1024,
   docx: 15 * 1024 * 1024,
+  pptx: 15 * 1024 * 1024,
   data: 15 * 1024 * 1024,
   image: 10 * 1024 * 1024,
   audio: 20 * 1024 * 1024,
@@ -141,7 +144,7 @@ export function detectCapability(name: string, declaredMime: string, bytes: Uint
 
   const isZipMagic = magic === 'application/zip'
   // Office formats are ZIP containers — extension decides which parser runs.
-  if (isZipMagic && (ext === 'docx' || ext === 'xlsx')) {
+  if (isZipMagic && (ext === 'docx' || ext === 'xlsx' || ext === 'pptx')) {
     return { capability: mapped!.capability, maxBytes: CAPABILITY_LIMITS[mapped!.capability], language: '', mimeMismatch: false }
   }
 
@@ -178,7 +181,7 @@ export function detectCapability(name: string, declaredMime: string, bytes: Uint
     magic !== 'truncated' &&
     magic !== 'application/octet-stream' &&
     !declaredMime.startsWith(magic.split('/')[0]) &&
-    !(capability === 'docx' || capability === 'data') &&
+    !(capability === 'docx' || capability === 'data' || capability === 'pptx') &&
     !(magic === 'application/zip' && declaredMime.includes('officedocument'))
 
   return { capability, maxBytes: CAPABILITY_LIMITS[capability], language, mimeMismatch }

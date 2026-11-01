@@ -1,0 +1,242 @@
+{
+  "suiteVersion": "core.json@2026-10-24.1 + extended.json@2026-11-01.1",
+  "ranAt": "2026-11-01T13:30:51.179Z",
+  "questionCount": 4,
+  "liveQuestionCount": 4,
+  "fixtureQuestions": [],
+  "summary": {
+    "multi-step-reasoning": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 0
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 4117,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "current-web-research": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 0
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 5272,
+        "searched": 1,
+        "computationVerified": 0,
+        "sourcesVerified": 1
+      }
+    },
+    "software-version-verification": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 1551
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 2448,
+        "searched": 1,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "movie-release-research": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 1838
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 2276,
+        "searched": 1,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    }
+  },
+  "overall": {
+    "baselinePassRate": "0/4",
+    "upgradedPassRate": "2/4"
+  },
+  "outcomes": [
+    {
+      "questionId": "reason-101",
+      "suite": "multi-step-reasoning",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "runner error: chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+      ],
+      "latencyMs": 0,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      },
+      "error": "chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+    },
+    {
+      "questionId": "research-101",
+      "suite": "current-web-research",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "runner error: chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+      ],
+      "latencyMs": 0,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      },
+      "error": "chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+    },
+    {
+      "questionId": "research-102",
+      "suite": "software-version-verification",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "sources retrieved: 0",
+        "citations resolve to retrieved evidence: false",
+        "no invalid [n] refs: true",
+        "no fabricated urls: false"
+      ],
+      "latencyMs": 1551,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 1,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "research-103",
+      "suite": "movie-release-research",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "sources retrieved: 0",
+        "citations resolve to retrieved evidence: false",
+        "no invalid [n] refs: true",
+        "no fabricated urls: true"
+      ],
+      "latencyMs": 1838,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "reason-101",
+      "suite": "multi-step-reasoning",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 158: true"
+      ],
+      "latencyMs": 4117,
+      "searchRan": false,
+      "states": [
+        "PARTIALLY_VERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "research-101",
+      "suite": "current-web-research",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "sources retrieved: 5",
+        "citations resolve to retrieved evidence: true",
+        "no invalid [n] refs: true",
+        "no fabricated urls: true"
+      ],
+      "latencyMs": 5272,
+      "searchRan": true,
+      "states": [
+        "VERIFIED_FROM_SOURCES"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 5
+      }
+    },
+    {
+      "questionId": "research-102",
+      "suite": "software-version-verification",
+      "mode": "upgraded",
+      "pass": false,
+      "criteria": [
+        "sources retrieved: 0",
+        "citations resolve to retrieved evidence: false",
+        "no invalid [n] refs: true",
+        "no fabricated urls: true"
+      ],
+      "latencyMs": 2448,
+      "searchRan": true,
+      "states": [
+        "TOOL_UNAVAILABLE"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "research-103",
+      "suite": "movie-release-research",
+      "mode": "upgraded",
+      "pass": false,
+      "criteria": [
+        "sources retrieved: 0",
+        "citations resolve to retrieved evidence: false",
+        "no invalid [n] refs: true",
+        "no fabricated urls: true"
+      ],
+      "latencyMs": 2276,
+      "searchRan": true,
+      "states": [
+        "TOOL_UNAVAILABLE"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    }
+  ],
+  "limitations": [
+    "Single run per question; model outputs are non-deterministic.",
+    "Small sample sizes per suite; results indicate direction, not statistical significance.",
+    "Structural scoring only (exact numeric match, citation integrity, abstention/refusal signals); no human grading of answer quality.",
+    "Research questions depend on live web results at run time."
+  ]
+}

@@ -1,0 +1,675 @@
+{
+  "suiteVersion": "core.json@2026-10-24.1 + extended.json@2026-11-01.1",
+  "ranAt": "2026-11-01T13:25:02.807Z",
+  "questionCount": 14,
+  "liveQuestionCount": 14,
+  "fixtureQuestions": [],
+  "summary": {
+    "general-knowledge": {
+      "baseline": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 835
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 645,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "multi-step-reasoning": {
+      "baseline": {
+        "n": 2,
+        "pass": 2,
+        "meanLatencyMs": 1983
+      },
+      "upgraded": {
+        "n": 2,
+        "pass": 1,
+        "meanLatencyMs": 1606,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "math": {
+      "baseline": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 2088
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 1040,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "coding-debugging": {
+      "baseline": {
+        "n": 2,
+        "pass": 2,
+        "meanLatencyMs": 3669
+      },
+      "upgraded": {
+        "n": 2,
+        "pass": 2,
+        "meanLatencyMs": 2085,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "pdf-document-qa": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 1128
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 898,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "spreadsheet-analysis": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 1042
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 1246,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "conversation-context": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 911
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 561,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "multilingual": {
+      "baseline": {
+        "n": 2,
+        "pass": 2,
+        "meanLatencyMs": 549
+      },
+      "upgraded": {
+        "n": 2,
+        "pass": 2,
+        "meanLatencyMs": 645,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "tool-calling": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 3233
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 1761,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "abstention": {
+      "baseline": {
+        "n": 2,
+        "pass": 2,
+        "meanLatencyMs": 1251
+      },
+      "upgraded": {
+        "n": 2,
+        "pass": 0,
+        "meanLatencyMs": 0,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    }
+  },
+  "overall": {
+    "baselinePassRate": "10/14",
+    "upgradedPassRate": "10/14"
+  },
+  "outcomes": [
+    {
+      "questionId": "genknow-102",
+      "suite": "general-knowledge",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 4 expected signals: true"
+      ],
+      "latencyMs": 835,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "reason-101",
+      "suite": "multi-step-reasoning",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 158: true"
+      ],
+      "latencyMs": 1768,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "reason-102",
+      "suite": "multi-step-reasoning",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 4 expected signals: true"
+      ],
+      "latencyMs": 2197,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "math-102",
+      "suite": "math",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 5: true"
+      ],
+      "latencyMs": 2088,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "coding-101",
+      "suite": "coding-debugging",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 7 expected signals: true"
+      ],
+      "latencyMs": 6558,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "coding-102",
+      "suite": "coding-debugging",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 6 expected signals: true"
+      ],
+      "latencyMs": 779,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "doc-101",
+      "suite": "pdf-document-qa",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "answer covers one of 5 expected signals: false"
+      ],
+      "latencyMs": 1128,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "sheet-101",
+      "suite": "spreadsheet-analysis",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "answer contains exact value 1400: false"
+      ],
+      "latencyMs": 1042,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "context-101",
+      "suite": "conversation-context",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "answer covers one of 3 expected signals: false"
+      ],
+      "latencyMs": 911,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "multilingual-101",
+      "suite": "multilingual",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 1 expected signals: true"
+      ],
+      "latencyMs": 461,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "multilingual-102",
+      "suite": "multilingual",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 3 expected signals: true"
+      ],
+      "latencyMs": 636,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "tool-101",
+      "suite": "tool-calling",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "response state EXECUTION_VERIFIED present: false (states: none)",
+        "answer contains exact value 1060: true"
+      ],
+      "latencyMs": 3233,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "ambig-101",
+      "suite": "abstention",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "honest uncertainty signal present: true"
+      ],
+      "latencyMs": 1121,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "ambig-102",
+      "suite": "abstention",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "honest uncertainty signal present: true"
+      ],
+      "latencyMs": 1381,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "genknow-102",
+      "suite": "general-knowledge",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 4 expected signals: true"
+      ],
+      "latencyMs": 645,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "reason-101",
+      "suite": "multi-step-reasoning",
+      "mode": "upgraded",
+      "pass": false,
+      "criteria": [
+        "answer contains exact value 158: false"
+      ],
+      "latencyMs": 821,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "reason-102",
+      "suite": "multi-step-reasoning",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 4 expected signals: true"
+      ],
+      "latencyMs": 2390,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "math-102",
+      "suite": "math",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 5: true"
+      ],
+      "latencyMs": 1040,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "coding-101",
+      "suite": "coding-debugging",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 7 expected signals: true"
+      ],
+      "latencyMs": 3282,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "coding-102",
+      "suite": "coding-debugging",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 6 expected signals: true"
+      ],
+      "latencyMs": 887,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "doc-101",
+      "suite": "pdf-document-qa",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 5 expected signals: true"
+      ],
+      "latencyMs": 898,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "sheet-101",
+      "suite": "spreadsheet-analysis",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 1400: true"
+      ],
+      "latencyMs": 1246,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "context-101",
+      "suite": "conversation-context",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 3 expected signals: true"
+      ],
+      "latencyMs": 561,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "multilingual-101",
+      "suite": "multilingual",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 1 expected signals: true"
+      ],
+      "latencyMs": 502,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "multilingual-102",
+      "suite": "multilingual",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 3 expected signals: true"
+      ],
+      "latencyMs": 788,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "tool-101",
+      "suite": "tool-calling",
+      "mode": "upgraded",
+      "pass": false,
+      "criteria": [
+        "response state EXECUTION_VERIFIED present: false (states: UNVERIFIED)",
+        "answer contains exact value 1060: false"
+      ],
+      "latencyMs": 1761,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "ambig-101",
+      "suite": "abstention",
+      "mode": "upgraded",
+      "pass": false,
+      "criteria": [
+        "runner error: chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+      ],
+      "latencyMs": 0,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      },
+      "error": "chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+    },
+    {
+      "questionId": "ambig-102",
+      "suite": "abstention",
+      "mode": "upgraded",
+      "pass": false,
+      "criteria": [
+        "runner error: chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+      ],
+      "latencyMs": 0,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      },
+      "error": "chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+    }
+  ],
+  "limitations": [
+    "Single run per question; model outputs are non-deterministic.",
+    "Small sample sizes per suite; results indicate direction, not statistical significance.",
+    "Structural scoring only (exact numeric match, citation integrity, abstention/refusal signals); no human grading of answer quality.",
+    "Research questions depend on live web results at run time."
+  ]
+}

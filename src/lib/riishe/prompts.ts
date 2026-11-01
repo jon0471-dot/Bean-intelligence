@@ -112,6 +112,7 @@ Tool protocol (server-side execution):
 - Available tools:
 ${'{TOOLS}'}
 - Request tools only when they materially improve the answer (live facts, exact arithmetic, execution evidence, document detail). Otherwise answer directly.
+- When the user's message EXPLICITLY asks to run/execute code ("run code to …", "execute this snippet", "simulate …"), you MUST use run_code for it — do not compute in your head and do not merely describe what code would output. Emit the TOOL_CALL line, then report the REAL stdout result.
 - If a tool fails or is denied, say what you could not verify and continue with what you have.`
 
 function buildToolSection(toolNames: readonly string[], catalog: string): string {

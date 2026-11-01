@@ -184,7 +184,12 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     })()
   }
 
-  async function deleteConversation(id: string) {
+  /** Delete one conversation (owner-checked server-side). Returns an honest
+   *  result so the confirming dialog can stay open and show the real error
+   *  on failure — a closed dialog must always mean the row is really gone.
+   *  The global error banner is ALSO set so the failure stays visible after
+   *  the dialog closes. */
+  async function deleteConversation(id: string): Promise<{ ok: boolean; error?: string }> {
     try {
       await beanFetch(`/api/riishe/conversations/${id}`, { method: 'DELETE' })
       if (activeId === id) {
@@ -193,12 +198,21 @@ export function useRiisheChat(refs: RiisheChatRefs) {
         setMessages([])
       }
       void loadConversations()
+      return { ok: true }
     } catch (e) {
-      setError((e as Error).message)
+      const message = (e as Error).message
+      setError(message)
+      return { ok: false, error: message }
     }
   }
 
-  async function renameConversation(id: string, title: string) {
+  /** Rename a conversation. Same honest-result contract as delete: the
+   *  dialog uses the returned error to keep itself open on failure instead
+   *  of silently closing as if the rename had succeeded. */
+  async function renameConversation(
+    id: string,
+    title: string,
+  ): Promise<{ ok: boolean; error?: string }> {
     try {
       const d = await beanFetch<{ conversation: { id: string; title: string } }>(
         `/api/riishe/conversations/${id}`,
@@ -206,8 +220,11 @@ export function useRiisheChat(refs: RiisheChatRefs) {
       )
       setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title: d.conversation.title } : c)))
       if (activeId === id) setActiveTitle(d.conversation.title)
+      return { ok: true }
     } catch (e) {
-      setError((e as Error).message)
+      const message = (e as Error).message
+      setError(message)
+      return { ok: false, error: message }
     }
   }
 

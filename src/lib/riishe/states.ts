@@ -91,6 +91,19 @@ export interface MessageMetadata {
    *  output with a refusal. Set by the orchestrator only — never by the
    *  model. Absent (undefined) when the guard did not fire. */
   injectionBlocked?: boolean
+  /** Phase-2 routing observability: the confidence-bearing classification
+   *  and the capability plan that governed this turn. Composed by the
+   *  orchestrator from the deterministic router — never by the model. */
+  router?: {
+    task: string
+    confidence: number
+    signals: Array<{ family: string; match: string }>
+    codeExecution: boolean
+    imageAnalysis: boolean
+  }
+  /** Provenance for system-authored memory-action receipts (real DB
+   *  operations, not model output). Absent on ordinary turns. */
+  memoryAction?: { action: 'save' | 'forget' | 'list'; count?: number; refused?: boolean }
   /** Short, customer-facing note shown ONLY when verification is
    *  incomplete or something material could not be confirmed (claims not
    *  covered by retrieved evidence, stale sources, geographic mismatch).

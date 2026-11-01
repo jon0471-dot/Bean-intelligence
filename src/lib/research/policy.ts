@@ -67,6 +67,18 @@ const HIGH_RISK_PATTERNS: Array<[RegExp, string]> = [
   // elections and legal developments are inherently fresh (measured failure:
   // "Research a current topic: Gingee girl missing" never searched).
   [/\b(news|headline|announce[dm]?|declared|appointed|elected|resigned|lawsuit|verdict|missing|kidnapp\w*|abduct\w*|arrest(ed|s|ing)?|shooting|stabbed|earthquake|cyclone|hurricane|typhoon|flood\w*|wildfire|landslide|death\s+toll|evacuat\w*|election)\b/i, 'references recent events or announcements'],
+  // Multilingual freshness signals (Phase 3): the same recency intent in the
+  // languages the platform serves. Additive — English tables above still win
+  // when they match first, and exclusions below still apply afterwards.
+  [/\b(最新|当前|如今|今天|新闻|汇率|股价)\b|最新.{0,6}(版本|价格)/, 'multilingual recency signal (CJK)'],
+  [/(?:最新|ニュース|現在)/, 'multilingual recency signal (CJK/JP)'],
+  [/\b(última\w*|actual\w*|noticias|hoy|precio\s+actual)\b/i, 'multilingual recency signal (ES)'],
+  [/\b(derni[eè]re\w*|actualit\w*|aujourd\'hui|version\s+actuelle)\b/i, 'multilingual recency signal (FR)'],
+  [/\b(neuest\w*|aktuell\w*|heute|Nachrichten)\b/i, 'multilingual recency signal (DE)'],
+  [/\b(mais\s+recente\w*|atual\w*|not[ií]cias|hoje)\b/i, 'multilingual recency signal (PT)'],
+  [/\b(последн\w+|новости|сегодня|актуальн\w+)\b/i, 'multilingual recency signal (RU)'],
+  [/(أحدث|اليوم|أخبار)/, 'multilingual recency signal (AR)'],
+  [/(नवीनतम|ताज़ा|समाचार|आज\s+के)/, 'multilingual recency signal (HI)'],
 ]
 
 /** Moderate risk: laws, regulations, docs, APIs — stable-ish but do change. */
