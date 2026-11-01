@@ -20,7 +20,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Markdown, Spinner } from '@/components/bean/shared'
 import { cn } from '@/lib/utils'
-import { BeanMark } from '@/components/bean/landing'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import { linkifyCitations, cleanAnswerForCopy, mapSourceClaims } from '@/lib/riishe/citation-view'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -44,11 +43,9 @@ import type { Msg } from './use-riishe-chat'
 export function WelcomeGreeting() {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-4 pb-24 pt-10 text-center">
-      {/* Brand emblem on a subtle dark rounded-square tile — the RIISHE
-          robot-head mark (RiisheIcon), not the generic BEAN bean mark. */}
-      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(212,175,55,0.35)] bg-[#0d0d0f] shadow-[0_0_40px_-12px_rgba(212,175,55,0.5)]">
-        <RiisheIcon className="h-9 w-9" />
-      </div>
+      {/* Official RIISHE app icon — the glossy rounded-square tile variant
+          of the centralized RiisheIcon brand component. */}
+      <RiisheIcon variant="tile" className="mb-5 h-14 w-14" />
       <h1 className="text-2xl font-semibold leading-snug text-white/92 sm:text-[28px]">
         Hello! I&apos;m <span className="bean-gold-text">RIISHE</span>, How can I help you today?
       </h1>
@@ -348,7 +345,7 @@ function AssistantMessage({
 function AssistantAvatar() {
   return (
     <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[rgba(212,175,55,0.4)] bg-[rgba(212,175,55,0.1)]">
-      <BeanMark className="h-4.5 w-4.5" />
+      <RiisheIcon className="h-4.5 w-4.5" />
     </div>
   )
 }

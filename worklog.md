@@ -1063,3 +1063,68 @@ VERIFICATION (all executed here):
 NOT CLAIMED: light-background appearance (spec asks dark-background visibility only — mono
 variant exists for any future light need); AssistantAvatar swap (out of the three-location
 scope, trivially available via the same component if wanted).
+
+2026-11-01 — RIISHE official brand icon replacement (authoritative artwork, centralized asset, live-verified)
+SCOPE: replaced ALL RIISHE-specific branding with the official robot-head identity derived 1:1
+from the user's uploaded reference image (upload/pasted_image_1793532992796.png, 1254² glossy
+black rounded-square tile + gold neon robot). Supersedes the hand-drawn SVG emblem from the
+earlier same-day task; the RiisheIcon component was UPDATED in place (no duplicate).
+
+AUDIT (all RIISHE logo/icon/avatar/placeholder locations found — 7):
+1 welcome hero tile (riishe-messages.tsx WelcomeGreeting), 2 chat header (riishe.tsx),
+3 dashboard workspace/operational card (dashboard.tsx ICONS.riishe), 4 shell NAV item
+(shell.tsx), 5 RIISHE conversation-sidebar branding block (riishe-sidebar.tsx — was BeanMark),
+6 landing product card (landing.tsx PRODUCTS — was MessageSquareText),
+7 assistant avatar (riishe-messages.tsx AssistantAvatar — was BeanMark).
+
+ASSETS (public/brand/riishe/, regenerable via scripts/riishe-brand-assets.py):
+- riishe-tile.webp 512², 17KB: glossy tile cropped tight (measured bbox + r≈253px rounded-rect
+  mask, feathered), corners transparent, baked glow preserved.
+- riishe-mark.webp 512², 112KB: transparent gold robot-head mark — gold-keyed (R-B separation;
+  tile surface is neutral-bluish R-B≈-4 → excluded; gold content R-B 8..154 kept), glow
+  un-premultiplied from black so it recomposites faithfully on #080808; robot bbox + 28px
+  breathing room. WebP chosen after PNG (610KB total) and palette-quantized PNG (banding/mottle)
+  were rejected. No PNG shipped.
+- Case-sensitive paths verified by live loading (ok:true from the real server).
+
+COMPONENT src/components/riishe/RiisheIcon.tsx (rewritten in place):
+- <img>-based, props { className? (default h-6 w-6), variant?: 'mark' | 'tile' (default mark) };
+  aria-hidden, draggable=false, select-none. Plain <img> matches the existing laxii.tsx
+  convention; /public assets → no Next image-config surface touched. Artwork is never
+  restyled/re-drawn — every location renders the identical official asset.
+
+REPLACED (all 7 locations; containers/dimensions/spacing untouched):
+- Welcome: app-drawn tile replaced by RiisheIcon variant="tile" h-14 w-14; EXACT greeting byte-
+  unchanged. Header: mark 18px. Dashboard card: mark 20px inside the existing h-10 w-10 chip.
+  Shell nav: RiisheIcon as the NAV icon component (16px, active pill unchanged). RIISHE sidebar
+  branding: mark 28px + unchanged text. Landing card: RiisheIcon (16px). AssistantAvatar:
+  mark 18px in the existing circle.
+
+INTENTIONALLY RETAINED (not RIISHE branding): BeanMark as the BEAN platform logo — shell.tsx
+BEAN logo (desktop + mobile header) and landing.tsx BEAN header logo; LAXII/JAZMII/CODE GIFTZ
+Lucide glyphs untouched; public/logo.svg (BEAN favicon-level brand) untouched.
+
+VERIFICATION (all executed here):
+- bun test: 637 pass / 0 fail (tests/unit/riishe-icon.test.ts rewritten: asset existence +
+  WebP magic, variant srcs, adoption pins for all 7 locations, repo-wide zero-MessageSquareText
+  scan, BeanMark-retention pin, exact-greeting pin).
+- tsc --noEmit: 0 errors in src/ + tests/ (scripts/ baseline unchanged — merge-backup snapshot
+  + dev fixtures only; new/updated scripts clean).
+- eslint on all 8 touched files: exit 0. npm run build: exit 0 (assets copied into
+  .next/standalone/public/brand/riishe/).
+- VISUAL (offline): SSR contact sheet of the actual component — tile 96/56/40, mark
+  256/48/32/28/24/18/16 + 7 in-context mockups → download/riishe-brand-contact-sheet.png.
+- VISUAL (LIVE, platform-managed server came back up; observed read-only + real account):
+  registered icon-verify-1101@bean.dev through the public UI, verified LIVE at 1440×900 and
+  390×844: landing card, dashboard card, shell nav, sidebar branding, welcome tile + exact
+  greeting, chat header, assistant avatar in a REAL streamed gateway reply
+  ("I'm RIISHE, the conversational intelligence product from BEAN Intelligence.");
+  document.querySelectorAll('img') all complete+naturalWidth>0 (no broken paths);
+  mobile scrollWidth===clientWidth (no horizontal overflow).
+  Evidence: download/riishe-brand-live-{landing,dashboard,riishe-desktop,riishe-thread,
+  riishe-mobile}.png.
+- E2E footprint (dev DB, disclosed): one throwaway account + one real conversation created via
+  the public UI, mirroring prior e2e practice. No server started/stopped/restarted.
+NOT CLAIMED: favicon/app-icon swap (BEAN platform brand, out of RIISHE scope); light-background
+tuning (app is dark-only per identity); multi-resolution srcset (single 512px canonical per
+variant covers ≤56 CSS px placements incl. 3× DPR — sizes verified live).

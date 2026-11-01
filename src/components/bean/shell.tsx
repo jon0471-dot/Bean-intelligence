@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BeanMark } from './landing'
 import { BeanUser } from './shared'
+import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import {
   LayoutDashboard,
-  MessageSquareText,
   Image as ImageIcon,
   Video,
   Code2,
@@ -34,7 +34,7 @@ export type ViewId =
 
 const NAV: Array<{ id: ViewId; label: string; icon: React.ElementType; group: string }> = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'Platform' },
-  { id: 'riishe', label: 'RIISHE', icon: MessageSquareText, group: 'Products' },
+  { id: 'riishe', label: 'RIISHE', icon: RiisheIcon, group: 'Products' },
   { id: 'laxii', label: 'LAXII', icon: ImageIcon, group: 'Products' },
   { id: 'jazmii', label: 'JAZMII', icon: Video, group: 'Products' },
   { id: 'code-giftz', label: 'CODE GIFTZ', icon: Code2, group: 'Products' },
