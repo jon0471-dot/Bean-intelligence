@@ -1,0 +1,72 @@
+{
+  "suiteVersion": "core.json@2026-10-24.1 + extended.json@2026-11-01.1",
+  "ranAt": "2026-11-01T13:38:47.249Z",
+  "questionCount": 1,
+  "liveQuestionCount": 1,
+  "fixtureQuestions": [],
+  "summary": {
+    "tool-calling": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 1697
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 0,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    }
+  },
+  "overall": {
+    "baselinePassRate": "0/1",
+    "upgradedPassRate": "0/1"
+  },
+  "outcomes": [
+    {
+      "questionId": "tool-101",
+      "suite": "tool-calling",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "response state EXECUTION_VERIFIED present: false (states: none)",
+        "answer contains exact value 1060: true"
+      ],
+      "latencyMs": 1697,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "tool-101",
+      "suite": "tool-calling",
+      "mode": "upgraded",
+      "pass": false,
+      "criteria": [
+        "runner error: chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+      ],
+      "latencyMs": 0,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      },
+      "error": "chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+    }
+  ],
+  "limitations": [
+    "Single run per question; model outputs are non-deterministic.",
+    "Small sample sizes per suite; results indicate direction, not statistical significance.",
+    "Structural scoring only (exact numeric match, citation integrity, abstention/refusal signals); no human grading of answer quality.",
+    "Research questions depend on live web results at run time."
+  ]
+}

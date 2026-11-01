@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Spinner, type BeanUser } from '@/components/bean/shared'
 import { cn } from '@/lib/utils'
 import { conversationSidebarSections } from '@/lib/riishe/conversation-view'
@@ -91,16 +92,58 @@ function ConversationRow({
       <span className="min-w-0 flex-1 truncate" title={conv.title}>
         {conv.title}
       </span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+
+      {/*
+        Direct delete (desktop lg+): a trash icon that fades in on row hover
+        or keyboard focus and opens the same confirmation dialog as the menu
+        item. It stopPropagation()s every event so the row NEVER opens the
+        conversation as a side effect. Hidden below lg — touch has no hover,
+        so there the always-visible options menu below is the delete path.
+      */}
+      <Tooltip>
+        <TooltipTrigger asChild>
           <button
-            className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-white/35 opacity-0 transition-opacity hover:bg-white/10 hover:text-white/85 focus:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
-            aria-label={`Actions for ${conv.title}`}
-            onClick={(e) => e.stopPropagation()}
+            className="ml-1 hidden h-6 w-6 shrink-0 items-center justify-center rounded-md text-white/35 transition-opacity hover:bg-white/10 hover:text-red-300 focus-visible:text-red-300 lg:flex lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+            aria-label={`Delete conversation: ${conv.title}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(conv)
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
-        </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="border border-[rgba(212,175,55,0.25)] bg-[#1c1c1f] text-white/85">
+          Delete conversation
+        </TooltipContent>
+      </Tooltip>
+
+      {/*
+        Options menu (rename / delete). On <lg it stays visible without
+        hover — the mobile-appropriate path to delete; on lg+ it fades in
+        with the row hover alongside the trash shortcut. The stopPropagation
+        on keydown fixes Enter/Space on the trigger bubbling to the row and
+        opening the conversation.
+      */}
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="ml-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-white/35 opacity-100 transition-opacity hover:bg-white/10 hover:text-white/85 focus:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                aria-label={`Actions for ${conv.title}`}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="border border-[rgba(212,175,55,0.25)] bg-[#1c1c1f] text-white/85">
+            Conversation options
+          </TooltipContent>
+        </Tooltip>
         <DropdownMenuContent align="start" className="w-40 border-[rgba(212,175,55,0.2)] bg-[#141416]">
           <DropdownMenuItem
             className="gap-2 text-white/70 focus:bg-white/10 focus:text-white"
@@ -140,36 +183,64 @@ export function RiisheSidebarBody({
   const [renameTarget, setRenameTarget] = useState<ConversationListItem | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [renameSaving, setRenameSaving] = useState(false)
+  const [renameError, setRenameError] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ConversationListItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  // NOTE: askRename / askDelete intentionally do NOT close the mobile Sheet.
+  // The confirm dialogs render inside this body, which is mounted under
+  // SheetContent — closing the Sheet would unmount the dialog before it ever
+  // shows (the original mobile delete bug). The drawer closes only AFTER a
+  // successful action, below.
   function askRename(c: ConversationListItem) {
+    setRenameError(null)
     setRenameTarget(c)
     setRenameValue(c.title)
-    onClose?.()
   }
 
   function askDelete(c: ConversationListItem) {
+    setDeleteError(null)
     setDeleteTarget(c)
-    onClose?.()
   }
 
   async function submitRename() {
     if (!renameTarget || renameSaving) return
+    const target = renameTarget
     const title = renameValue
     setRenameSaving(true)
+    setRenameError(null)
     try {
-      await chat.renameConversation(renameTarget.id, title)
-      setRenameTarget(null)
+      const result = await chat.renameConversation(target.id, title)
+      if (result.ok) {
+        setRenameTarget(null)
+        onClose?.() // mobile: reveal the updated list only on real success
+      } else {
+        setRenameError(result.error ?? 'Rename failed. Please try again.')
+      }
     } finally {
       setRenameSaving(false)
     }
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     const target = deleteTarget
-    setDeleteTarget(null)
-    await chat.deleteConversation(target.id)
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      const result = await chat.deleteConversation(target.id)
+      if (result.ok) {
+        setDeleteTarget(null)
+        onClose?.() // mobile: close the drawer only when deletion really happened
+      } else {
+        // Honest failure: the dialog STAYS OPEN and names what went wrong —
+        // the conversation is still in the list, so closing here would lie.
+        setDeleteError(result.error ?? 'Delete failed. Please try again.')
+      }
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const searching = chat.searchQuery.trim().length > 0
@@ -185,22 +256,35 @@ export function RiisheSidebarBody({
           <div className="text-[9px] tracking-[0.22em] text-white/35">BEAN CONVERSATIONAL AI</div>
         </div>
         {onClose ? (
-          <button
-            className="ml-auto text-white/45 hover:text-white/85 lg:hidden"
-            onClick={onClose}
-            aria-label="Close conversations"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="ml-auto text-white/45 hover:text-white/85 lg:hidden"
+                onClick={onClose}
+                aria-label="Close conversations"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="border border-[rgba(212,175,55,0.25)] bg-[#1c1c1f] text-white/85">
+              Close conversations
+            </TooltipContent>
+          </Tooltip>
         ) : onCollapse ? (
-          <button
-            className="ml-auto text-white/45 transition-colors hover:text-white/85"
-            onClick={onCollapse}
-            aria-label="Collapse sidebar"
-            title="Collapse sidebar"
-          >
-            <PanelLeftCloseIcon />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="ml-auto text-white/45 transition-colors hover:text-white/85"
+                onClick={onCollapse}
+                aria-label="Collapse sidebar"
+              >
+                <PanelLeftCloseIcon />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="border border-[rgba(212,175,55,0.25)] bg-[#1c1c1f] text-white/85">
+              Collapse sidebar
+            </TooltipContent>
+          </Tooltip>
         ) : null}
       </div>
 
@@ -328,13 +412,14 @@ export function RiisheSidebarBody({
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && renameValue.trim().length > 0) void submitRename()
+              if (e.key === 'Enter' && renameValue.trim().length > 0 && !renameSaving) void submitRename()
             }}
             autoFocus
             maxLength={500}
             className="border-white/15 bg-black/30 text-white/90"
             aria-label="Conversation title"
           />
+          {renameError ? <p className="text-xs text-red-300">{renameError}</p> : null}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setRenameTarget(null)} className="text-white/60 hover:text-white">
               Cancel
@@ -350,8 +435,9 @@ export function RiisheSidebarBody({
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
-      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      {/* Delete confirmation — stays open on backend failure with the real
+          error inline; a closed dialog always means the row is really gone. */}
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && !deleting && setDeleteTarget(null)}>
         <AlertDialogContent className="max-w-sm border-[rgba(212,175,55,0.25)] bg-[#121214]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white/90">Delete conversation?</AlertDialogTitle>
@@ -360,18 +446,23 @@ export function RiisheSidebarBody({
               undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError ? <p className="text-xs text-red-300">{deleteError}</p> : null}
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-white/15 bg-transparent text-white/70 hover:bg-white/5 hover:text-white">
+            <AlertDialogCancel
+              disabled={deleting}
+              className="border-white/15 bg-transparent text-white/70 hover:bg-white/5 hover:text-white"
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
+              disabled={deleting}
               className="bg-red-500/90 text-white hover:bg-red-500"
               onClick={(e) => {
                 e.preventDefault()
                 void confirmDelete()
               }}
             >
-              Delete
+              {deleting ? <Spinner className="h-3.5 w-3.5" /> : null} Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -415,7 +506,11 @@ export function RiisheSidebarMobile({
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-[288px] border-[rgba(212,175,55,0.15)] bg-[#0c0c0e] p-0">
+      <SheetContent
+        side="left"
+        showClose={false}
+        className="w-[288px] border-[rgba(212,175,55,0.15)] bg-[#0c0c0e] p-0"
+      >
         <SheetHeader className="sr-only">
           <SheetTitle>RIISHE conversations</SheetTitle>
           <SheetDescription>Search, open, rename or delete your conversations</SheetDescription>

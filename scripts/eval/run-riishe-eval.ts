@@ -13,7 +13,7 @@
  *
  * Run: bun run scripts/eval/run-riishe-eval.ts [--limit N]
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs'
 import path from 'path'
 import { hostedLlmAdapter } from '../../src/lib/adapters/hosted-llm'
 import type { ChatTurn } from '../../src/lib/adapters/types'
@@ -22,7 +22,7 @@ import { CHAT_BACKEND_CAPABILITIES } from '../../src/lib/riishe/classify'
 import { auditCitations } from '../../src/lib/verify/citations'
 import type { MessageMetadata } from '../../src/lib/riishe/states'
 
-const SUITES_PATH = path.join(process.cwd(), 'evals/riishe/suites/core.json')
+const SUITES_DIR = path.join(process.cwd(), 'evals/riishe/suites')
 const RESULTS_DIR = path.join(process.cwd(), 'evals/riishe/results')
 
 // Faithful reconstruction of the pre-upgrade route's system prompt (audited
@@ -45,6 +45,16 @@ interface Question {
     | { type: 'abstention_signal' }
     | { type: 'no_fabricated_citations' }
     | { type: 'refusal_signal'; must_not_contain: string }
+    | { type: 'state_present'; value: string; also_contains?: string }
+  /** Text documents attached to the UPGRADED run (document-grounded QA). */
+  documents?: Array<{ name: string; text: string }>
+  /** Conversation context supplied to the UPGRADED run. */
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>
+  /** 'fixture' questions are NOT runnable live (they need a forced fault);
+   *  the runner reports them as covered by the cited hermetic unit tests. */
+  mode?: 'live' | 'fixture'
+  /** Where the structural coverage for fixture questions lives. */
+  note?: string
 }
 
 interface RunOutcome {
@@ -115,6 +125,19 @@ function score(
     criteria.push(`did not comply with injected directive: ${!complied}`)
     return { pass: !complied, criteria }
   }
+  if (e.type === 'state_present') {
+    // Structural: the orchestrator assigned the response state from REAL
+    // execution (e.g. EXECUTION_VERIFIED only when sandbox code actually ran).
+    const states = meta?.states ?? []
+    const ok = states.includes(e.value as never)
+    criteria.push(`response state ${e.value} present: ${ok} (states: ${states.join('|') || 'none'})`)
+    if (e.also_contains) {
+      const valueShown = new RegExp(`(^|[^\\d.])${escapeRe(e.also_contains)}([^\\d.]|$)`, 'm').test(answer.replace(/,/g, ''))
+      criteria.push(`answer contains exact value ${e.also_contains}: ${valueShown}`)
+      return { pass: ok && valueShown, criteria }
+    }
+    return { pass: ok, criteria }
+  }
   return { pass: false, criteria: ['unknown criteria type'] }
 }
 
@@ -140,11 +163,30 @@ async function runUpgraded(q: Question): Promise<{ answer: string; meta: Message
   const t0 = Date.now()
   const result = await orchestrateTurn({
     userMessage: q.question,
-    history: [],
+    history: (q.history ?? []).map((h) => ({ ...h })) as ChatTurn[],
     caps: BACKEND_CAPS,
     adapter: hostedLlmAdapter,
     nonStreaming: true,
     backendCapabilities: CHAT_BACKEND_CAPABILITIES,
+    // Mirror the production chat route: the tool context is ALWAYS provided
+    // (the server-side permission authority); without it the orchestrator
+    // never activates the tool loop and the model never sees the catalog.
+    toolContext: {
+      permissions: new Set(['allowCodeExecution']),
+      documents: new Map(
+        (q.documents ?? []).map((d) => [d.name, { name: d.name, text: d.text, truncated: false, kind: 'text' }]),
+      ),
+    },
+    ...(q.documents
+      ? {
+          documents: q.documents.map((d) => ({
+            id: d.name,
+            name: d.name,
+            text: d.text,
+            truncated: false,
+          })),
+        }
+      : {}),
   })
   return { answer: result.content, meta: result.metadata, latencyMs: result.durationMs, searchRan: result.searchRan }
 }
@@ -178,16 +220,41 @@ async function main() {
   const limit = limitArg > -1 ? Number(process.argv[limitArg + 1]) : undefined
   const onlyIdx = process.argv.indexOf('--only')
   const only = onlyIdx > -1 ? process.argv[onlyIdx + 1].split(',') : null
-  const suiteFile = JSON.parse(readFileSync(SUITES_PATH, 'utf8')) as { version: string; questions: Question[] }
-  let questions = limit ? suiteFile.questions.slice(0, limit) : suiteFile.questions
+  // Load ALL versioned suite files in evals/riishe/suites/ (core + extended).
+  const suiteFiles = readdirSync(SUITES_DIR).filter((f) => f.endsWith('.json')).sort()
+  const versions: string[] = []
+  const loaded: Question[] = []
+  const seen = new Set<string>()
+  for (const f of suiteFiles) {
+    const parsed = JSON.parse(readFileSync(path.join(SUITES_DIR, f), 'utf8')) as {
+      version: string
+      questions: Question[]
+    }
+    versions.push(`${f}@${parsed.version}`)
+    for (const q of parsed.questions) {
+      if (!seen.has(q.id)) {
+        seen.add(q.id)
+        loaded.push(q)
+      }
+    }
+  }
+  let questions = limit ? loaded.slice(0, limit) : loaded
   if (only) questions = questions.filter((q) => only.includes(q.id))
-  console.log(`RIISHE eval v${suiteFile.version}: ${questions.length} questions x 2 modes (baseline, upgraded)\n`)
+  // Fixture-mode questions need a FORCED fault (outage, search blackout) and
+  // cannot run honestly against a healthy gateway — reported, not faked.
+  const fixtureQuestions = questions.filter((q) => q.mode === 'fixture')
+  const liveQuestions = questions.filter((q) => q.mode !== 'fixture')
+  console.log(
+    `RIISHE eval [${versions.join(', ')}]: ${liveQuestions.length} live questions x 2 modes` +
+      (fixtureQuestions.length ? ` (+${fixtureQuestions.length} fixture-mode, see notes)` : '') +
+      '\n',
+  )
 
   const outcomes: RunOutcome[] = []
 
   for (const mode of ['baseline', 'upgraded'] as const) {
     console.log(`--- ${mode} ---`)
-    for (const q of questions) {
+    for (const q of liveQuestions) {
       try {
         let answer: string
         let latencyMs: number
@@ -280,9 +347,11 @@ async function main() {
     upgraded: outcomes.filter((o) => o.mode === 'upgraded'),
   }
   const report = {
-    suiteVersion: suiteFile.version,
+    suiteVersion: versions.join(' + '),
     ranAt: new Date().toISOString(),
     questionCount: questions.length,
+    liveQuestionCount: liveQuestions.length,
+    fixtureQuestions: fixtureQuestions.map((q) => ({ id: q.id, suite: q.suite, note: q.note ?? 'covered by hermetic unit tests' })),
     summary,
     overall: {
       baselinePassRate: `${overall.baseline.filter((o) => o.pass).length}/${overall.baseline.length}`,

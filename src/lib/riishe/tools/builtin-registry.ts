@@ -6,7 +6,14 @@
  * universe is exactly what the code lists here — nothing more.
  */
 import { registerTool } from './registry'
-import { webSearchTool, readUrlTool, calculateTool, runCodeTool, readDocumentTool } from './builtin'
+import {
+  webSearchTool,
+  readUrlTool,
+  calculateTool,
+  runCodeTool,
+  readDocumentTool,
+  analyzeImageTool,
+} from './builtin'
 
 let registered = false
 
@@ -17,5 +24,6 @@ export function registerBuiltins(): void {
   registerTool(calculateTool)
   registerTool(runCodeTool)
   registerTool(readDocumentTool)
+  registerTool(analyzeImageTool)
   registered = true
 }

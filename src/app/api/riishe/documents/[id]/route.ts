@@ -3,6 +3,7 @@
 import { db } from '@/lib/db'
 import { handle, ok, BeanApiError } from '@/lib/api/errors'
 import { requireUser } from '@/lib/auth/session'
+import { deleteDocumentBytes } from '@/lib/files/riishe-store'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   return handle(async () => {
@@ -29,6 +30,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       throw new BeanApiError('NOT_FOUND', 'Document not found.')
     }
     await db.document.delete({ where: { id } })
+    // Remove any persisted original bytes (stored images) alongside the row
+    // so no file outlives its DB record. Idempotent; never blocks deletion.
+    await deleteDocumentBytes(user.id, id).catch(() => {})
     return ok({ deleted: true })
   })
 }
