@@ -31,10 +31,12 @@ import {
   extractPdf,
   extractDocx,
   extractXlsx,
+  extractPptx,
   ExtractionError,
 } from '@/lib/files/extract'
 import { describeImage, transcribeAudio, inspectVideo, probeMedia, describeMediaMeta, withTempFile } from '@/lib/files/media'
 import { inspectArchive, UnsafeArchiveError } from '@/lib/files/archive'
+import { storeDocumentBytes } from '@/lib/files/riishe-store'
 
 /** Hard absolute ceiling for ANY upload (capability limits refine this). */
 const ABSOLUTE_MAX_BYTES = 30 * 1024 * 1024
@@ -179,6 +181,10 @@ async function processByCapability(
       const out = await extractDocx(bytes)
       return { status: 'ready', text: out.text, truncated: out.truncated, note: out.note, metaJson: null }
     }
+    case 'pptx': {
+      const out = await extractPptx(bytes)
+      return { status: 'ready', text: out.text, truncated: out.truncated, note: out.note, metaJson: null }
+    }
     case 'data': {
       const out = await extractXlsx(bytes)
       return { status: 'ready', text: out.text, truncated: out.truncated, note: out.note, metaJson: null }
@@ -189,8 +195,8 @@ async function processByCapability(
         status: 'ready',
         text: `[IMAGE ANALYSIS — ${displayName}]\n${description}`,
         truncated: false,
-        note: 'Image content analyzed by the vision pipeline.',
-        metaJson: JSON.stringify({ vision: true }),
+        note: 'Image content analyzed by the vision pipeline; the original bytes are retained so follow-up questions can re-consult the actual pixels.',
+        metaJson: JSON.stringify({ vision: true, stored: true }),
       }
     }
     case 'audio': {
@@ -329,6 +335,24 @@ export async function POST(request: Request) {
         metaJson: outcome.metaJson,
       },
     })
+
+    // Image originals are persisted (server-side only) so the analyze_image
+    // tool can re-consult the actual pixels for follow-up questions. Text-
+    // family extractions ARE the content, so their bytes are not retained.
+    let storagePath: string | null = null
+    if (plan.capability === 'image') {
+      try {
+        storagePath = await storeDocumentBytes(user.id, doc.id, bytes)
+        await db.document.update({ where: { id: doc.id }, data: { metaJson: JSON.stringify({ vision: true, stored: true, storagePath }) } })
+      } catch (e) {
+        // Non-fatal: the upload-time description still grounds the turn; the
+        // analyze_image tool reports the missing pixels honestly.
+        logger.warn('riishe.document_image_store_failed', {
+          documentId: doc.id,
+          error: e instanceof Error ? e.message : String(e),
+        })
+      }
+    }
     logger.info('riishe.document_uploaded', {
       documentId: doc.id,
       kind: plan.capability,

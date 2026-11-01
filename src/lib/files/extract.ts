@@ -102,10 +102,11 @@ export async function extractDocx(bytes: Buffer): Promise<ExtractionResult> {
 }
 
 /**
- * XLSX: unzip in memory, read sharedStrings + the first worksheet, and emit
- * a CSV-ish rendition of CELL VALUES. Formulas are read as their cached
- * values; macros are ignored (never executed). This is a values extractor,
- * not a spreadsheet engine — complex workbooks note the limitation honestly.
+ * XLSX: unzip in memory, read sharedStrings + ALL worksheets (named via
+ * workbook.xml + its rels), and emit a CSV-ish rendition of CELL VALUES per
+ * sheet. Formulas are read as their cached values; macros are ignored (never
+ * executed). This is a values extractor, not a spreadsheet engine — complex
+ * workbooks note the limitation honestly.
  */
 export async function extractXlsx(bytes: Buffer): Promise<ExtractionResult> {
   try {
@@ -117,46 +118,136 @@ export async function extractXlsx(bytes: Buffer): Promise<ExtractionResult> {
         shared.push(xmlToText(m[1]))
       }
     }
-    // first worksheet (sheet1.xml or the first xl/worksheets/*.xml entry)
-    const sheetObj =
-      zip.file('xl/worksheets/sheet1.xml') ??
-      Object.keys(zip.files)
-        .filter((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k))
-        .sort()
-        .map((k) => zip.file(k))
-        .find((f): f is NonNullable<typeof f> => f !== null) ??
-      null
-    if (!sheetObj) throw new ExtractionError('This XLSX has no worksheet — the file may be corrupted.')
-    const sheetRaw = await sheetObj.async('string')
 
-    const rows: string[] = []
-    for (const rowMatch of sheetRaw.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)) {
-      const cells: string[] = []
-      for (const cellMatch of rowMatch[1].matchAll(/<c\b([^>]*?)>([\s\S]*?)<\/c>/g)) {
-        const attrs = cellMatch[1]
-        const type = attrs.match(/\st="(\w+)"/)?.[1]
-        const inner = cellMatch[2]
-        const valueMatch = inner.match(/<v>([\s\S]*?)<\/v>/)
-        const inlineMatch = inner.match(/<is>([\s\S]*?)<\/is>/)
-        let value = ''
-        if (type === 's' && valueMatch) value = shared[Number(valueMatch[1])] ?? ''
-        else if (type === 'inlineStr' && inlineMatch) value = xmlToText(inlineMatch[1])
-        else if (valueMatch) value = valueMatch[1]
-        cells.push(value)
+    // Sheet order + display names from workbook.xml, resolved to part paths
+    // through xl/_rels/workbook.xml.rels (r:id -> worksheets/sheetN.xml).
+    // Falls back to filename order when the rels are missing/unparsable.
+    const relsRaw = await zip.file('xl/_rels/workbook.xml.rels')?.async('string')
+    const rels = new Map<string, string>()
+    if (relsRaw) {
+      for (const tag of relsRaw.matchAll(/<Relationship\b[^>]*\/>/g)) {
+        const id = tag[0].match(/\bId="([^"]+)"/)?.[1]
+        const target = tag[0].match(/\bTarget="([^"]+)"/)?.[1]
+        if (id && target) rels.set(id, target.replace(/^\//, ''))
       }
-      if (cells.some((c) => c.length > 0)) rows.push(cells.join(','))
     }
-    const text = rows.join('\n')
+    const bookRaw = await zip.file('xl/workbook.xml')?.async('string')
+    const sheetRefs: Array<{ name: string; part: string | null }> = []
+    if (bookRaw) {
+      for (const tag of bookRaw.matchAll(/<sheet\b[^>]*\/>/g)) {
+        const name = tag[0].match(/\bname="([^"]+)"/)?.[1]
+        const rid = tag[0].match(/\br:id="([^"]+)"/)?.[1]
+        if (!name || !rid) continue
+        const target = rels.get(rid)
+        sheetRefs.push({
+          name,
+          part: target ? `xl/${target.replace(/^xl\//, '')}` : null,
+        })
+      }
+    }
+
+    const parts: Array<{ name: string; obj: JSZip.JSZipObject }> =
+      sheetRefs.length > 0
+        ? sheetRefs
+            .map((ref) => {
+              const obj = ref.part ? zip.file(ref.part) : null
+              return obj ? { name: ref.name, obj } : null
+            })
+            .filter((p): p is { name: string; obj: JSZip.JSZipObject } => p !== null)
+        : Object.keys(zip.files)
+            .filter((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k))
+            .sort()
+            .map((k) => ({ name: k.replace('xl/worksheets/', '').replace('.xml', ''), obj: zip.file(k)! }))
+            .filter((p) => p.obj !== null)
+    if (parts.length === 0) throw new ExtractionError('This XLSX has no worksheet — the file may be corrupted.')
+
+    const blocks: string[] = []
+    for (const { name, obj } of parts) {
+      const sheetRaw = await obj.async('string')
+      const rows: string[] = []
+      for (const rowMatch of sheetRaw.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)) {
+        const cells: string[] = []
+        for (const cellMatch of rowMatch[1].matchAll(/<c\b([^>]*?)>([\s\S]*?)<\/c>/g)) {
+          const attrs = cellMatch[1]
+          const type = attrs.match(/\st="(\w+)"/)?.[1]
+          const inner = cellMatch[2]
+          const valueMatch = inner.match(/<v>([\s\S]*?)<\/v>/)
+          const inlineMatch = inner.match(/<is>([\s\S]*?)<\/is>/)
+          let value = ''
+          if (type === 's' && valueMatch) value = shared[Number(valueMatch[1])] ?? ''
+          else if (type === 'inlineStr' && inlineMatch) value = xmlToText(inlineMatch[1])
+          else if (valueMatch) value = valueMatch[1]
+          cells.push(value)
+        }
+        if (cells.some((c) => c.length > 0)) rows.push(cells.join(','))
+      }
+      const body = rows.join('\n')
+      if (body.trim().length > 0) blocks.push(`### Sheet: ${name}\n${body}`)
+    }
+    const text = blocks.join('\n\n')
     if (text.trim().length === 0) {
       throw new ExtractionError('The workbook contains no cell values (it may hold only charts or be empty).')
     }
     const capped = cap(text)
     return {
       ...capped,
-      note: 'Excel workbook (first sheet, cell values; formulas are read as their cached results).',
+      note: `Excel workbook (${parts.length} sheet${parts.length === 1 ? '' : 's'}, cell values; formulas are read as their cached results).`,
     }
   } catch (e) {
     if (e instanceof ExtractionError) throw e
     throw new ExtractionError('XLSX extraction failed — the file may be corrupted or password-protected.')
+  }
+}
+
+/**
+ * PPTX: unzip in memory, read every slide part (ppt/slides/slideN.xml) in
+ * presentation order, and emit each slide's text runs (<a:t>). Text-only by
+ * design — embedded images/charts (and speaker notes) are not analyzed, and
+ * the note says so.
+ */
+export async function extractPptx(bytes: Buffer): Promise<ExtractionResult> {
+  try {
+    const zip = await JSZip.loadAsync(bytes)
+    const slideParts = Object.keys(zip.files)
+      .filter((k) => /^ppt\/slides\/slide\d+\.xml$/.test(k))
+      .sort((a, b) => {
+        const na = Number(a.match(/slide(\d+)\.xml$/)?.[1] ?? 0)
+        const nb = Number(b.match(/slide(\d+)\.xml$/)?.[1] ?? 0)
+        return na - nb
+      })
+    if (slideParts.length === 0) {
+      throw new ExtractionError('This PPTX has no slides — the file may be corrupted.')
+    }
+
+    const blocks: string[] = []
+    for (let i = 0; i < slideParts.length; i += 1) {
+      const xml = await zip.file(slideParts[i])!.async('string')
+      // One <a:p> per line; runs inside a paragraph join without separators.
+      const paragraphs: string[] = []
+      for (const p of xml.matchAll(/<a:p>([\s\S]*?)<\/a:p>/g)) {
+        const runs = [...p[1].matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)].map((t) => t[1]).join('')
+        const line = runs
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;|&apos;/g, "'")
+          .trim()
+        if (line.length > 0) paragraphs.push(line)
+      }
+      if (paragraphs.length > 0) blocks.push(`### Slide ${i + 1}\n${paragraphs.join('\n')}`)
+    }
+    const text = blocks.join('\n\n')
+    if (text.trim().length === 0) {
+      throw new ExtractionError('The presentation contains no readable text (it may hold only images or be empty).')
+    }
+    const capped = cap(text)
+    return {
+      ...capped,
+      note: 'PowerPoint presentation (slide text extracted; embedded images and charts not analyzed).',
+    }
+  } catch (e) {
+    if (e instanceof ExtractionError) throw e
+    throw new ExtractionError('PPTX extraction failed — the file may be corrupted or password-protected.')
   }
 }

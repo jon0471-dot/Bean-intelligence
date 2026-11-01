@@ -30,6 +30,9 @@ import { shouldSearch, isDocumentLike, isNewsEventQuery, type SearchDecision } f
 import { runResearch, formatEvidenceBlock, type EvidencePack } from '@/lib/research/pipeline'
 import { detectSensitiveCase } from '@/lib/research/sensitive'
 import { classifyTask, assertCapability, CHAT_BACKEND_CAPABILITIES, type TaskProfile } from './classify'
+import { classifyTaskDetailed } from './classify'
+import { planCapabilities } from './capability-plan'
+import { buildMemoryBlock } from './memory'
 import { BeanApiError } from '@/lib/api/errors'
 import { buildSystemPrompt, buildUserTurn } from './prompts'
 import { parseSelfCheck, verifyComputations, type ComputationCheck } from '@/lib/verify/exprcheck'
@@ -65,6 +68,12 @@ export interface AttachedDocument {
   name: string
   text: string
   truncated: boolean
+  /** Detected file capability ('image', 'pdf', 'text', …) — drives the
+   *  image-analysis tool grant. Server-detected, never client-supplied. */
+  kind?: string
+  /** Server-side stored original bytes (images only; set by the upload
+   *  route). Enables analyze_image's pixel re-consultation. */
+  storagePath?: string | null
 }
 
 export interface OrchestrationInput {
@@ -85,6 +94,9 @@ export interface OrchestrationInput {
   documents?: AttachedDocument[]
   /** Condensed digest of turns that fell out of the history window. */
   digest?: string | null
+  /** User-approved memory facts (most recent first; already owner-isolated
+   *  and sensitive-filtered by the route). Injected as bounded context. */
+  memories?: ReadonlyArray<string>
   /**
    * Test seam for the research boundary. When `runResearch` is provided it
    * replaces the real pipeline call EXACTLY at the boundary (same signature,
@@ -141,11 +153,14 @@ export function selectTools(args: {
   allowCodeExecution: boolean
   /** True when the pre-solve pipeline retrieved zero sources. */
   researchFailed: boolean
+  /** True when at least one attached document is an image. */
+  hasImageDocuments?: boolean
 }): string[] {
   const tools = new Set<string>()
-  const { searchNeeded, task, hasDocuments, allowCodeExecution, researchFailed } = args
+  const { searchNeeded, task, hasDocuments, allowCodeExecution, researchFailed, hasImageDocuments } = args
   if (task === 'math') tools.add('calculate')
   if (hasDocuments) tools.add('read_document')
+  if (hasImageDocuments) tools.add('analyze_image')
   if (hasDocuments || (searchNeeded && researchFailed)) {
     tools.add('web_search')
     tools.add('read_url')
@@ -310,7 +325,11 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const stages: MessageMetadata['stages'] = []
 
   // ---- Understand ----------------------------------------------------------
-  const profile = classifyTask(userMessage)
+  // Confidence-bearing classification: the decided task drives routing
+  // exactly as before; confidence + signals are recorded (metadata/logs)
+  // so routing quality is observable instead of assumed.
+  const classified = classifyTaskDetailed(userMessage)
+  const profile: TaskProfile = classified
   const documents = input.documents ?? []
   if (documents.length > 0) {
     // Attached documents dominate the task shape; math keeps its verifier.
@@ -357,10 +376,14 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const understandMs = Date.now() - t0
 
   // ---- Tool permissions ------------------------------------------------------
-  // Code execution is a SERVER-SIDE policy now (no composer toggle): the
-  // permission is always granted and selectTools decides per-task whether
-  // run_code genuinely helps. The registry still gates every run_code call.
-  const allowCodeExecution = input.toolContext?.permissions.has('allowCodeExecution') === true
+  // Code execution is a SERVER-SIDE policy (no composer toggle). The route
+  // holds the per-request permission key; the capability planner narrows it
+  // to turns where executing code genuinely helps (explicit requests,
+  // simulations, heavy computation). Both must agree — this is the real
+  // approval gate the tool registry enforces on every run_code call.
+  const capabilityPlan = planCapabilities(userMessage, profile.task, documents.length > 0, documents.map((d) => d.kind ?? ''))
+  const allowCodeExecution =
+    input.toolContext?.permissions.has('allowCodeExecution') === true && capabilityPlan.codeExecution
 
   // ---- Retrieve -------------------------------------------------------------
   let pack: EvidencePack | null = null
@@ -386,6 +409,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     hasDocuments: documents.length > 0,
     allowCodeExecution,
     researchFailed: searchNeeded && (pack?.sources.length ?? 0) === 0,
+    hasImageDocuments: capabilityPlan.imageAnalysis && documents.some((d) => d.kind === 'image'),
   })
   const finalToolsActive = finalToolNames.length > 0 && input.toolContext != null
   // Recompute buffering now that the tool plan is known: without an echo
@@ -393,20 +417,21 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const liveBufferNeeded = echo !== null || finalToolsActive || input.nonStreaming
 
   // ---- Solve ----------------------------------------------------------------
-  const systemPrompt = buildSystemPrompt(
-    {
-      evidenceBlock,
-      task: profile.task,
-      staleness: pack?.staleness ?? null,
-      // Ongoing news events and cases get the structured research shape
-      // (summary -> confirmed timeline -> latest verified update ->
-      // unresolved questions). Ordinary lookups keep natural prose.
-      researchShape: decision.risk === 'high' && isNewsEventQuery(userMessage) ? 'news' : null,
-      sensitiveCase,
-      toolNames: finalToolsActive ? finalToolNames : undefined,
-    },
-    finalToolsActive ? describeTools(finalToolNames) : undefined,
-  )
+  const systemPrompt =
+    buildSystemPrompt(
+      {
+        evidenceBlock,
+        task: profile.task,
+        staleness: pack?.staleness ?? null,
+        // Ongoing news events and cases get the structured research shape
+        // (summary -> confirmed timeline -> latest verified update ->
+        // unresolved questions). Ordinary lookups keep natural prose.
+        researchShape: decision.risk === 'high' && isNewsEventQuery(userMessage) ? 'news' : null,
+        sensitiveCase,
+        toolNames: finalToolsActive ? finalToolNames : undefined,
+      },
+      finalToolsActive ? describeTools(finalToolNames) : undefined,
+    ) + buildMemoryBlock(input.memories ?? [])
   let userTurn = buildUserTurn(userMessage, {
     evidenceBlock: evidenceBlock ? evidenceBlock : null,
     task: profile.task,
@@ -1152,6 +1177,15 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     ...(researchRan ? { retrievedAt: new Date().toISOString() } : {}),
     ...(injectionBlocked ? { injectionBlocked: true } : {}),
     ...(verificationNote ? { verificationNote } : {}),
+    // Phase-2 routing observability (additive): the deterministic router's
+    // decision + capability plan for this turn.
+    router: {
+      task: classified.task,
+      confidence: classified.confidence,
+      signals: classified.signals,
+      codeExecution: capabilityPlan.codeExecution,
+      imageAnalysis: capabilityPlan.imageAnalysis,
+    },
     timings,
   }
 

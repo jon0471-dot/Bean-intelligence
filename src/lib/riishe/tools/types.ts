@@ -20,8 +20,15 @@ export interface ToolContext {
   /** Per-request user opt-ins (explicit-permission tools check these). */
   permissions: ReadonlySet<string>
   /** Documents attached to THIS request (id -> extracted text), already
-   *  ownership-validated by the route before the orchestrator runs. */
-  documents: ReadonlyMap<string, { name: string; text: string; truncated: boolean }>
+   *  ownership-validated by the route before the orchestrator runs. `kind`
+   *  is the detected file capability ('image', 'pdf', 'text', …). For image
+   *  documents `storagePath` points at the server-side stored ORIGINAL
+   *  bytes (written by the upload route; never client-supplied) so the
+   *  analyze_image tool can re-consult the actual pixels. */
+  documents: ReadonlyMap<
+    string,
+    { name: string; text: string; truncated: boolean; kind?: string; storagePath?: string | null }
+  >
   /** Evidence-pack sources already numbered in the prompt (tool outputs
    *  continue numbering from here so citations stay unambiguous). */
   sourceIdOffset?: number

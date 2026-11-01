@@ -20,6 +20,10 @@
 export interface CapabilityPlan {
   /** Grant run_code for this turn (sandbox availability checked separately). */
   codeExecution: boolean
+  /** Grant analyze_image for this turn (true iff an image is attached — the
+   *  user attached it, so re-consulting its pixels needs no extra consent;
+   *  the grant still flows through the explicit permission-key registry). */
+  imageAnalysis: boolean
   /** Human-readable reasons (logged; safe for support). */
   reasons: string[]
 }
@@ -35,7 +39,13 @@ const CODE_ARTIFACT_RE =
 const HEAVY_COMPUTE_RE =
   /\b(factorial|permutation|combination|matrix|modular|exponent|fibonacci|prime|hash|monte\s+carlo|big\s+number|\d{3,}\s*[*/^]\s*\d{3,})|\b\d+\s*!\s*(mod|%|\+|-|<|>|=|$)/i
 
-export function planCapabilities(message: string, task: string, hasDocuments: boolean): CapabilityPlan {
+export function planCapabilities(
+  message: string,
+  task: string,
+  hasDocuments: boolean,
+  /** Kinds of the attached documents (from the ownership-checked rows). */
+  documentKinds: ReadonlyArray<string> = [],
+): CapabilityPlan {
   const reasons: string[] = []
   const text = message.trim()
 
@@ -54,7 +64,9 @@ export function planCapabilities(message: string, task: string, hasDocuments: bo
     reasons.push('code behavior verification requested')
   }
 
+  const hasImage = documentKinds.includes('image')
+  if (hasImage) reasons.push('image attachment: analyze_image vision re-consultation activated')
   if (hasDocuments) reasons.push('attachments present: document/image tools activated from file kinds')
 
-  return { codeExecution, reasons }
+  return { codeExecution, imageAnalysis: hasImage, reasons }
 }
