@@ -878,3 +878,41 @@ NOT CLAIMED: nothing about the local Diffusers worker changed — it remains
 disabled pending the recorded real inference acceptance test (Phase 8, local
 Windows GPU host). The health route's laxii.deterministic healthy state now
 reflects a REAL executed Sharp probe on this host only.
+
+2026-11-01 — LAXII local-adapter build error: independent re-verification + live-server confirmation
+CONTEXT: the reported error "Module not found: Can't resolve '@/lib/laxii/local-adapter'
+(src/app/api/health/route.ts:4)" was re-investigated from scratch. Findings match the fix
+entry above; no new code change was needed this session (verification-only).
+ROOT CAUSE (confirmed from evidence, not assumption):
+- The dev.log error itself printed "Import map: aliased to relative
+  './src/lib/laxii/local-adapter' inside of [project]/" — the tsconfig '@/*' alias resolved
+  CORRECTLY; the file simply did not exist on disk when /api/health first compiled
+  (one-time compile -> GET /api/health 500; no recompile request occurred afterwards).
+- Not a rename, not a casing mismatch, not a divergent export: the module had never been
+  present in this restored tree (.gitignore 'local-*' trap, see previous entry). Today the
+  file exists, is git-tracked (git ls-files), and is NOT ignored (git check-ignore exit 1).
+- All 9 imports of the health route verified to exist with matching exports: api/errors
+  (handle, ok), hosted-llm/hostedImageAdapter, hosted-image/hostedImageAdapter,
+  local-adapter/localLaxiiAdapter, diffusers-adapter/diffusersWorkerAdapter,
+  health-cache/cachedHealth, research/provider/probeResearchHealth,
+  sandbox/runner/probeSandboxHealth, registry/backends/getBackendsForProduct.
+RE-VERIFICATION (all re-run here, fresh results):
+- npx tsc --noEmit: exit 1 with exactly 9 errors, ALL in scripts/ (pre-existing dev
+  tooling; 0 errors in src/ and tests/).
+- bun test tests/unit: 597 pass / 0 fail across 37 files; LAXII+health suites in
+  isolation: 55 pass / 0 fail across 6 files.
+- npm run build: exit 0, "Compiled successfully in 16.7s" (Next.js 16.1.3 Turbopack),
+  zero module-resolution messages; /api/health + all LAXII routes compiled; standalone
+  server.js + BUILD_ID emitted.
+- LIVE SERVER (observed only — no start/kill/restart): one read-only GET /api/health
+  returned HTTP 200 (Turbopack picked up the restored file on the next route request).
+  Honest sub-states confirmed in the payload: laxii.deterministic.available=true via a
+  real executed Sharp round-trip (61ms, "runs NO generative model");
+  laxii.generative.available=false truthfully reporting missing packages
+  [torch, huggingface_hub, diffusers, transformers, accelerate, safetensors, cv2, PIL],
+  CUDA unavailable, 7.33 GB free disk, checkpoints 0/9, registry-enabled: false;
+  jazmii.available=false (truthful NO_BACKEND).
+PRESERVED: no source file modified this session; registry unchanged (local-sharp enabled
++ generative:false; diffusers DISABLED with its truthful unavailableReason); model
+defaults, provider selection, UI and workflows untouched. Phase 8 (local Windows GPU
+deployment + real inference acceptance) remains the gate for any Diffusers enablement.
