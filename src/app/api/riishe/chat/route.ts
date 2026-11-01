@@ -430,10 +430,33 @@ export async function POST(request: Request) {
   })
 }
 
-/** Conversation list for the RIISHE sidebar. */
-export async function GET() {
+/** Conversation list for the RIISHE sidebar. `?q=` filters by title
+ *  (case-insensitive) across ALL of the user's conversations — the recent
+ *  list itself is capped, but a search must still find older threads.
+ *  Filtering happens in JS because SQLite's LIKE is only ASCII-case-aware. */
+export async function GET(request: Request) {
   return handle(async () => {
     const user = await requireUser()
+    const q = new URL(request.url).searchParams.get('q')?.trim() ?? ''
+    if (q.length > 0) {
+      const candidates = await db.conversation.findMany({
+        where: { userId: user.id },
+        orderBy: { updatedAt: 'desc' },
+        take: 200,
+        include: { _count: { select: { messages: true } } },
+      })
+      const needle = q.toLowerCase()
+      const conversations = candidates
+        .filter((c) => c.title.toLowerCase().includes(needle))
+        .slice(0, 50)
+        .map((c) => ({
+          id: c.id,
+          title: c.title,
+          messages: c._count.messages,
+          updatedAt: c.updatedAt,
+        }))
+      return ok({ conversations, query: q })
+    }
     const conversations = await db.conversation.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: 'desc' },

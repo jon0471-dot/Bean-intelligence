@@ -90,7 +90,7 @@ export default function Home() {
       }}
     >
       {view === 'dashboard' && <Dashboard onNavigate={setView} />}
-      {view === 'riishe' && <Riishe />}
+      {view === 'riishe' && <Riishe user={user} onOpenSettings={() => setView('settings')} />}
       {view === 'laxii' && <Laxii sizes={sizes} />}
       {view === 'jazmii' && <Jazmii />}
       {view === 'code-giftz' && <CodeGiftz />}
