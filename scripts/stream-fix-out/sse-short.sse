@@ -1,0 +1,12 @@
+: connected
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"391","conversationId":"cmvy063xl0005k48k6xxbhc1d"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvy063xl0005k48k6xxbhc1d","durationMs":530,"partial":false,"messageId":"cmvy064cd0009k48kprvusiop","firstTokenMs":521,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"tools","durationMs":511},{"stage":"verifying","durationMs":4}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"router":{"task":"math","confidence":0.75,"signals":[{"family":"math","match":"7 * 2"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":523,"understandMs":6,"researchMs":null,"solveTtftMs":511,"solveMs":511,"verifyMs":4,"solvePasses":1}}}
+

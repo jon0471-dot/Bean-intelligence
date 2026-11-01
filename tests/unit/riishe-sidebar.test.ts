@@ -3,11 +3,12 @@
  * Run: bun test tests/unit/riishe-sidebar.test.ts
  *
  * Pins (source-level, the established convention for component code):
- *   1. DUPLICATE CLOSE — root cause: shadcn SheetContent unconditionally
- *      rendered its own built-in close button on top of the sidebar's own
- *      header close control. Fixed at the tree level with an opt-out prop;
- *      the mobile sidebar uses it, so exactly ONE close button renders.
- *      (Conditional render — never a CSS hide.)
+ *   1. NO HEADER CLOSE BUTTON — the X / "Close conversations" control was
+ *      REMOVED from the sidebar header at the source (tree removal, never a
+ *      CSS hide, never replaced by another icon). The mobile drawer closes
+ *      via the overlay tap, Escape, and automatically after every successful
+ *      action (closeAfterAction). The Sheet's own built-in close stays
+ *      tree-removed (showClose={false}) so no duplicate can appear.
  *   2. DELETE CONTROL — a direct hover trash (desktop), a menu path that is
  *      visible without hover (mobile), stopPropagation so the row never
  *      opens the conversation when delete is clicked, confirmation dialog
@@ -16,7 +17,7 @@
  *      Sheet before the dialog shows (closing unmounts the dialogs).
  *   4. RUNTIME CONTRACT — delete/rename return honest { ok, error } results
  *      instead of resolving identically on success and failure.
- *   5. ACCESSIBLE TOOLTIPS on the icon-only controls.
+ *   5. ACCESSIBLE TOOLTIPS on the remaining icon-only controls.
  */
 import { describe, test, expect } from 'bun:test'
 import { readFileSync } from 'node:fs'
@@ -30,41 +31,57 @@ const sheet = src('../../src/components/ui/sheet.tsx')
 const sidebar = src('../../src/components/bean/riishe/riishe-sidebar.tsx')
 const runtime = src('../../src/components/bean/riishe/use-riishe-chat.ts')
 
-describe('duplicate close button — root-cause fix', () => {
-  test('SheetContent exposes a showClose opt-out (default true keeps other consumers unchanged)', () => {
+describe('no header close button — removed at the source', () => {
+  test('SheetContent still exposes its showClose opt-out with conditional render (other consumers unchanged)', () => {
     expect(sheet).toContain('showClose = true')
-  })
-
-  test('the built-in close renders CONDITIONALLY, not via CSS hiding', () => {
     expect(sheet).toContain('{showClose ? (')
     expect(sheet).toContain('<SheetPrimitive.Close')
   })
 
-  test('the mobile sidebar opts out — its own header X is the single close control', () => {
+  test('the sidebar header renders NO "Close conversations" control anywhere', () => {
+    // The X was removed entirely (user decision, 2026-11-01): no aria-label,
+    // no tooltip text, no button branch. It must not come back hidden —
+    // there is no CSS hiding here because there is no element at all.
+    expect(sidebar).not.toContain('aria-label="Close conversations"')
+    expect(sidebar).not.toContain('>Close conversations</TooltipContent>')
+    expect(sidebar).not.toContain('Close conversations\n            </TooltipContent>')
+  })
+
+  test('the removal is a tree removal — the old onClose button ternary is gone', () => {
+    expect(sidebar).not.toContain('{onClose ? (')
+    expect(sidebar).not.toContain('onClick={onClose}')
+  })
+
+  test('the mobile drawer still opts out of the Sheet built-in close (no duplicate)', () => {
     expect(sidebar).toContain('showClose={false}')
   })
 
-  test('the body renders exactly ONE close affordance per mode (onClose XOR onCollapse)', () => {
-    // The ternary structure guarantees the mobile X and the desktop collapse
-    // button can never render together, and the desktop variant never passes
-    // onClose while the mobile variant never passes onCollapse.
-    expect(sidebar).toContain("{onClose ? (")
-    expect(sidebar).toContain(") : onCollapse ? (")
-    // aria-labels appear exactly once each — no duplicated close controls.
-    expect(sidebar.match(/aria-label="Close conversations"/g)?.length).toBe(1)
+  test('the desktop rail keeps exactly one collapse toggle', () => {
     expect(sidebar.match(/aria-label="Collapse sidebar"/g)?.length).toBe(1)
   })
 
-  test('the single close X is never hidden by CSS (no breakpoint class on the button)', () => {
-    // Rule: duplicates are removed from the TREE (showClose={false} above),
-    // never hidden with CSS. The X must render whenever the drawer body
-    // renders with onClose — including the resize-to-desktop edge case,
-    // where the old lg:hidden left an open drawer with zero close controls.
-    const anchor = sidebar.indexOf('aria-label="Close conversations"')
-    const open = sidebar.lastIndexOf('{onClose ? (', anchor)
-    const closeBlock = sidebar.slice(open, anchor)
-    expect(closeBlock).toContain('className="ml-auto text-white/45 hover:text-white/85"')
-    expect(closeBlock).not.toContain('lg:hidden')
+  test('the drawer closes AFTER successful actions via closeAfterAction (no UI control)', () => {
+    // New chat, settings, rename success, delete success, row selection.
+    expect(sidebar).toContain('closeAfterAction?.()')
+    expect(sidebar).toContain('closeAfterAction={() => onOpenChange(false)}')
+    expect(sidebar).toContain('closeAfterAction?: () => void')
+  })
+
+  test('selecting a conversation closes the drawer on mobile (click and keyboard paths)', () => {
+    const rowBlock = sidebar.slice(sidebar.indexOf('function ConversationRow('), sidebar.indexOf('export function RiisheSidebarBody'))
+    expect(rowBlock).toContain('chat.openConversation(conv.id)')
+    expect(rowBlock.match(/closeAfterAction\?\.\(\)/g)?.length).toBe(2)
+  })
+
+  test('every ConversationRow render site passes closeAfterAction through (live-verified contract)', () => {
+    // Regression: the row received the prop but the two render sites inside
+    // the body never passed it, so a mobile row-tap opened the conversation
+    // while the drawer stayed open. Both call sites must wire the callback.
+    const usages = sidebar.match(/<ConversationRow[\s\S]*?\/>/g) ?? []
+    expect(usages.length).toBe(2)
+    for (const usage of usages) {
+      expect(usage).toContain('closeAfterAction={closeAfterAction}')
+    }
   })
 })
 
@@ -114,13 +131,13 @@ describe('honest delete/rename error handling', () => {
 })
 
 describe('mobile dialog unmount bug', () => {
-  test('askDelete / askRename no longer close the Sheet before the dialog shows', () => {
+  test('askRename / askRename-success / askDelete-success paths keep the close-after-action contract', () => {
     const handlers = sidebar.slice(sidebar.indexOf('askRename / askDelete intentionally do NOT close'), sidebar.indexOf('const searching ='))
     expect(handlers).toContain('function askDelete(')
     expect(handlers).toContain('function askRename(')
-    // Neither handler closes the drawer; onClose fires only on success.
-    expect(handlers.match(/onClose\?\.\(\)/g)?.length).toBe(2) // inside submitRename + confirmDelete success paths only
-    expect(handlers.indexOf('onClose?.()')).toBeGreaterThan(handlers.indexOf('function submitRename('))
+    // Neither handler closes the drawer; closeAfterAction fires only on
+    // success (submitRename + confirmDelete).
+    expect(handlers.match(/closeAfterAction\?\.\(\)/g)?.length).toBe(2)
   })
 })
 
@@ -128,7 +145,6 @@ describe('sidebar quality', () => {
   test('icon-only controls have accessible tooltips', () => {
     expect(sidebar).toContain("Delete conversation\n        </TooltipContent>")
     expect(sidebar).toContain('Conversation options')
-    expect(sidebar).toContain('Close conversations')
     expect(sidebar).toContain('Collapse sidebar')
   })
 
