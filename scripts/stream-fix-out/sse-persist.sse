@@ -1,0 +1,16 @@
+: connected
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"P","conversationId":"cmvy06847000lk48k90lmc18d"}
+
+data: {"delta":"ERSIST","conversationId":"cmvy06847000lk48k90lmc18d"}
+
+data: {"delta":"-C","conversationId":"cmvy06847000lk48k90lmc18d"}
+
+data: {"delta":"HECK","conversationId":"cmvy06847000lk48k90lmc18d"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvy06847000lk48k90lmc18d","durationMs":387,"partial":false,"messageId":"cmvy068f0000pk48kqug5vca9","firstTokenMs":384,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"router":{"task":"general","confidence":0.7,"signals":[],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":385,"understandMs":1,"researchMs":null,"solveTtftMs":383,"solveMs":384,"verifyMs":0,"solvePasses":1}}}
+

@@ -19,6 +19,12 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { beanFetch } from '@/components/bean/shared'
 import type { ConversationListItem } from '@/lib/riishe/conversation-view'
+import {
+  classifyHttpFailure,
+  consumeRiisheStream,
+  type RiisheStreamEvent,
+  type StreamFailureInfo,
+} from '@/lib/riishe/sse-client'
 
 export interface SourceView {
   id: number
@@ -368,41 +374,32 @@ export function useRiisheChat(refs: RiisheChatRefs) {
         // Keep the global identity in sync: a 401 here means the session is
         // gone server-side; drop the signed-in shell immediately.
         if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data?.error?.message ?? `Request failed (${res.status})`)
+        const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } }
+        const failure = classifyHttpFailure(res.status, data?.error?.message)
+        throw Object.assign(new Error(failure.message), { beanFailure: failure })
       }
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let convId: string | null = activeId
-      let failed = false
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          let evt: {
-            delta?: string
-            reset?: boolean
-            done?: boolean
-            error?: string
-            code?: string
-            conversationId?: string
-            messageId?: string
-            partial?: boolean
-            stage?: 'researching' | 'tools' | 'solving' | 'verifying'
-            tool?: { name: string; status: 'started' | 'done' | 'failed' }
-            meta?: MsgMeta
-          }
-          try {
-            evt = JSON.parse(line.slice(6))
-          } catch {
-            continue
-          }
+      let convId: string | null = activeId
+      let serverError: string | null = null
+      let serverDone = false
+
+      const applyServerFailureOutcome = () => {
+        // Shared finalization for any failure that already produced text vs
+        // one that produced nothing:
+        //  - text streamed -> keep it and label it HONESTLY as incomplete
+        //    (an incomplete response is never presented as a success);
+        //  - nothing streamed -> drop the empty bubble and put the question
+        //    back into the composer so a retry needs no retyping.
+        if (streamedRef.current !== '') {
+          setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
+        } else {
+          setMessages((prev) => prev.filter((m) => m.id !== asstId))
+          restoreQuestionForRetry(message)
+        }
+      }
+
+      await consumeRiisheStream(res, {
+        onEvent: (evt: RiisheStreamEvent) => {
           if (evt.conversationId) convId = evt.conversationId
           if (evt.stage === 'researching') setResearching(true)
           if (evt.stage === 'tools') {
@@ -426,7 +423,10 @@ export function useRiisheChat(refs: RiisheChatRefs) {
             )
           }
           if (evt.error) {
-            failed = true
+            // Server-classified failure (rate limit / auth / provider...).
+            // Its wording is the honest one — a later transport-level
+            // 'protocol' failure for the same stream must NOT overwrite it.
+            serverError = evt.error
             setError(evt.error)
           }
           if (evt.delta) {
@@ -435,42 +435,63 @@ export function useRiisheChat(refs: RiisheChatRefs) {
               prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current, pending: false } : m)),
             )
           }
-          if (evt.done) {
-            setResearching(false)
-            setRunningTool(null)
-            if (convId && !activeId) setActiveId(convId)
-            if (evt.messageId) {
-              setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, serverId: evt.messageId } : m)))
-            }
-            if (evt.meta) {
-              setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, meta: evt.meta } : m)))
-            }
+        },
+        onComplete: (evt: RiisheStreamEvent) => {
+          serverDone = true
+          setResearching(false)
+          setRunningTool(null)
+          if (convId && !activeId) setActiveId(convId)
+          if (evt.messageId) {
+            setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, serverId: evt.messageId } : m)))
           }
-        }
-      }
-      // If nothing streamed (failed, or the server reported an empty partial),
-      // drop the empty assistant bubble — the error banner already explains
-      // what happened, and a perpetual "thinking" indicator would be a lie.
-      if (streamedRef.current === '') {
+          if (evt.meta) {
+            setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, meta: evt.meta } : m)))
+          }
+          if (evt.partial === true && streamedRef.current === '') {
+            // The server closed "normally" but produced no answer (e.g. the
+            // whole draft was removed by verification). That is not a
+            // success: say so and hand the question back for a retry.
+            if (!serverError) setError('The answer could not be produced this time. Please try again.')
+            setMessages((prev) => prev.filter((m) => m.id !== asstId))
+            restoreQuestionForRetry(message)
+          }
+        },
+        onFailure: (failure: StreamFailureInfo) => {
+          if (failure.kind === 'aborted') {
+            // User pressed Stop: keep what arrived and label it honestly.
+            if (streamedRef.current !== '') {
+              setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
+            } else {
+              setMessages((prev) => prev.filter((m) => m.id !== asstId))
+            }
+            return
+          }
+          if (serverError !== null) {
+            // The server already classified this failure over SSE (its event
+            // is always the last one before close); keep that wording.
+            applyServerFailureOutcome()
+            return
+          }
+          setError(failure.message)
+          applyServerFailureOutcome()
+        },
+      })
+
+      // A stream that ended without the server's done event and without a
+      // transport failure is impossible by contract, but stay honest: if no
+      // completion was seen and no error was surfaced, label the turn failed.
+      if (!serverDone && serverError === null && streamedRef.current === '') {
         setMessages((prev) => prev.filter((m) => m.id !== asstId))
-        // Server-side failure (e.g. upstream rate limit) reported over SSE:
-        // the question goes back into the composer so a retry needs no
-        // retyping. (Nothing was answered — no partial content is lost.)
-        if (failed) restoreQuestionForRetry(message)
-      } else if (failed) {
-        setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
       }
       void loadConversations()
     } catch (e) {
-      if ((e as Error).name === 'AbortError') {
-        // User pressed stop: keep what arrived and label it honestly.
-        if (streamedRef.current !== '') {
-          setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
-        } else {
-          setMessages((prev) => prev.filter((m) => m.id !== asstId))
-        }
+      const err = e as Error & { beanFailure?: StreamFailureInfo }
+      if (err.name === 'AbortError') {
+        // User pressed Stop before the stream even started: keep nothing.
+        setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
       } else {
-        setError((e as Error).message)
+        // Classified HTTP / connection failure (never the raw browser text).
+        setError(err.message)
         setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
         restoreQuestionForRetry(message)
       }

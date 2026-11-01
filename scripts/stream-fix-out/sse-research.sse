@@ -1,0 +1,74 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"Chief Minister of Tamil Nadu\" 2023","\"M.K. Stalin\" Chief Minister Tamil Nadu","\"Chief Minister of Tamil Nadu\" 2023 India"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"C","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":".","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" Joseph","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" Vij","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"ay","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" is","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" the","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" current","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" Chief","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" Minister","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" of","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" Tamil","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" Nadu","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":",","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" having","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" served","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" since","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" May","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" ","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"10","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":",","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" ","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"202","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"6","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":" [","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"2","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"][","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"3","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"][","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"4","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"delta":"].","conversationId":"cmvy064d6000dk48kho6uv9um"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvy064d6000dk48kho6uv9um","durationMs":4814,"partial":false,"messageId":"cmvy0682x000hk48kd2f8ebv6","firstTokenMs":4702,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":2,"title":"C. Joseph Vijay","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay","hostName":"en.wikipedia.org","date":null,"official":false,"social":false,"pageRead":false},{"id":3,"title":"Chief Minister of Tamil Nadu","url":"https://en.wikipedia.org/wiki/Chief_Minister_of_Tamil_Nadu","hostName":"en.wikipedia.org","date":null,"official":false,"social":false,"pageRead":false},{"id":4,"title":"C Joseph Vijay is currently serving as the 9th Chief Minister","url":"https://www.google.com/goto?url=CAESbAHrOzAVp8u2BhpL9VEW3_SlXlALqIH1tnxTPfhnvqLzXEzKJw0XaIW-qt9NDa4CuroRIgvHCfcyqh42JNXN4Akw9ebnhRr9-QPC3PnpwJFPp394UaqELjZbsiCgpx_k6_YaBAqJTw3G6LVDzA","hostName":"www.google.com","date":null,"official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 3 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":3996},{"stage":"verifying","durationMs":5}],"degraded":["search \"\"M.K. Stalin\" Chief Minister Tamil Nadu\" failed: web_search is rate-limited upstream (HTTP 429): Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}","search \"\"Chief Minister of Tamil Nadu\" 2023 India\" failed: web_search not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle","page read failed: unavailable","page read failed: unavailable"],"retrievedAt":"2026-11-01T15:46:42.920Z","verificationNote":"Publication dates could not be verified for 3 of the cited sources — the latest status is stated only as of the dated reports","router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"What"},{"family":"wh","match":"is"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":4810,"understandMs":2,"researchMs":3995,"searchMs":3268,"pageReadMs":1,"solveTtftMs":703,"solveMs":806,"verifyMs":5,"solvePasses":1}}}
+

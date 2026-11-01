@@ -23,6 +23,7 @@ import {
 } from '@/lib/riishe/memory'
 import { getMemoryDelegate, MEMORY_INITIALIZING_NOTE } from '@/lib/riishe/memory-db'
 import { upstreamStreamErrorPayload, upstreamErrorCode } from '@/lib/upstream/gateway'
+import { createSseWriter } from '@/lib/riishe/sse'
 import type { ChatTurn } from '@/lib/adapters/types'
 
 const schema = z.object({
@@ -415,10 +416,35 @@ export async function POST(request: Request) {
     }
 
     // ---- SSE streaming path ----------------------------------------------
+    // ROOT-CAUSE FIX (2026-11-01 "network error" / premature termination):
+    // this stream previously wrote NOTHING during the long silent phases of
+    // a turn (research: multi-query search + page reads, measured 20-60s+;
+    // buffered tool-loop/injection-gate solves; the gap before the model's
+    // first token). Reverse proxies on the hosting path kill an idle stream
+    // mid-generation, surfacing client-side as Chromium's literal
+    // `TypeError: network error` with the partial answer stranded. Fixes:
+    //  (a) an immediate `: connected` comment flushes headers/first bytes;
+    //  (b) createSseWriter emits a `: keepalive` comment whenever nothing
+    //      else is written for 15s — comments are spec-valid SSE, ignored by
+    //      parsers, and reset proxy idle timers;
+    //  (c) consumer disconnects are CONTAINED (writer swallows enqueue
+    //      failures): the orchestrator finishes and the complete answer is
+    //      persisted, so a dropped connection never leaves a dangling
+    //      half-turn or a duplicate user retry;
+    //  (d) `x-accel-buffering: no` stops buffering proxies from holding
+    //      frames.
+    // The wire protocol itself (single-line `data: {json}` frames) is
+    // UNCHANGED.
     const convId = conversationId
-    const encoder = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
+        const writer = createSseWriter(controller, {
+          onClosed: (reason) => {
+            if (reason === 'client_gone') {
+              logger.info('riishe.stream_client_disconnected', { conversationId: convId })
+            }
+          },
+        })
         const t0 = Date.now()
         let succeeded = false
         let full = ''
@@ -426,6 +452,9 @@ export async function POST(request: Request) {
         let finalMetadata: MessageMetadata | null = null
         let assistantMessageId: string | null = null
         try {
+          // First bytes on the wire immediately — establishes the response
+          // before any slow research/model work begins.
+          writer.comment('connected')
           const result = await orchestrateTurn({
             userMessage: body.message,
             history,
@@ -440,25 +469,19 @@ export async function POST(request: Request) {
               if (e.type === 'delta') {
                 if (firstTokenAt === null) firstTokenAt = Date.now()
                 full += e.delta
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({ delta: e.delta, conversationId: convId })}\n\n`,
-                  ),
-                )
+                writer.send({ delta: e.delta, conversationId: convId })
               } else if (e.type === 'reset') {
                 // Reset protocol: a verification rewrite replaced the streamed
                 // draft — the client must CLEAR what it has so the final
                 // answer replaces it instead of concatenating.
                 full = ''
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ reset: true })}\n\n`))
+                writer.send({ reset: true })
               } else if (e.type === 'stage') {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`))
+                writer.send(e)
               } else if (e.type === 'research') {
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ research: { queries: e.queries } })}\n\n`),
-                )
+                writer.send({ research: { queries: e.queries } })
               } else if (e.type === 'tool') {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool: e })}\n\n`))
+                writer.send({ tool: e })
               }
             },
           })
@@ -499,21 +522,17 @@ export async function POST(request: Request) {
             success: succeeded,
             errorCode: succeeded ? null : 'BACKEND_FAILURE',
           })
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                done: true,
-                conversationId: convId,
-                durationMs: Date.now() - t0,
-                partial: !succeeded,
-                // The persisted message id lets the client wire Regenerate
-                // on ANY assistant message (not just the trailing one).
-                ...(assistantMessageId ? { messageId: assistantMessageId } : {}),
-                ...(firstTokenAt !== null ? { firstTokenMs: firstTokenAt - t0 } : {}),
-                ...(finalMetadata ? { meta: finalMetadata } : {}),
-              })}\n\n`,
-            ),
-          )
+          writer.send({
+            done: true,
+            conversationId: convId,
+            durationMs: Date.now() - t0,
+            partial: !succeeded,
+            // The persisted message id lets the client wire Regenerate
+            // on ANY assistant message (not just the trailing one).
+            ...(assistantMessageId ? { messageId: assistantMessageId } : {}),
+            ...(firstTokenAt !== null ? { firstTokenMs: firstTokenAt - t0 } : {}),
+            ...(finalMetadata ? { meta: finalMetadata } : {}),
+          })
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : String(e)
           logger.warn('riishe.stream_failed', { message: errorMessage.slice(0, 300) })
@@ -532,7 +551,9 @@ export async function POST(request: Request) {
                 ? 'UPSTREAM_AUTH'
                 : payload.code === 'UPSTREAM_BILLING'
                   ? 'UPSTREAM_BILLING'
-                  : 'BACKEND_FAILURE'
+                  : payload.code === 'UPSTREAM_TIMEOUT'
+                    ? 'UPSTREAM_TIMEOUT'
+                    : 'BACKEND_FAILURE'
           await recordUsage({
             userId: user.id,
             product: 'riishe',
@@ -543,12 +564,10 @@ export async function POST(request: Request) {
             success: false,
             errorCode,
           })
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(payload)}\n\n`),
-          )
+          writer.send(payload)
         } finally {
           release()
-          controller.close()
+          writer.close()
         }
       },
     })
@@ -563,6 +582,10 @@ export async function POST(request: Request) {
         'content-type': 'text/event-stream',
         'cache-control': 'no-cache, no-transform',
         connection: 'keep-alive',
+        // Buffering proxies must forward SSE frames as they arrive; without
+        // this, nginx-class proxies hold frames until their buffer fills,
+        // delaying every delta and inviting idle-connection kills.
+        'x-accel-buffering': 'no',
       },
     })
   })

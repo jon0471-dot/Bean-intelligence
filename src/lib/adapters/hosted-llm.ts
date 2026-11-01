@@ -27,26 +27,70 @@ import {
 
 const BACKEND_ID = 'bean-llm-hosted-primary'
 
-/** Parse raw SSE byte chunks from the gateway into text deltas. */
-async function* sseDeltas(
+/**
+ * Parse raw SSE byte chunks from the gateway into text deltas.
+ *
+ * STALL GUARD (2026-11-01 streaming-reliability fix): the authorized SDK's
+ * stream exposes no AbortSignal, so a gateway that stops sending tokens
+ * mid-generation would previously hang the turn (and its SSE connection)
+ * FOREVER — the client watchdog/server heartbeat cannot distinguish a slow
+ * model from a dead one. The generator now bounds the SILENCE between
+ * tokens: if no chunk arrives within `idleTimeoutMs`, the iterator is
+ * released (best-effort — SDK limitation, same class as withTimeout) and a
+ * labeled error propagates ("... timed out ..." so classifyUpstreamError
+ * maps it to the honest timeout class). While tokens ARE flowing, no limit
+ * applies — a long legitimate answer is never cut short by this guard.
+ */
+export const UPSTREAM_STREAM_IDLE_TIMEOUT_MS = 120_000
+
+export interface SseDeltaOptions {
+  idleTimeoutMs?: number
+}
+
+export async function* sseDeltas(
   stream: AsyncIterable<unknown>,
+  opts: SseDeltaOptions = {},
 ): AsyncGenerator<string, void, unknown> {
+  const idleTimeoutMs = opts.idleTimeoutMs ?? UPSTREAM_STREAM_IDLE_TIMEOUT_MS
+  const iterator = stream[Symbol.asyncIterator]()
   let buffer = ''
-  for await (const part of stream) {
-    buffer += Buffer.from(Object.values(part as Record<string, number>)).toString('utf8')
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-    for (const line of lines) {
-      const m = line.match(/^data: (.*)$/)
-      if (!m) continue
-      if (m[1].trim() === '[DONE]') return
-      try {
-        const json = JSON.parse(m[1])
-        const delta: string | undefined = json.choices?.[0]?.delta?.content
-        if (typeof delta === 'string' && delta.length > 0) yield delta
-      } catch {
-        // partial JSON across chunk boundary — carried in buffer
+  try {
+    while (true) {
+      let stallTimer: ReturnType<typeof setTimeout> | undefined
+      const next = await Promise.race([
+        iterator.next(),
+        new Promise<never>((_, reject) => {
+          stallTimer = setTimeout(
+            () => reject(new Error(`upstream stream timed out: no tokens received for ${idleTimeoutMs}ms`)),
+            idleTimeoutMs,
+          )
+        }),
+      ]).finally(() => clearTimeout(stallTimer))
+      if (next.done) break
+      buffer += Buffer.from(Object.values(next.value as Record<string, number>)).toString('utf8')
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        const m = line.match(/^data: (.*)$/)
+        if (!m) continue
+        if (m[1].trim() === '[DONE]') return
+        try {
+          const json = JSON.parse(m[1])
+          const delta: string | undefined = json.choices?.[0]?.delta?.content
+          if (typeof delta === 'string' && delta.length > 0) yield delta
+        } catch {
+          // partial JSON across chunk boundary — carried in buffer
+        }
       }
+    }
+  } finally {
+    // Best-effort upstream cleanup (SDK exposes no AbortSignal — the
+    // abandoned request may run until the provider's own deadline; recorded
+    // platform limitation, unchanged from withTimeout's contract).
+    try {
+      await iterator.return?.()
+    } catch {
+      /* cleanup is best-effort */
     }
   }
 }
