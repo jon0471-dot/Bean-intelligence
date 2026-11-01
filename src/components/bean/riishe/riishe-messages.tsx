@@ -21,6 +21,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Markdown, Spinner } from '@/components/bean/shared'
 import { cn } from '@/lib/utils'
 import { BeanMark } from '@/components/bean/landing'
+import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import { linkifyCitations, cleanAnswerForCopy, mapSourceClaims } from '@/lib/riishe/citation-view'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -43,8 +44,10 @@ import type { Msg } from './use-riishe-chat'
 export function WelcomeGreeting() {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-4 pb-24 pt-10 text-center">
-      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(212,175,55,0.35)] bg-[rgba(212,175,55,0.08)] shadow-[0_0_40px_-12px_rgba(212,175,55,0.5)]">
-        <BeanMark className="h-9 w-9" />
+      {/* Brand emblem on a subtle dark rounded-square tile — the RIISHE
+          robot-head mark (RiisheIcon), not the generic BEAN bean mark. */}
+      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(212,175,55,0.35)] bg-[#0d0d0f] shadow-[0_0_40px_-12px_rgba(212,175,55,0.5)]">
+        <RiisheIcon className="h-9 w-9" />
       </div>
       <h1 className="text-2xl font-semibold leading-snug text-white/92 sm:text-[28px]">
         Hello! I&apos;m <span className="bean-gold-text">RIISHE</span>, How can I help you today?

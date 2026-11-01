@@ -4,14 +4,17 @@
  * BEAN Intelligence — dashboard: four flagship products + live availability.
  */
 import { useEffect, useState } from 'react'
-import { ArrowRight, MessageSquareText, Image as ImageIcon, Video, Code2, Sparkles } from 'lucide-react'
+import { ArrowRight, Image as ImageIcon, Video, Code2, Sparkles } from 'lucide-react'
 import { beanFetch, GoldBadge, StatusDot, type BeanProductPublic } from './shared'
+import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import { productStatus, type ProductHealthEntry } from '@/lib/registry/status'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { ViewId } from './shell'
 
 const ICONS: Record<string, React.ElementType> = {
-  riishe: MessageSquareText,
+  // RIISHE carries the custom robot-head emblem; the other products keep
+  // their existing Lucide glyphs.
+  riishe: RiisheIcon,
   laxii: ImageIcon,
   jazmii: Video,
   'code-giftz': Code2,
