@@ -916,3 +916,90 @@ PRESERVED: no source file modified this session; registry unchanged (local-sharp
 + generative:false; diffusers DISABLED with its truthful unavailableReason); model
 defaults, provider selection, UI and workflows untouched. Phase 8 (local Windows GPU
 deployment + real inference acceptance) remains the gate for any Diffusers enablement.
+
+2026-11-01 — RIISHE ChatGPT-style experience upgrade (existing app, existing gateway, zero new deps)
+SCOPE: upgraded the existing RIISHE workspace (src/components/bean/riishe.tsx) to a polished
+ChatGPT-like conversational interface in BEAN's black-and-gold identity. Not a replacement app:
+the same SPA mount (page.tsx view 'riishe'), same API, same orchestrator, same persistence.
+
+RESEARCH (licenses + reuse decisions):
+- assistant-ui (MIT): architecture reference only — its ExternalStoreRuntime pattern (transport
+  adapter + presentational primitives) is mirrored in src/components/bean/riishe/use-riishe-chat.ts.
+  NOT installed: current @assistant-ui/react pulls @assistant-ui/ai-sdk + ai as peers; installing 3
+  packages to rebuild what react-markdown + remark-gfm + react-syntax-highlighter + shadcn/ui already
+  provide would duplicate functionality (explicitly forbidden by the work order).
+- vercel/ai AI SDK (Apache-2.0): NOT installed. The RIISHE SSE protocol carries orchestration events
+  (stage/tool/research/reset + final evidence metadata) that a generic text data stream cannot
+  express without rewriting the orchestrator; the work order explicitly allows retaining the current
+  streaming implementation in that case. Protocol UNCHANGED (delta/reset/stage/research/tool/done).
+- 4chat (The Unlicense / public domain): interface inspiration only (sidebar + thread + composer UX).
+
+BACKEND (additive, minimal; existing routes untouched otherwise):
+- PATCH /api/riishe/conversations/[id] — NEW rename endpoint (owner-checked; title sanitized by
+  sanitizeConversationTitle so renames can never blank a title).
+- GET /api/riishe/chat?q= — NEW case-insensitive TITLE search across ALL of the user's
+  conversations (take 200 → JS filter — SQLite LIKE is ASCII-only case-aware — cap 50).
+- Persistence REUSED unchanged: Prisma Conversation/Message (owner checks, digest summary,
+  dangling-retry collapse, retry/retryFromMessageId regeneration). No new database, no schema change.
+
+FRONTEND (existing deps only; zero packages added):
+- src/components/bean/riishe/use-riishe-chat.ts (NEW): the chat runtime — all transport/state
+  (SSE parsing, stop via AbortController, regenerate trailing + earlier turns, attachments,
+  debounced server search, rename). DOM refs are owned by the components that render the nodes
+  and handed IN (RiisheChatRefs) — the runtime object never carries refs (react-hooks/refs v6).
+- src/components/bean/riishe/riishe-sidebar.tsx (NEW): RIISHE-branded sidebar — New chat,
+  debounced search, date-grouped history (Today/Yesterday/Previous 7/30 days/Older via pure
+  conversationSidebarSections), per-conversation Rename (Dialog) + Delete (AlertDialog
+  confirmation), user profile entry → Settings, desktop collapse + mobile Sheet drawer (sr-only
+  title/description for Radix a11y — aria-describedby warning fixed and re-verified 0 in console).
+- src/components/bean/riishe/riishe-messages.tsx (NEW): exact welcome greeting
+  "Hello! I'm RIISHE, How can I help you today?" on a new conversation (display-only — never
+  persisted, never injected into model context; the model still answers real greetings as turns;
+  this supersedes the earlier 'static welcome removed' decision per the new work order);
+  user bubbles vs full-width RIISHE responses with avatar; honest stage indicators
+  (Searching the web… / Running tools… / Thinking…); streaming caret (globals.css
+  .bean-streaming::after, gold blink) on the message being streamed; markdown via shared
+  Markdown (remark-gfm) with citation chips, sources collapse + verification note preserved;
+  CodeBlock upgraded (language label, copy, max-h scroll container, no line numbers);
+  tables wrapped in overflow-x-auto so wide tables never overflow the thread.
+- src/components/bean/riishe/riishe-composer.tsx (NEW): rounded glass composer — auto-growing
+  textarea (Enter=send, Shift+Enter=newline, 12k cap, live counter near the cap), real attachment
+  button (POST /api/riishe/documents — real upload support exists) + drag&drop, gold send/stop
+  morph, honest error banner + question-restore retry preserved.
+- src/components/bean/riishe.tsx REWRITTEN as the container composing runtime + sidebar (desktop
+  inline collapsible / mobile Sheet) + thread + composer; header shows conversation title.
+- src/app/page.tsx: passes user + onOpenSettings to Riishe (settings entry in chat sidebar).
+- src/lib/riishe/conversation-view.ts (NEW, pure): sanitizeConversationTitle,
+  filterConversationsByTitle (JS lowercase — non-ASCII safe), groupConversationsByDate
+  (LOCAL calendar-day buckets, not fixed 24h windows), conversationSidebarSections.
+- src/app/globals.css: added .bean-streaming caret keyframes only. Existing tokens untouched —
+  the app's existing black/gold tokens ARE the BEAN identity; the chat uses them (no divergent
+  palette inside one product).
+
+PRESERVED (verified): other agents/views untouched (LAXII/JAZMII/CODE GIFTZ, dashboard, usage,
+settings, admin); 43-capability plan + tool registry untouched; model defaults + provider
+selection + router preflight untouched (no second gateway, no OpenAI, no Ollama, no keys in
+frontend); managed SSE protocol unchanged; LAXII preservation engine untouched.
+
+VERIFICATION (all executed here):
+- bun test tests/unit: 608 pass / 0 fail across 38 files (11 NEW tests pin title sanitization,
+  non-ASCII search, and calendar-day grouping incl. boundary cases).
+- tsc --noEmit: 0 errors in src/ + tests/ (10 pre-existing confined to scripts/ dev tooling +
+  the frozen merge-backup snapshot, incl. its stale copy of page.tsx — out of the app build).
+- bun run lint: exit 0 (react-hooks/refs v6 findings resolved by ref-ownership redesign).
+- npm run build: exit 0, "Compiled successfully" (Next.js 16.1.3 Turbopack).
+- Agent-browser E2E (real account, real gateway): exact greeting on new conversation; real
+  streamed reply to "Hello!" (SSE 200); follow-up retained context (recalled the first message);
+  python code block rendered with language label + highlight + copy; "17*23" → "391";
+  Regenerate re-ran the trailing turn (server deleted + re-answered, no duplication);
+  Stop mid-stream → honest "Incomplete" partial label; rename → sidebar + header update;
+  search match/no-match/clear; delete with confirmation → greeting returns; new chat separation
+  (2 conversations under TODAY); persistence across reload (conversation in sidebar, reopening
+  restores messages); desktop 1440x900 + mobile 390x844: no horizontal overflow
+  (scrollWidth == clientWidth), mobile drawer = same capabilities; console clean after a11y fix.
+- Screenshots: download/riishe-upgrade-desktop.png, riishe-upgrade-desktop-thread.png,
+  riishe-upgrade-mobile.png, riishe-upgrade-mobile-drawer.png.
+NOT CLAIMED: per-conversation deep-link URLs (active conversation selection still resets to a
+new chat on reload — data persists; same as pre-upgrade); clipboard content asserted only by
+button presence + click success (headless clipboard not inspectable); upstream gateway 429
+flakiness observed in dev.log (pre-existing research-layer event, honestly surfaced, untouched).
