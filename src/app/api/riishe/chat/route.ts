@@ -12,6 +12,16 @@ import { buildConversationDigest } from '@/lib/riishe/summarize'
 import type { AttachedDocument } from '@/lib/riishe/orchestrator'
 import type { ToolContext } from '@/lib/riishe/tools/types'
 import { metadataToJson, type MessageMetadata } from '@/lib/riishe/states'
+import {
+  detectMemoryCommand,
+  sensitiveMemoryReason,
+  saveConfirmation,
+  forgetConfirmation,
+  listConfirmation,
+  isDuplicateMemory,
+  MEMORY_LIMITS,
+} from '@/lib/riishe/memory'
+import { getMemoryDelegate, MEMORY_INITIALIZING_NOTE } from '@/lib/riishe/memory-db'
 import { upstreamStreamErrorPayload, upstreamErrorCode } from '@/lib/upstream/gateway'
 import type { ChatTurn } from '@/lib/adapters/types'
 
@@ -187,13 +197,24 @@ export async function POST(request: Request) {
     }
 
     // Attached documents: ownership-checked here, so the orchestrator never
-    // sees a document id the user does not own.
+    // sees a document id the user does not own. kind (server-detected file
+    // capability) and storagePath (server-written path for stored image
+    // originals) flow to the tool context for the analyze_image tool.
     let documents: AttachedDocument[] = []
     if (body.documentIds && body.documentIds.length > 0) {
       const rows = await db.document.findMany({
         where: { id: { in: body.documentIds }, userId: user.id },
       })
-      documents = rows.map((d) => ({ id: d.id, name: d.name, text: d.text, truncated: d.truncated }))
+      documents = rows.map((d) => {
+        let storagePath: string | null = null
+        try {
+          const meta = d.metaJson ? (JSON.parse(d.metaJson) as { storagePath?: string }) : null
+          storagePath = typeof meta?.storagePath === 'string' ? meta.storagePath : null
+        } catch {
+          storagePath = null
+        }
+        return { id: d.id, name: d.name, text: d.text, truncated: d.truncated, kind: d.kind, storagePath }
+      })
       if (documents.length !== body.documentIds.length) {
         release()
         throw new BeanApiError('NOT_FOUND', 'One or more attached documents were not found.')
@@ -201,12 +222,14 @@ export async function POST(request: Request) {
     }
 
     const toolContext: ToolContext = {
-      // Code execution is a SERVER-SIDE policy (no client toggle): the
-      // permission is always granted; the orchestrator's selectTools only
-      // offers run_code for tasks where executing code genuinely helps, and
-      // the tool registry still gates every actual execution.
+      // The permission key is the SERVER-side authority (no client toggle);
+      // the orchestrator's capability planner narrows it per turn (explicit
+      // execution requests, simulations, heavy computation) before any
+      // run_code call reaches the registry's permission gate.
       permissions: new Set(['allowCodeExecution']),
-      documents: new Map(documents.map((d) => [d.id, { name: d.name, text: d.text, truncated: d.truncated }])),
+      documents: new Map(
+        documents.map((d) => [d.id, { name: d.name, text: d.text, truncated: d.truncated, kind: d.kind, storagePath: d.storagePath }]),
+      ),
     }
 
     const history: ChatTurn[] = inWindow.map((m) => ({
@@ -219,6 +242,119 @@ export async function POST(request: Request) {
     })
 
     const wantsStream = new URL(request.url).searchParams.get('stream') === '1'
+
+    // ---- User-approved memory commands (Phase 6) ---------------------------
+    // "remember …" / "forget …" / "what do you remember about me" are REAL
+    // database actions with SYSTEM-authored receipts (metadata labels them),
+    // never model-simulated results. Everything else flows to the model with
+    // the user's own approved memories injected as bounded context.
+    const memoryCommand = detectMemoryCommand(body.message)
+    if (memoryCommand) {
+      // The memory store is unavailable on processes whose Prisma client
+      // predates the RiisheMemory model (needs a restart to load it): every
+      // command gets an explicit initializing receipt — never a fake success.
+      const memory = getMemoryDelegate()
+      let content: string
+      const meta: MessageMetadata = {
+        states: ['UNVERIFIED'],
+        sources: [],
+        verification: [],
+        stages: [],
+        degraded: [],
+      }
+      if (!memory) {
+        logger.warn('riishe.memory_unavailable', { conversationId })
+        content = MEMORY_INITIALIZING_NOTE
+        meta.memoryAction = { action: memoryCommand.action, refused: true }
+      } else if (memoryCommand.action === 'save') {
+        const sensitive = sensitiveMemoryReason(memoryCommand.content)
+        if (sensitive) {
+          content = saveConfirmation(memoryCommand.content, sensitive)
+          meta.memoryAction = { action: 'save', refused: true }
+        } else {
+          const existing = await memory.findMany({ where: { userId: user.id }, select: { content: true } })
+          if (isDuplicateMemory(memoryCommand.content, existing.map((r) => r.content))) {
+            content = `That is already in memory: “${memoryCommand.content}”. Nothing new was stored.`
+            meta.memoryAction = { action: 'save', count: 0 }
+          } else {
+            const count = await memory.count({ where: { userId: user.id } })
+            if (count >= MEMORY_LIMITS.maxPerUser) {
+              content = `Your memory is full (${MEMORY_LIMITS.maxPerUser} items). Say “forget everything” or remove a few items before adding more.`
+              meta.memoryAction = { action: 'save', count: 0, refused: true }
+            } else {
+              await memory.create({ data: { userId: user.id, content: memoryCommand.content } })
+              content = saveConfirmation(memoryCommand.content, null)
+              meta.memoryAction = { action: 'save', count: 1 }
+            }
+          }
+        }
+      } else if (memoryCommand.action === 'forget') {
+        if (memoryCommand.all) {
+          const removed = await memory.deleteMany({ where: { userId: user.id } })
+          content = forgetConfirmation(removed.count, '', true)
+          meta.memoryAction = { action: 'forget', count: removed.count }
+        } else {
+          const needle = memoryCommand.target.toLowerCase()
+          const rows = await memory.findMany({
+            where: { userId: user.id },
+            select: { id: true, content: true },
+          })
+          const matches = rows.filter((r) => r.content.toLowerCase().includes(needle))
+          if (matches.length > 0) {
+            await memory.deleteMany({
+              where: { userId: user.id, id: { in: matches.map((m) => m.id) } },
+            })
+          }
+          content = forgetConfirmation(matches.length, memoryCommand.target, false)
+          meta.memoryAction = { action: 'forget', count: matches.length }
+        }
+      } else {
+        const rows = await memory.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+          select: { content: true },
+        })
+        content = listConfirmation(rows.map((r) => r.content))
+        meta.memoryAction = { action: 'list', count: rows.length }
+      }
+      await db.message.create({
+        data: { conversationId, role: 'assistant', content, metadata: metadataToJson(meta) },
+      })
+      logger.info('riishe.memory_action', { conversationId, action: meta.memoryAction?.action, count: meta.memoryAction?.count })
+      release()
+      if (!wantsStream) {
+        return ok({ conversationId, content, durationMs: 0, metadata: meta })
+      }
+      const enc = new TextEncoder()
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(c) {
+            c.enqueue(enc.encode(`data: ${JSON.stringify({ delta: content, conversationId })}\n\n`))
+            c.enqueue(enc.encode(`data: ${JSON.stringify({ done: true, conversationId, durationMs: 0, partial: false, meta })}\n\n`))
+            c.close()
+          },
+        }),
+        {
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache, no-transform',
+            connection: 'keep-alive',
+          },
+        },
+      )
+    }
+
+    // The user's own approved memories ride along as bounded prompt context.
+    // Skipped (honestly) when the memory store is unavailable on this process.
+    const memoryStore = getMemoryDelegate()
+    const memories = memoryStore
+      ? (await memoryStore.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+          take: MEMORY_LIMITS.injectionCount,
+          select: { content: true },
+        })).map((r) => r.content)
+      : []
 
     // ---- JSON path ---------------------------------------------------------
     if (!wantsStream) {
@@ -233,6 +369,7 @@ export async function POST(request: Request) {
           toolContext,
           documents,
           digest,
+          memories,
         })
         await db.message.create({
           data: {
@@ -298,6 +435,7 @@ export async function POST(request: Request) {
             toolContext,
             documents,
             digest,
+            memories,
             onEvent: (e) => {
               if (e.type === 'delta') {
                 if (firstTokenAt === null) firstTokenAt = Date.now()

@@ -26,6 +26,7 @@ model User {
   documents     Document[]
   codeProjects  CodeProject[]
   imageAssets   ImageAsset[]
+  memories      RiisheMemory[]
 }
 
 model Session {
@@ -204,4 +205,17 @@ model CodeFile {
 
   @@unique([projectId, path])
   @@index([projectId])
+}
+
+// RIISHE user-approved memory (explicit facts the user asked RIISHE to keep;
+// per-user isolated; deleted on request — see src/lib/riishe/memory.ts).
+model RiisheMemory {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String // the fact, exactly as confirmed to the user
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

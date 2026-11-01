@@ -1,0 +1,123 @@
+{
+  "suiteVersion": "core.json@2026-10-24.1 + extended.json@2026-11-01.1",
+  "ranAt": "2026-11-01T13:21:33.202Z",
+  "questionCount": 2,
+  "liveQuestionCount": 2,
+  "fixtureQuestions": [],
+  "summary": {
+    "general-knowledge": {
+      "baseline": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 1096
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 824,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "math": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 546
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 1211,
+        "searched": 0,
+        "computationVerified": 1,
+        "sourcesVerified": 0
+      }
+    }
+  },
+  "overall": {
+    "baselinePassRate": "1/2",
+    "upgradedPassRate": "2/2"
+  },
+  "outcomes": [
+    {
+      "questionId": "genknow-101",
+      "suite": "general-knowledge",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 5 expected signals: true"
+      ],
+      "latencyMs": 1096,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "math-101",
+      "suite": "math",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "answer contains exact value 75: false"
+      ],
+      "latencyMs": 546,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "genknow-101",
+      "suite": "general-knowledge",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer covers one of 5 expected signals: true"
+      ],
+      "latencyMs": 824,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "math-101",
+      "suite": "math",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "answer contains exact value 75: true"
+      ],
+      "latencyMs": 1211,
+      "searchRan": false,
+      "states": [
+        "COMPUTATION_VERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    }
+  ],
+  "limitations": [
+    "Single run per question; model outputs are non-deterministic.",
+    "Small sample sizes per suite; results indicate direction, not statistical significance.",
+    "Structural scoring only (exact numeric match, citation integrity, abstention/refusal signals); no human grading of answer quality.",
+    "Research questions depend on live web results at run time."
+  ]
+}

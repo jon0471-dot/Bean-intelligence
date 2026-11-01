@@ -20,6 +20,8 @@ import { webSearch, readPage } from '@/lib/research/provider'
 import { dedupByUrl, classifyHost } from '@/lib/research/rank'
 import { evaluateExpression } from '@/lib/verify/exprcheck'
 import { runInSandbox, type SandboxFile } from '@/lib/sandbox/runner'
+import { readStoredDocumentByPath } from '@/lib/files/riishe-store'
+import { describeImage } from '@/lib/files/media'
 import type { ToolDescriptor, ToolResult } from './types'
 
 const MAX_SEARCH_OUTPUT = 6
@@ -208,5 +210,55 @@ export const readDocumentTool: ToolDescriptor<z.infer<typeof readDocInput>> = {
     const nextOffset = offset + slice.length
     const more = nextOffset < doc.text.length ? `\n[more text remains: call again with offset=${nextOffset}]` : '\n[end of document]'
     return { ok: true, output: clip(`FILE: ${doc.name} (offset ${offset})\n\n${slice}${more}`, MAX_DOC_CHARS) }
+  },
+}
+
+// ---- analyze_image (fresh vision re-consultation) ---------------------------
+
+const analyzeImageInput = z.object({
+  documentId: z.string().min(1).max(64),
+  question: z.string().min(3).max(500),
+})
+
+export const analyzeImageTool: ToolDescriptor<z.infer<typeof analyzeImageInput>> = {
+  name: 'analyze_image',
+  description:
+    'Re-examine an image the user attached to THIS request and answer one question about it from the actual ' +
+    'pixels (fresh vision analysis, not the upload-time summary). ' +
+    'Input: {"documentId": string, "question": string}. Use whenever the user asks something specific ' +
+    'about an attached image (text in it, UI errors, diagrams, objects).',
+  // 'standard' is safe: the tool is only ENABLED for turns where the user
+  // actually attached an image (the capability planner decides), the bytes
+  // come from server-side storage of that same upload, and the vision
+  // provider is the same one that already analyzed the image at upload time.
+  permission: 'standard',
+  timeoutMs: 50_000,
+  validate(input) {
+    return analyzeImageInput.parse(input)
+  },
+  async execute({ documentId, question }, ctx): Promise<ToolResult> {
+    const doc = ctx.documents.get(documentId)
+    if (!doc) {
+      return {
+        ok: false,
+        output: `No attached image has id ${documentId}. Available: ${[...ctx.documents.keys()].join(', ') || 'none'}.`,
+      }
+    }
+    if (doc.kind !== 'image') {
+      return { ok: false, output: `"${doc.name}" is not an image document (kind: ${doc.kind ?? 'unknown'}) — analyze_image works only on attached images.` }
+    }
+    if (!doc.storagePath) {
+      return {
+        ok: false,
+        output: `The original bytes of "${doc.name}" are not retained, so the pixels cannot be re-consulted. Answer from the upload-time analysis already in context and say this limitation plainly.`,
+      }
+    }
+    const bytes = await readStoredDocumentByPath(doc.storagePath)
+    if (!bytes) {
+      return { ok: false, output: `The stored image data for "${doc.name}" could not be read — it may have been deleted.` }
+    }
+    const mime = doc.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'
+    const answer = await describeImage(bytes, mime, question)
+    return { ok: true, output: clip(`VISION ANALYSIS of "${doc.name}" (question: ${question})\n\n${answer}`, MAX_DOC_CHARS) }
   },
 }

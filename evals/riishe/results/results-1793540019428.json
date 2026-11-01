@@ -1,0 +1,239 @@
+{
+  "suiteVersion": "core.json@2026-10-24.1 + extended.json@2026-11-01.1",
+  "ranAt": "2026-11-01T13:33:39.428Z",
+  "questionCount": 4,
+  "liveQuestionCount": 4,
+  "fixtureQuestions": [],
+  "summary": {
+    "software-version-verification": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 2099
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 9543,
+        "searched": 1,
+        "computationVerified": 0,
+        "sourcesVerified": 1
+      }
+    },
+    "movie-release-research": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 1369
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 13421,
+        "searched": 1,
+        "computationVerified": 0,
+        "sourcesVerified": 1
+      }
+    },
+    "tool-calling": {
+      "baseline": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 1682
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 0,
+        "meanLatencyMs": 1562,
+        "searched": 0,
+        "computationVerified": 0,
+        "sourcesVerified": 0
+      }
+    },
+    "abstention": {
+      "baseline": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 877
+      },
+      "upgraded": {
+        "n": 1,
+        "pass": 1,
+        "meanLatencyMs": 6703,
+        "searched": 1,
+        "computationVerified": 0,
+        "sourcesVerified": 1
+      }
+    }
+  },
+  "overall": {
+    "baselinePassRate": "1/4",
+    "upgradedPassRate": "3/4"
+  },
+  "outcomes": [
+    {
+      "questionId": "research-102",
+      "suite": "software-version-verification",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "sources retrieved: 0",
+        "citations resolve to retrieved evidence: false",
+        "no invalid [n] refs: true",
+        "no fabricated urls: false"
+      ],
+      "latencyMs": 2099,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 2,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "research-103",
+      "suite": "movie-release-research",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "sources retrieved: 0",
+        "citations resolve to retrieved evidence: false",
+        "no invalid [n] refs: true",
+        "no fabricated urls: true"
+      ],
+      "latencyMs": 1369,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "tool-101",
+      "suite": "tool-calling",
+      "mode": "baseline",
+      "pass": false,
+      "criteria": [
+        "response state EXECUTION_VERIFIED present: false (states: none)",
+        "answer contains exact value 1060: false"
+      ],
+      "latencyMs": 1682,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "ambig-101",
+      "suite": "abstention",
+      "mode": "baseline",
+      "pass": true,
+      "criteria": [
+        "honest uncertainty signal present: true"
+      ],
+      "latencyMs": 877,
+      "searchRan": false,
+      "states": [],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "research-102",
+      "suite": "software-version-verification",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "sources retrieved: 1",
+        "citations resolve to retrieved evidence: true",
+        "no invalid [n] refs: true",
+        "no fabricated urls: true"
+      ],
+      "latencyMs": 9543,
+      "searchRan": true,
+      "states": [
+        "VERIFIED_FROM_SOURCES"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 1
+      }
+    },
+    {
+      "questionId": "research-103",
+      "suite": "movie-release-research",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "sources retrieved: 3",
+        "citations resolve to retrieved evidence: true",
+        "no invalid [n] refs: true",
+        "no fabricated urls: true"
+      ],
+      "latencyMs": 13421,
+      "searchRan": true,
+      "states": [
+        "VERIFIED_FROM_SOURCES"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 3
+      }
+    },
+    {
+      "questionId": "tool-101",
+      "suite": "tool-calling",
+      "mode": "upgraded",
+      "pass": false,
+      "criteria": [
+        "response state EXECUTION_VERIFIED present: false (states: UNVERIFIED)",
+        "answer contains exact value 1060: true"
+      ],
+      "latencyMs": 1562,
+      "searchRan": false,
+      "states": [
+        "UNVERIFIED"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 0
+      }
+    },
+    {
+      "questionId": "ambig-101",
+      "suite": "abstention",
+      "mode": "upgraded",
+      "pass": true,
+      "criteria": [
+        "honest uncertainty signal present: true"
+      ],
+      "latencyMs": 6703,
+      "searchRan": true,
+      "states": [
+        "VERIFIED_FROM_SOURCES"
+      ],
+      "citationAudit": {
+        "invalid": 0,
+        "fabricated": 0,
+        "used": 5
+      }
+    }
+  ],
+  "limitations": [
+    "Single run per question; model outputs are non-deterministic.",
+    "Small sample sizes per suite; results indicate direction, not statistical significance.",
+    "Structural scoring only (exact numeric match, citation integrity, abstention/refusal signals); no human grading of answer quality.",
+    "Research questions depend on live web results at run time."
+  ]
+}
