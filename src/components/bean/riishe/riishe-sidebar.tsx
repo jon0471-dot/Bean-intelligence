@@ -255,11 +255,24 @@ export function RiisheSidebarBody({
           <div className="text-sm font-semibold tracking-[0.18em] bean-gold-text">RIISHE</div>
           <div className="text-[9px] tracking-[0.22em] text-white/35">BEAN CONVERSATIONAL AI</div>
         </div>
+        {/*
+          EXACTLY ONE close control per open surface, by construction:
+          - The Sheet's built-in close is removed from the tree at the source
+            (RiisheSidebarMobile passes showClose={false} — conditional render
+            in ui/sheet.tsx, never a CSS hide).
+          - The desktop rail never passes onClose, so this X cannot co-exist
+            with the collapse control (and the onClose/onCollapse ternary
+            below makes the two mutually exclusive anyway).
+          - No breakpoint class hides this button: an open drawer always has
+            a visible close, even if the window is resized across lg while
+            the drawer is open (the old lg:hidden left it with ZERO close
+            controls in that case).
+        */}
         {onClose ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="ml-auto text-white/45 hover:text-white/85 lg:hidden"
+                className="ml-auto text-white/45 hover:text-white/85"
                 onClick={onClose}
                 aria-label="Close conversations"
               >
