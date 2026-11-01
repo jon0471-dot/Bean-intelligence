@@ -54,6 +54,18 @@ describe('duplicate close button — root-cause fix', () => {
     expect(sidebar.match(/aria-label="Close conversations"/g)?.length).toBe(1)
     expect(sidebar.match(/aria-label="Collapse sidebar"/g)?.length).toBe(1)
   })
+
+  test('the single close X is never hidden by CSS (no breakpoint class on the button)', () => {
+    // Rule: duplicates are removed from the TREE (showClose={false} above),
+    // never hidden with CSS. The X must render whenever the drawer body
+    // renders with onClose — including the resize-to-desktop edge case,
+    // where the old lg:hidden left an open drawer with zero close controls.
+    const anchor = sidebar.indexOf('aria-label="Close conversations"')
+    const open = sidebar.lastIndexOf('{onClose ? (', anchor)
+    const closeBlock = sidebar.slice(open, anchor)
+    expect(closeBlock).toContain('className="ml-auto text-white/45 hover:text-white/85"')
+    expect(closeBlock).not.toContain('lg:hidden')
+  })
 })
 
 describe('delete control beside every conversation', () => {
