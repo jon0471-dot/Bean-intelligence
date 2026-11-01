@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner, beanFetch, type BeanUser } from './shared'
-import { MessageSquareText, Image as ImageIcon, Video, Code2, ShieldCheck, Route, Gauge } from 'lucide-react'
+import { RiisheIcon } from '@/components/riishe/RiisheIcon'
+import { Image as ImageIcon, Video, Code2, ShieldCheck, Route, Gauge } from 'lucide-react'
 
 const PRODUCTS = [
-  { name: 'RIISHE', desc: 'Conversational intelligence — chat, reasoning, writing, multilingual.', icon: MessageSquareText },
+  { name: 'RIISHE', desc: 'Conversational intelligence — chat, reasoning, writing, multilingual.', icon: RiisheIcon },
   { name: 'LAXII', desc: 'Image generation studio — prompts to polished visuals, downloadable.', icon: ImageIcon },
   { name: 'JAZMII', desc: 'Video generation engine — async jobs with truthful availability.', icon: Video },
   { name: 'CODE GIFTZ', desc: 'Coding intelligence — generate, review, and run tests in a sandbox.', icon: Code2 },
