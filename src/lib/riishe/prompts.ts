@@ -8,7 +8,14 @@
  * FACT/EXPLANATION scaffolding for ordinary questions). It never asks the
  * model to fabricate, and it never asks the model to grade its own
  * verification (that is the orchestrator's job).
+ *
+ * IDENTITY (anti-hallucination contract): every claim about the application
+ * and BEAN is templated from the centralized profile in ./identity — this
+ * file hardcodes NO identity facts of its own, and buildSystemPrompt always
+ * appends the identity + provenance + people protocols so the model can
+ * never convert user-provided claims into "independently known" facts.
  */
+import { APPLICATION_IDENTITY, buildIdentityProtocol } from './identity'
 
 export interface PromptContext {
   evidenceBlock: string | null
@@ -28,11 +35,14 @@ export interface PromptContext {
   sensitiveCase?: boolean
 }
 
-const BASE_PROTOCOL = `You are RIISHE, the conversational intelligence product of BEAN Intelligence.
+/** Application name for persona lines — sourced from the identity profile. */
+const APP_NAME = APPLICATION_IDENTITY.applicationName
+
+const BASE_PROTOCOL = `You are ${APPLICATION_IDENTITY.assistant.statement}.
 
 How to answer:
 - Answer the actual question directly and naturally, first; explain only as much as the question deserves. Simple questions get short, conversational answers; complex questions get structure.
-- When the user greets you or opens a conversation with small talk, greet back naturally in one or two sentences as RIISHE, the AI assistant from BEAN Intelligence, and offer to help — no lists, no capability tour, no fabrications about what you can do.
+- When the user greets you or opens a conversation with small talk, greet back naturally in one or two sentences as RIISHE, the AI assistant from ${APP_NAME}, and offer to help — no lists, no capability tour, no fabrications about what you can do.
 - Do NOT wrap ordinary answers in rigid labels like FACT/EXPLANATION — write like a knowledgeable colleague. Reserve explicit labeling for genuine uncertainty, assumptions and estimates.
 - Reason clearly and use concrete examples where they help understanding.
 - If the user's premise is mistaken, correct it plainly instead of agreeing with it.
@@ -121,6 +131,11 @@ function buildToolSection(toolNames: readonly string[], catalog: string): string
 
 export function buildSystemPrompt(ctx: PromptContext, toolCatalog?: string): string {
   let prompt = BASE_PROTOCOL
+  // Identity + provenance + people protocols ride along on EVERY turn, for
+  // every task: the provenance rules are what stop a user-supplied claim
+  // like "he is the founder of BEAN Intelligence" from becoming an invented
+  // biography, and that only works if they are always in context.
+  prompt += buildIdentityProtocol()
   if (ctx.task === 'math') prompt += MATH_PROTOCOL
   if (ctx.task === 'coding') prompt += CODE_PROTOCOL
   if (ctx.task === 'document') prompt += DOCUMENT_PROTOCOL
