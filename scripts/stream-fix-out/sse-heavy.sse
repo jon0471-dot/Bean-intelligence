@@ -1,0 +1,692 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+: keepalive
+
+data: {"research":{"queries":["\"space exploration developments this week\"","\"latest space mission updates 2023\"","\"NASA SpaceX latest announcements 2023\""]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Based","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" on","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" most","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" recent","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" sources","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" here","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" are","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" latest","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" developments","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" in","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" space","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" exploration","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":":\n\n","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"Space","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"X","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"'s","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Star","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"ship","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" successfully","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" reached","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" orbit","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" for","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" first","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" time","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" but","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" returned","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" to","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Earth","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" earlier","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" than","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" planned","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" [","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"2","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"].","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" This","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" represents","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" significant","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" milestone","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" in","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" development","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" of","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Star","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"ship","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" spacecraft","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" though","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" early","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" return","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" suggests","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" further","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" refin","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"ements","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" are","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" needed","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":".\n\n","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"Regarding","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" upcoming","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" missions","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Star","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"ship","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Flight","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" ","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"12","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" has","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" new","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" launch","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" date","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" and","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" there","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"'s","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" also","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" progress","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" on","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" NASA","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"'s","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Artem","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"is","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" II","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" moon","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" mission","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" [","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"4","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"].","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" The","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Artem","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"is","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" program","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" aims","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" to","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" return","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" humans","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" to","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" moon","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" with","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Artem","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"is","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" II","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" specifically","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" planning","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" to","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" send","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" astronauts","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" on","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" lunar","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" fly","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"by","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":".\n\n","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"For","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" older","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" context","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" in","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" February","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" ","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"202","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"3","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" powerful","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" solar","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" storm","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" delayed","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" SpaceX","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" rocket","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" launch","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" and","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" stalled","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" oil","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" rigs","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" in","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Canada","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" [","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"5","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"].","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" While","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" not","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" recent","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" this","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" demonstrates","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" how","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" space","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" weather","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" can","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" affect","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" both","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" space","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" and","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" ground","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"-based","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" operations","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":".","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"reset":true}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\n","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"Based","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" on","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" most","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" recent","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" sources","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" here","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" are","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" latest","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" developments","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" in","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" space","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" exploration","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":":\n\n","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"Space","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"X","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"'s","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Star","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"ship","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" successfully","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" reached","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" orbit","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" for","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" first","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" time","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" but","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" returned","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" to","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Earth","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" earlier","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" than","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" planned","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" [","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"2","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"].","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" This","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" represents","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" significant","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" milestone","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" in","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" development","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" of","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Star","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"ship","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" spacecraft","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" though","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" early","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" return","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" suggests","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" further","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" refin","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"ements","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" are","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" needed","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":".\n\n","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"Regarding","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" upcoming","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" missions","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Star","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"ship","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Flight","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" ","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"12","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" has","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" new","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" launch","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" date","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" and","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" there","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"'s","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" also","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" progress","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" on","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" NASA","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"'s","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Artem","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"is","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" II","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" moon","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" mission","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" [","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"4","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"].","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" The","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Artem","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"is","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" program","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" aims","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" to","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" return","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" humans","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" to","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" the","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" moon","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" with","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Artem","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"is","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" II","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" specifically","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" planning","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" to","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" send","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" astronauts","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" on","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" lunar","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" fly","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"by","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":".\n\n","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"For","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" older","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" context","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" in","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" February","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" ","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"202","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"3","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" powerful","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" solar","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" storm","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" delayed","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" a","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" SpaceX","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" rocket","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" launch","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" and","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" stalled","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" oil","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" rigs","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" in","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" Canada","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" [","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"5","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"].","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" While","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" not","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" recent","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":",","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" this","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" demonstrates","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" how","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" space","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" weather","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" can","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" affect","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" both","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" space","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" and","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" ground","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":"-based","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":" operations","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"delta":".","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"reset":true}
+
+data: {"delta":"Based on the most recent sources, here are the latest developments in space exploration:\n\nSpaceX's Starship successfully reached orbit for the first time but returned to Earth earlier than planned [2]. This represents a significant milestone in the development of the Starship spacecraft, though the early return suggests further refinements are needed.\n\nRegarding upcoming missions, Starship Flight 12 has a new launch date, and there's also progress on NASA's Artemis II moon mission [4]. The Artemis program aims to return humans to the moon, with Artemis II specifically planning to send astronauts on a lunar flyby.\n\nFor older context, in February 2023, a powerful solar storm delayed a SpaceX rocket launch and stalled oil rigs in Canada [5]. While not recent, this demonstrates how space weather can affect both space and ground-based operations.","conversationId":"cmvy07mv5000zk48kodwxnpav"}
+
+data: {"done":true,"conversationId":"cmvy07mv5000zk48kodwxnpav","durationMs":19428,"partial":false,"messageId":"cmvy081uv0013k48ka4hlcu0y","firstTokenMs":16160,"meta":{"states":["PARTIALLY_VERIFIED"],"sources":[{"id":2,"title":"Space and Astronomy","url":"https://www.nytimes.com/international/section/science/space","hostName":"www.nytimes.com","date":null,"official":false,"social":false,"pageRead":false},{"id":4,"title":"Starship Flight 12's new Launch Date Released, Artemis II","url":"https://www.google.com/goto?url=CAESZgHrOzAVk0iAamNCMQBFH9DKTmP-Mi2lY2dMJmWSbrS0xUQMZsB8Nevy5MICx9PBkhE5RpnI9CRikAhUunzEp3wY_lYDEmrr75mqABmn5E-j7rR3hQjcHR5RB7OQ1TThddsW-k6iiA&gsessionid=ux4kZdyIvzdWIdY_BNEoOYhNYDZKRuQG-wUpgft25AzykLHqTWrY7A","hostName":"www.google.com","date":null,"official":false,"social":false,"pageRead":false},{"id":5,"title":"News Archive | February 2023","url":"https://www.space.com/news/archive/2023/02","hostName":"www.space.com","date":"Feb 28, 2023","official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 2 of the displayed sources"},{"check":"claim currency","status":"warning","detail":"newer retrieved evidence exists (up to 10 days old) than the newest cited source (1343 days old) — the latest-status claim may be out of date"}],"stages":[{"stage":"researching","durationMs":15444},{"stage":"verifying","durationMs":1860}],"degraded":["page read failed: page_reader timed out after 10000ms","claim-repair pass did not improve grounding; unverified statements remain flagged"],"retrievedAt":"2026-11-01T15:48:08.165Z","verificationNote":"2 statements restate the retrieved evidence without a citation marker (e.g., \"This represents a significant milestone in the development of the Starship spacecraft, though the early ret...\") — the supporting sources are listed under Sources. newer retrieved evidence exists (up to 10 days old) than the newest cited source (1343 days old) — the latest-status claim may be out of date. publication dates could not be verified for 2 of the cited sources — the latest status is stated only as of the dated reports","router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"What"},{"family":"wh","match":"are"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":19424,"understandMs":0,"researchMs":15444,"searchMs":4772,"pageReadMs":10004,"solveTtftMs":715,"solveMs":2119,"verifyMs":1860,"repairMs":1856,"solvePasses":2}}}
+

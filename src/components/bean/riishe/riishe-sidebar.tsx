@@ -65,23 +65,32 @@ function ConversationRow({
   chat,
   onRename,
   onDelete,
+  closeAfterAction,
 }: {
   conv: ConversationListItem
   active: boolean
   chat: RiisheChat
   onRename: (c: ConversationListItem) => void
   onDelete: (c: ConversationListItem) => void
+  closeAfterAction?: () => void
 }) {
   return (
     <div
       role="button"
       tabIndex={0}
       aria-current={active ? 'true' : undefined}
-      onClick={() => chat.openConversation(conv.id)}
+      onClick={() => {
+        chat.openConversation(conv.id)
+        // Mobile: selecting a conversation IS the way out of the drawer —
+        // with the header close button removed, this keeps the flow natural
+        // (no-op on desktop, where closeAfterAction is undefined).
+        closeAfterAction?.()
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           chat.openConversation(conv.id)
+          closeAfterAction?.()
         }
       }}
       className={cn(
@@ -170,15 +179,19 @@ export function RiisheSidebarBody({
   user,
   onOpenSettings,
   onCollapse,
-  onClose,
+  closeAfterAction,
 }: {
   chat: RiisheChat
   user: BeanUser
   onOpenSettings: () => void
   /** Desktop only — collapse the inline rail. */
   onCollapse?: () => void
-  /** Mobile only — close the Sheet drawer after an action. */
-  onClose?: () => void
+  /** Mobile only — close the Sheet drawer AFTER a successful action (new
+   *  chat, open conversation, settings, rename, delete). This deliberately
+   *  renders NO control: the header carries no close button by product
+   *  decision — the drawer closes via the overlay tap, Escape, or any of
+   *  the actions above. */
+  closeAfterAction?: () => void
 }) {
   const [renameTarget, setRenameTarget] = useState<ConversationListItem | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -214,7 +227,7 @@ export function RiisheSidebarBody({
       const result = await chat.renameConversation(target.id, title)
       if (result.ok) {
         setRenameTarget(null)
-        onClose?.() // mobile: reveal the updated list only on real success
+        closeAfterAction?.() // mobile: reveal the updated list only on real success
       } else {
         setRenameError(result.error ?? 'Rename failed. Please try again.')
       }
@@ -232,7 +245,7 @@ export function RiisheSidebarBody({
       const result = await chat.deleteConversation(target.id)
       if (result.ok) {
         setDeleteTarget(null)
-        onClose?.() // mobile: close the drawer only when deletion really happened
+        closeAfterAction?.() // mobile: close the drawer only when deletion really happened
       } else {
         // Honest failure: the dialog STAYS OPEN and names what went wrong —
         // the conversation is still in the list, so closing here would lie.
@@ -248,42 +261,18 @@ export function RiisheSidebarBody({
 
   return (
     <div className="flex h-full flex-col">
-      {/* RIISHE branding */}
+      {/* RIISHE branding — no close button here by product decision (the
+          X / "Close conversations" control was REMOVED at the source, not
+          CSS-hidden; the mobile drawer closes via overlay tap / Escape and
+          automatically after every successful action below). The desktop
+          rail keeps its one collapse toggle. */}
       <div className="flex items-center gap-2.5 px-4 pb-2 pt-4">
         <RiisheIcon className="h-7 w-7" />
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-[0.18em] bean-gold-text">RIISHE</div>
           <div className="text-[9px] tracking-[0.22em] text-white/35">BEAN CONVERSATIONAL AI</div>
         </div>
-        {/*
-          EXACTLY ONE close control per open surface, by construction:
-          - The Sheet's built-in close is removed from the tree at the source
-            (RiisheSidebarMobile passes showClose={false} — conditional render
-            in ui/sheet.tsx, never a CSS hide).
-          - The desktop rail never passes onClose, so this X cannot co-exist
-            with the collapse control (and the onClose/onCollapse ternary
-            below makes the two mutually exclusive anyway).
-          - No breakpoint class hides this button: an open drawer always has
-            a visible close, even if the window is resized across lg while
-            the drawer is open (the old lg:hidden left it with ZERO close
-            controls in that case).
-        */}
-        {onClose ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="ml-auto text-white/45 hover:text-white/85"
-                onClick={onClose}
-                aria-label="Close conversations"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="border border-[rgba(212,175,55,0.25)] bg-[#1c1c1f] text-white/85">
-              Close conversations
-            </TooltipContent>
-          </Tooltip>
-        ) : onCollapse ? (
+        {onCollapse ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -306,7 +295,7 @@ export function RiisheSidebarBody({
         <Button
           onClick={() => {
             chat.newConversation()
-            onClose?.()
+            closeAfterAction?.()
           }}
           className="h-9 w-full justify-start gap-2 border-[rgba(212,175,55,0.3)] bg-[rgba(212,175,55,0.1)] text-[13px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.2)]"
           variant="outline"
@@ -358,6 +347,7 @@ export function RiisheSidebarBody({
                 chat={chat}
                 onRename={askRename}
                 onDelete={askDelete}
+                closeAfterAction={closeAfterAction}
               />
             ))}
           </div>
@@ -376,6 +366,7 @@ export function RiisheSidebarBody({
                     chat={chat}
                     onRename={askRename}
                     onDelete={askDelete}
+                    closeAfterAction={closeAfterAction}
                   />
                 ))}
               </div>
@@ -389,7 +380,7 @@ export function RiisheSidebarBody({
         <button
           onClick={() => {
             onOpenSettings()
-            onClose?.()
+            closeAfterAction?.()
           }}
           className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/5"
           aria-label="Open account settings"
@@ -532,7 +523,7 @@ export function RiisheSidebarMobile({
           chat={chat}
           user={user}
           onOpenSettings={onOpenSettings}
-          onClose={() => onOpenChange(false)}
+          closeAfterAction={() => onOpenChange(false)}
         />
       </SheetContent>
     </Sheet>
