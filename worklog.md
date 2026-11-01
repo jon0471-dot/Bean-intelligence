@@ -1003,3 +1003,63 @@ NOT CLAIMED: per-conversation deep-link URLs (active conversation selection stil
 new chat on reload — data persists; same as pre-upgrade); clipboard content asserted only by
 button presence + click success (headless clipboard not inspectable); upstream gateway 429
 flakiness observed in dev.log (pre-existing research-layer event, honestly surfaced, untouched).
+
+2026-11-01 — RIISHE brand icon replacement: one custom robot-head emblem in the three scoped locations
+SCOPE: replaced the generic icons at EXACTLY three locations (welcome greeting, chat header,
+dashboard operational card) with one reusable custom vector component — new artwork, no layout,
+greeting, model, provider or other-product changes.
+
+NEW COMPONENT src/components/riishe/RiisheIcon.tsx:
+- Robot-head emblem drawn entirely as inline SVG paths (no emoji, no Lucide glyph, no CSS
+  approximation, no external image): a seven-arc cloud silhouette for the flowing swept hair
+  (stroke ends land precisely on the face frame's corner curves; a fill twin with a raised
+  baseline tucks the champagne tint behind the face's top stroke so no wash leaks into the face),
+  a symmetrical rounded face frame (rect rx=8), two oval gradient eyes, left/right
+  headphone-style side cups with inner dots, and two swept strand details inside the hair.
+- Champagne-gold gradients exactly per spec: #FFE9A6 → #F5CB55 → #DDAA32 (hair), #F5CB55 →
+  #DDAA32 (frame/cups), #FFE9A6 → #F5CB55 (eyes); radial ambient halo #E8B91E @ 0.16 → 0
+  ("subtle champagne-gold illumination"); feGaussianBlur(1.15)+feMerge glow filter, region
+  expanded to −30%..160% so the glow is never clipped. Transparent background throughout.
+- API: { className?, mono?, glow? } — mono renders flat currentColor (and emits NO unused
+  gradient/halo defs); glow={false} drops the filter. All defs ids are useId-unique per
+  instance (colons stripped), so unlimited emblems coexist alias-free in one document.
+  aria-hidden + focusable=false (decorative next to visible "RIISHE" text). 64×64 viewBox —
+  verified legible at 16/18/20/24/32/48/96 px and in mono.
+
+REPLACED (only these three):
+- src/components/bean/riishe/riishe-messages.tsx — WelcomeGreeting tile now renders RiisheIcon
+  (was BeanMark); tile changed to a subtle dark rounded square bg-[#0d0d0f], gold border +
+  glow shadow and exact greeting untouched. BeanMark import KEPT: AssistantAvatar (message
+  avatars) still uses it — message avatars were NOT in the three scoped locations.
+- src/components/bean/riishe.tsx — chat header emblem beside the RIISHE/title label (was
+  MessageSquareText speech bubble); inline 18px emblem, no tile; MessageSquareText import removed.
+- src/components/bean/dashboard.tsx — ICONS.riishe = RiisheIcon (was MessageSquareText) in the
+  Operational/Degraded/Unavailable product card; container kept at h-10 w-10 (existing dims);
+  laxii/jazmii/code-giftz icons untouched; MessageSquareText import removed.
+- NOT touched (explicit scope): shell nav + sidebar (navigation), landing product cards,
+  AssistantAvatar BeanMark, other agents, LAXII/JAZMII/CODE GIFTZ, composer, conversation
+  history. No external icon/image dependencies added; no other files changed.
+
+VERIFICATION (all executed here):
+- tests/unit/riishe-icon.test.ts (NEW, 12 tests): pure-vector artwork (no <text>/<image>/href),
+  exact gradient stops present, features present (face rx=8, eyes, face+2 cups, crown arc),
+  glow merge present; two instances in ONE tree → 10 distinct defs ids (no aliasing); mono →
+  currentColor with gradients/halo absent; glow=false → no filter ref; className sizing;
+  source-level pins that all three scoped files import RiisheIcon and the header/dashboard no
+  longer reference MessageSquareText (dashboard's other three icon mappings pinned unchanged).
+- bun test tests/unit: 637 pass / 0 fail across 40 files (625 pre-existing + 12 new).
+- tsc --noEmit: 0 errors in src/ and tests/; scripts/ shows only the pre-existing dev-tooling
+  errors (the new scripts/riishe-icon-render.tsx contributes none — fixed an initial style-prop
+  typing error by sizing via CSS wrapper).
+- npx eslint on all 4 touched files + new test: exit 0.
+- npm run build: exit 0 — all three consumer routes compiled (broken-import check).
+- VISUAL: scripts/riishe-icon-render.tsx SSRs the ACTUAL component (react-dom/server) into a
+  dark contact sheet (24/32/48/96, dark tile, mono, 18px header chip, 20px card chip, 16px
+  stress); rendered via headless Chromium and inspected — silhouette, hair-face join, eyes and
+  cups hold at every size; evidence copied to download/riishe-icon-contact-sheet.png.
+- Live UI screenshot NOT taken: the managed dev server was down (curl /api/health → 000) and
+  starting it is out of bounds; the SSR contact sheet + production build are the render-truth
+  evidence. No dev server started/killed here.
+NOT CLAIMED: light-background appearance (spec asks dark-background visibility only — mono
+variant exists for any future light need); AssistantAvatar swap (out of the three-location
+scope, trivially available via the same component if wanted).
