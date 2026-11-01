@@ -189,6 +189,16 @@ export function upstreamStreamErrorPayload(e: unknown): {
         code: 'UPSTREAM_BILLING',
         partial: true,
       }
+    case 'timeout':
+      // Provider accepted the request but stopped producing tokens (stream
+      // stall / deadline). Honest category: distinct from a generic failure.
+      return {
+        error:
+          'The AI provider stopped sending data before the response finished (stream timed out). ' +
+          'The text received so far is preserved as incomplete — try again in a moment.',
+        code: 'UPSTREAM_TIMEOUT',
+        partial: true,
+      }
     default:
       return {
         error: 'The response stream failed before completion. Partial text is labeled as incomplete.',

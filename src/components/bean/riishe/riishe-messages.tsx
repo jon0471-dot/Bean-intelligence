@@ -135,10 +135,15 @@ function useMarkdownComponents() {
     },
     pre: ({ children }: { children?: ReactNode }) => {
       // React-markdown nests <code> inside <pre>; extract for highlighting.
+      // Children must be flattened defensively: react-markdown normally hands
+      // a single string, but streamed/differing parses can hand an array of
+      // text nodes — String()-ing an array would join with commas and corrupt
+      // the copied/displayed code. join('') keeps every character exact.
       const child = Array.isArray(children) ? children[0] : children
       const props = (child as { props?: { className?: string; children?: ReactNode } })?.props
       const lang = props?.className?.replace(/language-/, '') || undefined
-      const code = String(props?.children ?? '').replace(/\n$/, '')
+      const rawCode = props?.children
+      const code = (Array.isArray(rawCode) ? rawCode.map((part) => String(part)).join('') : String(rawCode ?? '')).replace(/\n$/, '')
       if (code === '') return <pre>{children}</pre>
       return <CodeBlock code={code} lang={lang} />
     },

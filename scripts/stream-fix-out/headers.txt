@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+cache-control: no-cache, no-transform
+connection: keep-alive
+content-type: text/event-stream
+x-accel-buffering: no
+Date: Sun, 01 Nov 2026 15:46:37 GMT
+Transfer-Encoding: chunked
+
