@@ -41,6 +41,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 local-*
+# The LAXII local engine adapter is REAL source code, not a local artifact.
+# The bare local-* rule above silently ignored it (git check-ignore verified),
+# so it could never be committed and its absence broke the build with
+# "Module not found: Can't resolve '@/lib/laxii/local-adapter'".
+!src/lib/laxii/local-adapter.ts
 .claude
 .z-ai-config
 *.log
