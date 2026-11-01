@@ -32,7 +32,8 @@ import { RiisheSidebarDesktop, RiisheSidebarMobile } from './riishe/riishe-sideb
 import { RiisheThread } from './riishe/riishe-messages'
 import { RiisheComposer } from './riishe/riishe-composer'
 import { useRiisheChat } from './riishe/use-riishe-chat'
-import { MessageSquareText, PanelLeft } from 'lucide-react'
+import { RiisheIcon } from '@/components/riishe/RiisheIcon'
+import { PanelLeft } from 'lucide-react'
 
 function PanelLeftOpenIcon() {
   return (
@@ -115,7 +116,7 @@ export function Riishe({ user, onOpenSettings }: { user: BeanUser; onOpenSetting
               <PanelLeftOpenIcon />
             </button>
           ) : null}
-          <MessageSquareText className="h-4 w-4 shrink-0 text-[#d4af37]" />
+          <RiisheIcon className="h-4.5 w-4.5 shrink-0" />
           <div className="min-w-0 truncate text-sm font-semibold tracking-wide">
             {chat.activeTitle ?? 'RIISHE'}
           </div>
