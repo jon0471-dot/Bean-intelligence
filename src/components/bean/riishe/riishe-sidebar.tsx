@@ -40,7 +40,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { BeanMark } from '@/components/bean/landing'
+import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import { Spinner, type BeanUser } from '@/components/bean/shared'
 import { cn } from '@/lib/utils'
 import { conversationSidebarSections } from '@/lib/riishe/conversation-view'
@@ -179,7 +179,7 @@ export function RiisheSidebarBody({
     <div className="flex h-full flex-col">
       {/* RIISHE branding */}
       <div className="flex items-center gap-2.5 px-4 pb-2 pt-4">
-        <BeanMark className="h-7 w-7" />
+        <RiisheIcon className="h-7 w-7" />
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-[0.18em] bean-gold-text">RIISHE</div>
           <div className="text-[9px] tracking-[0.22em] text-white/35">BEAN CONVERSATIONAL AI</div>
