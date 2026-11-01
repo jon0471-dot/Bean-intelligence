@@ -808,3 +808,73 @@ NEXT ACTIONS (operator, on the Windows PC — see local/ACCEPTANCE-RUNBOOK.md):
    photos in local/testset-real/ (face tests).
 5) run_acceptance.py [--allow-face-regeneration]; return acceptance-out/<run>/
    + hardware-report.json for BEAN review before any enablement decision.
+
+Task: "BEAN Intelligence — Fix LAXII Module Resolution Build Error" (2026-11-01)
+
+Reported: Next.js 16.1.3/Turbopack — `Module not found: Can't resolve
+'@/lib/laxii/local-adapter'` at src/app/api/health/route.ts:4.
+
+ROOT CAUSE (measured, three layers):
+1. src/lib/laxii/local-adapter.ts NEVER EXISTED in git: `git log --all` on the
+   path is empty and `git ls-files` does not list it; it is absent at HEAD and
+   in the working tree. NOT a rename/move/casing issue (no similar file in
+   src/lib/laxii/ or anywhere in the tree).
+2. WHY it could never survive: .gitignore line 43 `local-*` matched the file
+   name. `git check-ignore -v` proved the rule was the ONLY matcher; the
+   inventory showed zero tracked files grandfathered under it and exactly ONE
+   ignored file — the adapter itself. Any local-adapter written in a previous
+   session was silently unversioned, so a tree restore reproduced the missing
+   module while the committed imports (health route + router) remained.
+3. Consumers (verified): localLaxiiAdapter is imported by
+   src/app/api/health/route.ts (laxii.deterministic probe) and
+   src/lib/router/router.ts (ADAPTERS['bean-image-local-sharp']; preflight
+   throws NO_BACKEND "no executable adapter" when the map entry is missing).
+
+FIX (smallest correct):
+- IMPLEMENTED src/lib/laxii/local-adapter.ts per the existing architecture:
+  TaskAdapter with backendId 'bean-image-local-sharp' and an honest health()
+  that EXECUTES a real Sharp decode→resize→raw round-trip (same probe as
+  models.ts localPreflight) and reports measured outcome only — healthy=false
+  on any failure with the real error; no generateImage (registry entry is
+  generative:false; enhancement runs through the job queue).
+- MEASURED DEFECT FOUND AND FIXED in src/lib/laxii/models.ts localPreflight():
+  the probe PNG is RGBA (sharp 0.34.5 metadata: hasAlpha true), so bare
+  .raw() yields 4 channels (64 B) and the `length === 4*4*3` check ALWAYS
+  failed — localPreflight false-negatived the working local engine
+  (deterministicEnhancement:false on a healthy host). Fixed with
+  .removeAlpha() for a deterministic 3-channel round-trip; detail string now
+  states completed vs unexpected output honestly. Same one-line fix applied
+  in the new adapter's probe with a comment cross-referencing both.
+- .gitignore: added `!src/lib/laxii/local-adapter.ts` negation with an
+  explanatory comment so the adapter is committable and the trap cannot
+  resurrect the build error on a fresh checkout. `local-*` itself untouched.
+- tests/unit/laxii-local-adapter.test.ts (new, 4 tests): real executed probe
+  is healthy with measured evidence; healthy detail NEVER claims generative
+  capability (honesty boundary); HealthReport contract shape (ISO checkedAt,
+  measured latencyMs, no cached flag); adapter identity matches the registry
+  entry (enabled, generative:false) and the TaskAdapter contract (no
+  chat/generateImage/codeTask); regression pin that localPreflight measures
+  the local engine available.
+
+PRESERVED (verified untouched): UI, LAXII workflows, bean-image-selfhosted-
+diffusers stays DISABLED with its truthful reason, model defaults, provider
+selection (provider.ts), all existing adapters (managed hosted-image, hosted-
+llm) and the health-cache contract. No dependencies installed. No dev server
+started/killed/restarted; the managed server was only observed via dev.log
+(GET /api/health 500 — the reported symptom).
+
+VERIFICATION (all run here):
+- tsc --noEmit: 0 errors in src/ and tests/ (9 pre-existing errors confined
+  to scripts/ dev fixtures + the merge-backup snapshot; build unaffected —
+  next.config.ts sets ignoreBuildErrors:true, unchanged).
+- bun test tests/unit: 597 pass / 0 fail across 37 files (incl. the new
+  laxii-local-adapter.test.ts, all LAXII suites, health-mapping,
+  health-cache, worker protocol).
+- Production build: `npm run build` exit 0 (Next.js 16.1.3 Turbopack; no
+  module-resolution warnings; standalone server.js + BUILD_ID emitted;
+  /api/health and all LAXII routes compiled).
+
+NOT CLAIMED: nothing about the local Diffusers worker changed — it remains
+disabled pending the recorded real inference acceptance test (Phase 8, local
+Windows GPU host). The health route's laxii.deterministic healthy state now
+reflects a REAL executed Sharp probe on this host only.
