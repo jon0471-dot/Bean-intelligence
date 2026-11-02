@@ -288,6 +288,13 @@ export function buildVerificationNote(args: {
       } — treat as unverified`,
     )
   }
+  if (support && (support.ungroundedDates?.length ?? 0) > 0) {
+    parts.push(
+      `${support.ungroundedDates?.length ?? 0} date statement${(support.ungroundedDates?.length ?? 0) === 1 ? ' is' : 's are'} not found in the cited sources' text — the event date may be the article's publication date rather than the date of the event itself${
+        pageTextUnavailable ? ' (full page text was unavailable this run)' : ''
+      }`,
+    )
+  }
   if (support && support.nameConflicts.length > 0) {
     parts.push(
       `the retrieved reports appear to identify the person differently (${support.nameConflicts.join('; ')}) — the disagreement is not resolved by the evidence`,
@@ -676,6 +683,21 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     return corpus
   }
 
+  /** Same as citedTextCorpus but WITHOUT the URL: the date-grounding audit
+   *  must not treat a publication-date slug (/2026/05/11/) as evidence for
+   *  the very publication-vs-event-date confusion it exists to catch. */
+  function citedDateCorpus(answer: string, sources: readonly AuditSource[]): Map<number, string> {
+    const cited = new Set(
+      extractCitationIds(answer).filter((id) => sources.some((s) => s.id === id)),
+    )
+    const corpus = new Map<number, string>()
+    for (const s of sources) {
+      if (!cited.has(s.id)) continue
+      corpus.set(s.id, `${s.title} ${s.snippet} ${s.excerpt ?? ''}`)
+    }
+    return corpus
+  }
+
   /** Age in days of the NEWEST dated source in the list (null when none). */
   function newestAgeDaysOf(sources: readonly AuditSource[]): number | null {
     const ages = sources
@@ -758,6 +780,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         ? auditClaimSupport(content, resolvedIds, citedTextCorpus(content, auditUniverse), {
             sensitiveCase,
             fullCorpus: fullEvidenceCorpus,
+            dateSourceTexts: citedDateCorpus(content, auditUniverse),
           })
         : null
     // Currency consistency: a latest-status claim whose cited sources are all
@@ -810,6 +833,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     support !== null &&
     (support.unattributedAllegations.length > 0 ||
       support.ungroundedNames.length > 0 ||
+      (support.ungroundedDates?.length ?? 0) > 0 ||
       support.repeatedHedges.length > 0 ||
       support.unattributedProbabilistic.length > 0 ||
       support.nameConflicts.length > 0)
@@ -859,6 +883,16 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
           '\nCheck the evidence for the correct detail and use THAT, quoting the sources exactly; if the ' +
           'sources genuinely disagree, state the disagreement instead of picking one silently; if the ' +
           'detail is simply not in the evidence, remove it.',
+      )
+    }
+    if ((initialSupport.ungroundedDates?.length ?? 0) > 0) {
+      repairItems.push(
+        'specific calendar dates that appear in NONE of the cited sources\' text (likely the article\'s ' +
+          'publication date presented as the event date, or an invented date):\n' +
+          (initialSupport.ungroundedDates ?? []).map((s) => `- "${s}"`).join('\n') +
+          '\nFor each flagged date, find the EVENT date the cited source actually states in its text and use ' +
+          'THAT exactly. If a cited source gives only its publication date and not the event date, say the ' +
+          'exact day could not be verified instead of presenting a date.',
       )
     }
     if (initialSupport.repeatedHedges.length > 0) {
@@ -933,6 +967,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       pp2.support !== null &&
       pp2.support.unattributedAllegations.length === 0 &&
       pp2.support.ungroundedNames.length === 0 &&
+      (pp2.support.ungroundedDates?.length ?? 0) === 0 &&
       pp2.support.repeatedHedges.length === 0 &&
       pp2.support.unattributedProbabilistic.length === 0 &&
       pp2.support.nameConflicts.length === 0
@@ -945,6 +980,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
           pp2.support.coverage >= initialSupport.coverage) ||
         (initialSupport.ungroundedNames.length > 0 &&
           pp2.support.ungroundedNames.length === 0 &&
+          pp2.support.coverage >= initialSupport.coverage) ||
+        ((initialSupport.ungroundedDates?.length ?? 0) > 0 &&
+          (pp2.support.ungroundedDates?.length ?? 0) === 0 &&
           pp2.support.coverage >= initialSupport.coverage) ||
         (initialSupport.repeatedHedges.length > 0 &&
           pp2.support.repeatedHedges.length === 0 &&

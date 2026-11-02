@@ -1,0 +1,270 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["What are the latest developments from NVIDIA?","NVIDIA official announcement newsroom","What are the latest developments from NVIDIA? latest news update"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+data: {"delta":"Based","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" on","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" the","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" latest","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" available","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" information","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" NVIDIA","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" has","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" recently","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" announced","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" new","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Isaac","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" tools","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" for","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" developers","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" to","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" train","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" test","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" and","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" deploy","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" robots","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" [","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"5","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"].","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" The","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" company","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" has","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" also","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" unveiled","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" new","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" autonomous","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" vehicle","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" software","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" at","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" CES","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" with","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" CEO","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Jensen","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Huang","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" presenting","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" new","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" AI","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" technology","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" for","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" autonomous","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" driving","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" [","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"6","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"].","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Additionally","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" NVIDIA","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" has","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" been","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" involved","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" in","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" a","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" H","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"ugging","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Face","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" deal","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" and","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" a","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" $","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"3","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":".","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"1","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" billion","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" GPU","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" loan","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" through","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" a","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" company","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" it","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" backs","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" [","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"4","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"].","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Their","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" product","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" lineup","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" includes","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" offerings","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" in","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" AI","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Data","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Center","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Cloud","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" services","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" GeForce","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" products","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" and","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" various","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" software","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" solutions","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" [","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"2","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"].","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" They","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" continue","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" to","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" develop","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" gener","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"ative","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" AI","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" technologies","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" including","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" NVIDIA","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" Ne","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"Mo","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" N","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"IM","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":",","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" and","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" ACE","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":" [","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"1","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"delta":"].","conversationId":"cmvymkto00060rmvnwcqoelzo"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvymkto00060rmvnwcqoelzo","durationMs":65600,"partial":false,"messageId":"cmvymm8ac0064rmvnqym0j3cn","firstTokenMs":63926,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Generative AI News","url":"https://www.nvidia.com/en-us/ai-data-science/generative-ai/news","hostName":"www.nvidia.com","date":null,"official":false,"social":false,"pageRead":false},{"id":2,"title":"NVIDIA Products | AI, Data Center, Cloud, GeForce","url":"https://www.nvidia.com/en-us/products","hostName":"www.nvidia.com","date":"Sat, 31 Oct 2026 05:18:09 GMT","official":false,"social":false,"pageRead":true},{"id":4,"title":"Nvidia: Trending News, Latest Updates, Analysis","url":"https://bloomberg.com/latest/nvidia","hostName":"bloomberg.com","date":null,"official":false,"social":false,"pageRead":false},{"id":5,"title":"nvidia","url":"https://x.com/nvidia/all","hostName":"x.com","date":"Nov 1, 2026","official":false,"social":true,"pageRead":false},{"id":6,"title":"Nvidia unveils new autonomous vehicle software at CES","url":"https://www.google.com/goto?url=CAESZgHrOzAVqnt3QL1F8J8SEfzXSYfYJHUDZql8iRWNuFL5T4wW9xKmenAsRwYTgJt6VEqfDZXJn_RGAsZDTlud7bCODC4va-ahq8q1pX1dwFuDgU8tEy4u12HP_JshYBF8CRg8nY4gEw","hostName":"www.google.com","date":null,"official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 3 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":13272},{"stage":"verifying","durationMs":1}],"degraded":["added targeted query \"NVIDIA official announcement newsroom\"","page read failed: page_reader timed out after 10000ms"],"retrievedAt":"2026-11-02T02:15:01.234Z","verificationNote":"Publication dates could not be verified for 3 of the cited sources — the latest status is stated only as of the dated reports","router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"What"},{"family":"wh","match":"are"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":65596,"understandMs":0,"researchMs":13272,"searchMs":1346,"pageReadMs":10003,"solveTtftMs":50654,"solveMs":52323,"verifyMs":1,"solvePasses":1}}}
+

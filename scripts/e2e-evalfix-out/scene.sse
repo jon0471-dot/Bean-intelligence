@@ -1,0 +1,766 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["Tell me about the movie Scene: release date, hero and villain.","\"Scene\" movie release cast details","Tell me about the movie Scene: release date, hero and villain. official release notes changelog"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Based","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" on","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" retrieved","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" evidence","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" here","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"'s","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" what","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" I","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" can","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" tell","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" you","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" about","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" movie","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" \"","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"Scene","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"\":\n\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"The","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" movie","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" \"","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"Scene","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"\"","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" is","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" scheduled","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" to","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" be","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" released","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" on","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" November","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"202","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" in","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" multiple","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" countries","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" including","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Ireland","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" India","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" and","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" United","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" States","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"1","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" It","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"'s","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" an","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" upcoming","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Indian","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Tamil","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"-language","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" action","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" comedy","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" film","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"3","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].\n\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"The","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" hero","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" of","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" movie","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" is","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" S","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"uri","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ya","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" (","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"also","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" referred","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" to","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" as","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" S","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"uri","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ya","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" S","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"iv","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ak","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"umar","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":")","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"2","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"4","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" The","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" cast","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" also","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" includes","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Naz","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ri","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ya","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Naz","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"im","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Nas","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"len","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" An","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"andra","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"j","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" and","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Lal","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"4","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].\n\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"I","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" don","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"'t","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" have","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" information","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" about","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" who","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" plays","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" villain","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" in","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" movie","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" from","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" retrieved","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" sources","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":".","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"reset":true}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"[","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"1","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"]","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Scene","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" is","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" scheduled","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" to","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" be","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" released","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" on","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" November","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"202","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" in","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Ireland","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" and","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" India","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" according","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" to","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" IMDb","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"1","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" The","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" United","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" States","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" release","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" date","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" is","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" also","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" listed","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" as","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" November","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"202","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"1","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].\n\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"[","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"2","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"]","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Scene","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" is","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" an","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" upcoming","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Tamil","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" movie","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" scheduled","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" to","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" be","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" released","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" on","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" November","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"202","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"2","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" It","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" is","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" directed","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" by","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" J","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ith","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"u","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Mad","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"h","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"avan","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"2","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].\n\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"[","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"3","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"]","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Scene","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" is","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" an","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" upcoming","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Indian","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Tamil","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"-language","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" action","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" comedy","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" film","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" scheduled","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" to","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" release","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" on","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" November","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"202","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"3","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].\n\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"[","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"4","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"]","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" The","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" cast","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" of","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Scene","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" includes","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" S","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"uri","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ya","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" S","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"iv","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ak","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"umar","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Naz","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ri","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ya","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Naz","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"im","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Nas","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"len","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" An","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"andra","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"j","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" and","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Lal","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"4","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].\n\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"[","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"5","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"]","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" One","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" source","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" indicates","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Scene","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" releases","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" on","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"5","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" November","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"202","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"5","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"5","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"],","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" while","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" multiple","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" other","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" sources","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" confirm","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" November","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"202","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" as","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" release","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" date","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"1","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"2","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"3","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].\n\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"[","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"]","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" S","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"uri","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"ya","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"47","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" is","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" officially","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" titled","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" Scene","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" and","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" is","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" scheduled","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" to","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" arrive","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" on","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" big","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" screen","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" on","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" November","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":",","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" ","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"202","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" [","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"6","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"].\n\n","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"I","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" don","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":"'t","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" have","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" information","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" about","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" who","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" plays","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" villain","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" in","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" movie","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" from","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" the","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" retrieved","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":" sources","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"delta":".","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"reset":true}
+
+data: {"delta":"Based on the retrieved evidence, here's what I can tell you about the movie \"Scene\":\n\nThe movie \"Scene\" is scheduled to be released on November 6, 2026 in multiple countries including Ireland, India, and the United States [1]. It's an upcoming Indian Tamil-language action comedy film [3].\n\nThe hero of the movie is Suriya (also referred to as Suriya Sivakumar) [2, 4, 6]. The cast also includes Nazriya Nazim, Naslen, Anandraj, and Lal [4].\n\nI don't have information about who plays the villain in the movie from the retrieved sources.","conversationId":"cmvymbos6003urmvn92m7b5dt"}
+
+data: {"done":true,"conversationId":"cmvymbos6003urmvn92m7b5dt","durationMs":18841,"partial":false,"messageId":"cmvymc3bf003yrmvnrfyuujrh","firstTokenMs":15277,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Scene (2026) - Release info - IMDb","url":"https://www.imdb.com/title/tt38192494/releaseinfo/?ref_=tt_ov_rdat","hostName":"www.imdb.com","date":null,"official":false,"social":false,"pageRead":false},{"id":2,"title":"Scene Movie: Showtimes, Review, Songs, Trailer, Posters,","url":"https://timesofindia.indiatimes.com/entertainment/tamil/movie-details/scene/movieshow/133991019.cms","hostName":"timesofindia.indiatimes.com","date":null,"official":false,"social":false,"pageRead":false},{"id":3,"title":"Scene (2026 film) - Wikipedia","url":"https://en.wikipedia.org/wiki/Scene_(2026_film)","hostName":"en.wikipedia.org","date":null,"official":false,"social":false,"pageRead":false},{"id":4,"title":"Scene (2026) - Cast, Reviews & Showtimes","url":"https://www.district.in/movies/scene-movie-tickets-in-malout-MV233181?srsltid=AYCX9vLcafHEOanMrm0zgUpOknjxhUU1VPJkQvPuYQItTtQmwLOtR2WV","hostName":"www.district.in","date":null,"official":false,"social":false,"pageRead":false},{"id":6,"title":"SCENE is already creating huge excitement among Tamil","url":"https://www.google.com/goto?url=CAESYwHrOzAVTVQ8jJdyAtGyS-ciAsO1vCSUZ2XvnW5ovDAx-unXAAuVHALy3-vHoklwBfrNARMeJVm4vqFB63xEEzOVezz_L1O9_3CkQckODwbuzT1hD9WTrQi67U4qvC887AjYXQ","hostName":"www.google.com","date":null,"official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"source freshness","status":"warning","detail":"No retrieved source states a publication date; freshness could not be verified."},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 5 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":14518},{"stage":"verifying","durationMs":2535}],"degraded":["added targeted query \"\"Scene\" movie release cast details\"","page read failed: page_reader timed out after 10000ms","page read failed: page_reader timed out after 10000ms","claim-repair pass did not improve grounding; unverified statements remain flagged"],"retrievedAt":"2026-11-02T02:07:08.233Z","verificationNote":"1 statement restates the retrieved evidence without a citation marker (e.g., \"Based on the retrieved evidence, here's what I can tell you about the movie \"Scene\":\") — the supporting sources are listed under Sources. 1 date statement is not found in the cited sources' text — the event date may be the article's publication date rather than the date of the event itself (full page text was unavailable this run). publication dates could not be verified for 5 of the cited sources — the latest status is stated only as of the dated reports. no retrieved source states a publication date; freshness could not be verified","router":{"task":"general","confidence":0.7,"signals":[],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":18830,"understandMs":4,"researchMs":14517,"searchMs":1536,"pageReadMs":10006,"solveTtftMs":754,"solveMs":1772,"verifyMs":2535,"repairMs":2525,"solvePasses":2}}}
+
