@@ -475,3 +475,100 @@ describe('server SSE writer (createSseWriter)', () => {
     expect(written).toHaveLength(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// 2026-11-02 upstream SSE adapter hardening (sseDeltas)
+// ---------------------------------------------------------------------------
+
+import { UpstreamTruncatedError } from '../../src/lib/adapters/hosted-llm'
+
+function frameOf(text: string): string {
+  return `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`
+}
+
+async function collect(stream: AsyncIterable<unknown>, opts?: { idleTimeoutMs?: number }): Promise<string> {
+  const out: string[] = []
+  for await (const d of sseDeltas(stream, opts)) out.push(d)
+  return out.join('')
+}
+
+describe('upstream SSE adapter hardening (2026-11-02)', () => {
+  test('plain string chunks decode to deltas (no byte-record assumption)', async () => {
+    const stream = {
+      async *[Symbol.asyncIterator]() {
+        yield 'data: {"choices":[{"delta":{"content":"Hello "}}]}\n\n'
+        yield 'data: {"choices":[{"delta":{"content":"world"}}]}\n\n'
+        yield 'data: [DONE]\n\n'
+      },
+    }
+    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('Hello world')
+  })
+
+  test('Uint8Array chunks with a Tamil character SPLIT across chunks reassemble (zero U+FFFD)', async () => {
+    // "வணக்கம்" — split the multibyte sequence in the middle of a character.
+    const word = 'வணக்கம்'
+    const bytes = encoder.encode(frameOf(word))
+    const splitAt = frameOf('').length + 6 // inside the first multibyte char
+    const chunk1 = bytes.slice(0, splitAt)
+    const chunk2 = bytes.slice(splitAt)
+    const stream = {
+      async *[Symbol.asyncIterator]() {
+        yield chunk1
+        yield chunk2
+        yield encoder.encode('data: [DONE]\n\n')
+      },
+    }
+    const text = await collect(stream as unknown as AsyncIterable<unknown>)
+    expect(text).toBe(word)
+    expect(text).not.toContain('\uFFFD')
+  })
+
+  test('data: without a space and CRLF line endings both parse per spec', async () => {
+    const payload = JSON.stringify({ choices: [{ delta: { content: 'spec-safe' } }] })
+    const stream = {
+      async *[Symbol.asyncIterator]() {
+        yield encoder.encode(`data:${payload}\r\n\r\n`)
+        yield encoder.encode('data: [DONE]\r\n\r\n')
+      },
+    }
+    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('spec-safe')
+  })
+
+  test('finish_reason "length" raises the typed truncation error even after [DONE]', async () => {
+    const stream = {
+      async *[Symbol.asyncIterator]() {
+        yield encoder.encode(frameOf('partial json {"id":'))
+        yield encoder.encode('data: {"choices":[{"delta":{},"finish_reason":"length"}]}\n\n')
+        yield encoder.encode('data: [DONE]\n\n')
+      },
+    }
+    let caught: unknown = null
+    const deltas: string[] = []
+    try {
+      for await (const d of sseDeltas(stream as unknown as AsyncIterable<unknown>)) deltas.push(d)
+    } catch (e) {
+      caught = e
+    }
+    expect(deltas.join('')).toBe('partial json {"id":')
+    expect(caught).toBeInstanceOf(UpstreamTruncatedError)
+  })
+
+  test('finish_reason "stop" is a normal completion (no truncation error)', async () => {
+    const stream = {
+      async *[Symbol.asyncIterator]() {
+        yield encoder.encode(frameOf('done properly '))
+        yield encoder.encode('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n')
+        yield encoder.encode('data: [DONE]\n\n')
+      },
+    }
+    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('done properly ')
+  })
+
+  test('the truncation error classifies as its own honest payload (not a generic failure)', async () => {
+    const { upstreamStreamErrorPayload } = await import('../../src/lib/upstream/gateway')
+    const payload = upstreamStreamErrorPayload(new UpstreamTruncatedError())
+    expect(payload.code).toBe('UPSTREAM_TRUNCATED')
+    expect(payload.partial).toBe(true)
+    expect(payload.error).toContain('length limit')
+  })
+})

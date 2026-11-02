@@ -1,0 +1,74 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"latest stable version of Next.js\"","\"Next.js release date 2023\"","\"Next.js version history\"","Next.js official release notes changelog","\"latest stable version of Next.js\" official release notes changelog"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Based","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" on","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" the","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" retrieved","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" evidence","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":",","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" the","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" latest","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" stable","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" version","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" of","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" Next","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":".js","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" is","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" ","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":"16","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":".","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":"4","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":",","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" released","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" on","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" October","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" ","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":"6","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":",","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" ","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":"202","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":"6","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":" [","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":"1","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"delta":"].","conversationId":"cmvymd42p0045rmvn7fk5q9gt"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvymd42p0045rmvn7fk5q9gt","durationMs":15088,"partial":false,"messageId":"cmvymdfpw0049rmvn6vmmqgpc","firstTokenMs":14974,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Next.js 16.4","url":"https://nextjs.org/blog/next-16-4","hostName":"nextjs.org","date":"2026-10-06T20:00:00.000Z","official":false,"social":false,"pageRead":true}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":14344},{"stage":"verifying","durationMs":2}],"degraded":["added targeted query \"Next.js official release notes changelog\""],"retrievedAt":"2026-11-02T02:08:10.962Z","router":{"task":"research","confidence":0.9,"signals":[{"family":"freshness","match":"latest stable"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":15084,"understandMs":0,"researchMs":14344,"searchMs":3391,"pageReadMs":8610,"solveTtftMs":629,"solveMs":737,"verifyMs":2,"solvePasses":1}}}
+

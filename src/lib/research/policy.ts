@@ -67,6 +67,18 @@ const HIGH_RISK_PATTERNS: Array<[RegExp, string]> = [
   // elections and legal developments are inherently fresh (measured failure:
   // "Research a current topic: Gingee girl missing" never searched).
   [/\b(news|headline|announce[dm]?|declared|appointed|elected|resigned|lawsuit|verdict|missing|kidnapp\w*|abduct\w*|arrest(ed|s|ing)?|shooting|stabbed|earthquake|cyclone|hurricane|typhoon|flood\w*|wildfire|landslide|death\s+toll|evacuat\w*|election)\b/i, 'references recent events or announcements'],
+  // Titled-work identification (measured failure: "Tell me about the movie
+  // Scene: release date, hero and villain" carried no freshness signal, the
+  // router skipped retrieval, and the model invented a different film's
+  // cast). A question that names a specific titled work (movie/film/series/
+  // album/song/game/novel/book) must be answered from live sources — niche
+  // and upcoming works are NOT stable model knowledge.
+  [/\b(?:movie|film|series|album|song|game|novel|book)\s+(?:is\s+|was\s+)?(?:titled|named|called)\s+["“']?[\p{Lu}\p{L}]/u, 'identifies a titled work — details must be verified, not recalled'],
+  [/\b(?:movie|film|series|album|song|game|novel|book)\s+[\p{Lu}][\p{L}\p{N}'&.:\-]*(?:\s+[\p{Lu}][\p{L}\p{N}'&.:\-]*)?/u, 'references a titled work by name'],
+  // An entity's latest developments (measured failure: "latest developments
+  // from NVIDIA" retrieved only social/finance aggregator noise because no
+  // query targeted the company's own announcements).
+  [/\b(?:latest|recent|newest)\s+(?:developments?|announcements?|updates?|news)\s+(?:from|at|about|on|of|for)\b/i, 'asks for an entity’s latest developments'],
   // Multilingual freshness signals (Phase 3): the same recency intent in the
   // languages the platform serves. Additive — English tables above still win
   // when they match first, and exclusions below still apply afterwards.

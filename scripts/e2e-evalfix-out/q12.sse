@@ -1,0 +1,166 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+: keepalive
+
+data: {"research":{"queries":["\"Chief Minister of Tamil Nadu\" current","\"M.K. Stalin\" took office date","\"Chief Minister of Tamil Nadu\" current India","Who is the current Chief Minister of Tamil Nadu, and when did they take office? oath sworn in date official","\"Chief Minister of Tamil Nadu\" current latest news update"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"The","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" current","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Chief","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Minister","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" of","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Tamil","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Nadu","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" is","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" C","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":".","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Joseph","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Vij","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"ay","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":",","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" who","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" took","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" office","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" on","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" May","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" ","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"10","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":",","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" ","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"202","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"6","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" [","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"3","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":",","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" ","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"6","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"].","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" He","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" was","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" sworn","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" in","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" at","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" the","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Jaw","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"ah","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"arl","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"al","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Neh","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"ru","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Indoor","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Stadium","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" in","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Chennai","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" [","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"6","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"].","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" This","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" is","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" his","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" first","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" term","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" as","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Chief","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Minister","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":",","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" making","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" him","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" the","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" ","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"9","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"th","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Chief","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Minister","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" of","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Tamil","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" Nadu","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" [","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"4","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":",","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":" ","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"5","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"delta":"].","conversationId":"cmvymjxuj005srmvni3zspv8k"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvymjxuj005srmvni3zspv8k","durationMs":19661,"partial":false,"messageId":"cmvymkd0s005wrmvn48d44cwh","firstTokenMs":19025,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":3,"title":"Chief Minister of Tamil Nadu","url":"https://en.wikipedia.org/wiki/Chief_Minister_of_Tamil_Nadu","hostName":"en.wikipedia.org","date":null,"official":false,"social":false,"pageRead":false},{"id":4,"title":"C. Joseph Vijay","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay","hostName":"en.wikipedia.org","date":null,"official":false,"social":false,"pageRead":false},{"id":5,"title":"C. Joseph Vijay ministry","url":"https://en.wikipedia.org/wiki/C._Joseph_Vijay_ministry","hostName":"en.wikipedia.org","date":null,"official":false,"social":false,"pageRead":false},{"id":6,"title":"Joseph Vijay sworn-in as Tamil Nadu Chief Minister","url":"https://www.thehindu.com/news/national/tamil-nadu/joseph-vijay-sworn-in-as-tamil-nadu-chief-minister/article70961582.ece","hostName":"www.thehindu.com","date":"May 10, 2026","official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 3 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":18233},{"stage":"verifying","durationMs":2}],"degraded":["added targeted query \"Who is the current Chief Minister of Tamil Nadu, and when di\"","page read failed: page_reader timed out after 10000ms","page read failed: page_reader timed out after 10000ms"],"retrievedAt":"2026-11-02T02:13:34.058Z","verificationNote":"Publication dates could not be verified for 3 of the cited sources — the latest status is stated only as of the dated reports","router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"Who"},{"family":"wh","match":"is"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":19657,"understandMs":0,"researchMs":18233,"searchMs":6173,"pageReadMs":10003,"solveTtftMs":792,"solveMs":1422,"verifyMs":2,"solvePasses":1}}}
+
