@@ -1,0 +1,648 @@
+     1→     1→     1→import { z } from 'zod'
+     2→     2→     2→import { db } from '@/lib/db'
+     3→     3→     3→import { handle, ok, BeanApiError } from '@/lib/api/errors'
+     4→     4→     4→import { parseBody } from '@/lib/api/validate'
+     5→     5→     5→import { requireUser } from '@/lib/auth/session'
+     6→     6→     6→import { preflight, assertChatRequest } from '@/lib/router/router'
+     7→     7→     7→import { recordUsage } from '@/lib/observability/metering'
+     8→     8→     8→import { logger } from '@/lib/observability/logger'
+     9→     9→     9→import { orchestrateTurn } from '@/lib/riishe/orchestrator'
+    10→    10→    10→import { CHAT_BACKEND_CAPABILITIES } from '@/lib/riishe/classify'
+    11→    11→    11→import { buildConversationDigest } from '@/lib/riishe/summarize'
+    12→    12→    12→import type { AttachedDocument } from '@/lib/riishe/orchestrator'
+    13→    13→    13→import type { ToolContext } from '@/lib/riishe/tools/types'
+    14→    14→    14→import { metadataToJson, type MessageMetadata } from '@/lib/riishe/states'
+    15→    15→    15→import {
+    16→    16→    16→  detectMemoryCommand,
+    17→    17→    17→  sensitiveMemoryReason,
+    18→    18→    18→  saveConfirmation,
+    19→    19→    19→  forgetConfirmation,
+    20→    20→    20→  listConfirmation,
+    21→    21→    21→  isDuplicateMemory,
+    22→    22→    22→  MEMORY_LIMITS,
+    23→    23→    23→} from '@/lib/riishe/memory'
+    24→    24→    24→import { getMemoryDelegate, MEMORY_INITIALIZING_NOTE } from '@/lib/riishe/memory-db'
+    25→    25→    25→import { upstreamStreamErrorPayload, upstreamErrorCode } from '@/lib/upstream/gateway'
+    26→    26→    26→import { createSseWriter } from '@/lib/riishe/sse'
+    27→    27→    27→import type { ChatTurn } from '@/lib/adapters/types'
+    28→    28→    28→
+    29→    29→    29→const schema = z.object({
+    30→    30→    30→  conversationId: z.string().min(1).optional(),
+    31→    31→    31→  message: z.string().min(1, 'Enter a message.').max(12000),
+    32→    32→    32→  /** Files (already uploaded, ownership-checked) to ground this turn on. */
+    33→    33→    33→  documentIds: z.array(z.string().min(1)).max(3).optional(),
+    34→    34→    34→  /** Regenerate: drop the trailing assistant message before answering. */
+    35→    35→    35→  retry: z.boolean().default(false),
+    36→    36→    36→  /** Regenerate a SPECIFIC earlier response: the conversation's messages
+    37→    37→    37→   *  from that exchange onward (the assistant reply, its user turn, and
+    38→    38→    38→   *  everything after) are removed first, so history stays an honest,
+    39→    39→    39→   *  coherent sequence. Owner-checked below. */
+    40→    40→    40→  retryFromMessageId: z.string().min(1).optional(),
+    41→    41→    41→})
+    42→    42→    42→
+    43→    43→    43→/**
+    44→    44→    44→ * Pure predicate for the dangling-retry collapse: TRUE when the conversation's
+    45→    45→    45→ * trailing row is the SAME user message with no assistant reply after it —
+    46→    46→    46→ * the exact residue of a turn that failed before answering (e.g. upstream
+    47→    47→    47→ * HTTP 429). Re-sending that question is the retry, so the route replaces
+    48→    48→    48→ * the dangling row instead of accumulating duplicate user turns.
+    49→    49→    49→ */
+    50→    50→    50→export function isDanglingDuplicateUserRow(
+    51→    51→    51→  trailing: { role: string; content: string } | null,
+    52→    52→    52→  incoming: string,
+    53→    53→    53→): trailing is { role: string; content: string } {
+    54→    54→    54→  return trailing !== null && trailing.role === 'user' && trailing.content === incoming
+    55→    55→    55→}
+    56→    56→    56→
+    57→    57→    57→/**
+    58→    58→    58→ * RIISHE conversational endpoint. SSE streaming when the client asks,
+    59→    59→    59→ * JSON otherwise. Every request passes the same preflight: auth,
+    60→    60→    60→ * availability, rate limits, quotas, concurrency, capability validation.
+    61→    61→    61→ *
+    62→    62→    62→ * The orchestrator runs Understand -> Retrieve -> (tool loop) -> Solve ->
+    63→    63→    63→ * Verify -> Respond; response states and verification summaries are assigned
+    64→    64→    64→ * from ACTUAL tool execution (search, arithmetic evaluator, citation audit,
+    65→    65→    65→ * sandbox), never by the model. Long conversations are condensed into a
+    66→    66→    66→ * cached digest instead of silently losing their oldest turns.
+    67→    67→    67→ */
+    68→    68→    68→export async function POST(request: Request) {
+    69→    69→    69→  return handle(async () => {
+    70→    70→    70→    const tRequest = Date.now()
+    71→    71→    71→    const user = await requireUser()
+    72→    72→    72→    const body = await parseBody(request, schema)
+    73→    73→    73→    const { backend, adapter, release } = await preflight(user.id, 'riishe', 'chat')
+    74→    74→    74→    // Request validation + orchestration pre-flight (auth, body parse, rate
+    75→    75→    75→    // limits, quotas, concurrency, capability resolution) — measured so
+    76→    76→    76→    // non-model overhead is never mistaken for model latency.
+    77→    77→    77→    const preflightMs = Date.now() - tRequest
+    78→    78→    78→    if (!adapter.chat || !adapter.chatStream) {
+    79→    79→    79→      release()
+    80→    80→    80→      throw new BeanApiError('NO_BACKEND', 'The chat backend is missing its adapter.')
+    81→    81→    81→    }
+    82→    82→    82→
+    83→    83→    83→    // Resolve or create the conversation (ownership enforced).
+    84→    84→    84→    let conversationId = body.conversationId
+    85→    85→    85→    if (conversationId) {
+    86→    86→    86→      const conv = await db.conversation.findUnique({ where: { id: conversationId } })
+    87→    87→    87→      if (!conv || conv.userId !== user.id) {
+    88→    88→    88→        release()
+    89→    89→    89→        throw new BeanApiError('NOT_FOUND', 'Conversation not found.')
+    90→    90→    90→      }
+    91→    91→    91→    } else {
+    92→    92→    92→      const conv = await db.conversation.create({
+    93→    93→    93→        data: { userId: user.id, title: body.message.slice(0, 60) },
+    94→    94→    94→      })
+    95→    95→    95→      conversationId = conv.id
+    96→    96→    96→    }
+    97→    97→    97→
+    98→    98→    98→    // Regenerate: the previous attempt for this trailing turn is removed
+    99→    99→    99→    // (owner-checked above) so history stays a clean, honest sequence.
+   100→   100→   100→    // MUST run BEFORE the dangling-retry collapse below: after the trailing
+   101→   101→   101→    // assistant row is removed, the trailing row is the original user turn —
+   102→   102→   102→    // exactly what the collapse then deduplicates against the re-sent
+   103→   103→   103→    // message (measured defect: regenerating a trailing turn used to append
+   104→   104→   104→    // a SECOND copy of the same question to history).
+   105→   105→   105→    if (body.retry) {
+   106→   106→   106→      const last = await db.message.findFirst({
+   107→   107→   107→        where: { conversationId },
+   108→   108→   108→        orderBy: { createdAt: 'desc' },
+   109→   109→   109→      })
+   110→   110→   110→      if (last && last.role === 'assistant') {
+   111→   111→   111→        await db.message.delete({ where: { id: last.id } })
+   112→   112→   112→      }
+   113→   113→   113→    } else if (body.retryFromMessageId) {
+   114→   114→   114→      // Regenerate from an EARLIER response: delete that assistant message,
+   115→   115→   115→      // its preceding user turn, and every message after it.
+   116→   116→   116→      const target = await db.message.findFirst({
+   117→   117→   117→        where: { id: body.retryFromMessageId, conversationId, role: 'assistant' },
+   118→   118→   118→      })
+   119→   119→   119→      if (target) {
+   120→   120→   120→        const all = await db.message.findMany({
+   121→   121→   121→          where: { conversationId },
+   122→   122→   122→          orderBy: { createdAt: 'asc' },
+   123→   123→   123→          select: { id: true, role: true },
+   124→   124→   124→        })
+   125→   125→   125→        const idx = all.findIndex((m) => m.id === target.id)
+   126→   126→   126→        if (idx >= 0) {
+   127→   127→   127→          // Walk back to the user turn that produced this reply, then drop
+   128→   128→   128→          // everything from that user turn onward.
+   129→   129→   129→          let start = idx
+   130→   130→   130→          for (let i = idx - 1; i >= 0; i -= 1) {
+   131→   131→   131→            start = i
+   132→   132→   132→            if (all[i].role === 'user') break
+   133→   133→   133→          }
+   134→   134→   134→          const idsToDelete = all.slice(start).map((m) => m.id)
+   135→   135→   135→          await db.message.deleteMany({ where: { id: { in: idsToDelete } } })
+   136→   136→   136→          // A summary digest computed over deleted turns is stale.
+   137→   137→   137→          await db.conversation.update({ where: { id: conversationId }, data: { summary: null, summaryCount: 0 } })
+   138→   138→   138→        }
+   139→   139→   139→      }
+   140→   140→   140→    }
+   141→   141→   141→
+   142→   142→   142→    // Dangling-retry collapse: a previous turn that failed BEFORE producing
+   143→   143→   143→    // any assistant reply leaves a trailing user row with no answer. When
+   144→   144→   144→    // that same question is re-sent (the natural retry after a rate limit,
+   145→   145→   145→    // OR a Regenerate of a turn whose assistant row was just removed above),
+   146→   146→   146→    // the dangling row is removed first so the conversation keeps ONE honest
+   147→   147→   147→    // record of the turn instead of accumulating duplicate questions.
+   148→   148→   148→    // Never triggers after an ANSWERED turn (the trailing row is the
+   149→   149→   149→    // assistant's), and never for regenerate-from-message flows (they manage
+   150→   150→   150→    // rows above). Applies to BOTH plain retries and trailing regenerates —
+   151→   151→   151→    // measured defect: retry=true used to skip the collapse and append a
+   152→   152→   152→    // duplicate question row for every regenerated turn.
+   153→   153→   153→    if (!body.retryFromMessageId) {
+   154→   154→   154→      const trailing = await db.message.findFirst({
+   155→   155→   155→        where: { conversationId },
+   156→   156→   156→        orderBy: { createdAt: 'desc' },
+   157→   157→   157→        select: { id: true, role: true, content: true },
+   158→   158→   158→      })
+   159→   159→   159→      if (isDanglingDuplicateUserRow(trailing, body.message)) {
+   160→   160→   160→        await db.message.delete({ where: { id: trailing.id } })
+   161→   161→   161→      }
+   162→   162→   162→    }
+   163→   163→   163→
+   164→   164→   164→    const caps = assertChatRequest(backend, [{ role: 'user', content: body.message }])
+   165→   165→   165→
+   166→   166→   166→    // History window: the MOST RECENT messages must reach the model, so the
+   167→   167→   167→    // fetch takes the tail (desc) and restores chronological order. Turns
+   168→   168→   168→    // that fell out of the window (the oldest total - N messages) are
+   169→   169→   169→    // condensed into a cached conversation digest instead of being lost.
+   170→   170→   170→    const total = await db.message.count({ where: { conversationId } })
+   171→   171→   171→    const window = await db.message.findMany({
+   172→   172→   172→      where: { conversationId },
+   173→   173→   173→      orderBy: { createdAt: 'desc' },
+   174→   174→   174→      take: caps.maxHistoryMessages,
+   175→   175→   175→    })
+   176→   176→   176→    const inWindow = window.reverse()
+   177→   177→   177→    const overflowCount = Math.max(0, total - inWindow.length)
+   178→   178→   178→
+   179→   179→   179→    // Reuse the cached digest when it already covers the current overflow;
+   180→   180→   180→    // regenerate only when more turns fell out of the window.
+   181→   181→   181→    let digest: string | null = null
+   182→   182→   182→    let digestDegraded: string | null = null
+   183→   183→   183→    if (overflowCount > 0) {
+   184→   184→   184→      const conv = await db.conversation.findUnique({ where: { id: conversationId } })
+   185→   185→   185→      if (conv?.summary && conv.summaryCount === overflowCount) {
+   186→   186→   186→        digest = conv.summary
+   187→   187→   187→      } else {
+   188→   188→   188→        const overflowRows = await db.message.findMany({
+   189→   189→   189→          where: { conversationId },
+   190→   190→   190→          orderBy: { createdAt: 'asc' },
+   191→   191→   191→          take: overflowCount,
+   192→   192→   192→        })
+   193→   193→   193→        const overflow = overflowRows.map((m) => ({
+   194→   194→   194→          role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
+   195→   195→   195→          content: m.content,
+   196→   196→   196→        }))
+   197→   197→   197→        const built = await buildConversationDigest(adapter, overflow)
+   198→   198→   198→        digest = built.digest
+   199→   199→   199→        digestDegraded = built.degraded
+   200→   200→   200→        if (digest) {
+   201→   201→   201→          await db.conversation.update({
+   202→   202→   202→            where: { id: conversationId },
+   203→   203→   203→            data: { summary: digest, summaryCount: overflowCount },
+   204→   204→   204→          })
+   205→   205→   205→        }
+   206→   206→   206→      }
+   207→   207→   207→    }
+   208→   208→   208→
+   209→   209→   209→    // Attached documents: ownership-checked here, so the orchestrator never
+   210→   210→   210→    // sees a document id the user does not own. kind (server-detected file
+   211→   211→   211→    // capability) and storagePath (server-written path for stored image
+   212→   212→   212→    // originals) flow to the tool context for the analyze_image tool.
+   213→   213→   213→    let documents: AttachedDocument[] = []
+   214→   214→   214→    if (body.documentIds && body.documentIds.length > 0) {
+   215→   215→   215→      const rows = await db.document.findMany({
+   216→   216→   216→        where: { id: { in: body.documentIds }, userId: user.id },
+   217→   217→   217→      })
+   218→   218→   218→      documents = rows.map((d) => {
+   219→   219→   219→        let storagePath: string | null = null
+   220→   220→   220→        try {
+   221→   221→   221→          const meta = d.metaJson ? (JSON.parse(d.metaJson) as { storagePath?: string }) : null
+   222→   222→   222→          storagePath = typeof meta?.storagePath === 'string' ? meta.storagePath : null
+   223→   223→   223→        } catch {
+   224→   224→   224→          storagePath = null
+   225→   225→   225→        }
+   226→   226→   226→        return { id: d.id, name: d.name, text: d.text, truncated: d.truncated, kind: d.kind, storagePath }
+   227→   227→   227→      })
+   228→   228→   228→      if (documents.length !== body.documentIds.length) {
+   229→   229→   229→        release()
+   230→   230→   230→        throw new BeanApiError('NOT_FOUND', 'One or more attached documents were not found.')
+   231→   231→   231→      }
+   232→   232→   232→    }
+   233→   233→   233→
+   234→   234→   234→    const toolContext: ToolContext = {
+   235→   235→   235→      // The permission key is the SERVER-side authority (no client toggle);
+   236→   236→   236→      // the orchestrator's capability planner narrows it per turn (explicit
+   237→   237→   237→      // execution requests, simulations, heavy computation) before any
+   238→   238→   238→      // run_code call reaches the registry's permission gate.
+   239→   239→   239→      permissions: new Set(['allowCodeExecution']),
+   240→   240→   240→      documents: new Map(
+   241→   241→   241→        documents.map((d) => [d.id, { name: d.name, text: d.text, truncated: d.truncated, kind: d.kind, storagePath: d.storagePath }]),
+   242→   242→   242→      ),
+   243→   243→   243→    }
+   244→   244→   244→
+   245→   245→   245→    const history: ChatTurn[] = inWindow.map((m) => ({
+   246→   246→   246→      role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
+   247→   247→   247→      content: m.content,
+   248→   248→   248→    }))
+   249→   249→   249→
+   250→   250→   250→    await db.message.create({
+   251→   251→   251→      data: { conversationId, role: 'user', content: body.message },
+   252→   252→   252→    })
+   253→   253→   253→
+   254→   254→   254→    const wantsStream = new URL(request.url).searchParams.get('stream') === '1'
+   255→   255→   255→
+   256→   256→   256→    // ---- User-approved memory commands (Phase 6) ---------------------------
+   257→   257→   257→    // "remember …" / "forget …" / "what do you remember about me" are REAL
+   258→   258→   258→    // database actions with SYSTEM-authored receipts (metadata labels them),
+   259→   259→   259→    // never model-simulated results. Everything else flows to the model with
+   260→   260→   260→    // the user's own approved memories injected as bounded context.
+   261→   261→   261→    const memoryCommand = detectMemoryCommand(body.message)
+   262→   262→   262→    if (memoryCommand) {
+   263→   263→   263→      // The memory store is unavailable on processes whose Prisma client
+   264→   264→   264→      // predates the RiisheMemory model (needs a restart to load it): every
+   265→   265→   265→      // command gets an explicit initializing receipt — never a fake success.
+   266→   266→   266→      const memory = getMemoryDelegate()
+   267→   267→   267→      let content: string
+   268→   268→   268→      const meta: MessageMetadata = {
+   269→   269→   269→        states: ['UNVERIFIED'],
+   270→   270→   270→        sources: [],
+   271→   271→   271→        verification: [],
+   272→   272→   272→        stages: [],
+   273→   273→   273→        degraded: [],
+   274→   274→   274→      }
+   275→   275→   275→      if (!memory) {
+   276→   276→   276→        logger.warn('riishe.memory_unavailable', { conversationId })
+   277→   277→   277→        content = MEMORY_INITIALIZING_NOTE
+   278→   278→   278→        meta.memoryAction = { action: memoryCommand.action, refused: true }
+   279→   279→   279→      } else if (memoryCommand.action === 'save') {
+   280→   280→   280→        const sensitive = sensitiveMemoryReason(memoryCommand.content)
+   281→   281→   281→        if (sensitive) {
+   282→   282→   282→          content = saveConfirmation(memoryCommand.content, sensitive)
+   283→   283→   283→          meta.memoryAction = { action: 'save', refused: true }
+   284→   284→   284→        } else {
+   285→   285→   285→          const existing = await memory.findMany({ where: { userId: user.id }, select: { content: true } })
+   286→   286→   286→          if (isDuplicateMemory(memoryCommand.content, existing.map((r) => r.content))) {
+   287→   287→   287→            content = `That is already in memory: “${memoryCommand.content}”. Nothing new was stored.`
+   288→   288→   288→            meta.memoryAction = { action: 'save', count: 0 }
+   289→   289→   289→          } else {
+   290→   290→   290→            const count = await memory.count({ where: { userId: user.id } })
+   291→   291→   291→            if (count >= MEMORY_LIMITS.maxPerUser) {
+   292→   292→   292→              content = `Your memory is full (${MEMORY_LIMITS.maxPerUser} items). Say “forget everything” or remove a few items before adding more.`
+   293→   293→   293→              meta.memoryAction = { action: 'save', count: 0, refused: true }
+   294→   294→   294→            } else {
+   295→   295→   295→              await memory.create({ data: { userId: user.id, content: memoryCommand.content } })
+   296→   296→   296→              content = saveConfirmation(memoryCommand.content, null)
+   297→   297→   297→              meta.memoryAction = { action: 'save', count: 1 }
+   298→   298→   298→            }
+   299→   299→   299→          }
+   300→   300→   300→        }
+   301→   301→   301→      } else if (memoryCommand.action === 'forget') {
+   302→   302→   302→        if (memoryCommand.all) {
+   303→   303→   303→          const removed = await memory.deleteMany({ where: { userId: user.id } })
+   304→   304→   304→          content = forgetConfirmation(removed.count, '', true)
+   305→   305→   305→          meta.memoryAction = { action: 'forget', count: removed.count }
+   306→   306→   306→        } else {
+   307→   307→   307→          const needle = memoryCommand.target.toLowerCase()
+   308→   308→   308→          const rows = await memory.findMany({
+   309→   309→   309→            where: { userId: user.id },
+   310→   310→   310→            select: { id: true, content: true },
+   311→   311→   311→          })
+   312→   312→   312→          const matches = rows.filter((r) => r.content.toLowerCase().includes(needle))
+   313→   313→   313→          if (matches.length > 0) {
+   314→   314→   314→            await memory.deleteMany({
+   315→   315→   315→              where: { userId: user.id, id: { in: matches.map((m) => m.id) } },
+   316→   316→   316→            })
+   317→   317→   317→          }
+   318→   318→   318→          content = forgetConfirmation(matches.length, memoryCommand.target, false)
+   319→   319→   319→          meta.memoryAction = { action: 'forget', count: matches.length }
+   320→   320→   320→        }
+   321→   321→   321→      } else {
+   322→   322→   322→        const rows = await memory.findMany({
+   323→   323→   323→          where: { userId: user.id },
+   324→   324→   324→          orderBy: { createdAt: 'desc' },
+   325→   325→   325→          select: { content: true },
+   326→   326→   326→        })
+   327→   327→   327→        content = listConfirmation(rows.map((r) => r.content))
+   328→   328→   328→        meta.memoryAction = { action: 'list', count: rows.length }
+   329→   329→   329→      }
+   330→   330→   330→      await db.message.create({
+   331→   331→   331→        data: { conversationId, role: 'assistant', content, metadata: metadataToJson(meta) },
+   332→   332→   332→      })
+   333→   333→   333→      logger.info('riishe.memory_action', { conversationId, action: meta.memoryAction?.action, count: meta.memoryAction?.count })
+   334→   334→   334→      release()
+   335→   335→   335→      if (!wantsStream) {
+   336→   336→   336→        return ok({ conversationId, content, durationMs: 0, metadata: meta })
+   337→   337→   337→      }
+   338→   338→   338→      const enc = new TextEncoder()
+   339→   339→   339→      return new Response(
+   340→   340→   340→        new ReadableStream<Uint8Array>({
+   341→   341→   341→          start(c) {
+   342→   342→   342→            c.enqueue(enc.encode(`data: ${JSON.stringify({ delta: content, conversationId })}\n\n`))
+   343→   343→   343→            c.enqueue(enc.encode(`data: ${JSON.stringify({ done: true, conversationId, durationMs: 0, partial: false, meta })}\n\n`))
+   344→   344→   344→            c.close()
+   345→   345→   345→          },
+   346→   346→   346→        }),
+   347→   347→   347→        {
+   348→   348→   348→          headers: {
+   349→   349→   349→            'content-type': 'text/event-stream',
+   350→   350→   350→            'cache-control': 'no-cache, no-transform',
+   351→   351→   351→            connection: 'keep-alive',
+   352→   352→   352→          },
+   353→   353→   353→        },
+   354→   354→   354→      )
+   355→   355→   355→    }
+   356→   356→   356→
+   357→   357→   357→    // The user's own approved memories ride along as bounded prompt context.
+   358→   358→   358→    // Skipped (honestly) when the memory store is unavailable on this process.
+   359→   359→   359→    const memoryStore = getMemoryDelegate()
+   360→   360→   360→    const memories = memoryStore
+   361→   361→   361→      ? (await memoryStore.findMany({
+   362→   362→   362→          where: { userId: user.id },
+   363→   363→   363→          orderBy: { createdAt: 'desc' },
+   364→   364→   364→          take: MEMORY_LIMITS.injectionCount,
+   365→   365→   365→          select: { content: true },
+   366→   366→   366→        })).map((r) => r.content)
+   367→   367→   367→      : []
+   368→   368→   368→
+   369→   369→   369→    // ---- JSON path ---------------------------------------------------------
+   370→   370→   370→    if (!wantsStream) {
+   371→   371→   371→      try {
+   372→   372→   372→        const result = await orchestrateTurn({
+   373→   373→   373→          userMessage: body.message,
+   374→   374→   374→          history,
+   375→   375→   375→          caps,
+   376→   376→   376→          adapter,
+   377→   377→   377→          nonStreaming: true,
+   378→   378→   378→          backendCapabilities: CHAT_BACKEND_CAPABILITIES,
+   379→   379→   379→          toolContext,
+   380→   380→   380→          documents,
+   381→   381→   381→          digest,
+   382→   382→   382→          memories,
+   383→   383→   383→        })
+   384→   384→   384→        await db.message.create({
+   385→   385→   385→          data: {
+   386→   386→   386→            conversationId,
+   387→   387→   387→            role: 'assistant',
+   388→   388→   388→            content: result.content,
+   389→   389→   389→            tokensEstIn: result.tokensInEst,
+   390→   390→   390→            tokensEstOut: result.tokensOutEst,
+   391→   391→   391→            latencyMs: result.durationMs,
+   392→   392→   392→            metadata: metadataToJson(result.metadata),
+   393→   393→   393→          },
+   394→   394→   394→        })
+   395→   395→   395→        await recordUsage({
+   396→   396→   396→          userId: user.id,
+   397→   397→   397→          product: 'riishe',
+   398→   398→   398→          backendId: backend.id,
+   399→   399→   399→          kind: 'chat',
+   400→   400→   400→          tokensIn: result.tokensInEst,
+   401→   401→   401→          tokensOut: result.tokensOutEst,
+   402→   402→   402→          durationMs: result.durationMs,
+   403→   403→   403→          success: true,
+   404→   404→   404→        })
+   405→   405→   405→        logger.info('riishe.performance', {
+   406→   406→   406→          path: 'json',
+   407→   407→   407→          conversationId,
+   408→   408→   408→          task: result.task,
+   409→   409→   409→          preflightMs,
+   410→   410→   410→          ...(result.metadata.timings ?? {}),
+   411→   411→   411→        })
+   412→   412→   412→        return ok({
+   413→   413→   413→          conversationId,
+   414→   414→   414→          content: result.content,
+   415→   415→   415→          durationMs: result.durationMs,
+   416→   416→   416→          metadata: result.metadata,
+   417→   417→   417→        })
+   418→   418→   418→      } catch (e) {
+   419→   419→   419→        // Typed upstream failures map to their honest BeanApiError codes so
+   420→   420→   420→        // the JSON path reports rate-limited as 429 (not a generic 500).
+   421→   421→   421→        throw new BeanApiError(upstreamErrorCode(e), e instanceof Error ? e.message : 'The backend call failed.')
+   422→   422→   422→      } finally {
+   423→   423→   423→        release()
+   424→   424→   424→      }
+   425→   425→   425→    }
+   426→   426→   426→
+   427→   427→   427→    // ---- SSE streaming path ----------------------------------------------
+   428→   428→   428→    // ROOT-CAUSE FIX (2026-11-01 "network error" / premature termination):
+   429→   429→   429→    // this stream previously wrote NOTHING during the long silent phases of
+   430→   430→   430→    // a turn (research: multi-query search + page reads, measured 20-60s+;
+   431→   431→   431→    // buffered tool-loop/injection-gate solves; the gap before the model's
+   432→   432→   432→    // first token). Reverse proxies on the hosting path kill an idle stream
+   433→   433→   433→    // mid-generation, surfacing client-side as Chromium's literal
+   434→   434→   434→    // `TypeError: network error` with the partial answer stranded. Fixes:
+   435→   435→   435→    //  (a) an immediate `: connected` comment flushes headers/first bytes;
+   436→   436→   436→    //  (b) createSseWriter emits a `: keepalive` comment whenever nothing
+   437→   437→   437→    //      else is written for 15s — comments are spec-valid SSE, ignored by
+   438→   438→   438→    //      parsers, and reset proxy idle timers;
+   439→   439→   439→    //  (c) consumer disconnects are CONTAINED (writer swallows enqueue
+   440→   440→   440→    //      failures): the orchestrator finishes and the complete answer is
+   441→   441→   441→    //      persisted, so a dropped connection never leaves a dangling
+   442→   442→   442→    //      half-turn or a duplicate user retry;
+   443→   443→   443→    //  (d) `x-accel-buffering: no` stops buffering proxies from holding
+   444→   444→   444→    //      frames.
+   445→   445→   445→    // The wire protocol itself (single-line `data: {json}` frames) is
+   446→   446→   446→    // UNCHANGED.
+   447→   447→   447→    const convId = conversationId
+   448→   448→   448→    const stream = new ReadableStream<Uint8Array>({
+   449→   449→   449→      async start(controller) {
+   450→   450→   450→        const writer = createSseWriter(controller, {
+   451→   451→   451→          onClosed: (reason) => {
+   452→   452→   452→            if (reason === 'client_gone') {
+   453→   453→   453→              logger.info('riishe.stream_client_disconnected', { conversationId: convId })
+   454→   454→   454→            }
+   455→   455→   455→          },
+   456→   456→   456→        })
+   457→   457→   457→        const t0 = Date.now()
+   458→   458→   458→        let succeeded = false
+   459→   459→   459→        let full = ''
+   460→   460→   460→        let firstTokenAt: number | null = null
+   461→   461→   461→        let finalMetadata: MessageMetadata | null = null
+   462→   462→   462→        let assistantMessageId: string | null = null
+   463→   463→   463→        try {
+   464→   464→   464→          // First bytes on the wire immediately — establishes the response
+   465→   465→   465→          // before any slow research/model work begins.
+   466→   466→   466→          writer.comment('connected')
+   467→   467→   467→          const result = await orchestrateTurn({
+   468→   468→   468→            userMessage: body.message,
+   469→   469→   469→            history,
+   470→   470→   470→            caps,
+   471→   471→   471→            adapter,
+   472→   472→   472→            backendCapabilities: CHAT_BACKEND_CAPABILITIES,
+   473→   473→   473→            toolContext,
+   474→   474→   474→            documents,
+   475→   475→   475→            digest,
+   476→   476→   476→            memories,
+   477→   477→   477→            onEvent: (e) => {
+   478→   478→   478→              if (e.type === 'delta') {
+   479→   479→   479→                if (firstTokenAt === null) firstTokenAt = Date.now()
+   480→   480→   480→                full += e.delta
+   481→   481→   481→                writer.send({ delta: e.delta, conversationId: convId })
+   482→   482→   482→              } else if (e.type === 'reset') {
+   483→   483→   483→                // Reset protocol: a verification rewrite replaced the streamed
+   484→   484→   484→                // draft — the client must CLEAR what it has so the final
+   485→   485→   485→                // answer replaces it instead of concatenating.
+   486→   486→   486→                full = ''
+   487→   487→   487→                writer.send({ reset: true })
+   488→   488→   488→              } else if (e.type === 'stage') {
+   489→   489→   489→                writer.send(e)
+   490→   490→   490→              } else if (e.type === 'research') {
+   491→   491→   491→                writer.send({ research: { queries: e.queries } })
+   492→   492→   492→              } else if (e.type === 'tool') {
+   493→   493→   493→                writer.send({ tool: e })
+   494→   494→   494→              }
+   495→   495→   495→            },
+   496→   496→   496→          })
+   497→   497→   497→          finalMetadata = result.metadata
+   498→   498→   498→          succeeded = full.trim().length > 0
+   499→   499→   499→          logger.info('riishe.performance', {
+   500→   500→   500→            path: 'sse',
+   501→   501→   501→            conversationId: convId,
+   502→   502→   502→            task: result.task,
+   503→   503→   503→            preflightMs,
+   504→   504→   504→            // User-perceived time to first streamed token (null when the turn
+   505→   505→   505→            // was buffered end-to-end — tool loop / injection gate).
+   506→   506→   506→            firstTokenMs: firstTokenAt !== null ? firstTokenAt - t0 : null,
+   507→   507→   507→            ...(result.metadata.timings ?? {}),
+   508→   508→   508→          })
+   509→   509→   509→          if (succeeded) {
+   510→   510→   510→            const assistantRow = await db.message.create({
+   511→   511→   511→              data: {
+   512→   512→   512→                conversationId: convId,
+   513→   513→   513→                role: 'assistant',
+   514→   514→   514→                content: result.content,
+   515→   515→   515→                tokensEstIn: result.tokensInEst,
+   516→   516→   516→                tokensEstOut: result.tokensOutEst,
+   517→   517→   517→                latencyMs: result.durationMs,
+   518→   518→   518→                metadata: metadataToJson(result.metadata),
+   519→   519→   519→              },
+   520→   520→   520→            })
+   521→   521→   521→            assistantMessageId = assistantRow.id
+   522→   522→   522→          }
+   523→   523→   523→          await recordUsage({
+   524→   524→   524→            userId: user.id,
+   525→   525→   525→            product: 'riishe',
+   526→   526→   526→            backendId: backend.id,
+   527→   527→   527→            kind: 'chat',
+   528→   528→   528→            tokensIn: result.tokensInEst,
+   529→   529→   529→            tokensOut: succeeded ? result.tokensOutEst : null,
+   530→   530→   530→            durationMs: Date.now() - t0,
+   531→   531→   531→            success: succeeded,
+   532→   532→   532→            errorCode: succeeded ? null : 'BACKEND_FAILURE',
+   533→   533→   533→          })
+   534→   534→   534→          writer.send({
+   535→   535→   535→            done: true,
+   536→   536→   536→            conversationId: convId,
+   537→   537→   537→            durationMs: Date.now() - t0,
+   538→   538→   538→            partial: !succeeded,
+   539→   539→   539→            // The persisted message id lets the client wire Regenerate
+   540→   540→   540→            // on ANY assistant message (not just the trailing one).
+   541→   541→   541→            ...(assistantMessageId ? { messageId: assistantMessageId } : {}),
+   542→   542→   542→            ...(firstTokenAt !== null ? { firstTokenMs: firstTokenAt - t0 } : {}),
+   543→   543→   543→            ...(finalMetadata ? { meta: finalMetadata } : {}),
+   544→   544→   544→          })
+   545→   545→   545→        } catch (e) {
+   546→   546→   546→          const errorMessage = e instanceof Error ? e.message : String(e)
+   547→   547→   547→          logger.warn('riishe.stream_failed', { message: errorMessage.slice(0, 300) })
+   548→   548→   548→          // Honest failure classification: the upstream status (embedded by the
+   549→   549→   549→          // SDK in the error text) decides the story. A 429 is temporary
+   550→   550→   550→          // throttling; 401/403 is an operator action; 402 is an account
+   551→   551→   551→          // action; anything else is an application failure. Research-layer
+   552→   552→   552→          // failures never reach this catch — they degrade into the evidence
+   553→   553→   553→          // pack — so a rate-limit here is the chat/LLM endpoint, and the
+   554→   554→   554→          // wording says so instead of blaming the research gateway.
+   555→   555→   555→          const payload = upstreamStreamErrorPayload(e)
+   556→   556→   556→          const errorCode =
+   557→   557→   557→            payload.code === 'UPSTREAM_RATE_LIMITED'
+   558→   558→   558→              ? 'UPSTREAM_RATE_LIMITED'
+   559→   559→   559→              : payload.code === 'UPSTREAM_AUTH'
+   560→   560→   560→                ? 'UPSTREAM_AUTH'
+   561→   561→   561→                : payload.code === 'UPSTREAM_BILLING'
+   562→   562→   562→                  ? 'UPSTREAM_BILLING'
+   563→   563→   563→                  : payload.code === 'UPSTREAM_TIMEOUT'
+   564→   564→   564→                    ? 'UPSTREAM_TIMEOUT'
+   565→   565→   565→                    : payload.code === 'UPSTREAM_TRUNCATED'
+   566→   566→   566→                      ? 'UPSTREAM_TRUNCATED'
+   567→   567→   567→                      : 'BACKEND_FAILURE'
+   568→   568→   568→          await recordUsage({
+   569→   569→   569→            userId: user.id,
+   570→   570→   570→            product: 'riishe',
+   571→   571→   571→            backendId: backend.id,
+   572→   572→   572→            kind: 'chat',
+   573→   573→   573→            tokensIn: Math.ceil(body.message.length / 4),
+   574→   574→   574→            durationMs: Date.now() - t0,
+   575→   575→   575→            success: false,
+   576→   576→   576→            errorCode,
+   577→   577→   577→          })
+   578→   578→   578→          writer.send(payload)
+   579→   579→   579→        } finally {
+   580→   580→   580→          release()
+   581→   581→   581→          writer.close()
+   582→   582→   582→        }
+   583→   583→   583→      },
+   584→   584→   584→    })
+   585→   585→   585→
+   586→   586→   586→    // Digest degradation is surfaced honestly once per turn.
+   587→   587→   587→    if (digestDegraded) {
+   588→   588→   588→      logger.info('riishe.digest_degraded', { conversationId: convId, reason: digestDegraded })
+   589→   589→   589→    }
+   590→   590→   590→
+   591→   591→   591→    return new Response(stream, {
+   592→   592→   592→      headers: {
+   593→   593→   593→        'content-type': 'text/event-stream',
+   594→   594→   594→        'cache-control': 'no-cache, no-transform',
+   595→   595→   595→        connection: 'keep-alive',
+   596→   596→   596→        // Buffering proxies must forward SSE frames as they arrive; without
+   597→   597→   597→        // this, nginx-class proxies hold frames until their buffer fills,
+   598→   598→   598→        // delaying every delta and inviting idle-connection kills.
+   599→   599→   599→        'x-accel-buffering': 'no',
+   600→   600→   600→      },
+   601→   601→   601→    })
+   602→   602→   602→  })
+   603→   603→   603→}
+   604→   604→   604→
+   605→   605→   605→/** Conversation list for the RIISHE sidebar. `?q=` filters by title
+   606→   606→   606→ *  (case-insensitive) across ALL of the user's conversations — the recent
+   607→   607→   607→ *  list itself is capped, but a search must still find older threads.
+   608→   608→   608→ *  Filtering happens in JS because SQLite's LIKE is only ASCII-case-aware. */
+   609→   609→   609→export async function GET(request: Request) {
+   610→   610→   610→  return handle(async () => {
+   611→   611→   611→    const user = await requireUser()
+   612→   612→   612→    const q = new URL(request.url).searchParams.get('q')?.trim() ?? ''
+   613→   613→   613→    if (q.length > 0) {
+   614→   614→   614→      const candidates = await db.conversation.findMany({
+   615→   615→   615→        where: { userId: user.id },
+   616→   616→   616→        orderBy: { updatedAt: 'desc' },
+   617→   617→   617→        take: 200,
+   618→   618→   618→        include: { _count: { select: { messages: true } } },
+   619→   619→   619→      })
+   620→   620→   620→      const needle = q.toLowerCase()
+   621→   621→   621→      const conversations = candidates
+   622→   622→   622→        .filter((c) => c.title.toLowerCase().includes(needle))
+   623→   623→   623→        .slice(0, 50)
+   624→   624→   624→        .map((c) => ({
+   625→   625→   625→          id: c.id,
+   626→   626→   626→          title: c.title,
+   627→   627→   627→          messages: c._count.messages,
+   628→   628→   628→          updatedAt: c.updatedAt,
+   629→   629→   629→        }))
+   630→   630→   630→      return ok({ conversations, query: q })
+   631→   631→   631→    }
+   632→   632→   632→    const conversations = await db.conversation.findMany({
+   633→   633→   633→      where: { userId: user.id },
+   634→   634→   634→      orderBy: { updatedAt: 'desc' },
+   635→   635→   635→      take: 50,
+   636→   636→   636→      include: { _count: { select: { messages: true } } },
+   637→   637→   637→    })
+   638→   638→   638→    return ok({
+   639→   639→   639→      conversations: conversations.map((c) => ({
+   640→   640→   640→        id: c.id,
+   641→   641→   641→        title: c.title,
+   642→   642→   642→        messages: c._count.messages,
+   643→   643→   643→        updatedAt: c.updatedAt,
+   644→   644→   644→      })),
+   645→   645→   645→    })
+   646→   646→   646→  })
+   647→   647→   647→}
+   648→   648→   648→

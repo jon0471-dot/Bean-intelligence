@@ -1,0 +1,16 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"FIFA World Cup 2026 final\" winner score","\"FIFA World Cup 2026 final\" winning goal scorer","site:fifa.com \"World Cup 2026\" results"]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"I'm unable to verify current information about the 2026 FIFA World Cup final as the search tools failed. Based on stable knowledge, the 2026 FIFA World Cup hasn't occurred yet—it's scheduled to take place in 2026. Therefore, I cannot provide details about the winner, score, or goalscorer for that final. \n\nIf you're asking about past World Cup finals, I'd be happy to provide that information instead.","conversationId":"cmvyp6yoz00exrmvnoq04vdnc"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvyp6yoz00exrmvnoq04vdnc","durationMs":2349,"partial":false,"messageId":"cmvyp70ib00f1rmvnk61gbzzs","firstTokenMs":2345,"meta":{"states":["TOOL_UNAVAILABLE"],"sources":[],"verification":[],"stages":[{"stage":"researching","durationMs":877},{"stage":"tools","durationMs":1467},{"stage":"verifying","durationMs":1}],"degraded":["search \"\"FIFA World Cup 2026 final\" winner score\" failed: web_search not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle","search \"\"FIFA World Cup 2026 final\" winning goal scorer\" failed: web_search not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle","search \"site:fifa.com \"World Cup 2026\" results\" failed: web_search not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle"],"retrievedAt":"2026-11-02T03:27:10.162Z","router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"Who"},{"family":"wh","match":"was"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":2346,"understandMs":0,"researchMs":877,"solveTtftMs":624,"solveMs":1467,"verifyMs":1,"solvePasses":1}}}
+

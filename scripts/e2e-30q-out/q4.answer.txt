@@ -1,0 +1,5 @@
+Oobleck is a mixture of cornstarch and water that exhibits non-Newtonian fluid behavior. It's neither a true solid nor a true liquid, but rather a shear-thickening fluid.
+
+When you apply sudden force or pressure (like hitting, squeezing, or rapidly stirring it), the oobleck stiffens and behaves more like a solid. This happens because the cornstarch particles temporarily lock together when subjected to stress. However, when you apply gentle, consistent pressure (like slowly sinking your hand into it), it flows like a liquid.
+
+This specific behavior class is called "shear-thickening" - the material's viscosity increases with increasing shear rate or applied force. It's different from a viscoelastic material (which has both solid-like and liquid-like properties over time) or a yield-stress material (which acts solid until a threshold stress is exceeded, then flows).

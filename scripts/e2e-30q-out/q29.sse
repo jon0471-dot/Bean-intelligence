@@ -1,0 +1,766 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["site:nodejs.org \"latest LTS release\" release date","site:nodejs.org \"Current release\" release date","site:nodejs.org releases","Node.js official release notes changelog"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"The","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" latest","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" stable","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" LTS","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" version","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" of","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" is","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"24","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"22","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"1","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" released","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" on","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" October","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"21","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"202","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"6","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"2","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"].","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" The","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" latest","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Current","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" version","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" appears","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" to","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" be","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"27","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-alpha","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" (","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"Alpha","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":")","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"5","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"].\n\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"For","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" LTS","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" (","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"Long","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Term","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Support","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":")","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" versions","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":":\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"24","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"22","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"1","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" is","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" the","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" latest","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" LTS","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" release","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" cod","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"en","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"amed","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" '","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"K","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"rypton","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"'","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"2","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"]\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" It","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" was","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" released","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" on","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" October","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"21","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"202","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"6","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"2","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"]\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"26","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"13","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" is","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" also","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" an","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" LTS","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" version","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" released","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" on","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" October","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"28","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"202","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"6","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"6","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"]\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"24","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".x","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" and","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"26","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".x","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" are","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" both","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" currently","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" supported","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" LTS","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" lines","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"1","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"]\n\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"For","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Current","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" versions","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":":\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"27","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" is","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" in","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" development","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" with","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" an","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" alpha","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" release","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" (","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"27","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-alpha","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":")","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"5","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"]\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Starting","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" with","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"27","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" the","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" release","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" cycle","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" will","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" be","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" annual","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" with","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" every","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" major","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" version","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" moving","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" to","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" LTS","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" status","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" after","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" its","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" six","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-month","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Current","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" phase","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"3","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"]","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"reset":true}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"The","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" latest","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" stable","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" LTS","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" version","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" of","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" is","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"24","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"22","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"1","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" released","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" on","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" October","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"21","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"202","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"6","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"2","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"].","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"26","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"13","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" is","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" also","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" an","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" LTS","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" version","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" released","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" on","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" October","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"28","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"202","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"6","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"6","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"].\n\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"According","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" to","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" the","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" evidence","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"24","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"22","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"1","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" is","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" a","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" security","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" release","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"2","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"].","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" The","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Project","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" has","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" also","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" released","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" security","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" updates","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" for","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" the","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"26","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".x","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"24","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".x","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" and","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"22","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".x","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" release","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" lines","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"1","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"].\n\n","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"The","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" evidence","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" mentions","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" that","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" starting","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" with","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"27","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":",","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" the","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" release","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" cycle","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" will","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" be","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" annual","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" and","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" every","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" major","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" version","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" will","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" move","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" to","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" LTS","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" status","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" after","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" its","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" six","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-month","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Current","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" phase","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"3","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"].","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" The","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" latest","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" alpha","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" version","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" mentioned","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" is","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" Node","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".js","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" ","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"27","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"-alpha","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":".","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"0","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":" [","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"5","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"delta":"].","conversationId":"cmvyp3aff00e9rmvnegtx4yct"}
+
+data: {"done":true,"conversationId":"cmvyp3aff00e9rmvnegtx4yct","durationMs":11281,"partial":false,"messageId":"cmvyp3j4u00edrmvnt0hxd11w","firstTokenMs":6472,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Wednesday, October 21, 2026 Security Releases","url":"https://nodejs.org/en/blog/vulnerability/october-2026-security-releases","hostName":"nodejs.org","date":"Oct 21, 2026","official":false,"social":false,"pageRead":true},{"id":2,"title":"Node.js 24.22.1 (LTS)","url":"https://nodejs.org/en/blog/release/v24.22.1","hostName":"nodejs.org","date":null,"official":false,"social":false,"pageRead":true},{"id":3,"title":"Node.js Releases","url":"https://nodejs.org/en/about/previous-releases","hostName":"nodejs.org","date":null,"official":false,"social":false,"pageRead":false},{"id":5,"title":"Node.js release blog","url":"https://nodejs.org/en/blog/release","hostName":"nodejs.org","date":null,"official":false,"social":false,"pageRead":false},{"id":6,"title":"Node.js 26.13.0 (LTS)","url":"https://nodejs.org/en/blog/release/v26.13.0","hostName":"nodejs.org","date":null,"official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 4 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":5743},{"stage":"verifying","durationMs":2398}],"degraded":["added targeted query \"Node.js official release notes changelog\"","unsupported claims repaired against the retrieved evidence before answering"],"retrievedAt":"2026-11-02T03:24:27.677Z","verificationNote":"Publication dates could not be verified for 4 of the cited sources — the latest status is stated only as of the dated reports","router":{"task":"research","confidence":0.9,"signals":[{"family":"freshness","match":"latest stable"},{"family":"freshness","match":"version of Node.js? Distinguish LTS from"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":11277,"understandMs":0,"researchMs":5743,"searchMs":2330,"pageReadMs":2368,"solveTtftMs":729,"solveMs":3136,"verifyMs":2398,"repairMs":2395,"solvePasses":2}}}
+

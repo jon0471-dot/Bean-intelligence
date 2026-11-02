@@ -1,0 +1,12 @@
+: connected
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Based on BEAN Intelligence's product role boundaries, voice transcription tasks should be handled by JAZMII, as it's responsible for audio and voice tasks. Image generation, on the other hand, is handled by LAXII, which is the image AI product.","conversationId":"cmvyozgtz00cmrmvn88khqsse"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvyozgtz00cmrmvn88khqsse","durationMs":3998,"partial":false,"messageId":"cmvyozjx300cqrmvnyd9nwaqs","firstTokenMs":3994,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"tools","durationMs":3989},{"stage":"verifying","durationMs":1}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"router":{"task":"math","confidence":0.75,"signals":[{"family":"math","match":"product"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":3995,"understandMs":5,"researchMs":null,"solveTtftMs":3458,"solveMs":3989,"verifyMs":1,"solvePasses":1}}}
+
