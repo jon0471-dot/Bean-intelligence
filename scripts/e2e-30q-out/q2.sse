@@ -1,0 +1,474 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"quantum computer vs classical computer\" superposition 2023","\"quantum superposition explained\" site:edu","\"how quantum computers work\" superposition"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Quant","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"um","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" differ","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" from","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" classical","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" in","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" their","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" fundamental","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" approach","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" to","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" processing","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" information","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":".","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" While","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" classical","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" use","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" bits","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" (","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"0","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" or","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" ","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"1","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":")","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" as","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" the","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" basic","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" unit","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" of","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" information","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" quantum","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" use","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" quantum","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" bits","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" or","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" q","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"ubits","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" which","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" can","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" exist","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" in","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" a","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" state","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" of","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" super","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"position","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" [","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"1","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"].\n\n","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"Super","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"position","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" means","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" that","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" a","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" q","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"ubit","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" can","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" be","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" in","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" a","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" combination","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" of","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" both","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" ","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"0","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" and","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" ","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"1","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" states","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" simultaneously","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" rather","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" than","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" being","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" limited","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" to","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" just","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" one","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" state","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" at","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" a","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" time","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":".","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" This","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" is","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" similar","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" to","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" how","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" a","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" spinning","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" coin","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" can","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" be","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" thought","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" of","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" as","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" being","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" in","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" both","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" heads","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" and","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" tails","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" states","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" at","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" once","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" while","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" it","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"'s","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" spinning","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":".","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" When","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" measured","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" however","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" the","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" q","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"ubit","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" will","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" collapse","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" to","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" either","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" ","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"0","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" or","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" ","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"1","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":".\n\n","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"This","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" property","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" allows","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" quantum","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" to","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" process","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" a","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" vast","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" number","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" of","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" possibilities","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" simultaneously","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" potentially","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" solving","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" certain","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" types","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" of","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" problems","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" much","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" faster","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" than","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" classical","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":".","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" Classical","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" process","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" information","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" sequentially","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" while","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" quantum","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" can","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" explore","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" multiple","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" solutions","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" at","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" once","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" due","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" to","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" super","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"position","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" [","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"1","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"].\n\n","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"It","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"'s","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" worth","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" noting","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" that","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" quantum","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" aren","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"'t","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" simply","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" faster","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" versions","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" of","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" classical","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" -","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" they","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" excel","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" at","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" specific","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" types","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" of","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" problems","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" like","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" fact","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"oring","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" large","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" numbers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" searching","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" un","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"sorted","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" databases","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" and","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" sim","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":"ulating","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" quantum","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" systems","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":",","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" while","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" classical","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computers","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" remain","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" better","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" for","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" everyday","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" computing","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":" tasks","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"delta":".","conversationId":"cmvyozyk700d2rmvn61ffctyr"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvyozyk700d2rmvn61ffctyr","durationMs":7449,"partial":false,"messageId":"cmvyp04b700d6rmvn1ausyh5u","firstTokenMs":4790,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Quantum Computing - Unraveling the Future of Technology","url":"https://www.google.com/goto?url=CAESlQEB6zswFW3PKPotNhyKmJUu80G_M9t3_dkC4peGr_mn2gmLdZvH5WFhc3zUYfjwnCKrW8oonckuK9PnV2eHE37-xGRqc9bpK01o7CZI4QIvP3QtX9juv6rCyBkhlZ0dn7qsmaZkpLL76MqOQlnHIu5jzR9ZikDU29yxls_TkYleO2mHlwXTiVUUF-tJeTKNndDoyd1mig","hostName":"www.google.com","date":"Mar 5, 2024","official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"source freshness","status":"warning","detail":"Newest retrieved source is dated 2024; the question is time-sensitive, so the answer may be out of date."}],"stages":[{"stage":"researching","durationMs":4097},{"stage":"verifying","durationMs":5}],"degraded":["search \"\"quantum superposition explained\" site:edu\" failed: web_search is rate-limited upstream (HTTP 429): Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}","search \"\"how quantum computers work\" superposition\" failed: web_search not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle","freshness follow-up search failed: web_search not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle","page read failed: unavailable"],"retrievedAt":"2026-11-02T03:21:48.498Z","verificationNote":"Newest retrieved source is dated 2024; the question is time-sensitive, so the answer may be out of date","router":{"task":"general","confidence":0.7,"signals":[],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":7444,"understandMs":1,"researchMs":4097,"searchMs":3185,"pageReadMs":1,"solveTtftMs":691,"solveMs":3341,"verifyMs":5,"solvePasses":1}}}
+

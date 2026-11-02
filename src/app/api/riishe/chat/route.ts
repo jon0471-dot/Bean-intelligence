@@ -223,7 +223,17 @@ export async function POST(request: Request) {
         } catch {
           storagePath = null
         }
-        return { id: d.id, name: d.name, text: d.text, truncated: d.truncated, kind: d.kind, storagePath }
+        return {
+          id: d.id,
+          name: d.name,
+          text: d.text,
+          truncated: d.truncated,
+          kind: d.kind,
+          storagePath,
+          // Honest processing note (extraction scope, e.g. PDF page
+          // accounting) rides along so the model states it, never hides it.
+          note: d.note,
+        }
       })
       if (documents.length !== body.documentIds.length) {
         release()

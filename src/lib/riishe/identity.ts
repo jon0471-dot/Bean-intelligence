@@ -67,8 +67,12 @@ export const APPLICATION_IDENTITY: ApplicationIdentity = {
   },
   products: [
     {
-      statement: 'LAXII (image generation), JAZMII (video generation) and CODE GIFTZ (coding intelligence) are sibling products on the platform.',
-      basis: 'Repository: src/components/bean/{laxii,jazmii,code-giftz}.tsx and their API routes.',
+      statement:
+        'RIISHE (this assistant) is the platform\'s general-purpose conversational AI. ' +
+        'LAXII is the image AI (image generation and image analysis) — images ONLY. ' +
+        'JAZMII is the video, audio and voice AI — video, audio and voice tasks belong to JAZMII, never to LAXII. ' +
+        'CODE GIFTZ is the coding AI.',
+      basis: 'Repository: src/components/bean/{riishe,laxii,jazmii,code-giftz}.tsx and their API routes; product role split owner-confirmed (work order 2026-11-02).',
     },
   ],
   people: [],
@@ -88,6 +92,9 @@ export function renderIdentityBlock(identity: ApplicationIdentity = APPLICATION_
   lines.push(`- ${identity.application.statement}`)
   lines.push(`- You are ${identity.assistant.statement}.`)
   for (const p of identity.products) lines.push(`- ${p.statement}`)
+  lines.push(
+    '- PRODUCT ROLE BOUNDARIES: these roles are exhaustive and separate. When asked which BEAN product handles a capability, answer strictly from this list and never assign one product\'s responsibilities to another — video, audio and voice tasks belong to JAZMII (not LAXII); image tasks belong to LAXII; coding tasks belong to CODE GIFTZ; everything else general-purpose is RIISHE.',
+  )
   if (identity.people.length === 0) {
     lines.push(
       '- PEOPLE: BEAN\'s configuration verifies NO facts about any specific person — not the founder, not the leadership, not the team. ' +

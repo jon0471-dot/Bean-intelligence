@@ -214,15 +214,22 @@ export function buildDeterministicQuerySet(message: string, queries: string[]): 
   }
   const existing = next.join(' \n ').toLowerCase()
 
-  // (a) Titled work: quoted title OR "<kind> <Capitalized Title>".
+  // (a) Titled work: quoted title OR "<kind> <Capitalized Title>". When the
+  // question asks specifically about a hero/villain/character, one extra
+  // targeted query hunts the character-reveal coverage that names roles
+  // (measured: villain identity lives in character-intro promos, not the
+  // general release articles).
   const quoted = message.match(/["“]([\p{L}\p{N}][^"”]{1,48})["”]/u)
   const kindTitle = message.match(
     /\b(movie|film|series|album|song|game|novel|book)\s+([\p{Lu}][\p{L}\p{N}'&.:\-]*(?:\s+[\p{Lu}][\p{L}\p{N}'&.:\-]*)?)/u,
   )
   const title = (quoted?.[1] ?? kindTitle?.[2] ?? '').trim().replace(/[.:,'\-–—]+$/, '').trim()
   const kind = (kindTitle?.[1] ?? 'movie').trim()
-  if (title && /\b(movie|film|series|album|song|game|novel|book|cast|hero|villain|actor|actress|release)\b/i.test(message)) {
-    push(`"${title}" ${kind} release cast details`)
+  if (title && /\b(movie|film|series|album|song|game|novel|book|cast|hero|villain|actor|actress|release|character)\b/i.test(message)) {
+    push(`"${title}" ${kind} release cast characters details`)
+    if (/\b(villain|antagonist|hero|protagonist)\b/i.test(message)) {
+      push(`"${title}" villain antagonist character revealed`)
+    }
   }
 
   // (b) Entity's latest developments → official announcement sources.
@@ -233,13 +240,23 @@ export function buildDeterministicQuerySet(message: string, queries: string[]): 
     push(`${devEntity[1].trim()} official announcement newsroom`)
   }
 
-  // (c) Software version/release → official release notes.
+  // (c) Software version/release → official release notes AND the GitHub
+  // releases page: the blog announces the MINOR line, while the exact latest
+  // PATCH (16.4.3 vs 16.4.0) lives only in the releases feed (measured Q11:
+  // the answer stopped at the minor announcement and a month-old date).
   if (/\bversion\b/i.test(message) || /\brelease\b/i.test(message)) {
     const before = message.match(/\b([A-Z][\w.+#\-]*(?:\s?[A-Z][\w.+#\-]*)?)\s+(?:version|release)/)
     const after = message.match(/\bversion\s+(?:of\s+)?([A-Z][\w.+#\-]*(?:\s?[A-Z][\w.+#\-]*)?)/)
     const product = (after?.[1] ?? before?.[1] ?? '').trim()
     if (product && !/\b(release notes|changelog|official)\b/.test(existing)) {
       push(`${product} official release notes changelog`)
+    }
+    if (
+      product &&
+      /\b(latest|stable|current|released)\b/i.test(message) &&
+      !/\bgithub\b/i.test(existing)
+    ) {
+      push(`${product} GitHub releases latest version`)
     }
   }
 
