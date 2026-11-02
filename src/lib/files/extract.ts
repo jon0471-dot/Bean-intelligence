@@ -51,10 +51,30 @@ export async function extractPdf(bytes: Buffer): Promise<ExtractionResult> {
         'This PDF has no extractable text layer (likely a scanned image) — OCR is not available in this deployment.',
       )
     }
+    // PAGE ACCOUNTING (honest extraction scope): pdf-parse v2 exposes each
+    // page's own text. A page with no extractable text is a scan/image page —
+    // it was NOT analyzed, and the note says so instead of implying the whole
+    // file was processed. The extracted `text` itself is unchanged.
+    const pages = Array.isArray(result.pages) ? result.pages : []
+    const total = typeof result.total === 'number' && result.total > 0 ? result.total : pages.length
+    const withText = pages.filter((p) => (p.text ?? '').trim().length > 0)
+    const unreadable = pages.filter((p) => (p.text ?? '').trim().length === 0).map((p) => p.num)
+    let note = 'PDF (text layer extracted'
+    if (total > 0) {
+      note += `; ${withText.length} of ${total} page${total === 1 ? '' : 's'} had extractable text`
+      if (unreadable.length > 0) {
+        const shown = unreadable.slice(0, 10).join(', ')
+        note += `; pages with no text layer (scan/image page — NOT analyzed): ${shown}${unreadable.length > 10 ? ', …' : ''}`
+      }
+      if (withText.length < total) {
+        note += `; ${total - withText.length} page${total - withText.length === 1 ? '' : 's'} contributed no text`
+      }
+    }
+    note += '; embedded images, charts and scan-only content are not analyzed)'
     const capped = cap(text)
     return {
       ...capped,
-      note: 'PDF (text layer extracted).',
+      note,
     }
   } catch (e) {
     if (e instanceof ExtractionError) throw e

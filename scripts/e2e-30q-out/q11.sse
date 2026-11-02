@@ -1,0 +1,154 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"Next.js latest stable version\"","\"Next.js release notes\" site:nextjs.org","\"Next.js version history\"","\"Next.js latest stable version\" official release notes changelog"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Based","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" on","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" the","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" retrieved","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" evidence","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":",","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" the","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" latest","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" stable","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" version","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" of","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" Next","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":".js","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" is","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" ","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"16","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":".","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"4","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":",","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" which","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" was","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" released","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" on","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" October","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" ","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"6","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":",","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" ","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"202","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"6","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" [","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"1","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"].","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" \n\n","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"The","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" Next","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":".js","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" blog","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" also","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" shows","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" a","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" post","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" from","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" October","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" ","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"28","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":",","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" ","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"202","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"6","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":",","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" but","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" this","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" appears","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" to","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" be","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" a","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" general","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" blog","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" post","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" rather","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" than","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" an","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" announcement","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" of","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" a","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" new","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" version","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":" [","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"2","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"delta":"].","conversationId":"cmvyp230600e1rmvnm86z002k"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvyp230600e1rmvnm86z002k","durationMs":11197,"partial":false,"messageId":"cmvyp2bna00e5rmvnrq77izsf","firstTokenMs":10634,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"Next.js 16.4","url":"https://nextjs.org/blog/next-16-4","hostName":"nextjs.org","date":"2026-10-06T20:00:00.000Z","official":false,"social":false,"pageRead":true},{"id":2,"title":"Next.js Blog | Next.js by Vercel - The React Framework","url":"https://nextjs.org/blog","hostName":"nextjs.org","date":"2026-10-28T20:00:00.000Z","official":false,"social":false,"pageRead":true}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":9954},{"stage":"verifying","durationMs":6}],"degraded":[],"retrievedAt":"2026-11-02T03:23:31.316Z","router":{"task":"research","confidence":0.9,"signals":[{"family":"freshness","match":"latest stable"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":11193,"understandMs":0,"researchMs":9953,"searchMs":3459,"pageReadMs":4133,"solveTtftMs":680,"solveMs":1233,"verifyMs":6,"solvePasses":1}}}
+

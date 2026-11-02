@@ -84,7 +84,11 @@ const HIGH_RISK_PATTERNS: Array<[RegExp, string]> = [
   // when they match first, and exclusions below still apply afterwards.
   [/\b(最新|当前|如今|今天|新闻|汇率|股价)\b|最新.{0,6}(版本|价格)/, 'multilingual recency signal (CJK)'],
   [/(?:最新|ニュース|現在)/, 'multilingual recency signal (CJK/JP)'],
-  [/\b(última\w*|actual\w*|noticias|hoy|precio\s+actual)\b/i, 'multilingual recency signal (ES)'],
+  // "actual" needs a Spanish suffix or a word boundary AFTER the full word —
+  // the previous `actual\w*` matched the ENGLISH word "actually" ("actual" +
+  // "ly") and fired searches on ordinary explanations (measured: a quantum-
+  // computing explanation went through research for this reason).
+  [/\b(últim\w*|actual(?:e|es|mente|idad)?|noticias|hoy|precio\s+actual)\b/i, 'multilingual recency signal (ES)'],
   [/\b(derni[eè]re\w*|actualit\w*|aujourd\'hui|version\s+actuelle)\b/i, 'multilingual recency signal (FR)'],
   [/\b(neuest\w*|aktuell\w*|heute|Nachrichten)\b/i, 'multilingual recency signal (DE)'],
   [/\b(mais\s+recente\w*|atual\w*|not[ií]cias|hoje)\b/i, 'multilingual recency signal (PT)'],

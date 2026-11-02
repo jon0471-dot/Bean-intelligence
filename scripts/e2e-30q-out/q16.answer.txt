@@ -1,0 +1,47 @@
+`[] == false` evaluates to `true`.
+
+Here's the step-by-step explanation according to JavaScript's abstract equality comparison algorithm:
+
+1. When comparing different types using `==`, JavaScript converts one or both operands to a common type before comparing them.
+
+2. For the comparison `[] == false`, the algorithm first tries to convert both operands to primitives using the `ToPrimitive` operation.
+
+3. For the array `[]` (empty array):
+   - `ToPrimitive` is called with the `hint` of `"default"` (since no specific hint is provided for equality comparison).
+   - The array's `valueOf()` method returns the array itself, so JavaScript then tries `toString()`.
+   - The `toString()` method of an empty array returns an empty string `""`.
+   - So `[]` converts to `""`.
+
+4. For the boolean `false`:
+   - `ToPrimitive` is called with the `hint` of `"default"`.
+   - Booleans are already primitives, so no conversion is needed.
+   - However, the algorithm then tries to convert the boolean to a number because the other operand (after conversion) is a string.
+   - `false` converts to the number `0`.
+
+5. Now we're comparing `"" == 0`:
+   - The empty string `""` converts to the number `0` when compared with a number.
+
+6. Finally, `0 == 0` evaluates to `true`.
+
+So the complete conversion chain is:
+- `[]` → `""` → `0`
+- `false` → `0`
+- `0 == 0` → `true`
+
+This is why `[] == false` evaluates to `true` in JavaScript.`[] == false`evaluates to`true`
+Here's the step-by-step explanation according to JavaScript's abstract equality comparison algorithm:
+
+1. When comparing different types using `==`, JavaScript converts one or both operands to a common type before comparing them.
+
+2. For the comparison `[] == false`, the algorithm first tries to convert both operands to primitives using the`ToPrimitive`operation.
+
+3. For the array `[]`(empty array):`ToPrimitive`is called with the`hint`of`"default"`(since no specific hint is provided for equality comparison).
+   - The array's`valueOf()`method returns the array itself, so JavaScript then tries`toString()`   - The`toString()`method of an empty array returns an empty string`""`   - So`[]`converts to`""`
+4. For the boolean `false``ToPrimitive``hint``"default"`   - Booleans are already primitives, so no conversion is needed.
+   - However, the algorithm then tries to convert the boolean to a number because the other operand (after conversion) is a string.`false`converts to the number`0`
+5. Now we're comparing `"" == 0`   - The empty string`""``0`when compared with a number.
+
+6. Finally, `0 == 0``true`
+So the complete conversion chain is:`[]``""``0``false``0``0 == 0``true`
+
+This is why`[] == false``true`in JavaScript.

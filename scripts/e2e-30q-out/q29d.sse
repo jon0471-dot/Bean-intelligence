@@ -1,0 +1,12 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["What is the latest stable version of Node.js? Distinguish LTS from Current if both exist, give the release date, and cite official sources.","Node.js GitHub releases latest version"]}}
+
+data: {"type":"stage","stage":"tools"}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"error":"The upstream AI gateway is rate-limited right now (HTTP 429). This usually clears within a few minutes — your question is kept below, so you can retry without retyping it.","code":"UPSTREAM_RATE_LIMITED","partial":true}
+

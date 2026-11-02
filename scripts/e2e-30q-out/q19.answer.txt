@@ -1,0 +1,13 @@
+JavaScript arrays differ from fixed-size low-level arrays in other languages in several key ways:
+
+1. Dynamic size: JavaScript arrays can grow or shrink as needed, while low-level arrays typically have a fixed size determined at creation.
+
+2. Type flexibility: JavaScript arrays can hold elements of different types in the same array, whereas low-level arrays usually store elements of a single, specific data type.
+
+3. Length property: JavaScript arrays have a dynamic `length` property that automatically updates when elements are added or removed, while low-level arrays have a fixed length.
+
+4. Built-in methods: JavaScript arrays come with numerous built-in methods (like `push()`, `pop()`, `map()`, `filter()`, etc.) that don't exist with basic low-level arrays.
+
+5. Sparse arrays: JavaScript arrays can be sparse (have empty slots at certain indices), while low-level arrays are typically contiguous.
+
+Regarding your second question: Yes, JavaScript Map does preserve the insertion order of its keys. This is a key feature of Maps in JavaScript - when you iterate through a Map, the elements are returned in the order they were inserted. This is different from plain JavaScript objects (which don't guarantee key order) but similar to how Maps work in several other modern programming languages.
