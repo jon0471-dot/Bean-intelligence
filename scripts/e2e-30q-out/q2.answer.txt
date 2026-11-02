@@ -1,0 +1,7 @@
+Quantum computers differ from classical computers in their fundamental approach to processing information. While classical computers use bits (0 or 1) as the basic unit of information, quantum computers use quantum bits or qubits, which can exist in a state of superposition [1].
+
+Superposition means that a qubit can be in a combination of both 0 and 1 states simultaneously, rather than being limited to just one state at a time. This is similar to how a spinning coin can be thought of as being in both heads and tails states at once while it's spinning. When measured, however, the qubit will collapse to either 0 or 1.
+
+This property allows quantum computers to process a vast number of possibilities simultaneously, potentially solving certain types of problems much faster than classical computers. Classical computers process information sequentially, while quantum computers can explore multiple solutions at once due to superposition [1].
+
+It's worth noting that quantum computers aren't simply faster versions of classical computers - they excel at specific types of problems like factoring large numbers, searching unsorted databases, and simulating quantum systems, while classical computers remain better for everyday computing tasks.

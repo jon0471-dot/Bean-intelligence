@@ -1,0 +1,5 @@
+The daytime sky is blue because of a phenomenon called Rayleigh scattering. As sunlight enters Earth's atmosphere, it collides with gas molecules and tiny particles. These molecules scatter the shorter blue wavelengths of light more effectively than the longer red wavelengths, so blue light is redirected in all directions, making the sky appear blue to us.
+
+Light from distant stars appears redder due to a different mechanism called interstellar reddening. As starlight travels through the interstellar medium, it encounters dust particles that scatter and absorb shorter wavelengths (blue light) more than longer ones (red light). This means more blue light is removed from the beam, leaving the light that reaches us relatively redder.
+
+These are not the same mechanism. The blue sky is caused by scattering in Earth's atmosphere, while reddened starlight is caused by scattering and absorption in the dust between stars.

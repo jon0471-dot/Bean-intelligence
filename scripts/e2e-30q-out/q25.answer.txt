@@ -1,0 +1,5 @@
+Ice cream sales and drowning deaths are correlated, but ice cream does not cause drowning. This is a classic example of correlation not implying causation.
+
+The correlation exists because both ice cream sales and drowning deaths tend to increase during the summer months. When it's hot, people are more likely to buy ice cream and also more likely to go swimming, which increases the risk of drowning deaths. The actual cause of drowning is water exposure and water-related activities, not the consumption of ice cream.
+
+To determine causation, we'd need to establish a direct mechanism where ice cream consumption leads to drowning, which doesn't exist in this case. The correlation is simply due to the confounding variable of hot weather/seasonality.

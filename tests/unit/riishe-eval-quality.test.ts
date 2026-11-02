@@ -55,14 +55,15 @@ describe('retrieval triggers for entity questions', () => {
 // ---- deterministic query additions -----------------------------------------
 
 describe('buildDeterministicQuerySet', () => {
-  test('adds an exact-title query for a titled work (Q13 class)', () => {
+  test('adds an exact-title query for a titled work plus a villain-targeted query (Q13 class)', () => {
     const { queries, added } = buildDeterministicQuerySet(
       'Tell me about the movie Scene: release date, hero and villain.',
       ['Tell me about the movie Scene: release date, hero and villain.'],
     )
-    expect(added.length).toBe(1)
+    expect(added.length).toBe(2)
     expect(queries.some((q) => q.includes('"Scene"'))).toBe(true)
     expect(queries.some((q) => /movie/i.test(q))).toBe(true)
+    expect(queries.some((q) => /villain antagonist character/i.test(q))).toBe(true)
   })
 
   test('adds an official-announcement query for entity developments (Q14 class)', () => {
@@ -74,13 +75,14 @@ describe('buildDeterministicQuerySet', () => {
     expect(queries.some((q) => /NVIDIA official announcement newsroom/i.test(q))).toBe(true)
   })
 
-  test('adds an official release-notes query for version questions (Q11 class)', () => {
+  test('adds an official release-notes query and a GitHub releases query for version questions (Q11 class)', () => {
     const { queries, added } = buildDeterministicQuerySet(
       'What is the latest stable version of Next.js? Give its release date.',
       ['Next.js latest stable version'],
     )
-    expect(added.length).toBe(1)
+    expect(added.length).toBe(2)
     expect(queries.some((q) => /Next\.js official release notes changelog/i.test(q))).toBe(true)
+    expect(queries.some((q) => /Next\.js GitHub releases latest version/i.test(q))).toBe(true)
   })
 
   test('adds an oath-date query for officeholder appointment questions (Q12 class)', () => {

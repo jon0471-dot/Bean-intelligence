@@ -74,6 +74,10 @@ export interface AttachedDocument {
   /** Server-side stored original bytes (images only; set by the upload
    *  route). Enables analyze_image's pixel re-consultation. */
   storagePath?: string | null
+  /** Honest processing note from extraction (e.g. PDF page accounting:
+   *  which pages had a text layer, which were scans). Shown to the model
+   *  so answers state the extraction scope instead of implying full coverage. */
+  note?: string | null
 }
 
 export interface OrchestrationInput {
@@ -176,8 +180,9 @@ function buildDocumentBlock(documents: AttachedDocument[]): string {
   const parts = documents.map((d) => {
     const preview = d.text.slice(0, 2500)
     const truncated = preview.length < d.text.length
+    const noteLine = d.note ? ` processing note: ${d.note};` : ''
     return (
-      `[DOCUMENT id="${d.id}" name="${d.name}" characters=${d.text.length}${d.truncated ? ' (extraction was truncated)' : ''}]\n` +
+      `[DOCUMENT id="${d.id}" name="${d.name}" characters=${d.text.length}${noteLine}${d.truncated ? ' (extraction was truncated)' : ''}]\n` +
       preview +
       (truncated ? '\n[preview truncated — use read_document for more]' : '')
     )
@@ -435,6 +440,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         // unresolved questions). Ordinary lookups keep natural prose.
         researchShape: decision.risk === 'high' && isNewsEventQuery(userMessage) ? 'news' : null,
         sensitiveCase,
+        hasImages: documents.some((d) => d.kind === 'image'),
         toolNames: finalToolsActive ? finalToolNames : undefined,
       },
       finalToolsActive ? describeTools(finalToolNames) : undefined,
