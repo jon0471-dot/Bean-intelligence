@@ -1,0 +1,142 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["\"2026 FIFA World Cup winner\"","\"2026 FIFA World Cup final score\"","\"2026 FIFA World Cup goal details\""]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"Spain","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" won","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" the","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" ","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"202","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"6","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" FIFA","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" World","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" Cup","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":",","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" defeating","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" Argentina","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" ","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"1","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"-","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"0","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" after","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" extra","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" time","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" [","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"1","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":",","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" ","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"4","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":",","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" ","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"5","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":",","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" ","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"6","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"].","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" Ferr","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"an","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" Torres","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" scored","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" the","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" winning","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" goal","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" in","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" the","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" ","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"106","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"th","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" minute","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" of","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" the","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" final","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" [","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"1","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":",","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" ","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"6","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"].","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" This","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" victory","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" marked","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" Spain","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"'s","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" second","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" World","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" Cup","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" title","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":" [","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"4","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"delta":"].","conversationId":"cmvymeen5004grmvnpjsjjbkz"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvymeen5004grmvnpjsjjbkz","durationMs":3275,"partial":false,"messageId":"cmvymeh66004krmvn07w4v0ro","firstTokenMs":2729,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"FIFA World Cup 2026 Winner: Final Score & Awards","url":"https://fifaliveupdates.com/fifa-world-cup-2026-winner","hostName":"fifaliveupdates.com","date":null,"official":false,"social":false,"pageRead":false},{"id":4,"title":"2026 FIFA World Cup Winner: Spain Beats Argentina to","url":"https://www.weex.com/learn/articles/2026-fifa-world-cup-winner-spain-beats-argentina-to-claim-second-world-title-n0abiwumkbq7fkrp4d19cay4","hostName":"www.weex.com","date":"Jul 20, 2026","official":false,"social":false,"pageRead":false},{"id":5,"title":"Spain is the 2026 World Cup champion, defeating","url":"https://www.wskg.org/npr-news/2026-07-19/spain-is-the-2026-world-cup-champion-defeating-argentina-for-its-2nd-title","hostName":"www.wskg.org","date":"Jul 19, 2026","official":false,"social":false,"pageRead":false},{"id":6,"title":"Spain lifted the 2026 FIFA World Cup trophy after defeating","url":"https://www.facebook.com/nd24updates/videos/spain-lifted-the-2026-fifa-world-cup-trophy-after-defeating-argentina-1-0-in-a-t/3233157263541889","hostName":"www.facebook.com","date":null,"official":false,"social":true,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 2 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":2040},{"stage":"verifying","durationMs":1}],"degraded":["search \"\"2026 FIFA World Cup final score\"\" failed: web_search is rate-limited upstream (HTTP 429): Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}","search \"\"2026 FIFA World Cup goal details\"\" failed: web_search not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle","freshness follow-up search failed: web_search not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle","page read failed: unavailable","page read failed: unavailable"],"retrievedAt":"2026-11-02T02:08:59.501Z","verificationNote":"Publication dates could not be verified for 2 of the cited sources — the latest status is stated only as of the dated reports","router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"Which"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":3271,"understandMs":1,"researchMs":2040,"searchMs":1315,"solveTtftMs":688,"solveMs":1229,"verifyMs":1,"solvePasses":1}}}
+

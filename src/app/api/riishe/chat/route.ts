@@ -95,26 +95,13 @@ export async function POST(request: Request) {
       conversationId = conv.id
     }
 
-    // Dangling-retry collapse: a previous turn that failed BEFORE producing
-    // any assistant reply leaves a trailing user row with no answer. When the
-    // user sends that same question again (the natural retry after a rate
-    // limit), the dangling row is removed first so the conversation keeps ONE
-    // honest record of the retried turn instead of accumulating duplicates.
-    // Never triggers after an ANSWERED turn (the trailing row is the
-    // assistant's), and never for regenerate flows (they manage rows below).
-    if (!body.retry && !body.retryFromMessageId) {
-      const trailing = await db.message.findFirst({
-        where: { conversationId },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, role: true, content: true },
-      })
-      if (isDanglingDuplicateUserRow(trailing, body.message)) {
-        await db.message.delete({ where: { id: trailing.id } })
-      }
-    }
-
     // Regenerate: the previous attempt for this trailing turn is removed
     // (owner-checked above) so history stays a clean, honest sequence.
+    // MUST run BEFORE the dangling-retry collapse below: after the trailing
+    // assistant row is removed, the trailing row is the original user turn —
+    // exactly what the collapse then deduplicates against the re-sent
+    // message (measured defect: regenerating a trailing turn used to append
+    // a SECOND copy of the same question to history).
     if (body.retry) {
       const last = await db.message.findFirst({
         where: { conversationId },
@@ -149,6 +136,28 @@ export async function POST(request: Request) {
           // A summary digest computed over deleted turns is stale.
           await db.conversation.update({ where: { id: conversationId }, data: { summary: null, summaryCount: 0 } })
         }
+      }
+    }
+
+    // Dangling-retry collapse: a previous turn that failed BEFORE producing
+    // any assistant reply leaves a trailing user row with no answer. When
+    // that same question is re-sent (the natural retry after a rate limit,
+    // OR a Regenerate of a turn whose assistant row was just removed above),
+    // the dangling row is removed first so the conversation keeps ONE honest
+    // record of the turn instead of accumulating duplicate questions.
+    // Never triggers after an ANSWERED turn (the trailing row is the
+    // assistant's), and never for regenerate-from-message flows (they manage
+    // rows above). Applies to BOTH plain retries and trailing regenerates —
+    // measured defect: retry=true used to skip the collapse and append a
+    // duplicate question row for every regenerated turn.
+    if (!body.retryFromMessageId) {
+      const trailing = await db.message.findFirst({
+        where: { conversationId },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, role: true, content: true },
+      })
+      if (isDanglingDuplicateUserRow(trailing, body.message)) {
+        await db.message.delete({ where: { id: trailing.id } })
       }
     }
 
@@ -553,7 +562,9 @@ export async function POST(request: Request) {
                   ? 'UPSTREAM_BILLING'
                   : payload.code === 'UPSTREAM_TIMEOUT'
                     ? 'UPSTREAM_TIMEOUT'
-                    : 'BACKEND_FAILURE'
+                    : payload.code === 'UPSTREAM_TRUNCATED'
+                      ? 'UPSTREAM_TRUNCATED'
+                      : 'BACKEND_FAILURE'
           await recordUsage({
             userId: user.id,
             product: 'riishe',

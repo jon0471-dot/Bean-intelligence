@@ -71,7 +71,13 @@ const OFFICIAL_SUFFIXES = [
   '.ac.uk',
 ]
 
-// Standards bodies and primary documentation hosts.
+// Standards bodies and primary documentation hosts, PLUS the primary
+// announcement hosts of major technology companies: a company's own
+// newsroom/news site is THE primary source for its own product
+// announcements (measured failure: "latest developments from NVIDIA"
+// retrieved only social/finance aggregator noise — x.com, yahoo finance —
+// while the official announcements ranked nowhere). Same principle as
+// nextjs.org for Next.js releases.
 const PRIMARY_HOSTS = [
   'developer.mozilla.org',
   'docs.python.org',
@@ -98,6 +104,14 @@ const PRIMARY_HOSTS = [
   'w3.org',
   'ietf.org',
   'rfc-editor.org',
+  // Company primary announcement hosts (their own product/company news).
+  'nvidia.com',
+  'nvidianews.nvidia.com',
+  'openai.com',
+  'anthropic.com',
+  'blog.google',
+  'apple.com',
+  'news.microsoft.com',
 ]
 
 const REPUTABLE_HOSTS = [
@@ -155,6 +169,15 @@ function hostMatches(host: string, entries: string[]): boolean {
 export function isOfficialHost(host: string): boolean {
   const h = host.toLowerCase().replace(/^www\./, '')
   return OFFICIAL_SUFFIXES.some((s) => (s.startsWith('.') ? h === s.slice(1) || h.endsWith(s) : h === s || h.endsWith(`.${s}`)))
+}
+
+/** True for primary documentation / primary announcement hosts (nextjs.org,
+ *  github.com, nvidia.com newsroom, ...). Used by ranking AND by the
+ *  page-read scheduler, which reads primary hosts FIRST for version/
+ *  release/entity questions (snippets of release posts are frequently
+ *  truncated precisely at the version+date line). */
+export function isPrimaryHost(host: string): boolean {
+  return hostMatches(host, PRIMARY_HOSTS)
 }
 
 export function isSocialHost(host: string): boolean {

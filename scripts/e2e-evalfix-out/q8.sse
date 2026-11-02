@@ -1,0 +1,292 @@
+: connected
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"The","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" next","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" number","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" in","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" the","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" sequence","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" is","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"42","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":".\n\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"This","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" sequence","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" follows","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" a","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" pattern","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" where","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" each","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" number","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" increases","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" by","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" consecutive","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" even","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" numbers","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":":\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"2","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" +","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"4","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"6","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"6","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" +","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"6","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"12","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"12","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" +","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"8","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"20","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"20","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" +","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"10","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"30","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"30","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" +","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"12","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"42","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"The","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" pattern","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" is","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"(n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"+","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"1","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"),","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" where","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" starts","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" at","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"1","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":":\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"1","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"×","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"2","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"2","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"2","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"×","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"3","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"6","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"3","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"×","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"4","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"12","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"4","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"×","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"5","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"20","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"5","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"×","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"6","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"30","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"\n","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"-","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"6","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"×","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"7","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" =","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":" ","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"delta":"42","conversationId":"cmvymiq36005crmvnna65bk45"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvymiq36005crmvnna65bk45","durationMs":2364,"partial":false,"messageId":"cmvymirwx005grmvn63pr78yp","firstTokenMs":861,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"router":{"task":"general","confidence":0.7,"signals":[],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":2360,"understandMs":0,"researchMs":null,"solveTtftMs":861,"solveMs":2360,"verifyMs":0,"solvePasses":1}}}
+

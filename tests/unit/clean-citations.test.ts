@@ -220,7 +220,8 @@ describe('buildVerificationNote (only when something material is unconfirmed)', 
         ungroundedNames: [],
         repeatedHedges: [],
         unattributedProbabilistic: [],
-        nameConflicts: [],
+        ungroundedDates: [],
+      nameConflicts: [],
       },
     })
     expect(note).toContain('not supported by the retrieved sources')

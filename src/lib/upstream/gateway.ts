@@ -35,7 +35,7 @@
 
 export type UpstreamEndpointClass = 'functions' | 'chat'
 
-export type UpstreamFailureKind = 'rate_limited' | 'auth' | 'billing' | 'timeout' | 'other'
+export type UpstreamFailureKind = 'rate_limited' | 'auth' | 'billing' | 'timeout' | 'truncated' | 'other'
 
 export interface UpstreamFailure {
   kind: UpstreamFailureKind
@@ -59,6 +59,11 @@ export function classifyUpstreamError(e: unknown): UpstreamFailure {
   if (status === 429) return { kind: 'rate_limited', status }
   if (status === 401 || status === 403) return { kind: 'auth', status }
   if (status === 402) return { kind: 'billing', status }
+  // Typed provider truncation (finish_reason "length"): classified BEFORE the
+  // generic timeout pattern so it can carry its own honest payload.
+  if (/\blength limit\b|finish_reason:\s*length|\btruncated\b/i.test(message)) {
+    return { kind: 'truncated', status: null }
+  }
   if (status === null && /\btimed out\b/i.test(message)) return { kind: 'timeout', status: null }
   return { kind: 'other', status }
 }
@@ -197,6 +202,16 @@ export function upstreamStreamErrorPayload(e: unknown): {
           'The AI provider stopped sending data before the response finished (stream timed out). ' +
           'The text received so far is preserved as incomplete — try again in a moment.',
         code: 'UPSTREAM_TIMEOUT',
+        partial: true,
+      }
+    case 'truncated':
+      // Provider hit its output length limit mid-answer. Honest category:
+      // the text IS the provider's output, just not the whole answer.
+      return {
+        error:
+          'The AI provider reached its output length limit before the answer finished. ' +
+          'The text received so far is preserved as incomplete — asking RIISHE to continue usually completes it.',
+        code: 'UPSTREAM_TRUNCATED',
         partial: true,
       }
     default:
