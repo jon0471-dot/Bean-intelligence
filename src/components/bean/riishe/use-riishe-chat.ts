@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { beanFetch } from '@/components/bean/shared'
 import type { ConversationListItem } from '@/lib/riishe/conversation-view'
+import { planRegenerate, persistedAnswerMatchesTurn } from '@/lib/riishe/retry'
 import {
   classifyHttpFailure,
   consumeRiisheStream,
@@ -99,6 +100,15 @@ export function useRiisheChat(refs: RiisheChatRefs) {
   const nearBottomRef = useRef(true)
   const streamedRef = useRef('')
   const abortRef = useRef<AbortController | null>(null)
+  // SYNCHRONOUS duplicate-send gate: React state (`streaming`) updates
+  // asynchronously, so two send/regenerate calls in the same tick (double
+  // Enter, double click on Regenerate, Enter + button) both saw `false` and
+  // both POSTed — two identical turns. This ref flips synchronously inside
+  // send() and is the authoritative in-flight marker.
+  const sendingRef = useRef(false)
+  // Guards the dead-wire recovery fetches below (one per failed turn; a
+  // newer turn cancels an older turn's pending recovery).
+  const recoverySeqRef = useRef(0)
   const { scrollRef, endRef } = refs
 
   // Auto-scroll ONLY while the reader is already at (or near) the bottom.
@@ -307,9 +317,13 @@ export function useRiisheChat(refs: RiisheChatRefs) {
   /** Regenerate the response to a SPECIFIC user turn (consistent actions on
    *  every assistant message). For the trailing exchange this is the classic
    *  retry; for earlier messages the server removes that exchange and
-   *  everything after it, then answers the same user turn again. */
+   *  everything after it, then answers the same user turn again.
+   *  The trailing/retry decision is the unit-tested planRegenerate contract —
+   *  a trailing regenerate is ALWAYS wire-`retry` (the previous inline logic
+   *  skipped retry when the answer had a server id and duplicated the turn
+   *  server-side). */
   function regenerateFrom(asstMsg: Msg) {
-    if (streaming) return
+    if (sendingRef.current) return
     const idx = messages.findIndex((m) => m.id === asstMsg.id)
     if (idx < 0) return
     let userIdx = -1
@@ -322,17 +336,16 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     if (userIdx < 0) return
     const userContent = messages[userIdx].content
     const isTrailing = idx === messages.length - 1
-    // Without a persisted id a mid-conversation regenerate cannot truncate
-    // server-side history — refuse rather than silently duplicating the turn.
-    if (!isTrailing && !asstMsg.serverId) return
+    const plan = planRegenerate({ isTrailing, serverId: asstMsg.serverId })
+    if (!plan) return
     // Drop everything from the user turn onward (locally; the server mirrors
-    // this for earlier messages so history stays an honest sequence).
+    // this so history stays an honest sequence).
     setMessages(messages.slice(0, userIdx))
     setTimeout(
       () =>
         void send(userContent, {
-          retry: isTrailing && !asstMsg.serverId,
-          retryFromId: isTrailing ? undefined : asstMsg.serverId,
+          retry: plan.retry,
+          retryFromId: plan.retryFromMessageId,
         }),
       0,
     )
@@ -340,7 +353,10 @@ export function useRiisheChat(refs: RiisheChatRefs) {
 
   async function send(overrideMessage?: string, opts?: { retry?: boolean; retryFromId?: string }) {
     const message = (overrideMessage ?? input).trim()
-    if (!message || streaming) return
+    // SYNCHRONOUS gate (see sendingRef): React's `streaming` state is not
+    // updated until re-render, so this alone cannot stop same-tick doubles.
+    if (!message || sendingRef.current) return
+    sendingRef.current = true
     if (overrideMessage === undefined) setInput('')
     setError(null)
     setStreaming(true)
@@ -352,6 +368,10 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: message }
     const asstId = `a-${Date.now()}`
     setMessages((prev) => [...prev, userMsg, { id: asstId, role: 'assistant', content: '', pending: true }])
+
+    // Every new send invalidates any pending dead-wire recovery from an
+    // earlier turn (seq guard below).
+    const recoverySeq = ++recoverySeqRef.current
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -382,6 +402,69 @@ export function useRiisheChat(refs: RiisheChatRefs) {
       let convId: string | null = activeId
       let serverError: string | null = null
       let serverDone = false
+
+      /**
+       * DEAD-WIRE RECONCILIATION (root-cause completion of the 2026-11-01
+       * streaming fix). Measured incident: the platform path can silently
+       * drop the client connection mid-generation; the SERVER still finishes
+       * the turn and persists the complete answer (disconnects are contained
+       * in the SSE writer), but the client only saw its own watchdog message
+       * and the partial text — the finished answer sat in the database
+       * unseen. After any non-abort transport failure with a known
+       * conversation, the client now fetches the persisted conversation and
+       * adopts the completed answer when (a) the newest row is the assistant
+       * reply to THIS turn's question and (b) the partial's head matches it —
+       * never a guess, never another turn's answer. One bounded delayed
+       * retry covers the case where the watchdog fired while the server was
+       * still finishing a long buffered phase.
+       */
+      const runRecovery = async (attempt: number) => {
+        if (!convId || recoverySeq !== recoverySeqRef.current) return
+        try {
+          const d = await beanFetch<{
+            conversation: {
+              messages: Array<{ id: string; role: string; content: string; metadata?: MsgMeta | null }>
+            }
+          }>(`/api/riishe/conversations/${convId}`)
+          if (recoverySeq !== recoverySeqRef.current) return
+          const rows = d.conversation.messages
+          const last = rows[rows.length - 1]
+          const prevRow = rows[rows.length - 2]
+          const normalized = (s: string): string => s.replace(/\s+/g, ' ').trim()
+          const isThisTurn =
+            last &&
+            last.role === 'assistant' &&
+            typeof last.content === 'string' &&
+            last.content.trim().length > 0 &&
+            prevRow?.role === 'user' &&
+            normalized(prevRow.content) === normalized(message)
+          if (isThisTurn && persistedAnswerMatchesTurn(last.content, streamedRef.current)) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === asstId
+                  ? {
+                      ...m,
+                      content: last.content,
+                      partial: false,
+                      pending: false,
+                      serverId: last.id,
+                      meta: last.metadata ?? undefined,
+                    }
+                  : m,
+              ),
+            )
+            setError(null)
+            return
+          }
+          // Not persisted yet (or honestly not this turn's answer): one
+          // bounded delayed retry in case the server was still finishing.
+          if (attempt === 0) {
+            setTimeout(() => void runRecovery(1), 20_000)
+          }
+        } catch {
+          /* recovery is best-effort; the preserved partial stays visible */
+        }
+      }
 
       const applyServerFailureOutcome = () => {
         // Shared finalization for any failure that already produced text vs
@@ -459,6 +542,7 @@ export function useRiisheChat(refs: RiisheChatRefs) {
         onFailure: (failure: StreamFailureInfo) => {
           if (failure.kind === 'aborted') {
             // User pressed Stop: keep what arrived and label it honestly.
+            // NO recovery fetch — stopping is an explicit user decision.
             if (streamedRef.current !== '') {
               setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, partial: true, pending: false } : m)))
             } else {
@@ -470,10 +554,14 @@ export function useRiisheChat(refs: RiisheChatRefs) {
             // The server already classified this failure over SSE (its event
             // is always the last one before close); keep that wording.
             applyServerFailureOutcome()
+            void runRecovery(0)
             return
           }
           setError(failure.message)
           applyServerFailureOutcome()
+          // network / timeout / protocol: the server may still have finished
+          // and persisted the complete answer — reconcile before giving up.
+          void runRecovery(0)
         },
       })
 
@@ -496,6 +584,9 @@ export function useRiisheChat(refs: RiisheChatRefs) {
         restoreQuestionForRetry(message)
       }
     } finally {
+      // Release the SYNCHRONOUS send gate (see sendingRef) — React's
+      // `streaming` state alone cannot prevent same-tick double submits.
+      sendingRef.current = false
       setStreaming(false)
       setResearching(false)
       setRunningTool(null)

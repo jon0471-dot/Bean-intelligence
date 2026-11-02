@@ -1,0 +1,54 @@
+: connected
+
+data: {"type":"stage","stage":"researching"}
+
+data: {"research":{"queries":["If yesterday was Monday, what day will it be the day after tomorrow?","If yesterday was Monday, what day will it be the day after tomorrow? latest news update"]}}
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"If","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" yesterday","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" was","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" Monday","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":",","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" then","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" today","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" is","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" Tuesday","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":",","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" and","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" the","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" day","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" after","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" tomorrow","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" will","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" be","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" Thursday","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":" [","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":"4","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"delta":"].","conversationId":"cmvymj3jk005krmvnefv1pb74"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmvymj3jk005krmvnefv1pb74","durationMs":15390,"partial":false,"messageId":"cmvymjff5005ormvndpovd8nz","firstTokenMs":15380,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":4,"title":"If yesterday was Monday, what is the day after tomorrow?","url":"https://askfilo.com/user-question-answers-smart-solutions/78-if-yesterday-was-monday-what-is-the-day-after-tomorrow-a-3435313038393539","hostName":"askfilo.com","date":"Jan 18, 2026","official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"}],"stages":[{"stage":"researching","durationMs":14627},{"stage":"verifying","durationMs":1}],"degraded":["page read failed: page_reader timed out after 10000ms"],"retrievedAt":"2026-11-02T02:12:50.511Z","router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"what"},{"family":"wh","match":"was"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":15385,"understandMs":0,"researchMs":14627,"searchMs":3015,"pageReadMs":10003,"solveTtftMs":752,"solveMs":756,"verifyMs":1,"solvePasses":1}}}
+

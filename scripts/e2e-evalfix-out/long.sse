@@ -1,0 +1,2004 @@
+: connected
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"#","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" REST","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" API","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Tutorial","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Node","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".js","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" and","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Service","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"##","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Setup","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"First","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" create","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" project","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" directory","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" and","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" initialize","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" it","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bash","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"mkdir","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"-api","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"cd","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"-api","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"npm","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" init","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" -","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"y","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"``","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Install","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bash","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"npm","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" install","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"``","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Create","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" file","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" named","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" `","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"server","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".js","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"javascript","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" require","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"('","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"');\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" app","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"();\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" PORT","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" process","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".env","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".PORT","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ||","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"300","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"0","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":";\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"//","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Middleware","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" to","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" parse","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" JSON","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" bodies","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"app","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".use","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"());\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"//","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" In","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"-memory","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"database","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" for","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"let","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" [\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"1","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"The","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Great","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" G","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"atsby","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"F","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Scott","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Fitzgerald","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" },\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"2","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"To","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Kill","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Mock","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"ing","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bird","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Har","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"per","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Lee","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" },\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"3","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"198","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"4","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"George","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Orwell","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" }\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"];\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"``","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"##","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" GET","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" /","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" endpoint","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Add","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" this","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" route","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" to","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" your","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" `","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"server","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".js","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"javascript","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"//","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" GET","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" all","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"app","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".get","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"('/","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"',","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" (","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"req","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":")","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =>","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":");\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"});\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"``","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"##","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" POST","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" /","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" endpoint","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Add","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" this","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" route","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" to","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" your","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" `","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"server","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".js","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"javascript","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"//","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" POST","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" book","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"app","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".post","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"('/","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"',","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" (","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"req","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":")","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =>","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" }","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" req","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".body","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":";\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  \n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" if","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" (!","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ||","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" !","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":")","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" return","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".status","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"400","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":").","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"({","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" error","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" and","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" are","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" required","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" });\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" }\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  \n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Book","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".length","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" +","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"1","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" };\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  \n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".push","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Book","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":");\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".status","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"201","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":").","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Book","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":");\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"});\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"``","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"##","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Complete","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" server","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".js","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Here","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"'s","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" the","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" complete","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" file","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"javascript","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" require","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"('","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"');\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" app","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"();\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" PORT","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" process","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".env","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".PORT","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ||","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"300","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"0","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":";\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"//","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Middleware","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" to","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" parse","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" JSON","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" bodies","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"app","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".use","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(express","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"());\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"//","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" In","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"-memory","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"database","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" for","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"let","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" [\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"1","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"The","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Great","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" G","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"atsby","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"F","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Scott","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Fitzgerald","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" },\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"2","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"To","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Kill","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Mock","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"ing","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bird","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Har","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"per","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Lee","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" },\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"3","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"198","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"4","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"George","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Orwell","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" }\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"];\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"//","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" GET","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" all","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"app","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".get","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"('/","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"',","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" (","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"req","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":")","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =>","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":");\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"});\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"//","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" POST","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" book","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"app","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".post","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"('/","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"',","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" (","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"req","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":")","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =>","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" }","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" req","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".body","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":";\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  \n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" if","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" (!","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ||","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" !","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":")","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" return","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".status","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"400","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":").","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"({","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" error","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" and","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" are","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" required","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" });\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" }\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  \n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" const","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Book","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".length","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" +","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"1","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" };\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  \n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".push","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Book","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":");\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" res","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".status","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"201","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":").","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Book","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":");\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"});\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"//","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Start","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" the","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" server","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"app","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".listen","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(PORT","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ()","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" =>","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" console","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".log","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"(`","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Server","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" is","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" running","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" on","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" port","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ${","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"PORT","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"}`);\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"});\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"``","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"##","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" JSON","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Response","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Example","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"When","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" you","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" make","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" GET","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" request","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" to","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" `/","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`,","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" you","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"'ll","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" receive","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" this","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" JSON","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" response","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"[\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"1","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"The","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Great","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" G","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"atsby","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"F","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Scott","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Fitzgerald","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" },\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"2","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"To","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Kill","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Mock","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"ing","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bird","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Har","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"per","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Lee","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" },\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" {\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"id","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"3","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"198","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"4","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"   ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"George","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Orwell","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" }\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"]\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"``","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"##","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Verification","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Steps","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"1","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Start","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" the","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" server","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bash","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" node","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" server","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".js","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ``","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"2","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Test","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" the","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" GET","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" endpoint","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" (","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"using","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" curl","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" or","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Post","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"man","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"):\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bash","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" curl","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" http","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"://","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"localhost","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"300","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"0","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"/books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ```\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" You","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" should","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" see","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" the","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" JSON","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" response","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" with","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" the","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" three","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" example","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"3","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Test","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" the","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" POST","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" endpoint","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" (","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"using","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" curl","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" or","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Post","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"man","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"):\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bash","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" curl","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" -","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"X","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" POST","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" -","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"H","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Content","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"-Type","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" application","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"/json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" -","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"d","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" '{\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Br","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"ave","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" New","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" World","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\",\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"A","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"ld","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"ous","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" H","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"ux","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"ley","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"}","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"'","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" http","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"://","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"localhost","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"300","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"0","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"/books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ``","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"`\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"4","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Verify","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" the","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" new","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" book","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" was","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" added","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" by","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" making","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" another","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" GET","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" request","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bash","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" curl","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" http","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"://","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"localhost","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"300","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"0","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"/books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ```\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" You","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" should","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" now","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" see","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" four","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":",","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" including","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" the","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" one","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" you","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" just","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" added","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".\n\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"5","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Test","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" error","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" handling","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" by","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" sending","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" POST","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" request","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" without","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" required","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" fields","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ```","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"bash","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" curl","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" -","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"X","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" POST","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" -","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"H","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" \"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Content","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"-Type","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" application","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"/json","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" -","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"d","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" '{\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"title","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\":\"","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"Missing","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" Author","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\"}","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"'","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" http","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"://","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"localhost","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":":","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"300","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"0","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"/books","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ```\n","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"  ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" You","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" should","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" receive","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" a","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" ","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":"400","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" status","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" code","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" with","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" an","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" error","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":" message","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"delta":".","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"reset":true}
+
+data: {"delta":"# REST API Tutorial: Node.js and Express Books Service\n\n## Setup\n\nFirst, create a new project directory and initialize it:\n\n```bash\nmkdir books-api\ncd books-api\nnpm init -y\n```\n\nInstall Express:\n\n```bash\nnpm install express\n```\n\nCreate a file named`server.js`\n```javascript\nconst express = require('express');\nconst app = express();\nconst PORT = process.env.PORT || 3000;\n\n// Middleware to parse JSON bodies\napp.use(express.json());\n\n// In-memory \"database\" for books\nlet books = [\n  { id: 1, title: \"The Great Gatsby\", author: \"F. Scott Fitzgerald\" },\n  { id: 2, title: \"To Kill a Mockingbird\", author: \"Harper Lee\" },\n  { id: 3, title: \"1984\", author: \"George Orwell\" }\n];\n```\n\n## GET /books endpoint\n\nAdd this route to your`server.js`\n```javascript\n// GET all books\napp.get('/books', (req, res) => {\n  res.json(books);\n});\n```\n\n## POST /books endpoint\n`server.js`\n```javascript\n// POST a new book\napp.post('/books', (req, res) => {\n  const { title, author } = req.body;\n  \n  if (!title || !author) {\n    return res.status(400).json({ error: \"Title and author are required\" });\n  }\n  \n  const newBook = {\n    id: books.length + 1,\n    title,\n    author\n  };\n  \n  books.push(newBook);\n  res.status(201).json(newBook);\n});\n```\n\n## Complete server.js\n\nHere's the complete file:\n\n```javascript\nconst express = require('express');\nconst app = express();\nconst PORT = process.env.PORT || 3000;\n\n// Middleware to parse JSON bodies\napp.use(express.json());\n\n// In-memory \"database\" for books\nlet books = [\n  { id: 1, title: \"The Great Gatsby\", author: \"F. Scott Fitzgerald\" },\n  { id: 2, title: \"To Kill a Mockingbird\", author: \"Harper Lee\" },\n  { id: 3, title: \"1984\", author: \"George Orwell\" }\n];\n\n// GET all books\napp.get('/books', (req, res) => {\n  res.json(books);\n});\n\n// POST a new book\napp.post('/books', (req, res) => {\n  const { title, author } = req.body;\n  \n  if (!title || !author) {\n    return res.status(400).json({ error: \"Title and author are required\" });\n  }\n  \n  const newBook = {\n    id: books.length + 1,\n    title,\n    author\n  };\n  \n  books.push(newBook);\n  res.status(201).json(newBook);\n});\n\n// Start the server\napp.listen(PORT, () => {\n  console.log(`Server is running on port ${PORT}`);\n});\n```\n\n## JSON Response Example\n\nWhen you make a GET request to`/books`, you'll receive this JSON response:\n\n```json\n[\n  {\n    \"id\": 1,\n    \"title\": \"The Great Gatsby\",\n    \"author\": \"F. Scott Fitzgerald\"\n  },\n  {\n    \"id\": 2,\n    \"title\": \"To Kill a Mockingbird\",\n    \"author\": \"Harper Lee\"\n  },\n  {\n    \"id\": 3,\n    \"title\": \"1984\",\n    \"author\": \"George Orwell\"\n  }\n]\n```\n\n## Verification Steps\n\n1. Start the server:\n   ```bash\n   node server.js\n   ```\n\n2. Test the GET endpoint (using curl or Postman):\n   ```bash\n   curl http://localhost:3000/books\n   ```\nYou should see the JSON response with the three example books.\n\n3. Test the POST endpoint (using curl or Postman):\n   ```bash\n   curl -X POST -H \"Content-Type: application/json\" -d '{\"title\":\"Brave New World\",\"author\":\"Aldous Huxley\"}' http://localhost:3000/books\n   ```\n\n4. Verify the new book was added by making another GET request:\n   ```bash\n   curl http://localhost:3000/books\n   ```\nYou should now see four books, including the one you just added.\n\n5. Test error handling by sending a POST request without required fields:\n   ```bash\n   curl -X POST -H \"Content-Type: application/json\" -d '{\"title\":\"Missing Author\"}' http://localhost:3000/books\n   ```\nYou should receive a 400 status code with an error message.","conversationId":"cmvymb9te003jrmvnhw9di7vd"}
+
+data: {"done":true,"conversationId":"cmvymb9te003jrmvnhw9di7vd","durationMs":9417,"partial":false,"messageId":"cmvymbh31003nrmvn38nmwjdo","firstTokenMs":758,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":3}],"degraded":["search not warranted: creative/transformational task on user-provided content","1 duplicate sentence(s) removed from the answer"],"router":{"task":"coding","confidence":0.9,"signals":[{"family":"code","match":"API"},{"family":"code","match":"Node"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":9404,"understandMs":8,"researchMs":null,"solveTtftMs":746,"solveMs":9391,"verifyMs":3,"solvePasses":1}}}
+

@@ -25,6 +25,20 @@ import {
   UpstreamRateLimitError,
 } from '@/lib/upstream/gateway'
 
+/**
+ * Typed truncation: the provider finished the stream with
+ * `finish_reason: "length"` — the answer was cut at the provider's output
+ * limit. This is NOT a normal completion (treating it as one shipped
+ * mid-JSON answers labeled complete) and NOT a stall; it is its own honest
+ * class so the stream surfaces as an incomplete generation.
+ */
+export class UpstreamTruncatedError extends Error {
+  constructor(message = 'upstream truncated the response at its output length limit (finish_reason: length)') {
+    super(message)
+    this.name = 'UpstreamTruncatedError'
+  }
+}
+
 const BACKEND_ID = 'bean-llm-hosted-primary'
 
 /**
@@ -47,13 +61,48 @@ export interface SseDeltaOptions {
   idleTimeoutMs?: number
 }
 
+/**
+ * Decode one upstream chunk to text without corrupting multibyte characters.
+ * The SDK resolves each iterator step with a Web ReadableStream chunk —
+ * normally a Uint8Array of raw SSE bytes, but the guard accepts the other
+ * shapes too (Buffer is a Uint8Array subclass; a plain string chunk is used
+ * as-is; anything else is treated as a byte-like record, the shape the
+ * previous implementation assumed).
+ *
+ * DECODER FIX (measured defect class): the previous implementation called
+ * `Buffer.from(bytes).toString('utf8')` PER CHUNK — a UTF-8 character split
+ * across two network chunks (routine for Tamil/CJK output on a fast stream)
+ * decoded as U+FFFD replacement garbage in the persisted answer. The decode
+ * is now STREAMING (`decode(value, {stream:true})` + final flush), so split
+ * characters reassemble exactly.
+ */
+function makeChunkDecoder(): (chunk: unknown) => string {
+  const decoder = new TextDecoder('utf-8')
+  return (chunk: unknown): string => {
+    if (typeof chunk === 'string') return chunk
+    if (chunk instanceof Uint8Array) return decoder.decode(chunk, { stream: true })
+    try {
+      return decoder.decode(Buffer.from(Object.values(chunk as Record<string, number>)), { stream: true })
+    } catch {
+      return ''
+    }
+  }
+}
+
 export async function* sseDeltas(
   stream: AsyncIterable<unknown>,
   opts: SseDeltaOptions = {},
 ): AsyncGenerator<string, void, unknown> {
   const idleTimeoutMs = opts.idleTimeoutMs ?? UPSTREAM_STREAM_IDLE_TIMEOUT_MS
   const iterator = stream[Symbol.asyncIterator]()
+  const decodeChunk = makeChunkDecoder()
   let buffer = ''
+  // Set when the provider reports finish_reason "length" (output cap hit):
+  // the stream still ends normally, so the flag is raised into a typed
+  // truncation error AFTER the loop — the caller must never see this as a
+  // complete answer.
+  let truncated = false
+  let doneSentinel = false
   try {
     while (true) {
       let stallTimer: ReturnType<typeof setTimeout> | undefined
@@ -67,22 +116,38 @@ export async function* sseDeltas(
         }),
       ]).finally(() => clearTimeout(stallTimer))
       if (next.done) break
-      buffer += Buffer.from(Object.values(next.value as Record<string, number>)).toString('utf8')
+      buffer += decodeChunk(next.value)
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        const m = line.match(/^data: (.*)$/)
-        if (!m) continue
-        if (m[1].trim() === '[DONE]') return
+      for (const rawLine of lines) {
+        const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+        // Spec: the space after "data:" is optional ("data:{...}" is legal).
+        const payload = line.startsWith('data:')
+          ? (line.startsWith('data: ') ? line.slice(6) : line.slice(5))
+          : null
+        if (payload === null) continue
+        if (payload.trim() === '[DONE]') {
+          // The sentinel exits the READ loop — but a finish_reason "length"
+          // observed earlier still raises the truncation error below, so a
+          // length-capped answer can never masquerade as a completion.
+          doneSentinel = true
+          break
+        }
         try {
-          const json = JSON.parse(m[1])
-          const delta: string | undefined = json.choices?.[0]?.delta?.content
+          const json = JSON.parse(payload) as {
+            choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>
+          }
+          const choice = json.choices?.[0]
+          const delta: string | undefined = choice?.delta?.content
+          if (choice?.finish_reason === 'length') truncated = true
           if (typeof delta === 'string' && delta.length > 0) yield delta
         } catch {
           // partial JSON across chunk boundary — carried in buffer
         }
       }
+      if (doneSentinel) break
     }
+    if (truncated) throw new UpstreamTruncatedError()
   } finally {
     // Best-effort upstream cleanup (SDK exposes no AbortSignal — the
     // abandoned request may run until the provider's own deadline; recorded

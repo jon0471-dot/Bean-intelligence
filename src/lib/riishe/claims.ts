@@ -74,6 +74,14 @@ export interface ClaimSupportAudit {
   unattributedAllegations: string[]
   /** Proper-noun details not found in the text of the sources cited for them. */
   ungroundedNames: string[]
+  /** Sentences whose specific calendar date (e.g. "May 11, 2026") cannot be
+   *  located in the text of the sources cited for them. Measured failure
+   *  (2026-11-02 eval): an oath answer stated the ARTICLE'S PUBLICATION date
+   *  as the event date — the cited page never says that day in its text.
+   *  Dates are checked against title+snippet+excerpt text only, deliberately
+   *  NOT the URL (a publish-date slug would falsely ground the very error
+   *  this audit exists to catch). */
+  ungroundedDates: string[]
   /** Uncertainty stated MORE than twice — the synthesis protocol requires a
    *  limitation to appear ONCE; this is the measured repeat-caveat defect. */
   repeatedHedges: string[]
@@ -92,6 +100,10 @@ export interface ClaimAuditOptions {
   /** Searchable text of ALL retrieved sources (not only the cited ones) —
    *  powers the supported-but-uncited classification. */
   fullCorpus?: string
+  /** Per-id searchable text used ONLY by the date-grounding audit (title +
+   *  snippet + excerpt, NO URL — a publication-date slug must never ground a
+   *  date). Defaults to `sourceTexts` when omitted. */
+  dateSourceTexts?: ReadonlyMap<number, string>
 }
 
 const STOP_CAPITALIZED = new Set([
@@ -157,6 +169,58 @@ const HEDGE_RE =
 
 /** How many hedge sentences are allowed before the repeat is flagged. */
 export const HEDGE_REPEAT_THRESHOLD = 2
+
+// ---- date-grounding audit ---------------------------------------------------
+
+const MONTH_KEYS: Record<string, string> = {
+  jan: 'jan', feb: 'feb', mar: 'mar', apr: 'apr', may: 'may', jun: 'jun',
+  jul: 'jul', aug: 'aug', sep: 'sep', sept: 'sep', oct: 'oct', nov: 'nov', dec: 'dec',
+}
+
+interface ExtractedDate {
+  day: number
+  /** Three-letter month key, lowercase. */
+  mon: string
+  year: number
+  /** The verbatim text, for reporting. */
+  raw: string
+}
+
+/** Extract full calendar dates (day + month + year) from a sentence. */
+export function extractCalendarDates(sentence: string): ExtractedDate[] {
+  const out: ExtractedDate[] = []
+  const push = (day: number, monRaw: string, year: number, raw: string) => {
+    const mon = MONTH_KEYS[monRaw.toLowerCase().slice(0, 4)] ?? MONTH_KEYS[monRaw.toLowerCase().slice(0, 3)]
+    if (mon && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) out.push({ day, mon, year, raw })
+  }
+ // "10 May 2026" / "10th May, 2026"
+  for (const m of sentence.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?\s+([\p{L}]{3,9})\.?,?\s+(\d{4})\b/gu)) {
+    push(Number(m[1]), m[2], Number(m[3]), m[0])
+  }
+  // "May 11, 2026" / "May 11 2026"
+  for (const m of sentence.matchAll(/\b([\p{L}]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gu)) {
+    push(Number(m[2]), m[1], Number(m[3]), m[0])
+  }
+  // ISO "2026-05-11"
+  const MONTHS_ISO = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+  for (const m of sentence.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) {
+    const monIdx = Number(m[2]) - 1
+    if (monIdx >= 0 && monIdx < 12) out.push({ day: Number(m[3]), mon: MONTHS_ISO[monIdx], year: Number(m[1]), raw: m[0] })
+  }
+  return out
+}
+
+/**
+ * True when the corpus text substantiates the day-month pairing (the two
+ * tokens co-occur within a short window, either order) AND the year is not
+ * invented (appears in the corpus or anywhere in the retrieved evidence).
+ */
+function dateGroundedIn(corpus: string, fullCorpus: string, d: ExtractedDate): boolean {
+  const c = corpus.toLowerCase()
+  const win = new RegExp(`\\b${d.day}\\b[^\\n]{0,24}\\b${d.mon}\\b|\\b${d.mon}\\b[^\\n]{0,24}\\b${d.day}\\b`, 'i')
+  if (!win.test(c)) return false
+  return c.includes(String(d.year)) || fullCorpus.toLowerCase().includes(String(d.year))
+}
 
 /**
  * Sensitive-case probabilistic-outcome vocabulary: a percentage attached to
@@ -499,6 +563,7 @@ export function auditClaimSupport(
   let uncitedSupportedTotal = 0
   const unattributedAllegations: string[] = []
   const ungroundedNames: string[] = []
+  const ungroundedDates: string[] = []
   const unattributedProbabilistic: string[] = []
   const repeatedHedges: string[] = []
   let hedgeCount = 0
@@ -605,6 +670,27 @@ export function auditClaimSupport(
         }
       }
     }
+    // Date-grounding audit (same cited-only scope as the name audit): every
+    // full calendar date in a CITED sentence must be locatable in the cited
+    // sources' text. The corpus deliberately excludes the URL — a
+    // publication-date slug would falsely ground the measured failure class
+    // (article publication date presented as the event date).
+    if (cited && sourceTexts && sourceTexts.size > 0 && ungroundedDates.length < 2) {
+      const dates = extractCalendarDates(sentence)
+      if (dates.length > 0) {
+        const dateTexts = opts.dateSourceTexts ?? sourceTexts
+        const corpusNoUrl = ids
+          .filter((id) => dateTexts.has(id))
+          .map((id) => (dateTexts.get(id) ?? ''))
+          .join(' ')
+        if (corpusNoUrl.length > 0) {
+          const groundedAll = dates.every((d) => dateGroundedIn(corpusNoUrl, fullCorpus, d))
+          if (!groundedAll) {
+            ungroundedDates.push(trimForDisplay(sentence))
+          }
+        }
+      }
+    }
   }
   const uncovered = [...unsupported, ...uncitedSupported].slice(0, 2)
   const coverage = materialCount === 0 ? 1 : supportedCount / materialCount
@@ -620,6 +706,7 @@ export function auditClaimSupport(
     uncovered,
     unattributedAllegations,
     ungroundedNames,
+    ungroundedDates,
     repeatedHedges,
     unattributedProbabilistic,
     nameConflicts,

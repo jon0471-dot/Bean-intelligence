@@ -260,7 +260,8 @@ describe('verification note: research-quality limitations surface once', () => {
         ungroundedNames: ['Hemavathi'],
         repeatedHedges: [],
         unattributedProbabilistic: [],
-        nameConflicts: [],
+        ungroundedDates: [],
+      nameConflicts: [],
       },
     })
     expect(note).toContain('without attribution')

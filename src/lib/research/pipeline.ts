@@ -33,6 +33,7 @@ import { getSearchCache, getPageCache } from './cache'
 import { fastPathQueryVariants, regionContextFor, geoTermsOf, placeKeysOf, textMentionsTerm } from './geo'
 import { isOngoingCaseQuery } from './policy'
 import { coreTopic, detectSensitiveCase } from './sensitive'
+import { isPrimaryHost } from './rank'
 import { extractDatelineFromText } from './provider'
 import { UpstreamRateLimitError } from '@/lib/upstream/gateway'
 
@@ -164,20 +165,95 @@ export function toSearchQuery(message: string): string {
 /**
  * True when a freshness-sensitive (news) query deserves ONE bounded follow-up
  * search for newer reporting: every selected source is either undated or the
- * newest dated source is older than 45 days. Older reporting still ranks —
- * as background, never presented as the latest development.
+ * newest dated source is older than `staleDays` (default 45). Older reporting
+ * still ranks — as background, never presented as the latest development.
+ * Version/release questions pass a TIGHTER window (measured failure: the
+ * Next.js turn's newest source was 39 days old, under the 45-day default, so
+ * no follow-up ran and a 12-month-old third-party post was presented as the
+ * current release — a software project's release cadence is 1–3 weeks).
  */
-export function needsFreshnessFollowUp(ranked: RankedSource[]): boolean {
+export function needsFreshnessFollowUp(ranked: RankedSource[], staleDays = 45): boolean {
   if (ranked.length === 0) return false
   const ages = ranked.map((r) => parseSourceDate(r.date).ageDays).filter((a): a is number => a !== null)
   if (ages.length === 0) return true
-  return Math.min(...ages) > 45
+  return Math.min(...ages) > staleDays
 }
 
 /** Build the bounded follow-up query used to hunt for newer reporting. */
 export function buildFollowUpQuery(baseQuery: string): string {
   const base = baseQuery.replace(/\s+/g, ' ').trim().slice(0, 200)
   return `${base} latest news update`
+}
+
+/**
+ * Deterministic query additions for measured retrieval-failure classes
+ * (2026-11-02 eval). Each addition is bounded (total ≤ 5 queries), skipped
+ * when an existing query already targets the intent, and anchored on the
+ * question's OWN entities — no memorized answers:
+ *
+ *  (a) TITLED WORK — "the movie Scene" must search the EXACT title (quoted)
+ *      plus release/cast intent, so the evidence contains the actual film
+ *      instead of a similarly-titled substitute the model improvised.
+ *  (b) ENTITY DEVELOPMENTS — "latest developments from NVIDIA" gets one
+ *      official-announcement query so the company's own newsroom surfaces.
+ *  (c) VERSION/RELEASE — "latest stable version of Next.js" gets an
+ *      official-release-notes query; third-party posts lag real releases.
+ *  (d) OFFICEHOLDER OATH DATES — "when did they take office" gets an
+ *      oath/sworn-date query; announcement and publication dates otherwise
+ *      dominate the results and the exact event day goes unverified.
+ */
+export function buildDeterministicQuerySet(message: string, queries: string[]): { queries: string[]; added: string[] } {
+  const added: string[] = []
+  const next = [...queries]
+  const push = (q: string | null): void => {
+    if (!q) return
+    const t = truncateQuery(q)
+    if (next.some((e) => e.toLowerCase() === t.toLowerCase())) return
+    added.push(t)
+    next.push(t)
+  }
+  const existing = next.join(' \n ').toLowerCase()
+
+  // (a) Titled work: quoted title OR "<kind> <Capitalized Title>".
+  const quoted = message.match(/["“]([\p{L}\p{N}][^"”]{1,48})["”]/u)
+  const kindTitle = message.match(
+    /\b(movie|film|series|album|song|game|novel|book)\s+([\p{Lu}][\p{L}\p{N}'&.:\-]*(?:\s+[\p{Lu}][\p{L}\p{N}'&.:\-]*)?)/u,
+  )
+  const title = (quoted?.[1] ?? kindTitle?.[2] ?? '').trim().replace(/[.:,'\-–—]+$/, '').trim()
+  const kind = (kindTitle?.[1] ?? 'movie').trim()
+  if (title && /\b(movie|film|series|album|song|game|novel|book|cast|hero|villain|actor|actress|release)\b/i.test(message)) {
+    push(`"${title}" ${kind} release cast details`)
+  }
+
+  // (b) Entity's latest developments → official announcement sources.
+  const devEntity = message.match(
+    /\b(?:latest|recent|newest)\s+(?:developments?|announcements?|updates?|news)\s+(?:from|at|about|on|of|for)\s+([A-Z][\w&.\-]*(?:\s+[A-Z][\w&.\-]*)?)/,
+  )
+  if (devEntity && !/\b(official|newsroom|announcement)\b/.test(existing)) {
+    push(`${devEntity[1].trim()} official announcement newsroom`)
+  }
+
+  // (c) Software version/release → official release notes.
+  if (/\bversion\b/i.test(message) || /\brelease\b/i.test(message)) {
+    const before = message.match(/\b([A-Z][\w.+#\-]*(?:\s?[A-Z][\w.+#\-]*)?)\s+(?:version|release)/)
+    const after = message.match(/\bversion\s+(?:of\s+)?([A-Z][\w.+#\-]*(?:\s?[A-Z][\w.+#\-]*)?)/)
+    const product = (after?.[1] ?? before?.[1] ?? '').trim()
+    if (product && !/\b(release notes|changelog|official)\b/.test(existing)) {
+      push(`${product} official release notes changelog`)
+    }
+  }
+
+  // (d) Officeholder oath/appointment date.
+  if (
+    /\b(chief minister|prime minister|president|governor|chief justice|mayor)\b/i.test(message) &&
+    /\b(oath|sworn|took office|take office|taking office|appointed)\b/i.test(message) &&
+    !/\b(oath|sworn)\b/i.test(existing)
+  ) {
+    const core = coreTopic(message)
+    push(core ? `${core} oath sworn in date official` : null)
+  }
+
+  return { queries: next.slice(0, 5), added }
 }
 
 /**
@@ -278,6 +354,26 @@ export function decidePageReads(
   const SUBSTANTIAL_SNIPPET = 260
   const allSubstantial = ranked.slice(0, count).every((s) => s.snippet.length >= SUBSTANTIAL_SNIPPET)
   return allSubstantial ? 0 : count
+}
+
+/**
+ * PRIMARY-HOSTS-FIRST read scheduling (pure): within the read budget,
+ * official and primary hosts are read before third-party pages. Measured
+ * failure (2026-11-02 eval): a version question spent its 2 reads on a
+ * year-old third-party blog while the actual release announcement sat
+ * unread in the evidence set. Deterministic reorder of the top slice only —
+ * evidence-set composition and ranking order are otherwise untouched.
+ */
+export function officialFirstReads<T extends { official: boolean; hostName: string }>(
+  sources: readonly T[],
+  count: number,
+): T[] {
+  if (count <= 0) return []
+  if (sources.length <= 1) return sources.slice(0, count)
+  const isPrimaryRanked = (s: T): boolean => s.official || isPrimaryHost(s.hostName)
+  const pool = sources.slice(0, Math.min(Math.max(count, 3), sources.length))
+  const primaryFirst = [...pool].sort((a, b) => Number(isPrimaryRanked(b)) - Number(isPrimaryRanked(a)))
+  return primaryFirst.slice(0, count)
 }
 
 /**
@@ -492,6 +588,15 @@ export async function runResearch(
   if (sensitiveSet.addedOfficialQuery) {
     degraded.push(`incident detected: added official-statement query "${sensitiveSet.addedOfficialQuery.slice(0, 60)}"`)
   }
+  // Deterministic entity/version/oath additions (measured eval failures:
+  // titled-work questions searched nothing exact, entity-development
+  // questions never hit the company's own announcements, version questions
+  // surfaced only third-party posts, oath dates went unverified).
+  const entitySet = buildDeterministicQuerySet(message, rawQueries)
+  rawQueries = entitySet.queries
+  for (const q of entitySet.added) {
+    degraded.push(`added targeted query "${q.slice(0, 60)}"`)
+  }
   const queries = dedupeQueries(rawQueries)
 
   // --- retrieval (parallel, bounded, cache-aware) ---------------------------
@@ -575,11 +680,18 @@ export async function runResearch(
   if (decision.risk === 'high' && ranked.length > 0) {
     const newestAge = newestSourceAgeDays(ranked)
     const ongoing = isOngoingCaseQuery(queries[0])
-    const staleEvidence = needsFreshnessFollowUp(ranked)
+    // Version/release questions run on a TIGHTER staleness threshold (21d):
+    // a software project's release cadence is 1–3 weeks, so a 39-day-old
+    // newest source (the measured Next.js failure) must trigger the hunt for
+    // the actual current release instead of presenting a year-old post.
+    const versionSensitive = /\b(version|release)\b/i.test(message)
+    const staleEvidence = needsFreshnessFollowUp(ranked, versionSensitive ? 21 : 45)
     const ongoingStale = ongoing && newestAge !== null && newestAge > 3
     const ongoingUndated = ongoing && newestAge === null
     if (staleEvidence || ongoingStale || ongoingUndated) {
-      const followUpQuery = buildFollowUpQuery(queries[0])
+      const followUpQuery = versionSensitive
+        ? `${queries[0]} official release notes changelog`.slice(0, 280)
+        : buildFollowUpQuery(queries[0])
       if (!queries.includes(followUpQuery)) {
         const recency = ongoing ? 10 : 30
         const outcome = await searchWithBoundedRetry(followUpQuery, { num: 6, recencyDays: recency })
@@ -603,7 +715,7 @@ export async function runResearch(
   let pageReadMs = 0
   if (readCount > 0) {
     const tPageStart = Date.now()
-    const toRead = sources.slice(0, readCount)
+    const toRead = officialFirstReads(sources, readCount)
     const readResults = await mapWithConcurrency(toRead, PAGE_READ_CONCURRENCY, (s) => {
       const cached = getPageCache<{ url: string; text: string; publishedTime: string | null }>(s.url)
       if (cached.hit) {
