@@ -1,0 +1,18 @@
+Based on the retrieved evidence, here are the latest Node.js versions as of today (November 3, 2026):
+
+**LTS (Long Term Support) line:**
+- Node.js 24.22.2 (LTS) - Release date not specified in the evidence
+
+**Current line:**
+- Node.js 26.12.1 (Current) - Release date not specified in the evidence
+
+The evidence also mentions that Node.js 27.0.0-alpha.0.0.0 is in development, but it's not yet a stable release.
+According to the retrieved evidence [3], Node.js 24.22.2 (LTS) and Node.js 26.12.1 (Current) are the latest releases. 
+
+**LTS (Long Term Support) line:** [3]
+- Node.js 24.22.2 (LTS) - Release date not specified in the evidence [3]
+
+**Current line:** [3]
+- Node.js 26.12.1 (Current) - Release date not specified in the evidence [3]
+
+The evidence also mentions that Node.js 27.0.0-alpha.0.0.0 is in development [3], but it's not yet a stable release.

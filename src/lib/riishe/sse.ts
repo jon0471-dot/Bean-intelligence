@@ -24,7 +24,14 @@
  *    answer (no dangling half-turn in history, no duplicate user retries).
  *
  * The protocol itself (single-line `data: {json}\n\n` frames) is UNCHANGED.
+ *
+ * The heartbeat cadence is configurable via RIISHE_HEARTBEAT_INTERVAL_MS
+ * (src/lib/riishe/stream-config). The config clamps it to [5s, 30s] so it can
+ * never rise to the client's 60s idle watchdog — a live connection must
+ * always show bytes before the client would call it dead.
  */
+
+import { streamConfig } from './stream-config'
 
 export const DEFAULT_SSE_HEARTBEAT_MS = 15_000
 
@@ -62,7 +69,7 @@ export function createSseWriter(
   controller: ReadableStreamDefaultController<Uint8Array>,
   options: SseWriterOptions = {},
 ): SseWriter {
-  const heartbeatMs = options.heartbeatMs ?? DEFAULT_SSE_HEARTBEAT_MS
+  const heartbeatMs = options.heartbeatMs ?? streamConfig().heartbeatIntervalMs
   const timers = options.timers ?? defaultTimers()
   const encoder = new TextEncoder()
 

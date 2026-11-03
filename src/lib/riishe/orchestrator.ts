@@ -25,7 +25,9 @@
  * unverifiable answers are surfaced as degraded states, not hidden.
  */
 import type { TaskAdapter, ChatTurn } from '@/lib/adapters/types'
-import { withTimeout } from '@/lib/adapters/hosted-llm'
+import { withTimeout, UpstreamTruncatedError } from '@/lib/adapters/hosted-llm'
+import { streamConfig } from './stream-config'
+import { solveWithContinuation } from './continuation'
 import { shouldSearch, isDocumentLike, isNewsEventQuery, type SearchDecision } from '@/lib/research/policy'
 import { runResearch, formatEvidenceBlock, type EvidencePack } from '@/lib/research/pipeline'
 import { detectSensitiveCase } from '@/lib/research/sensitive'
@@ -476,32 +478,43 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
           messages,
           maxPromptChars: caps.maxPromptChars,
           maxHistoryMessages: caps.maxHistoryMessages,
-          timeoutMs: 90_000,
+          timeoutMs: streamConfig().upstreamTimeoutMs,
           thinkingEnabled: profile.thinkingEnabled,
         }),
-        90_000,
+        streamConfig().upstreamTimeoutMs,
         'RIISHE',
       )
       return result.content
     }
     let full = ''
     const tStreamStart = Date.now()
-    for await (const delta of adapter.chatStream!({
-      messages,
-      maxPromptChars: caps.maxPromptChars,
-      maxHistoryMessages: caps.maxHistoryMessages,
-      timeoutMs: 90_000,
-      thinkingEnabled: profile.thinkingEnabled,
-    })) {
-      if (solveTtftMs === null) solveTtftMs = Date.now() - tStreamStart
-      full += delta
-      // Live streaming only when nothing needs buffering (no tool loop, no
-      // injection gate). Buffered paths emit the final content exactly once.
-      if (!liveBufferNeeded && live) {
-        streamedAny = true
-        streamedText += delta
-        onEvent?.({ type: 'delta', delta })
+    try {
+      for await (const delta of adapter.chatStream!({
+        messages,
+        maxPromptChars: caps.maxPromptChars,
+        maxHistoryMessages: caps.maxHistoryMessages,
+        timeoutMs: streamConfig().upstreamTimeoutMs,
+        thinkingEnabled: profile.thinkingEnabled,
+      })) {
+        if (solveTtftMs === null) solveTtftMs = Date.now() - tStreamStart
+        full += delta
+        // Live streaming only when nothing needs buffering (no tool loop, no
+        // injection gate). Buffered paths emit the final content exactly once.
+        if (!liveBufferNeeded && live) {
+          streamedAny = true
+          streamedText += delta
+          onEvent?.({ type: 'delta', delta })
+        }
       }
+    } catch (e) {
+      // A length-cap truncation on a STREAMING pass: the partial deltas were
+      // already yielded (and streamed live when applicable). Attach them to
+      // the typed error so the continuation driver can resume from exactly
+      // where the output stopped instead of discarding them.
+      if (e instanceof UpstreamTruncatedError && e.partialText === null && full.length > 0) {
+        throw new UpstreamTruncatedError(e.message, full)
+      }
+      throw e
     }
     if (!full.trim()) throw new Error('Upstream returned an empty completion')
     return full
@@ -538,7 +551,21 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     degraded.push(...loop.degraded)
     solveResult = { content: loop.content, streamed: false }
   } else {
-    const content = await runSolveOnce(baseMessages, true)
+    // Controlled continuation: when the provider cuts the answer at its
+    // output-length limit, continue from the preserved partial (bounded) so
+    // a long answer completes instead of shipping truncated. The tool-loop
+    // path keeps its existing behavior (its passes end with TOOL_CALL or the
+    // final content, and its truncations surface as UPSTREAM_TRUNCATED).
+    const outcome = await solveWithContinuation({
+      baseMessages,
+      solvePass: (messages) => runSolveOnce(messages, true),
+    })
+    if (outcome.continuationCount > 0) {
+      degraded.push(
+        `the provider's output limit was reached; the answer was continued automatically (${outcome.continuationCount} continuation pass)`,
+      )
+    }
+    const content = outcome.content
     solveResult = { content, streamed: !input.nonStreaming }
   }
   const solveMs = Date.now() - tSolveStart

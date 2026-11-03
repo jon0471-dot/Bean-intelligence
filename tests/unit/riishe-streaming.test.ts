@@ -486,7 +486,10 @@ function frameOf(text: string): string {
   return `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`
 }
 
-async function collect(stream: AsyncIterable<unknown>, opts?: { idleTimeoutMs?: number }): Promise<string> {
+async function collect(
+  stream: AsyncIterable<unknown>,
+  opts?: { idleTimeoutMs?: number; maxDurationMs?: number },
+): Promise<string> {
   const out: string[] = []
   for await (const d of sseDeltas(stream, opts)) out.push(d)
   return out.join('')
@@ -570,5 +573,100 @@ describe('upstream SSE adapter hardening (2026-11-02)', () => {
     expect(payload.code).toBe('UPSTREAM_TRUNCATED')
     expect(payload.partial).toBe(true)
     expect(payload.error).toContain('length limit')
+  })
+})
+
+// ---- 2026-11-03 reliability work order additions ---------------------------
+
+describe('final flush — a last data line without a trailing blank line is not dropped', () => {
+  test('the residual buffered line is processed when the stream closes', async () => {
+    const stream = {
+      async *[Symbol.asyncIterator]() {
+        yield encoder.encode(frameOf('first '))
+        // Ends WITHOUT the trailing \n\n and WITHOUT [DONE].
+        yield encoder.encode('data: {"choices":[{"delta":{"content":"last token"}}]}')
+      },
+    }
+    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('first last token')
+  })
+
+  test('a UTF-8 character split exactly at stream end is flushed, not corrupted', async () => {
+    // 'த' in UTF-8 is 3 bytes; cut it so the final chunk ends the stream with
+    // the remaining bytes and no trailing newline.
+    const full = encoder.encode('data: {"choices":[{"delta":{"content":"தமிழ்"}}]}')
+    const cut = full.length - 2
+    const stream = {
+      async *[Symbol.asyncIterator]() {
+        yield full.slice(0, cut)
+        yield full.slice(cut) // ends the stream, no trailing newline
+      },
+    }
+    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('தமிழ்')
+  })
+})
+
+describe('total duration guard — a slow-drip stream cannot hold a turn forever', () => {
+  test('fires a labeled total-duration timeout when the stream outlives the cap', async () => {
+    const drip = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => new Promise<IteratorResult<unknown>>(() => {}), // never settles
+        }
+      },
+    }
+    let caught: Error | null = null
+    const t0 = Date.now()
+    try {
+      for await (const _ of sseDeltas(drip as unknown as AsyncIterable<unknown>, {
+        idleTimeoutMs: 5_000, // idle guard NOT the first to fire
+        maxDurationMs: 40,
+      })) {
+        void _
+      }
+      expect.unreachable()
+    } catch (e) {
+      caught = e as Error
+    }
+    expect(caught?.message).toContain('total stream duration exceeded')
+    expect(Date.now() - t0).toBeLessThan(2_000)
+  })
+
+  test('a healthy stream well under the cap completes untouched', async () => {
+    const stream = {
+      async *[Symbol.asyncIterator]() {
+        yield encoder.encode(frameOf('quick '))
+        yield encoder.encode('data: [DONE]\n\n')
+      },
+    }
+    expect(
+      await collect(
+        stream as unknown as AsyncIterable<unknown>,
+        { idleTimeoutMs: 1_000, maxDurationMs: 5_000 },
+      ),
+    ).toBe('quick ')
+  })
+
+  test('maxDurationMs 0 disables the total cap (idle guard still applies)', async () => {
+    const drip = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => new Promise<IteratorResult<unknown>>(() => {}),
+        }
+      },
+    }
+    let caught: Error | null = null
+    try {
+      for await (const _ of sseDeltas(drip as unknown as AsyncIterable<unknown>, {
+        idleTimeoutMs: 30,
+        maxDurationMs: 0,
+      })) {
+        void _
+      }
+      expect.unreachable()
+    } catch (e) {
+      caught = e as Error
+    }
+    // The IDLE guard fired (not the total cap) — the cap was truly off.
+    expect(caught?.message).toContain('no tokens received for 30ms')
   })
 })
