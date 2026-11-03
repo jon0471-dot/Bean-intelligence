@@ -1,0 +1,4 @@
+data: {"stage":"thinking"}
+
+data: {"error":"The upstream AI gateway is rate-limited right now (HTTP 429). This usually clears within a few minutes — your question is kept below, so you can retry without retyping it.","code":"UPSTREAM_RATE_LIMITED","partial":true}
+
