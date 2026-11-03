@@ -35,7 +35,14 @@
 
 export type UpstreamEndpointClass = 'functions' | 'chat'
 
-export type UpstreamFailureKind = 'rate_limited' | 'auth' | 'billing' | 'timeout' | 'truncated' | 'other'
+export type UpstreamFailureKind =
+  | 'rate_limited'
+  | 'auth'
+  | 'billing'
+  | 'timeout'
+  | 'truncated'
+  | 'network'
+  | 'other'
 
 export interface UpstreamFailure {
   kind: UpstreamFailureKind
@@ -65,6 +72,16 @@ export function classifyUpstreamError(e: unknown): UpstreamFailure {
     return { kind: 'truncated', status: null }
   }
   if (status === null && /\btimed out\b/i.test(message)) return { kind: 'timeout', status: null }
+  // Transport-level upstream death (2026-11-03): the SDK surfaces a dropped
+  // connection as "fetch failed" / ECONNRESET / socket hang up. This is a
+  // DIFFERENT honest class from a provider-reported error or a stall timeout:
+  // the request reached the network and the network broke mid-flight.
+  if (
+    status === null &&
+    /\bfetch failed\b|ECONNRESET|ECONNREFUSED|EPIPE|socket hang up|network error|ERR_NETWORK/i.test(message)
+  ) {
+    return { kind: 'network', status: null }
+  }
   return { kind: 'other', status }
 }
 
@@ -210,8 +227,19 @@ export function upstreamStreamErrorPayload(e: unknown): {
       return {
         error:
           'The AI provider reached its output length limit before the answer finished. ' +
-          'The text received so far is preserved as incomplete — asking RIISHE to continue usually completes it.',
+          'The text received so far is preserved as incomplete — asking to continue usually completes it.',
         code: 'UPSTREAM_TRUNCATED',
+        partial: true,
+      }
+    case 'network':
+      // The upstream connection itself died mid-request (transport reset),
+      // NOT a model error and NOT a timeout stall. Honest category so the UI
+      // never shows a provider answer problem for a broken pipe.
+      return {
+        error:
+          'The connection to the AI provider was lost before the answer finished. ' +
+          'The text received so far is preserved as incomplete — retrying usually completes it.',
+        code: 'UPSTREAM_NETWORK',
         partial: true,
       }
     default:

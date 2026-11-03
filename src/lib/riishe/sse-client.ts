@@ -35,11 +35,16 @@ export interface RiisheStreamEvent {
   conversationId?: string
   messageId?: string
   partial?: boolean
-  stage?: 'researching' | 'tools' | 'solving' | 'verifying'
   tool?: { name: string; status: 'started' | 'done' | 'failed' }
   meta?: MsgMeta
   firstTokenMs?: number
   durationMs?: number
+  // ---- CODE GIFTZ turn fields (additive; the consumer is product-agnostic) --
+  projectId?: string
+  changes?: Array<{ path: string; change: string; diff?: unknown }>
+  files?: Array<{ path: string; origin: string }>
+  /** RIISHE pipeline stages; CODE GIFTZ uses 'thinking' before first token. */
+  stage?: 'researching' | 'tools' | 'solving' | 'verifying' | 'thinking'
 }
 
 export type StreamFailureKind =

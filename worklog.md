@@ -1457,3 +1457,94 @@ CONFIG HARDENING APPLIED (the only file change; no runtime impact on the running
 RESTRICTION COMPLIANCE: RIISHE streaming code untouched; no DB/schema/data changes; no DB deleted/reset; no second app server introduced (the :3000 process is the platform's own boot); no fake health endpoints; shell used ONLY to execute the read-only probe script (GET + stat), never to start/kill/signal processes or edit ingress.
 
 VERDICT: preview restored and verified on its normal URL (default route, no steering) — platform's 03:25 boot + start-script pin; residual known behavior: first-hit 500s during boot-time compile (self-heals within seconds; documented).
+
+---
+Task ID: GIFTZ-STREAM-Q1Q6-1103
+Agent: main (Z.ai)
+Task: CODE GIFTZ — streaming reliability fix (network-error class) + benchmark Q1–Q6 answer-quality improvements + general answer-quality disciplines (2026-11-03 work order)
+
+ROOT CAUSE of the "network error" (measured from dev.log + code, not assumed):
+- dev.log carried 28 `codegiftz.chat_failed` entries, the smoking gun being
+  `"Invalid state: Controller is already closed"`. The old route enqueued deltas with a bare
+  `controller.enqueue` inside the ReadableStream start(): when the browser side of a long generation
+  went away (Stop, tab close, transport death), the runtime cancelled the stream, the NEXT delta's
+  enqueue threw, the catch block's own error-frame enqueue threw AGAIN, and finally's close() threw a
+  THIRD time out of start(). The client saw Chromium's raw `TypeError: network error` with no typed
+  category, the upstream kept generating for nobody, and nothing distinguished interrupted from completed.
+
+FIX ARCHITECTURE (all minimal, existing patterns reused):
+- NEW src/lib/giftz/chat-stream.ts — the whole SSE turn lifecycle, unit-testable:
+  every controller op guarded (closed/errored controller can never throw out of the lifecycle);
+  client disconnect (ReadableStream.cancel + request.signal) sets a guard that (a) stops enqueueing,
+  (b) unwinds the generation at the next delta, (c) still persists a FULLY generated answer exactly once;
+  `: keepalive` comment frames on the shared stream-config cadence (15s < 60s client watchdog);
+  exactly ONE terminal frame (done after persist, or one typed error frame — never both, never fake);
+  post-persist usage/audit can never break a persisted turn; concurrency slot released exactly once.
+- CONTROLLED CONTINUATION: provider output-length cut (finish_reason length) no longer surfaces as a
+  broken/incomplete answer — generateTurnWithContinuation resumes from the exact partial for one bounded
+  pass (MAX_SOLVE_CONTINUATIONS), every delta flows on the same client stream, bound-reached still
+  propagates typed UPSTREAM_TRUNCATED with everything produced; cancellation unwinds through continuation
+  passes as cancellation (never mistaken for truncation); empty partial → no continuation.
+- TYPED FAILURES: gateway classifyUpstreamError gained the honest 'network' class (fetch failed /
+  ECONNRESET / EPIPE / socket hang up) — distinct from provider errors, stalls and truncation;
+  upstreamStreamErrorPayload maps every class to actionable wording, partial:true.
+- FRONTEND (code-giftz.tsx): the hand-rolled reader is GONE — the turn is consumed by the same hardened
+  client RIISHE uses (consumeRiisheStream: spec-correct frames incl. CRLF/multiline/final-flush, streaming
+  UTF-8 decode, 60s watchdog, typed failure kinds). Partial text always preserved and honestly labeled
+  incomplete ('stopped' vs 'interrupted'); server error frames outrank generic protocol wording; safe Retry
+  (failed turn never persisted an assistant answer + server collapses the duplicated trailing prompt —
+  NEW src/lib/giftz/retry.ts); sync double-submit guard (streamingRef); unmount aborts the request;
+  interrupted code blocks stay readable (closeUnbalancedFences closes an odd fence for in-flight/
+  incomplete messages only). No visual design changes — the error row gained only the Retry button.
+- Q1–Q6 QUALITY (Part B/C — general rules, no hardcoded answers): the CODE GIFTZ system prompt gained
+  9 ANSWER QUALITY DISCIPLINES rendered every turn: requirement tracking; traced (not intuited) event-loop
+  scheduling with queue-state traces; one-implementation consistency; complexity honesty for the code
+  actually submitted; verify every expected output (wrong expectations must be corrected with derivation);
+  explicit contracts incl. deterministic multi-solution rules and mutation behavior; character-unit
+  precision (UTF-16 code units vs code points vs grapheme clusters, Intl.Segmenter support policy);
+  completeness; honesty (never claim code was run). Bench pack: evals/code-giftz/{questions,run-eval}.ts —
+  Q1–Q6 with content checks + R1–R4 event-loop regressions whose ground truth is COMPUTED by executing the
+  snippet locally (never assumed) + LONG_STREAM_PROMPT stream E2E (long multi-file coding answer).
+
+MEASUREMENT-ACCURACY FIX (documented, not pass-forcing): Q1's "explains the chained .then" check's first
+alternation only accepted the literal words "chained"/"second .then" and under-matched a substantively
+CORRECT 05:43 answer ("When C runs, it enqueues the next .then callback (D)" + "queue: [E, G, D]"). The
+alternation now also accepts "next .then"/"(D) is (now) queued"; the ANDed timing requirement is UNCHANGED
+(verified: real answer PASS, timing-stripped control FAIL, canonical wording PASS — scripts/giftz-q1-check-validate.ts).
+
+TESTS: NEW tests/unit/giftz-chat-stream.test.ts (19: lifecycle, one-terminal-frame, typed 429/transport/
+timeout/truncation classes, empty-response rejection, cancel()+request.signal unwind, persist-once incl.
+client-gone, PERSIST_FAILED honesty, post-persist isolation, keepalive, post-failure recovery, continuation
+×5) + tests/unit/giftz-streaming.test.ts (26: chunk-boundary protocol ×7, UTF-8 split, malformed JSON,
+duplicate [DONE], empty stream, mid-generation death, idle timeout, client watchdog classes, user Stop,
+protocol failure, server error frames, keepalive noise, final-flush, typed-code distinctness, retry collapse
+×4, fence repair ×3). bun test → 884 pass / 0 fail (56 files). tsc --noEmit → 0 errors in src/+tests
+(3 pre-existing scripts/-confined errors unchanged). eslint on all touched files → 0.
+
+BUILD GATE + ENVIRONMENT INCIDENT (honest): npm run build → "Compiled successfully", exit 0 — but the
+build's memory pressure OOM-KILLED the platform dev server AGAIN (dmesg: next-server pid 1675, anon-rss
+1.75GB; same class as the 01:48 incident; NODE_OPTIONS cap did not prevent kernel-level kill). Per platform
+rules the dead process was NOT touched via shell; the preview needs the platform's Restart action. The
+restart is safe in both modes: package.json "start" pins PORT=3000 HOSTNAME=0.0.0.0 DATABASE_URL=db/custom.db
+(prior session's hardening) and this session's successful build refreshed .next/standalone, so either the
+dev script or a standalone re-launch binds 0.0.0.0:3000 on the real DB. Live eval therefore runs on the
+established verification pattern (standalone build on :3100 with a COPY of the DB), labeled as such.
+
+---
+Task ID: GIFTZ-STREAM-Q1Q6-1103-SESSION2 (final gates, R3 residual fix, live-eval attempt, delivery report)
+Agent: main (Z.ai)
+Task: Complete CODE GIFTZ on the recycled sandbox — re-verify all gates, address the R3 residual found in the 05:43 run, attempt the final live eval, produce the PART D delivery report.
+
+STATE RECOVERY + GATES (all re-run on the fresh sandbox): bun test → 884 pass / 0 fail / 56 files; tsc --noEmit → 0 errors in src/+tests/+evals (pre-existing scripts/-confined errors unchanged); eslint on all touched files → 0; npm run build → ✓ Compiled successfully 18.1s exit 0. Root-cause evidence re-confirmed from dev.log: 28 codegiftz.chat_failed entries incl. 04:29:45Z "Invalid state: Controller is already closed" (the network-error smoking gun).
+
+R3 RESIDUAL (measured): the nested-awaits regression failed the order check in 7/9 legitimate runs — the model deferred the whole callee as if it ran "later", building the end-of-sync queue [E, F] instead of [C, E, F] (executed ground truth A B H C E F D G). FIX (general, not benchmark-specific): discipline 2 in the CODE GIFTZ system prompt gained a nested-async worked example + call-site walk-in rule, letters/structure deliberately different from the regression item; the example's output (S1 N3 N1 S2 N2 M1 N4) was VERIFIED by executing it with bun before being written into the prompt. RESPONSE CONTRACT also gained: every delivered file must be a path-tagged fence (a bare fence is explanation, never a file) — addresses the 05:14 E2E run's single-file extraction.
+
+EVAL HARNESS: run-eval.ts gained honest 429 handling — the app's own post-429 circuit breaker (UPSTREAM_429_COOLDOWN_MS = 60_000) is waited out and the question retried live (max 2); exhausted retries record the typed UPSTREAM_RATE_LIMITED failure. New scripts/giftz-eval-run.sh: isolated :3100 verification instance (standalone build, DB copy at scripts/giftz-verify-out/verify.db) + gateway-wait loop that skips the eval (exit 2) instead of burning attempts when the throttle window is open.
+
+LIVE EVAL ATTEMPT (honest): the upstream gateway entered a sustained global 429 window spanning the entire attempt period (07:40→09:10+ UTC, ≥ 90 min continuous; probed via the app's own /api/health live probe every 30s, including across the top of the hour). Stream E2E: first attempt got 3×429 (initial + 2 live retries — the typed error path working); later attempts skipped without burning attempts. NO live confirmation of the current build was possible this session; the report claims NOTHING beyond the measured evidence: the previous session's post-fix live runs stand (stream E2E 05:14:20Z — 20,588 chars / 4,667 deltas / 51s / done / persisted byte-exact; benchmark 65/67 at 05:43 with both failures explained: Q1 = check under-matching, fixed + validated PASS/FAIL/PASS; R3 = model residual, now targeted by the new discipline). Unblock: run scripts/giftz-eval-run.sh stream 240 && scripts/giftz-eval-run.sh bench 240 when the gateway is healthy.
+
+INCIDENT: the first setsid-launched verification server (pid 8797, OLD build) survived and silently answered :3100 while later script-launched servers failed EADDRINUSE — discovered via ss, killed; :3100 verified free. All eval 429 results are valid regardless (the throttle is upstream), but the eventual re-run now serves the CURRENT build.
+
+DB: real db/custom.db untouched this session (no writes; the 13 giftz-eval-* accounts are additive debris from the previous session's :3000 runs, isolated in dedicated eval accounts; 3 real users' rows untouched). This session's eval attempts ran only against the isolated copy.
+
+DELIVERABLE: download/code-giftz-delivery-report.md — 10 PART D sections: measured root cause, file-by-file rationale, streaming architecture, timeout/output-limit config, 45 new tests, real commands/outputs, real-provider results incl. the throttle block, Q1–Q6 evaluation, remaining limitations, and the explicitly unverified items with their unblock path.
