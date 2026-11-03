@@ -1,0 +1,54 @@
+{
+  "ok": true,
+  "conversation": {
+    "id": "cmw042dwa0021qapyvdhbhbxd",
+    "title": "Write a detailed technical brief of at least 1200 words expl",
+    "messages": [
+      {
+        "id": "cmw042dwc0023qapyrnazbu81",
+        "role": "user",
+        "content": "Write a detailed technical brief of at least 1200 words explaining how TLS 1.3 differs from TLS 1.2. Use section headings, cover the handshake, cipher suites, key schedule, 0-RTT, and downgrade protection, and end with a short summary list.",
+        "createdAt": "2026-11-03T03:11:14.652Z",
+        "metadata": null
+      },
+      {
+        "id": "cmw042s9d0025qapyhlt0vij5",
+        "role": "assistant",
+        "content": "# TLS 1.3 vs TLS 1.2: A Technical Brief\n\n## Introduction\n\nTransport Layer Security (TLS) is the cryptographic protocol that provides secure communication over computer networks. TLS 1.3, the latest major version of the protocol, represents a significant evolution from its predecessor TLS 1.2. This technical brief examines the key differences between TLS 1.3 and TLS 1.2, focusing on handshake optimization, cipher suite simplification, improved key schedule, 0-RTT mode, and enhanced downgrade protection. These improvements collectively make TLS 1.3 faster, more secure, and more efficient than its predecessor.\n\n## Handshake Comparison\n\n### TLS 1.2 Handshake\n\nThe TLS 1.2 handshake typically requires two round trips (2-RTT) to establish a secure connection:\n\n1. **ClientHello**: The client sends its supported cipher suites, compression methods, and other parameters.\n2. **ServerHello**: The server responds with its chosen cipher suite and server random value.\n3. **Certificate**: The server sends its certificate (required for authentication).\n4. **ServerKeyExchange**: In some cases, the server sends additional parameters for key exchange.\n5. **ServerHelloDone**: The server indicates completion of its handshake messages.\n6. **ClientKeyExchange**: The client sends the premaster secret.\n7. **ChangeCipherSpec**: The client indicates it will switch to encrypted communication.\n8. **Finished**: The client sends a verification message under the new keys.\n9. **ChangeCipherSpec**: The server indicates it will switch to encrypted communication.\n10. **Finished**: The server sends a verification message under the new keys.\n\nThis process requires multiple round trips and involves several steps that introduce latency and potential security vulnerabilities.\n\n### TLS 1.3 Handshake\n\nTLS 1.3 significantly streamlines the handshake process:\n\n1. **ClientHello**: The client sends its supported cipher suites and key share values.\n2. **ServerHello**: The server responds with its chosen cipher suite and its key share.\n3. **Certificate**: The server sends its certificate (if using certificate-based authentication).\n4. **CertificateVerify**: The server provides proof of possession of the private key.\n5. **Finished**: The server sends a verification message.\n\nFor the most common case (perfect forward secrecy), TLS 1.3 reduces the handshake to a single round trip (1-RTT):\n\n1. **ClientHello**: Includes key shares.\n2. **ServerHello + Finished**: The server responds with its key share and immediately sends the Finished message.\n\nThis reduction in round trips significantly improves connection establishment time, which is particularly beneficial for web applications where latency directly impacts user experience.\n\n## Cipher Suite Simplification\n\n### TLS 1.2 Cipher Suites\n\nTLS 1.2 supports a wide variety of cipher suites, many of which are now considered insecure. These include:\n\n- Those using static RSA key exchange (vulnerable to POODLE attack)\n- CBC-mode ciphers (vulnerable to BEAST, Lucky 13, and other padding oracle attacks)\n- SHA-1 and MD5 digests (cryptographically broken)\n- RC4 (now completely broken)\n\nThe presence of these deprecated cipher suites complicates implementation and creates potential security risks if accidentally enabled.\n\n### TLS 1.3 Cipher Suites\n\nTLS 1.3 takes a much more restrictive approach, removing all insecure options and mandating modern cryptographic algorithms. The protocol supports only the following types of cipher suites:\n\n- **AEAD (Authenticated Encryption with Associated Data) ciphers**: All cipher suites in TLS 1.3 use AEAD algorithms (like AES-GCM or ChaCha20-Poly1305) which provide both confidentiality and authentication in a single operation.\n\n- **Key exchange**: Only ephemeral Diffie-Hellman (DHE) or Elliptic Curve Diffie-Hellman (ECDHE) key exchanges are supported, ensuring perfect forward secrecy.\n\n- **Hash functions**: Only SHA-256, SHA-384, and SHA-512 are permitted.\n\nThis simplification makes TLS 1.3 more secure by design, as it eliminates entire classes of vulnerabilities that existed in TLS 1.2. The protocol also removes support for compression, which was responsible for the CRIME attack.\n\n## Key Schedule Improvements\n\n### TLS 1.2 Key Schedule\n\nTLS 1.2 uses a relatively complex key schedule with multiple steps:\n\n1. A pseudorandom function (PRF) generates the premaster secret.\n2. Another PRF generates the master secret from the premaster secret.\n3. Additional PRF calls generate the necessary encryption keys, MAC keys, and initialization vectors.\n\nThis multi-step process introduces potential security risks, particularly in the handling of the premaster secret.\n\n### TLS 1.3 Key Schedule\n\nTLS 1.3 implements a much cleaner and more secure key schedule:\n\n1. **Shared Secret**: The Diffie-Hellman shared secret is derived directly from the key exchange.\n2. **Early Secret**: A hash of the shared secret creates an early secret.\n3. **Handshake Secret**: Derived from the early secret and handshake messages.\n4. **Master Secret**: Derived from the handshake secret and handshake completion.\n5. **Application Traffic Secrets**: Derived from the master secret and used for application data encryption.\n\nThis approach eliminates the need for a premaster secret and provides better separation between handshake and application traffic keys. It also includes a \"derived\" secret that can be used to verify the handshake wasn't tampered with.\n\nAdditionally, TLS 1.3 implements a more robust pseudorandom function (HKDF) based on HMAC, which is considered more secure than the PRF used in TLS 1.2.\n\n## 0-RTT Mode\n\n### The Need for 0-RTT\n\nFor many applications, particularly those with frequent connections (like mobile apps or web browsing), the 1-RTT handshake of TLS 1.3 still introduces noticeable latency. The 0-RTT mode in TLS 1.3 allows clients to send application data with the first flight of handshake messages, effectively eliminating handshake latency for repeat connections.\n\n### How 0-RTT Works\n\n1. **First Connection**: The client performs a normal 1-RTT handshake, and the server saves the session state.\n2. **Subsequent Connection**: The client includes a \"session ticket\" from the previous connection in its ClientHello.\n3. **Early Data**: The client immediately sends application data encrypted with keys derived from the saved session state, before receiving the server's response.\n4. **Server Response**: The server processes the early data and continues with the handshake.\n\n### Security Considerations\n\n0-RTT introduces a replay attack vulnerability, as an attacker could potentially capture and replay early data. To mitigate this:\n\n- The server can reject 0-RTT data entirely.\n- The server can accept 0-RTT data but apply replay protections.\n- Certain operations (like financial transactions) should not be sent with 0-RTT.\n\nDespite this trade-off, 0-RTT provides significant performance benefits for applications that can tolerate this risk.\n\n## Downgrade Protection\n\n### TLS 1.2 Vulnerabilities\n\nTLS 1.2 lacks robust downgrade protection, making it vulnerable to attacks where a man-in-the-middle forces a connection to use an older, less secure version of TLS. The \"Logjam\" attack, for example, could force a connection to use weak export-grade Diffie-Hellman parameters.\n\n### TLS 1.3 Downgrade Protection\n\nTLS 1.3 implements several mechanisms to prevent downgrade attacks:\n\n1. **Version Indicators**: The ClientHello and ServerHello messages include special values that indicate when a TLS 1.3 implementation is falling back to TLS 1.2. These values are cryptographically bound to the handshake messages.\n\n2. **Alert Signaling**: TLS 1.3 defines specific alerts for downgrade attempts that are cryptographically verified.\n\n3. **Strict Parsing**: TLS 1.3 has stricter parsing requirements, making it more difficult to force a downgrade through message manipulation.\n\nThese protections make it significantly harder for an attacker to force a TLS 1.3 connection to downgrade to TLS 1.2 or earlier versions.\n\n## Summary: Key Differences\n\n- **Handshake**: TLS 1.3 reduces the handshake from 2-RTT to 1-RTT (or 0-RTT for repeat connections), significantly improving connection establishment time.\n- **Cipher Suites**: TLS 1.3 removes all insecure cipher suites, mandating only modern AEAD ciphers with ephemeral key exchange.\n- **Key Schedule**: TLS 1.3 implements a cleaner, more secure key schedule that eliminates the premaster secret and better separates handshake and application traffic keys.\n- **0-RTT**: TLS 1.3 introduces an optional 0-RTT mode that allows clients to send application data immediately on subsequent connections, trading some security for improved performance.\n- **Downgrade Protection**: TLS 1.3 includes robust mechanisms to prevent downgrade attacks, which were a significant vulnerability in TLS 1.2.\n\nThese improvements make TLS 1.3 not just an incremental update, but a substantial evolution of the protocol that addresses fundamental security and performance limitations of its predecessor.",
+        "createdAt": "2026-11-03T03:11:33.265Z",
+        "metadata": {
+          "states": [
+            "UNVERIFIED"
+          ],
+          "sources": [],
+          "verification": [],
+          "stages": [
+            {
+              "stage": "verifying",
+              "durationMs": 2
+            }
+          ],
+          "degraded": [
+            "search not warranted: creative/transformational task on user-provided content"
+          ],
+          "router": {
+            "task": "general",
+            "confidence": 0.7,
+            "signals": [],
+            "codeExecution": false,
+            "imageAnalysis": false
+          },
+          "timings": {
+            "totalMs": 18612,
+            "understandMs": 0,
+            "researchMs": null,
+            "solveTtftMs": 839,
+            "solveMs": 18609,
+            "verifyMs": 2,
+            "solvePasses": 1
+          }
+        }
+      }
+    ]
+  }
+}
