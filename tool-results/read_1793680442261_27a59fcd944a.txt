@@ -1,0 +1,832 @@
+     1→'use client'
+     2→
+     3→/**
+     4→ * BEAN Intelligence — CODE GIFTZ workspace (chat-first coding assistant).
+     5→ *
+     6→ * ONE conversational input (no Generate/Explain/Review/Plan tabs, no target
+     7→ * language selector). Generated code opens a real workspace: file explorer,
+     8→ * tabbed editor with syntax highlighting, editable files with Save, line
+     9→ * diffs for model changes, sandbox terminal output, and an isolated Preview
+    10→ * panel for index.html projects. Panels are resizable; the chat stays
+    11→ * available before and after code exists.
+    12→ *
+    13→ * Honesty: the workspace shows exactly what the model produced (persisted
+    14→ * server-side), diffs render real changes only, the terminal shows real
+    15→ * sandbox output, and the preview renders the real files in a sandboxed
+    16→ * iframe. Nothing claims to have run or passed unless it actually did.
+    17→ */
+    18→import { useCallback, useEffect, useRef, useState } from 'react'
+    19→import { Button } from '@/components/ui/button'
+    20→import { Textarea } from '@/components/ui/textarea'
+    21→import { ScrollArea } from '@/components/ui/scroll-area'
+    22→import { Markdown, Spinner, timeAgo, beanFetch } from './shared'
+    23→import { cn } from '@/lib/utils'
+    24→import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+    25→import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+    26→import {
+    27→  Code2,
+    28→  Send,
+    29→  Square,
+    30→  Trash2,
+    31→  Plus,
+    32→  FileCode2,
+    33→  FilePlus2,
+    34→  Pencil,
+    35→  Eye,
+    36→  GitCompareArrows,
+    37→  Terminal as TerminalIcon,
+    38→  MonitorPlay,
+    39→  CircleCheck,
+    40→  CircleX,
+    41→  Paperclip,
+    42→  X,
+    43→  MessageSquareCode,
+    44→  Save,
+    45→} from 'lucide-react'
+    46→
+    47→interface ProjectSummary { id: string; title: string; messages: number; files: number; updatedAt: string }
+    48→interface ChatMessage {
+    49→  id: string
+    50→  role: 'user' | 'assistant'
+    51→  content: string
+    52→  changes: Array<{ path: string; change: string }>
+    53→}
+    54→interface ProjectFile { path: string; content: string; origin: 'generated' | 'modified' }
+    55→interface FileChange {
+    56→  path: string
+    57→  change: 'added' | 'modified'
+    58→  diff: Array<{ type: 'add' | 'del' | 'ctx'; text: string }>
+    59→}
+    60→interface RunResult {
+    61→  runId: string
+    62→  entry: string | null
+    63→  stdout: string
+    64→  stderr: string
+    65→  exitCode: number | null
+    66→  timedOut: boolean
+    67→  durationMs: number
+    68→}
+    69→interface FileMeta { id: string; name: string; kind: string; size: number; status: 'ready' | 'unsupported' | 'failed'; note?: string }
+    70→
+    71→const WELCOME =
+    72→  "Hi! I'm CODE GIFTZ, your coding assistant. Describe what you want to build, debug, refactor or review — I'll write the files, and you can run them in the sandbox or open a live preview."
+    73→
+    74→function langOf(path: string): string {
+    75→  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+    76→  const map: Record<string, string> = {
+    77→    js: 'javascript', jsx: 'javascript', mjs: 'javascript',
+    78→    ts: 'typescript', tsx: 'typescript',
+    79→    py: 'python', html: 'html', css: 'css', json: 'json', md: 'markdown', sql: 'sql',
+    80→  }
+    81→  return map[ext] ?? 'text'
+    82→}
+    83→
+    84→function formatBytes(n: number): string {
+    85→  if (n < 1024) return `${n} B`
+    86→  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+    87→  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+    88→}
+    89→
+    90→export function CodeGiftz() {
+    91→  const [projects, setProjects] = useState<ProjectSummary[]>([])
+    92→  const [projectId, setProjectId] = useState<string | null>(null)
+    93→  const [messages, setMessages] = useState<ChatMessage[]>([])
+    94→  const [files, setFiles] = useState<ProjectFile[]>([])
+    95→  const [input, setInput] = useState('')
+    96→  const [streaming, setStreaming] = useState(false)
+    97→  const [thinking, setThinking] = useState(false)
+    98→  const [error, setError] = useState<string | null>(null)
+    99→  const [openTabs, setOpenTabs] = useState<string[]>([])
+   100→  const [activeFile, setActiveFile] = useState<string | null>(null)
+   101→  const [fileView, setFileView] = useState<'code' | 'diff'>('code')
+   102→  const [editing, setEditing] = useState(false)
+   103→  const [editBuffer, setEditBuffer] = useState('')
+   104→  const [saving, setSaving] = useState(false)
+   105→  const [run, setRun] = useState<RunResult | null>(null)
+   106→  const [running, setRunning] = useState(false)
+   107→  const [showPreview, setShowPreview] = useState(false)
+   108→  const [lastChanges, setLastChanges] = useState<FileChange[]>([])
+   109→  const [attachments, setAttachments] = useState<FileMeta[]>([])
+   110→  const [uploading, setUploading] = useState(false)
+   111→  const [workspaceWidth, setWorkspaceWidth] = useState(46) // percent of the row
+   112→  const endRef = useRef<HTMLDivElement>(null)
+   113→  const streamedRef = useRef('')
+   114→  const abortRef = useRef<AbortController | null>(null)
+   115→  const fileInputRef = useRef<HTMLInputElement>(null)
+   116→  const dragRef = useRef<HTMLElement | null>(null)
+   117→  const workspaceRef = useRef<HTMLDivElement>(null)
+   118→
+   119→  const hasHtml = files.some((f) => f.path === 'index.html' || f.path === 'main.html')
+   120→
+   121→  const loadProjects = useCallback(async () => {
+   122→    try {
+   123→      const d = await beanFetch<{ projects: ProjectSummary[] }>('/api/code-giftz/chat')
+   124→      setProjects(d.projects)
+   125→    } catch { /* non-fatal */ }
+   126→  }, [])
+   127→
+   128→  useEffect(() => { void loadProjects() }, [loadProjects])
+   129→  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [messages, streaming, thinking])
+   130→
+   131→  async function openProject(id: string) {
+   132→    setError(null)
+   133→    setRun(null)
+   134→    setShowPreview(false)
+   135→    try {
+   136→      const d = await beanFetch<{
+   137→        project: {
+   138→          id: string
+   139→          title: string
+   140→          messages: Array<{ id: string; role: string; content: string; changes: Array<{ path: string; change: string }> }>
+   141→          files: ProjectFile[]
+   142→        }
+   143→      }>(`/api/code-giftz/chat/${id}`)
+   144→      setProjectId(d.project.id)
+   145→      setMessages(d.project.messages.map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, changes: m.changes ?? [] })))
+   146→      setFiles(d.project.files)
+   147→      const first = d.project.files[0]
+   148→      setOpenTabs(first ? [first.path] : [])
+   149→      setActiveFile(first?.path ?? null)
+   150→      setFileView('code')
+   151→      setEditing(false)
+   152→    } catch (e) {
+   153→      setError((e as Error).message)
+   154→    }
+   155→  }
+   156→
+   157→  function newProject() {
+   158→    setProjectId(null)
+   159→    setMessages([])
+   160→    setFiles([])
+   161→    setOpenTabs([])
+   162→    setActiveFile(null)
+   163→    setRun(null)
+   164→    setError(null)
+   165→    setAttachments([])
+   166→    setShowPreview(false)
+   167→  }
+   168→
+   169→  async function deleteProject(id: string) {
+   170→    try {
+   171→      await beanFetch(`/api/code-giftz/chat/${id}`, { method: 'DELETE' })
+   172→      if (projectId === id) newProject()
+   173→      void loadProjects()
+   174→    } catch (e) {
+   175→      setError((e as Error).message)
+   176→    }
+   177→  }
+   178→
+   179→  async function uploadFile(file: File) {
+   180→    const form = new FormData()
+   181→    form.append('file', file)
+   182→    const res = await fetch('/api/riishe/documents', { method: 'POST', body: form })
+   183→    const data = await res.json().catch(() => ({}))
+   184→    if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
+   185→    if (!res.ok) throw new Error(data?.error?.message ?? `Upload failed (${res.status})`)
+   186→    return data.document as FileMeta
+   187→  }
+   188→
+   189→  async function uploadFiles(list: FileList | File[]) {
+   190→    if (uploading || attachments.length >= 3) return
+   191→    setUploading(true)
+   192→    setError(null)
+   193→    try {
+   194→      for (const f of Array.from(list).slice(0, 3 - attachments.length)) {
+   195→        const doc = await uploadFile(f)
+   196→        setAttachments((prev) => [...prev, doc])
+   197→        if (doc.status === 'unsupported') {
+   198→          setError(`${doc.name}: ${doc.note ?? 'cannot be analyzed'}`)
+   199→        }
+   200→      }
+   201→    } catch (e) {
+   202→      setError((e as Error).message)
+   203→    } finally {
+   204→      setUploading(false)
+   205→      if (fileInputRef.current) fileInputRef.current.value = ''
+   206→    }
+   207→  }
+   208→
+   209→  function openFile(path: string) {
+   210→    setActiveFile(path)
+   211→    setFileView('code')
+   212→    setEditing(false)
+   213→    setOpenTabs((prev) => (prev.includes(path) ? prev : [...prev, path]))
+   214→  }
+   215→
+   216→  async function saveEdit() {
+   217→    if (!activeFile || !projectId) return
+   218→    setSaving(true)
+   219→    setError(null)
+   220→    try {
+   221→      await beanFetch(`/api/code-giftz/projects/${projectId}/files`, {
+   222→        method: 'POST',
+   223→        json: { path: activeFile, content: editBuffer },
+   224→      })
+   225→      setFiles((prev) => prev.map((f) => (f.path === activeFile ? { ...f, content: editBuffer, origin: 'modified' } : f)))
+   226→      setEditing(false)
+   227→    } catch (e) {
+   228→      setError((e as Error).message)
+   229→    } finally {
+   230→      setSaving(false)
+   231→    }
+   232→  }
+   233→
+   234→  async function runInSandbox() {
+   235→    if (!projectId || running) return
+   236→    setRunning(true)
+   237→    setRun(null)
+   238→    setError(null)
+   239→    try {
+   240→      const d = await beanFetch<{ run: RunResult }>(`/api/code-giftz/projects/${projectId}/run`, {
+   241→        method: 'POST',
+   242→        json: { approval: true },
+   243→      })
+   244→      setRun(d.run)
+   245→    } catch (e) {
+   246→      setError((e as Error).message)
+   247→    } finally {
+   248→      setRunning(false)
+   249→    }
+   250→  }
+   251→
+   252→  function stopGeneration() {
+   253→    abortRef.current?.abort()
+   254→  }
+   255→
+   256→  async function send(overrideMessage?: string) {
+   257→    const message = (overrideMessage ?? input).trim()
+   258→    if (!message || streaming) return
+   259→    if (overrideMessage === undefined) setInput('')
+   260→    setError(null)
+   261→    setStreaming(true)
+   262→    setThinking(true)
+   263→    streamedRef.current = ''
+   264→
+   265→    const tempId = `u-${Date.now()}`
+   266→    const asstId = `a-${Date.now()}`
+   267→    setMessages((prev) => [...prev, { id: tempId, role: 'user', content: message, changes: [] }, { id: asstId, role: 'assistant', content: '', changes: [] }])
+   268→
+   269→    const controller = new AbortController()
+   270→    abortRef.current = controller
+   271→    const readyFiles = attachments.filter((f) => f.status === 'ready')
+   272→
+   273→    try {
+   274→      const res = await fetch(`/api/code-giftz/chat?stream=1${projectId ? `&projectId=${projectId}` : ''}`, {
+   275→        method: 'POST',
+   276→        headers: { 'content-type': 'application/json' },
+   277→        body: JSON.stringify({
+   278→          message,
+   279→          projectId: projectId ?? undefined,
+   280→          fileIds: readyFiles.length > 0 ? readyFiles.map((f) => f.id) : undefined,
+   281→        }),
+   282→        signal: controller.signal,
+   283→      })
+   284→      if (!res.ok || !res.body) {
+   285→        if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
+   286→        const data = await res.json().catch(() => ({}))
+   287→        throw new Error(data?.error?.message ?? `Request failed (${res.status})`)
+   288→      }
+   289→      const reader = res.body.getReader()
+   290→      const decoder = new TextDecoder()
+   291→      let buffer = ''
+   292→      let newProjectId: string | null = projectId
+   293→      let changes: FileChange[] = []
+   294→
+   295→      while (true) {
+   296→        const { done, value } = await reader.read()
+   297→        if (done) break
+   298→        buffer += decoder.decode(value, { stream: true })
+   299→        const lines = buffer.split('\n')
+   300→        buffer = lines.pop() ?? ''
+   301→        for (const line of lines) {
+   302→          if (!line.startsWith('data: ')) continue
+   303→          let evt: { delta?: string; stage?: string; done?: boolean; error?: string; projectId?: string; changes?: FileChange[]; files?: Array<{ path: string; origin: string }> }
+   304→          try { evt = JSON.parse(line.slice(6)) } catch { continue }
+   305→          if (evt.projectId) newProjectId = evt.projectId
+   306→          if (evt.stage === 'thinking') setThinking(true)
+   307→          if (evt.error) setError(evt.error)
+   308→          if (evt.delta) {
+   309→            streamedRef.current += evt.delta
+   310→            setThinking(false)
+   311→            setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current } : m)))
+   312→          }
+   313→          if (evt.done) {
+   314→            changes = evt.changes ?? []
+   315→            setThinking(false)
+   316→            setLastChanges(changes)
+   317→            if (evt.files) {
+   318→              // Refresh file contents from the server (source of truth).
+   319→              setFiles((prev) => {
+   320→                const next = evt.files!
+   321→                return next.map((n) => {
+   322→                  const known = prev.find((p) => p.path === n.path)
+   323→                  return { path: n.path, content: known?.content ?? '', origin: n.origin as ProjectFile['origin'] }
+   324→                })
+   325→              })
+   326→              // Fetch fresh contents for accuracy.
+   327→              void (async () => {
+   328→                try {
+   329→                  const d = await beanFetch<{ project: { files: ProjectFile[] } }>(`/api/code-giftz/chat/${newProjectId}`)
+   330→                  setFiles(d.project.files)
+   331→                  setOpenTabs((prev) => {
+   332→                    const merged = [...prev]
+   333→                    for (const f of d.project.files) if (!merged.includes(f.path)) merged.push(f.path)
+   334→                    return merged
+   335→                  })
+   336→                  if (!activeFile && d.project.files.length > 0) setActiveFile(d.project.files[0].path)
+   337→                } catch { /* non-fatal */ }
+   338→              })()
+   339→            }
+   340→            setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, changes: changes.map((c) => ({ path: c.path, change: c.change })) } : m)))
+   341→            // Auto-open the workspace on real changes.
+   342→            if (changes.length > 0) {
+   343→              setShowPreview((v) => v)
+   344→              const firstChanged = changes[0].path
+   345→              setOpenTabs((prev) => (prev.includes(firstChanged) ? prev : [...prev, firstChanged]))
+   346→              setActiveFile(firstChanged)
+   347→              setFileView('diff')
+   348→              setEditing(false)
+   349→            }
+   350→          }
+   351→        }
+   352→      }
+   353→      if (streamedRef.current === '') {
+   354→        setMessages((prev) => prev.filter((m) => m.id !== asstId))
+   355→      }
+   356→      if (newProjectId && !projectId) setProjectId(newProjectId)
+   357→      void loadProjects()
+   358→    } catch (e) {
+   359→      if ((e as Error).name === 'AbortError') {
+   360→        if (streamedRef.current !== '') {
+   361→          setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current } : m)))
+   362→        } else {
+   363→          setMessages((prev) => prev.filter((m) => m.id !== asstId))
+   364→        }
+   365→      } else {
+   366→        setError((e as Error).message)
+   367→        setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
+   368→      }
+   369→    } finally {
+   370→      setStreaming(false)
+   371→      setThinking(false)
+   372→      abortRef.current = null
+   373→    }
+   374→  }
+   375→
+   376→  // Resizable workspace divider (mouse drag; keyboard arrows for a11y).
+   377→  function startResize(clientX: number) {
+   378→    const container = workspaceRef.current?.parentElement
+   379→    if (!container) return
+   380→    const rect = container.getBoundingClientRect()
+   381→    const onMove = (e: MouseEvent) => {
+   382→      const pct = ((rect.right - e.clientX) / rect.width) * 100
+   383→      setWorkspaceWidth(Math.min(72, Math.max(24, pct)))
+   384→    }
+   385→    const onUp = () => {
+   386→      window.removeEventListener('mousemove', onMove)
+   387→      window.removeEventListener('mouseup', onUp)
+   388→      dragRef.current = null
+   389→    }
+   390→    dragRef.current = container
+   391→    window.addEventListener('mousemove', onMove)
+   392→    window.addEventListener('mouseup', onUp)
+   393→    void clientX
+   394→  }
+   395→
+   396→  const active = files.find((f) => f.path === activeFile) ?? null
+   397→  const lastChange: FileChange['diff'] | null =
+   398→    (activeFile ? lastChanges.find((c) => c.path === activeFile)?.diff : null) ?? null
+   399→
+   400→  const chatColumn = (
+   401→    <div className="flex min-w-0 flex-1 flex-col border-r border-[rgba(212,175,55,0.1)]">
+   402→      <div className="flex items-center gap-2 border-b border-[rgba(212,175,55,0.1)] px-5 py-3">
+   403→        <MessageSquareCode className="h-4 w-4 text-[#d4af37]" />
+   404→        <div className="text-sm font-semibold tracking-wide">CODE GIFTZ</div>
+   405→        <span className="hidden text-xs text-white/35 sm:inline">Chat-first coding · sandbox · live preview</span>
+   406→      </div>
+   407→
+   408→      <div className="bean-scroll flex-1 overflow-y-auto px-5 py-4">
+   409→        {messages.length === 0 ? (
+   410→          <div className="mx-auto max-w-2xl">
+   411→            <div className="flex justify-start">
+   412→              <div className="bean-glass max-w-[90%] rounded-2xl px-4 py-3 text-white/85">
+   413→                <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed">{WELCOME}</p>
+   414→              </div>
+   415→            </div>
+   416→            <div className="mt-6 grid gap-2 sm:grid-cols-2">
+   417→              {[
+   418→                'Build a small web app (HTML/CSS/JS) — try a gold-themed timer',
+   419→                'Write a JavaScript function and run it in the sandbox',
+   420→                'Explain what this regular expression does: ^\\d{4}-\\d{2}$',
+   421→                'Refactor a messy function into clean modules',
+   422→              ].map((s) => (
+   423→                <button
+   424→                  key={s}
+   425→                  onClick={() => { setInput(s.replace(/ — try a gold-themed timer$/, '')) }}
+   426→                  className="rounded-lg border border-[rgba(212,175,55,0.14)] bg-black/20 px-3 py-2 text-left text-xs text-white/55 transition-colors hover:border-[rgba(212,175,55,0.35)] hover:text-white/80"
+   427→                >
+   428→                  {s}
+   429→                </button>
+   430→              ))}
+   431→            </div>
+   432→          </div>
+   433→        ) : (
+   434→          <div className="mx-auto max-w-2xl space-y-4">
+   435→            {messages.map((m) => (
+   436→              <div key={m.id} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+   437→                <div className={cn('max-w-[90%] rounded-2xl px-4 py-3', m.role === 'user' ? 'bg-[rgba(212,175,55,0.14)] text-white/90' : 'bean-glass text-white/85')}>
+   438→                  {m.role === 'user' ? (
+   439→                    <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed">{m.content}</p>
+   440→                  ) : m.content ? (
+   441→                    <>
+   442→                      <Markdown content={m.content} />
+   443→                      {m.changes.length > 0 ? (
+   444→                        <div className="mt-2 flex flex-wrap gap-1.5 border-t border-[rgba(212,175,55,0.12)] pt-2">
+   445→                          {m.changes.map((c) => (
+   446→                            <button
+   447→                              key={c.path}
+   448→                              onClick={() => openFile(c.path)}
+   449→                              className={cn(
+   450→                                'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]',
+   451→                                c.change === 'added'
+   452→                                  ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+   453→                                  : 'border border-[rgba(212,175,55,0.35)] bg-[rgba(212,175,55,0.1)] text-[#f0c75e]',
+   454→                              )}
+   455→                            >
+   456→                              <FilePlus2 className="h-3 w-3" />
+   457→                              {c.change === 'added' ? 'created' : 'modified'} {c.path}
+   458→                            </button>
+   459→                          ))}
+   460→                        </div>
+   461→                      ) : null}
+   462→                    </>
+   463→                  ) : thinking ? (
+   464→                    <span className="inline-flex items-center gap-2 text-xs text-white/40"><Spinner /> Thinking…</span>
+   465→                  ) : null}
+   466→                </div>
+   467→              </div>
+   468→            ))}
+   469→            <div ref={endRef} />
+   470→          </div>
+   471→        )}
+   472→      </div>
+   473→
+   474→      {error ? (
+   475→        <div className="mx-5 mb-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>
+   476→      ) : null}
+   477→
+   478→      {attachments.length > 0 || uploading ? (
+   479→        <div className="mx-auto flex w-full max-w-2xl flex-wrap gap-2 px-5 pb-1">
+   480→          {attachments.map((a) => (
+   481→            <span
+   482→              key={a.id}
+   483→              className={cn(
+   484→                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]',
+   485→                a.status === 'ready' ? 'border-[rgba(212,175,55,0.3)] bg-[rgba(212,175,55,0.08)] text-[#f0c75e]' : 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+   486→              )}
+   487→            >
+   488→              <FileCode2 className="h-3 w-3" /> {a.name} <span className="text-white/35">{formatBytes(a.size)}</span>
+   489→              {a.status !== 'ready' ? <span>· can't analyze</span> : null}
+   490→              <button onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} className="ml-0.5 text-white/40 hover:text-white/80" aria-label={`Remove ${a.name}`}>
+   491→                <X className="h-3 w-3" />
+   492→              </button>
+   493→            </span>
+   494→          ))}
+   495→          {uploading ? <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/30 px-2.5 py-1 text-[11px] text-white/50"><Spinner className="h-3 w-3" /> uploading…</span> : null}
+   496→        </div>
+   497→      ) : null}
+   498→
+   499→      <div className="border-t border-[rgba(212,175,55,0.1)] p-4">
+   500→        <div className="mx-auto max-w-2xl">
+   501→          <div className="mb-2 flex items-center gap-2">
+   502→            <button
+   503→              onClick={() => fileInputRef.current?.click()}
+   504→              disabled={uploading || attachments.length >= 3}
+   505→              className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(212,175,55,0.25)] px-2.5 py-1.5 text-[11px] text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 disabled:opacity-50"
+   506→              title="Attach files (code, documents, data — analyzed server-side)"
+   507→            >
+   508→              <Paperclip className="h-3.5 w-3.5" /> Attach
+   509→            </button>
+   510→            <input
+   511→              ref={fileInputRef}
+   512→              type="file"
+   513→              multiple
+   514→              className="hidden"
+   515→              onChange={(e) => { if (e.target.files?.length) void uploadFiles(e.target.files) }}
+   516→            />
+   517→            <span className="text-[10px] text-white/30">context files for the next request</span>
+   518→          </div>
+   519→          <div className="flex items-end gap-2">
+   520→            <Textarea
+   521→              value={input}
+   522→              onChange={(e) => setInput(e.target.value)}
+   523→              onKeyDown={(e) => {
+   524→                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() }
+   525→              }}
+   526→              placeholder="Describe what to build or change… (Enter to send, Shift+Enter for a new line)"
+   527→              rows={Math.min(4, Math.max(1, input.split('\n').length))}
+   528→              maxLength={12000}
+   529→              disabled={streaming}
+   530→              className="max-h-40 min-h-[46px] resize-none bg-black/30"
+   531→              aria-label="Message CODE GIFTZ"
+   532→            />
+   533→            {streaming ? (
+   534→              <Button onClick={stopGeneration} className="h-[46px] bg-[rgba(212,175,55,0.15)] px-4 text-[#f0c75e] hover:bg-[rgba(212,175,55,0.25)]" variant="outline" aria-label="Stop generating">
+   535→                <Square className="h-4 w-4" />
+   536→              </Button>
+   537→            ) : (
+   538→              <Button onClick={() => void send()} disabled={!input.trim()} className="h-[46px] bg-[#d4af37] px-4 text-black hover:bg-[#e6c25a]" aria-label="Send">
+   539→                <Send className="h-4 w-4" />
+   540→              </Button>
+   541→            )}
+   542→          </div>
+   543→        </div>
+   544→      </div>
+   545→    </div>
+   546→  )
+   547→
+   548→  const workspace = (
+   549→    <div ref={workspaceRef} className="flex min-w-0 flex-col" style={{ width: `var(--ws, ${workspaceWidth}%)` }}>
+   550→      <div className="flex items-center justify-between border-b border-[rgba(212,175,55,0.1)] px-4 py-2.5">
+   551→        <div className="flex items-center gap-2 text-xs text-white/50">
+   552→          <Code2 className="h-3.5 w-3.5 text-[#d4af37]" /> Workspace
+   553→          {files.length > 0 ? <span className="text-white/30">· {files.length} file{files.length > 1 ? 's' : ''}</span> : null}
+   554→        </div>
+   555→        <div className="flex items-center gap-1.5">
+   556→          {hasHtml ? (
+   557→            <button
+   558→              onClick={() => setShowPreview((v) => !v)}
+   559→              className={cn(
+   560→                'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] transition-colors',
+   561→                showPreview ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.12)] text-[#f0c75e]' : 'border-white/10 text-white/50 hover:border-[rgba(212,175,55,0.3)]',
+   562→              )}
+   563→            >
+   564→              <MonitorPlay className="h-3 w-3" /> Preview
+   565→            </button>
+   566→          ) : null}
+   567→          <button
+   568→            onClick={() => void runInSandbox()}
+   569→            disabled={running || !files.some((f) => /\.(js|ts)$/.test(f.path))}
+   570→            className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 px-2 py-1 text-[11px] text-emerald-300 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
+   571→            title="Run the project's JS/TS in the restricted sandbox (real execution, real output)"
+   572→          >
+   573→            {running ? <Spinner className="h-3 w-3" /> : <TerminalIcon className="h-3 w-3" />} Run
+   574→          </button>
+   575→        </div>
+   576→      </div>
+   577→
+   578→      {files.length === 0 ? (
+   579→        <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+   580→          <FileCode2 className="mb-3 h-9 w-9 text-[#d4af37]/40" />
+   581→          <p className="text-sm font-medium text-white/70">No files yet</p>
+   582→          <p className="mt-1 max-w-xs text-xs text-white/40">
+   583→            Ask CODE GIFTZ to build something — generated files appear here with an editor, diffs, a sandbox terminal and a live preview.
+   584→          </p>
+   585→        </div>
+   586→      ) : (
+   587→        <div className="flex min-h-0 flex-1 flex-col">
+   588→          {/* Tabs */}
+   589→          <div className="flex flex-wrap items-center gap-1 border-b border-[rgba(212,175,55,0.08)] px-3 py-1.5">
+   590→            {openTabs.map((p) => {
+   591→              const f = files.find((x) => x.path === p)
+   592→              // HYDRATION FIX (nested button): the tab pill was a button
+   593→              // element containing the close button element — invalid HTML
+   594→              // that broke hydration. The pill is now a NON-INTERACTIVE flex
+   595→              // container holding two SIBLING buttons: tab selection and
+   596→              // close. Every class (border, padding, radius, active/inactive
+   597→              // variants, hover targets) moved to the container unchanged, so
+   598→              // spacing, sizing, colors and hover behavior are pixel-
+   599→              // identical; both actions remain real buttons (keyboard +
+   600→              // screen-reader safe).
+   601→              return (
+   602→                <div
+   603→                  key={p}
+   604→                  className={cn(
+   605→                    'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] transition-colors',
+   606→                    activeFile === p ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.1)] text-[#f0c75e]' : 'border-white/10 text-white/50 hover:border-[rgba(212,175,55,0.3)]',
+   607→                  )}
+   608→                >
+   609→                  <button
+   610→                    onClick={() => { setActiveFile(p); setFileView('code'); setEditing(false) }}
+   611→                    className="inline-flex items-center gap-1"
+   612→                  >
+   613→                    <FileCode2 className="h-3 w-3" />
+   614→                    {p}
+   615→                    {f?.origin === 'modified' ? <span className="h-1.5 w-1.5 rounded-full bg-amber-400" title="edited" /> : null}
+   616→                  </button>
+   617→                  <button
+   618→                    onClick={(e) => { e.stopPropagation(); setOpenTabs((prev) => prev.filter((x) => x !== p)); if (activeFile === p) setActiveFile(openTabs.find((x) => x !== p) ?? null) }}
+   619→                    className="ml-0.5 text-white/30 hover:text-white/70"
+   620→                    aria-label={`Close ${p}`}
+   621→                  >
+   622→                    <X className="h-2.5 w-2.5" />
+   623→                  </button>
+   624→                </div>
+   625→              )
+   626→            })}
+   627→          </div>
+   628→
+   629→          <div className="flex min-h-0 flex-1">
+   630→            {/* Explorer */}
+   631→            <div className="w-44 shrink-0 overflow-y-auto border-r border-[rgba(212,175,55,0.08)] px-2 py-2">
+   632→              <div className="mb-1 px-1.5 text-[10px] uppercase tracking-wider text-white/30">Files</div>
+   633→              {files.map((f) => (
+   634→                <button
+   635→                  key={f.path}
+   636→                  onClick={() => openFile(f.path)}
+   637→                  className={cn(
+   638→                    'group flex w-full items-center justify-between rounded px-1.5 py-1 text-left text-[11px] transition-colors',
+   639→                    activeFile === f.path ? 'bg-[rgba(212,175,55,0.1)] text-[#f0c75e]' : 'text-white/55 hover:bg-white/5',
+   640→                  )}
+   641→                  title={f.origin === 'modified' ? 'Modified after generation (by you or a follow-up)' : 'Generated by CODE GIFTZ'}
+   642→                >
+   643→                  <span className="truncate">{f.path}</span>
+   644→                  <span className={cn('ml-1 h-1.5 w-1.5 shrink-0 rounded-full', f.origin === 'modified' ? 'bg-amber-400' : 'bg-emerald-500/70')} />
+   645→                </button>
+   646→              ))}
+   647→            </div>
+   648→
+   649→            {/* Editor / diff / preview */}
+   650→            <div className="flex min-w-0 flex-1 flex-col">
+   651→              {showPreview && hasHtml ? (
+   652→                <iframe
+   653→                  title="Project preview (isolated)"
+   654→                  sandbox="allow-scripts"
+   655→                  src={`/api/code-giftz/projects/${projectId}/preview`}
+   656→                  className="min-h-0 w-full flex-1 border-0 bg-white"
+   657→                />
+   658→              ) : active ? (
+   659→                <>
+   660→                  <div className="flex items-center justify-between border-b border-[rgba(212,175,55,0.08)] px-3 py-1.5">
+   661→                    <div className="flex items-center gap-1.5">
+   662→                      <button
+   663→                        onClick={() => setFileView('code')}
+   664→                        className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]', fileView === 'code' ? 'bg-[rgba(212,175,55,0.14)] text-[#f0c75e]' : 'text-white/45 hover:text-white/75')}
+   665→                      >
+   666→                        <Eye className="h-3 w-3" /> Code
+   667→                      </button>
+   668→                      <button
+   669→                        onClick={() => setFileView('diff')}
+   670→                        disabled={!lastChange}
+   671→                        className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] disabled:opacity-40', fileView === 'diff' ? 'bg-[rgba(212,175,55,0.14)] text-[#f0c75e]' : 'text-white/45 hover:text-white/75')}
+   672→                        title={lastChange ? 'Show what the last request changed' : 'No recorded change for this file yet'}
+   673→                      >
+   674→                        <GitCompareArrows className="h-3 w-3" /> Diff
+   675→                      </button>
+   676→                      <span className="ml-1 rounded border border-white/12 px-1 text-[9px] text-white/40">
+   677→                        {active.origin === 'modified' ? 'modified' : 'generated'}
+   678→                      </span>
+   679→                    </div>
+   680→                    <div>
+   681→                      {editing ? (
+   682→                        <div className="flex items-center gap-1.5">
+   683→                          <button onClick={() => { setEditing(false); setEditBuffer('') }} className="rounded px-1.5 py-0.5 text-[10px] text-white/45 hover:text-white/80">Cancel</button>
+   684→                          <Button onClick={() => void saveEdit()} disabled={saving} size="sm" className="h-6 bg-[#d4af37] px-2 text-[10px] text-black hover:bg-[#e6c25a]">
+   685→                            {saving ? <Spinner className="h-3 w-3" /> : <Save className="h-3 w-3" />} Save
+   686→                          </Button>
+   687→                        </div>
+   688→                      ) : (
+   689→                        <button
+   690→                          onClick={() => { setEditBuffer(active.content); setEditing(true); setFileView('code') }}
+   691→                          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 hover:text-white/80"
+   692→                        >
+   693→                          <Pencil className="h-3 w-3" /> Edit
+   694→                        </button>
+   695→                      )}
+   696→                    </div>
+   697→                  </div>
+   698→                  <div className="bean-scroll min-h-0 flex-1 overflow-auto">
+   699→                    {editing ? (
+   700→                      <textarea
+   701→                        value={editBuffer}
+   702→                        onChange={(e) => setEditBuffer(e.target.value)}
+   703→                        spellCheck={false}
+   704→                        className="h-full min-h-[280px] w-full resize-none bg-[#0c0c0f] p-3 font-mono text-[12.5px] leading-relaxed text-white/85 outline-none"
+   705→                        aria-label={`Edit ${active.path}`}
+   706→                      />
+   707→                    ) : fileView === 'diff' && lastChange ? (
+   708→                      <pre className="min-h-full p-0 font-mono text-[11.5px] leading-relaxed">
+   709→                        {lastChange.map((l, i) => (
+   710→                          <div
+   711→                            key={i}
+   712→                            className={cn(
+   713→                              'px-3',
+   714→                              l.type === 'add' && 'bg-emerald-500/10 text-emerald-300',
+   715→                              l.type === 'del' && 'bg-red-500/10 text-red-300',
+   716→                              l.type === 'ctx' && 'text-white/45',
+   717→                            )}
+   718→                          >
+   719→                            <span className="mr-2 inline-block w-3 select-none">{l.type === 'add' ? '+' : l.type === 'del' ? '-' : ' '}</span>
+   720→                            {l.text || ' '}
+   721→                          </div>
+   722→                        ))}
+   723→                      </pre>
+   724→                    ) : (
+   725→                      <SyntaxHighlighter
+   726→                        language={langOf(active.path)}
+   727→                        style={vscDarkPlus}
+   728→                        customStyle={{ margin: 0, background: '#0c0c0f', fontSize: '12.5px', padding: '14px', minHeight: '100%' }}
+   729→                        wrapLongLines={false}
+   730→                      >
+   731→                        {active.content}
+   732→                      </SyntaxHighlighter>
+   733→                    )}
+   734→                  </div>
+   735→                </>
+   736→              ) : (
+   737→                <div className="flex flex-1 items-center justify-center text-xs text-white/35">Select a file</div>
+   738→              )}
+   739→
+   740→              {/* Terminal */}
+   741→              {run ? (
+   742→                <div className="max-h-56 shrink-0 overflow-auto border-t border-[rgba(212,175,55,0.12)] bg-black/60 px-4 py-3">
+   743→                  <div className="mb-1.5 flex items-center justify-between">
+   744→                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-white/70">
+   745→                      <TerminalIcon className="h-3.5 w-3.5 text-[#d4af37]" /> Sandbox
+   746→                    </span>
+   747→                    <span className={cn(
+   748→                      'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px]',
+   749→                      run.timedOut ? 'border-amber-500/40 text-amber-300' : run.exitCode === 0 ? 'border-emerald-500/40 text-emerald-300' : 'border-red-500/40 text-red-300',
+   750→                    )}>
+   751→                      {run.timedOut ? <CircleX className="h-3 w-3" /> : run.exitCode === 0 ? <CircleCheck className="h-3 w-3" /> : <CircleX className="h-3 w-3" />}
+   752→                      {run.timedOut ? 'timeout (SIGKILL)' : `exit ${run.exitCode ?? '—'}`} · {run.durationMs}ms
+   753→                    </span>
+   754→                  </div>
+   755→                  {run.stdout ? <pre className="whitespace-pre-wrap font-mono text-[11.5px] text-emerald-200/90"><code>{run.stdout}</code></pre> : null}
+   756→                  {run.stderr ? <pre className="mt-1 whitespace-pre-wrap font-mono text-[11.5px] text-red-300/90"><code>{run.stderr}</code></pre> : null}
+   757→                  {!run.stdout && !run.stderr ? <p className="text-[11px] text-white/40">The process produced no output.</p> : null}
+   758→                </div>
+   759→              ) : null}
+   760→            </div>
+   761→          </div>
+   762→        </div>
+   763→      )}
+   764→    </div>
+   765→  )
+   766→
+   767→
+   768→  return (
+   769→    <div
+   770→      className="grid min-h-[calc(100vh-3.5rem-2rem)] lg:h-[calc(100vh-3.5rem-1.5rem)] lg:grid-cols-[220px_1fr]"
+   771→      onDragOver={(e) => e.preventDefault()}
+   772→      onDrop={(e) => {
+   773→        e.preventDefault()
+   774→        if (e.dataTransfer?.files?.length) void uploadFiles(e.dataTransfer.files)
+   775→      }}
+   776→    >
+   777→      {/* Projects rail */}
+   778→      <aside className="hidden flex-col border-r border-[rgba(212,175,55,0.1)] lg:flex">
+   779→        <div className="p-3">
+   780→          <Button onClick={newProject} className="w-full justify-start bg-[rgba(212,175,55,0.12)] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.2)]" variant="outline">
+   781→            <Plus className="mr-1.5 h-4 w-4" /> New project
+   782→          </Button>
+   783→        </div>
+   784→        <ScrollArea className="flex-1 px-2 pb-3">
+   785→          {projects.length === 0 ? (
+   786→            <p className="px-2 py-6 text-center text-xs text-white/30">No projects yet</p>
+   787→          ) : (
+   788→            projects.map((p) => (
+   789→              <div
+   790→                key={p.id}
+   791→                className={cn(
+   792→                  'group mb-0.5 flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-[13px] transition-colors',
+   793→                  projectId === p.id ? 'bg-[rgba(212,175,55,0.1)] text-[#f0c75e]' : 'text-white/60 hover:bg-white/5',
+   794→                )}
+   795→                onClick={() => void openProject(p.id)}
+   796→              >
+   797→                <div className="min-w-0">
+   798→                  <div className="truncate">{p.title}</div>
+   799→                  <div className="text-[10px] text-white/30">{p.files} files · {timeAgo(p.updatedAt)}</div>
+   800→                </div>
+   801→                <button
+   802→                  className="ml-2 hidden text-white/30 hover:text-red-400 group-hover:block"
+   803→                  onClick={(e) => { e.stopPropagation(); void deleteProject(p.id) }}
+   804→                  aria-label={`Delete ${p.title}`}
+   805→                >
+   806→                  <Trash2 className="h-3.5 w-3.5" />
+   807→                </button>
+   808→              </div>
+   809→            ))
+   810→          )}
+   811→        </ScrollArea>
+   812→      </aside>
+   813→
+   814→      {/* Chat + workspace row */}
+   815→      <div className="flex min-h-0 min-w-0">
+   816→        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:border-r-0">{chatColumn}</div>
+   817→        <div
+   818→          className="hidden min-h-0 shrink-0 grow-0 border-l border-[rgba(212,175,55,0.1)] lg:flex lg:flex-col"
+   819→          style={{ width: `${workspaceWidth}%` }}
+   820→          onMouseDown={(e) => {
+   821→            // The 6px strip at the left edge acts as the resize handle.
+   822→            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+   823→            if (e.clientX - rect.left <= 6) startResize(e.clientX)
+   824→          }}
+   825→        >
+   826→          {workspace}
+   827→        </div>
+   828→      </div>
+   829→    </div>
+   830→  )
+   831→}
+   832→
