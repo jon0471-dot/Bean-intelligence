@@ -670,3 +670,41 @@ describe('total duration guard — a slow-drip stream cannot hold a turn forever
     expect(caught?.message).toContain('no tokens received for 30ms')
   })
 })
+
+describe('empty stream — a zero-byte completion is never a success', () => {
+  test('an SSE body that closes with NO bytes at all is a protocol failure, never onComplete', async () => {
+    const r = recorder()
+    await consumeRiisheStream(sseResponse([]), r.callbacks)
+    expect(r.completed).toBeNull()
+    expect(r.failures).toHaveLength(1)
+    expect(r.failures[0].kind).toBe('protocol')
+    expect(r.failures[0].message).toContain('ended before the model finished')
+  })
+
+  test('an empty HTTP 200 (null body) is a protocol failure too', async () => {
+    const r = recorder()
+    await consumeRiisheStream(
+      new Response(null, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+      r.callbacks,
+    )
+    expect(r.completed).toBeNull()
+    expect(r.failures).toHaveLength(1)
+    expect(r.failures[0].kind).toBe('protocol')
+  })
+
+  test('an upstream generator that yields nothing produces zero deltas and no throw (route marks the turn partial, never a fake completion)', async () => {
+    const empty = {
+      async *[Symbol.asyncIterator]() {
+        /* closes immediately */
+      },
+    }
+    const out: string[] = []
+    for await (const d of sseDeltas(empty as unknown as AsyncIterable<unknown>, {
+      idleTimeoutMs: 1_000,
+      maxDurationMs: 1_000,
+    })) {
+      out.push(d)
+    }
+    expect(out).toEqual([])
+  })
+})

@@ -2,1089 +2,965 @@
 
 data: {"type":"stage","stage":"solving"}
 
-data: {"delta":"Database","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"#","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexing","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Database","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" is","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Index","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ing","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" fundamental","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Expl","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" technique","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ained","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" for","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" optimizing","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Database","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" indexing","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" retrieval","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" is","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" in","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" database","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" fundamental","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" systems","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" technique","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" that","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" At","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" dramatically","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" its","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" improves","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" core","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" query","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" performance","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" an","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" by","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" index","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" providing","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" is","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" faster","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" way","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" structure","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" to","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" that","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" locate","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" improves","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" without","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" speed","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" scanning","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" entire","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" tables","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" retrieval","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" operations","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" At","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" on","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" its","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" core","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" database","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" table","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" an","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" index","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" Without","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" is","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" databases","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" structure","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" would","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" that","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" need","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" stores","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" to","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" perform","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" small","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" full","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" portion","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" table","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" of","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" scans","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" table","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" checking","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" in","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" every","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" row","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" way","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" to","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" that","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" find","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" makes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" matching","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" searching","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" efficient","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"—a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" process","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"##","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" that","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" B","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" becomes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-T","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" increasingly","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"rees","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" inefficient","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":":","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" as","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" The","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" table","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Foundation","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" size","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" of","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" grows","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Database","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".\n\n","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Index","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"B","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"es","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"-t","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"rees","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Most","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" (","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" relational","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"Bal","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" databases","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"anced","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" use","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" trees","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" B","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":")","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-t","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" are","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"rees","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" (","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" most","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"balanced","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" common","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" trees","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexing","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":")","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" structure","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" as","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" used","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" their","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" in","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" primary","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" relational","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" index","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" databases","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" structure","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" A","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" B","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" B","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-t","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"-tree","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"rees","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" maintains","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" are","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" sorted","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" self","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-bal","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ancing","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" allows","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" search","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" searches","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" trees","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" that","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" sequential","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" maintain","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" access","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" sorted","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" insert","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" and","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ions","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" allow","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" efficient","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" insertion","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" delet","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ions","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" deletion","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" in","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" logarith","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" and","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"mic","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" search","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" time","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" operations","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" The","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" They","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" tree","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" work","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" consists","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" by","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":":\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"1","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" root","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" node","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" **","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Hier","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" internal","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"archical","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" nodes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" structure","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"**:","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" leaf","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" is","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" nodes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" stored","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" in","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" Each","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" nodes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" node","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" across","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" contains","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" multiple","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" multiple","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" levels","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" keys","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" with","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" pointers","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" that","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" root","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" direct","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" node","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" at","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" search","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" process","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" top","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" and","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" When","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" leaf","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" searching","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" nodes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" for","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" at","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" value","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" bottom","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"2","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" database","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" starts","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" **","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" at","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Sorted","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" keys","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" root","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"**:","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Each","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" navig","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" node","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ates","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" contains","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" down","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" keys","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" and","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" tree","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" pointers","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" by","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" to","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" comparing","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" child","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" nodes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" search","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" value","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" maintaining","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" with","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" sorted","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" keys","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" order","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" in","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" each","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"3","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" node","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" **","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" following","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Bal","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"anced","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" appropriate","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" height","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" pointer","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"**:","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" until","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" The","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" reaching","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" tree","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" is","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" target","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" kept","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" balanced","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" or","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" to","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" ensure","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" leaf","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" all","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" node","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" leaf","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" nodes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" This","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" are","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" balanced","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" at","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" structure","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" ensures","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" same","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" that","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" depth","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" tree","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" guarantee","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" remains","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ing","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" approximately","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" consistent","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" performance","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" same","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" height","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"When","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" regardless","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" searching","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" for","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" number","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" entries","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" database","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" starts","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" guarantee","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" at","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ing","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" consistent","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" root","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" performance","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" node","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".\n\n","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"There","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" compares","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" are","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" two","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" search","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" primary","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" value","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" types","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" with","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" keys","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":":","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" in","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" clustered","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" node","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" non","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"-cluster","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" and","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ed","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" follows","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" A","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" appropriate","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" clustered","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" pointer","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" index","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" to","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" determines","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" next","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" physical","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" level","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" order","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" This","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" process","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" storage","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" repeats","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" in","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" until","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" reaching","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" table","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" leaf","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" Since","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" node","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" containing","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" table","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" can","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" desired","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" have","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" only","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" one","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" This","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" physical","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" hierarchical","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" order","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" approach","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" reduces","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" there","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" can","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" number","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" be","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" of","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" only","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" disk","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" one","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" I","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" clustered","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"/O","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" index","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" operations","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" per","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" needed","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" table","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" compared","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" to","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" The","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" leaf","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" full","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" nodes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" table","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" scan","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" clustered","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"##","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" index","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Cluster","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" contain","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ed","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" vs","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" actual","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":".","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Non","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" rows","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Cluster","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" making","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ed","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" it","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Index","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" particularly","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"es","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" efficient","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" for","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"The","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" range","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" key","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" queries","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" difference","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" between","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" sorting","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" clustered","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" operations","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" and","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" non","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" For","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-cluster","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" example","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ed","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" indexes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" if","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" lies","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" in","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" clustered","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" how","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" index","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" they","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" is","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" store","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" created","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" on","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":":\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"**","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" date","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Cluster","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" column","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ed","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" indexes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"**","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":":\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" is","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" physically","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Determine","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" stored","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" in","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" physical","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" chronological","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" order","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" order","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" of","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" making","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" in","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" date","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" range","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" table","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" queries","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" very","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" fast","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" There","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".\n\n","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" can","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"In","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" be","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" contrast","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" only","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" one","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" clustered","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" non","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" index","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"-cluster","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" per","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ed","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" table","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" index","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" is","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" separate","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" rows","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" structure","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" are","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" from","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" stored","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" in","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" rows","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" order","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" of","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" The","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" leaf","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" index","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" nodes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" keys","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" contain","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" pointers","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" to","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Ideal","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" for","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" actual","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" range","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" queries","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" rows","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" and","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" sorting","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" which","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" operations","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" may","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" be","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" stored","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Example","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" in","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":":","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" A","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" different","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" table","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" physical","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" sorted","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" order","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" by","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" primary","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" A","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" key","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" table","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" automatically","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" can","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" creates","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" have","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" multiple","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" clustered","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" non","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" index","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"-cluster","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ed","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"**","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Non","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" (","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-cluster","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"up","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ed","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" to","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" indexes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" ","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"**","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"999","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":":\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" in","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" some","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Create","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" systems","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":").","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" separate","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" When","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" structure","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" from","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" query","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" uses","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" table","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" a","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" non","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"-cluster","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ed","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Store","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" index","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" copy","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" of","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" database","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" indexed","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" first","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" columns","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" accesses","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" plus","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" index","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" pointer","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" to","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" to","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" find","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" the","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" full","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" location","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" data","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" row","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Multiple","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" then","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" non","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" retrieves","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-cluster","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"ed","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" actual","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" indexes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" row","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" can","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" exist","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" This","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" on","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" adds","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" an","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" single","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" extra","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" table","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" step","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" compared","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" to","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" The","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" clustered","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" pointer","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" is","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" but","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" typically","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" allows","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" for","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" row","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" optimization","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" identifier","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" on","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" or","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" multiple","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" clustered","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" columns","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" index","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".\n\n","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" key","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"The","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" trade","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"-off","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Useful","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" between","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" for","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" clustered","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" filtering","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" on","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" non","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" non","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"-cluster","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-primary","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ed","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" key","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" columns","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" involves","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" write","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"##","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" operations","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Write","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Trade","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" Every","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" time","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Off","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" data","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"s","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" is","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" inserted","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"While","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" indexes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" updated","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" significantly","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" improve","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" or","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" read","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" deleted","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" performance","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" they","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" database","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" come","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" must","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" with","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" maintain","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" write","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" all","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" trade","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-offs","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" on","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":":\n\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" that","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"**","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" table","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"Write","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" overhead","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" Cluster","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"**","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ed","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":":\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" require","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" Every","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" more","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" INSERT","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" overhead","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" for","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" UPDATE","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" write","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" operations","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" or","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" because","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" DELETE","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" they","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" operation","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" determine","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" requires","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" updating","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" physical","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" all","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" storage","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" relevant","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" order","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" indexes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" which","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" can","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" This","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" lead","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" additional","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" to","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" I","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" page","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"/O","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" splits","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" can","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" slow","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" re","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" down","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"organization","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" write","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" operations","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" Non","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"\n","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"-cluster","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":"-","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":"ed","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" The","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" more","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" also","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" indexes","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" incur","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" a","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" overhead","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" table","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":" has","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
-data: {"delta":" but","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" since","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" they","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" don","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":"'t","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" dictate","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" physical","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" storage","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" they","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":"'re","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" generally","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" less","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" costly","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" to","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" maintain","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" than","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" clustered","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":".","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" For","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" tables","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" with","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" frequent","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" writes","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" especially","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" bulk","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" inserts","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" or","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" updates","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" minimizing","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" number","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" and","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" size","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" indexes","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" is","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" crucial","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" to","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" maintain","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" performance","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":".\n\n","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":"In","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" summary","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":",","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" database","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" indexing","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" provides","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" essential","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" performance","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" benefits","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" for","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" read","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" operations","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" at","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" the","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" cost","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" of","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" increased","conversationId":"cmw01i92w001kqarefyv2f173"}
-
-data: {"delta":" write","conversationId":"cmw01i92w001kqarefyv2f173"}
+data: {"delta":",","conversationId":"cmw02wp16001nqapyzn0kdl8t"}
 
