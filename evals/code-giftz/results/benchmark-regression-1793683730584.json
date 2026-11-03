@@ -1,0 +1,461 @@
+{
+  "ranAt": "2026-11-03T05:28:50.584Z",
+  "baseUrl": "http://127.0.0.1:3000",
+  "mode": "benchmark-regression",
+  "totalChecks": 67,
+  "passed": 2,
+  "allPassed": false,
+  "questions": [
+    {
+      "id": "Q1-event-loop",
+      "kind": "benchmark",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 57,
+      "passed": 1,
+      "total": 6,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "states the exact FIFO order A F H C E G D B",
+          "passed": false
+        },
+        {
+          "name": "explains the chained .then is queued when its predecessor RUNS (behind E and G)",
+          "passed": false
+        },
+        {
+          "name": "distinguishes sync / microtask / macrotask phases",
+          "passed": false
+        },
+        {
+          "name": "does not claim all promise chains run before async continuations",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": null,
+      "answer": ""
+    },
+    {
+      "id": "Q2-find-duplicates",
+      "kind": "benchmark",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 23,
+      "passed": 1,
+      "total": 8,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "uses a seen Set",
+          "passed": false
+        },
+        {
+          "name": "uses a duplicates Set (not an array scanned with includes)",
+          "passed": false
+        },
+        {
+          "name": "final implementation contains no O(n) includes() inside the loop",
+          "passed": true
+        },
+        {
+          "name": "claims O(n) time for the final code",
+          "passed": false
+        },
+        {
+          "name": "justifies ordering via Set insertion/iteration order",
+          "passed": false
+        },
+        {
+          "name": "handles empty array",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": null,
+      "answer": ""
+    },
+    {
+      "id": "Q3-two-sum",
+      "kind": "benchmark",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 25,
+      "passed": 0,
+      "total": 9,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "states [1, 2] for twoSum([-1, -2, -3, -4, -5], -5)",
+          "passed": false
+        },
+        {
+          "name": "shows the derivation -2 + -3 = -5",
+          "passed": false
+        },
+        {
+          "name": "uses a Map",
+          "passed": false
+        },
+        {
+          "name": "O(n) average time claimed",
+          "passed": false
+        },
+        {
+          "name": "returns [] when no solution exists",
+          "passed": false
+        },
+        {
+          "name": "defines a deterministic rule for multiple solutions",
+          "passed": false
+        },
+        {
+          "name": "documents input validation",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": null,
+      "answer": ""
+    },
+    {
+      "id": "Q4-longest-substring",
+      "kind": "benchmark",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 30,
+      "passed": 0,
+      "total": 10,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "sliding window with a Set/Map",
+          "passed": false
+        },
+        {
+          "name": "O(n) claimed",
+          "passed": false
+        },
+        {
+          "name": "distinguishes UTF-16 code units from code points",
+          "passed": false
+        },
+        {
+          "name": "covers grapheme clusters",
+          "passed": false
+        },
+        {
+          "name": "mentions Intl.Segmenter",
+          "passed": false
+        },
+        {
+          "name": "documents the runtime-support/compatibility policy",
+          "passed": false
+        },
+        {
+          "name": "includes a surrogate/emoji or combining-mark test",
+          "passed": false
+        },
+        {
+          "name": "empty string behavior defined",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": null,
+      "answer": ""
+    },
+    {
+      "id": "Q5-valid-parentheses",
+      "kind": "benchmark",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 25,
+      "passed": 0,
+      "total": 9,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "stack-based LIFO implementation",
+          "passed": false
+        },
+        {
+          "name": "O(n) time and O(n) space claimed",
+          "passed": false
+        },
+        {
+          "name": "explicit non-bracket character behavior",
+          "passed": false
+        },
+        {
+          "name": "covers empty string",
+          "passed": false
+        },
+        {
+          "name": "covers extra closing / unclosed opening brackets",
+          "passed": false
+        },
+        {
+          "name": "covers invalid input types",
+          "passed": false
+        },
+        {
+          "name": "LIFO logic explained",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": null,
+      "answer": ""
+    },
+    {
+      "id": "Q6-binary-search-first-occurrence",
+      "kind": "benchmark",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 32,
+      "passed": 0,
+      "total": 9,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "safe midpoint left + Math.floor((right - left) / 2)",
+          "passed": false
+        },
+        {
+          "name": "first-occurrence logic in the MAIN function",
+          "passed": false
+        },
+        {
+          "name": "iterative O(log n) time / O(1) space stated",
+          "passed": false
+        },
+        {
+          "name": "recursive O(log n) space stated",
+          "passed": false
+        },
+        {
+          "name": "no mutation / no sorting of the input",
+          "passed": false
+        },
+        {
+          "name": "null/undefined-safe recursive validation",
+          "passed": false
+        },
+        {
+          "name": "documents the sorted-input requirement / absent target behavior",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": null,
+      "answer": ""
+    },
+    {
+      "id": "R1-mixed-queues",
+      "kind": "regression",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 23,
+      "passed": 0,
+      "total": 4,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "answer states an explicit output order line",
+          "passed": false
+        },
+        {
+          "name": "claimed order matches EXECUTED ground truth [A E H C F G D B]",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": [
+        "A",
+        "E",
+        "H",
+        "C",
+        "F",
+        "G",
+        "D",
+        "B"
+      ],
+      "answer": ""
+    },
+    {
+      "id": "R2-chained-after-resolved",
+      "kind": "regression",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 19,
+      "passed": 0,
+      "total": 4,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "answer states an explicit output order line",
+          "passed": false
+        },
+        {
+          "name": "claimed order matches EXECUTED ground truth [A F B C D E]",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": [
+        "A",
+        "F",
+        "B",
+        "C",
+        "D",
+        "E"
+      ],
+      "answer": ""
+    },
+    {
+      "id": "R3-nested-awaits",
+      "kind": "regression",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 23,
+      "passed": 0,
+      "total": 4,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "answer states an explicit output order line",
+          "passed": false
+        },
+        {
+          "name": "claimed order matches EXECUTED ground truth [A B H C E F D G]",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": [
+        "A",
+        "B",
+        "H",
+        "C",
+        "E",
+        "F",
+        "D",
+        "G"
+      ],
+      "answer": ""
+    },
+    {
+      "id": "R4-microtask-spawning-microtask",
+      "kind": "regression",
+      "answerChars": 0,
+      "deltas": 0,
+      "firstTokenMs": null,
+      "durationMs": 19,
+      "passed": 0,
+      "total": 4,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "answer states an explicit output order line",
+          "passed": false
+        },
+        {
+          "name": "claimed order matches EXECUTED ground truth [A G B D E C F]",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": false
+        },
+        {
+          "name": "terminal error frame: UPSTREAM_RATE_LIMITED",
+          "passed": false
+        }
+      ],
+      "groundTruth": [
+        "A",
+        "G",
+        "B",
+        "D",
+        "E",
+        "C",
+        "F"
+      ],
+      "answer": ""
+    }
+  ]
+}

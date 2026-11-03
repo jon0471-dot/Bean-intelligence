@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Markdown, Spinner, timeAgo, beanFetch } from './shared'
+import { consumeRiisheStream, streamFailureMessage, type StreamFailureInfo } from '@/lib/riishe/sse-client'
 import { cn } from '@/lib/utils'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -50,6 +51,10 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   changes: Array<{ path: string; change: string }>
+  /** Set when the turn did NOT complete: the text is the provider's partial
+   *  output, honestly labeled instead of silently shown as a full answer. */
+  incomplete?: boolean
+  incompleteReason?: 'stopped' | 'interrupted'
 }
 interface ProjectFile { path: string; content: string; origin: 'generated' | 'modified' }
 interface FileChange {
@@ -87,6 +92,17 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/** Keep interrupted/streaming answers READABLE: an unterminated ``` fence
+ *  (a stream cut mid-code-block) would otherwise render as broken text.
+ *  Closing the odd fence renders everything received so far as the code
+ *  block the model was writing. Complete answers always have balanced
+ *  fences, so this is a no-op for them and is only applied to
+ *  incomplete/in-flight messages. */
+export function closeUnbalancedFences(text: string): string {
+  const fenceLines = text.split('\n').filter((l) => l.trimStart().startsWith('```'))
+  return fenceLines.length % 2 === 1 ? `${text.replace(/\n*$/, '')}\n\n\`\`\`` : text
+}
+
 export function CodeGiftz() {
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [projectId, setProjectId] = useState<string | null>(null)
@@ -115,6 +131,13 @@ export function CodeGiftz() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragRef = useRef<HTMLElement | null>(null)
   const workspaceRef = useRef<HTMLDivElement>(null)
+  // Synchronous double-submit guard: two rapid Enters/clicks in the same tick
+  // both saw `streaming === false` with state alone (measured defect class).
+  const streamingRef = useRef(false)
+  // Prompt of the latest turn — powers the Retry action (cleared on success).
+  const lastPromptRef = useRef<string | null>(null)
+  // The assistant bubble currently being streamed (for the fence fix).
+  const streamingAsstIdRef = useRef<string | null>(null)
 
   const hasHtml = files.some((f) => f.path === 'index.html' || f.path === 'main.html')
 
@@ -127,6 +150,14 @@ export function CodeGiftz() {
 
   useEffect(() => { void loadProjects() }, [loadProjects])
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [messages, streaming, thinking])
+  // Unmount during generation stops the request instead of leaving an
+  // orphaned stream running (and its server-side generation continuing).
+  useEffect(
+    () => () => {
+      abortRef.current?.abort()
+    },
+    [],
+  )
 
   async function openProject(id: string) {
     setError(null)
@@ -253,22 +284,59 @@ export function CodeGiftz() {
     abortRef.current?.abort()
   }
 
+  /**
+   * Send one chat turn over SSE.
+   *
+   * ROOT-CAUSE FIX (2026-11-03 "network error"): the previous loop read the
+   * body with a hand-rolled line splitter and surfaced raw browser errors —
+   * a transport death mid-generation reached the user as Chromium's literal
+   * `TypeError: network error`, with no completion/interrupted distinction,
+   * no watchdog, no retry, and no protected partial text.
+   *
+   * The turn is now consumed by the SAME hardened client the RIISHE product
+   * uses (consumeRiisheStream): spec-correct SSE frames (LF/CRLF, multiline,
+   * keepalive comments, final-flush), streaming UTF-8 decode, a 60s idle
+   * watchdog, and typed failure categories. Partial text is always preserved
+   * and honestly labeled; failures get actionable wording plus a safe Retry
+   * (the failed turn never persisted an assistant answer, and the server
+   * collapses the duplicated trailing prompt so history stays clean).
+   */
   async function send(overrideMessage?: string) {
     const message = (overrideMessage ?? input).trim()
-    if (!message || streaming) return
+    if (!message || streamingRef.current) return
     if (overrideMessage === undefined) setInput('')
     setError(null)
     setStreaming(true)
+    streamingRef.current = true
     setThinking(true)
     streamedRef.current = ''
+    lastPromptRef.current = message
 
     const tempId = `u-${Date.now()}`
     const asstId = `a-${Date.now()}`
+    streamingAsstIdRef.current = asstId
     setMessages((prev) => [...prev, { id: tempId, role: 'user', content: message, changes: [] }, { id: asstId, role: 'assistant', content: '', changes: [] }])
 
     const controller = new AbortController()
     abortRef.current = controller
     const readyFiles = attachments.filter((f) => f.status === 'ready')
+
+    /** Refresh the workspace from the server (source of truth). */
+    const refreshFiles = (pid: string | null) => {
+      if (!pid) return
+      void (async () => {
+        try {
+          const d = await beanFetch<{ project: { files: ProjectFile[] } }>(`/api/code-giftz/chat/${pid}`)
+          setFiles(d.project.files)
+          setOpenTabs((prev) => {
+            const merged = [...prev]
+            for (const f of d.project.files) if (!merged.includes(f.path)) merged.push(f.path)
+            return merged
+          })
+          if (!activeFile && d.project.files.length > 0) setActiveFile(d.project.files[0].path)
+        } catch { /* non-fatal */ }
+      })()
+    }
 
     try {
       const res = await fetch(`/api/code-giftz/chat?stream=1${projectId ? `&projectId=${projectId}` : ''}`, {
@@ -286,59 +354,43 @@ export function CodeGiftz() {
         const data = await res.json().catch(() => ({}))
         throw new Error(data?.error?.message ?? `Request failed (${res.status})`)
       }
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let newProjectId: string | null = projectId
-      let changes: FileChange[] = []
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          let evt: { delta?: string; stage?: string; done?: boolean; error?: string; projectId?: string; changes?: FileChange[]; files?: Array<{ path: string; origin: string }> }
-          try { evt = JSON.parse(line.slice(6)) } catch { continue }
-          if (evt.projectId) newProjectId = evt.projectId
-          if (evt.stage === 'thinking') setThinking(true)
-          if (evt.error) setError(evt.error)
-          if (evt.delta) {
-            streamedRef.current += evt.delta
-            setThinking(false)
-            setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current } : m)))
-          }
-          if (evt.done) {
-            changes = evt.changes ?? []
-            setThinking(false)
-            setLastChanges(changes)
-            if (evt.files) {
-              // Refresh file contents from the server (source of truth).
-              setFiles((prev) => {
-                const next = evt.files!
-                return next.map((n) => {
-                  const known = prev.find((p) => p.path === n.path)
-                  return { path: n.path, content: known?.content ?? '', origin: n.origin as ProjectFile['origin'] }
-                })
-              })
-              // Fetch fresh contents for accuracy.
-              void (async () => {
-                try {
-                  const d = await beanFetch<{ project: { files: ProjectFile[] } }>(`/api/code-giftz/chat/${newProjectId}`)
-                  setFiles(d.project.files)
-                  setOpenTabs((prev) => {
-                    const merged = [...prev]
-                    for (const f of d.project.files) if (!merged.includes(f.path)) merged.push(f.path)
-                    return merged
-                  })
-                  if (!activeFile && d.project.files.length > 0) setActiveFile(d.project.files[0].path)
-                } catch { /* non-fatal */ }
-              })()
+      let newProjectId: string | null = projectId
+      // The server's typed error frame (rate-limited, timeout, truncation…)
+      // is the honest reason — it outranks the generic 'protocol' failure
+      // the consumer reports when the stream closes after that frame.
+      let serverError: { message: string; code: string } | null = null
+
+      await consumeRiisheStream(
+        res,
+        {
+          onEvent: (evt) => {
+            if (evt.projectId) newProjectId = evt.projectId
+            if (evt.stage === 'thinking') setThinking(true)
+            if (evt.error) serverError = { message: evt.error, code: evt.code ?? 'BACKEND_FAILURE' }
+            if (evt.delta) {
+              streamedRef.current += evt.delta
+              setThinking(false)
+              setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current } : m)))
             }
-            setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, changes: changes.map((c) => ({ path: c.path, change: c.change })) } : m)))
-            // Auto-open the workspace on real changes.
+          },
+          onComplete: (evt) => {
+            lastPromptRef.current = null // turn really completed — no Retry
+            setThinking(false)
+            const wireChanges = evt.changes ?? []
+            setLastChanges(
+              wireChanges.map((c) => ({ path: c.path, change: c.change === 'modified' ? 'modified' : 'added', diff: c.diff ?? [] })) as FileChange[],
+            )
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === asstId
+                  ? { ...m, content: streamedRef.current, changes: wireChanges.map((c) => ({ path: c.path, change: c.change })), incomplete: false }
+                  : m,
+              ),
+            )
+            // Refresh from the server on every completed turn in a project.
+            refreshFiles(newProjectId)
+            const changes = evt.changes ?? []
             if (changes.length > 0) {
               setShowPreview((v) => v)
               const firstChanged = changes[0].path
@@ -347,28 +399,53 @@ export function CodeGiftz() {
               setFileView('diff')
               setEditing(false)
             }
-          }
-        }
-      }
-      if (streamedRef.current === '') {
-        setMessages((prev) => prev.filter((m) => m.id !== asstId))
-      }
+          },
+          onFailure: (failure: StreamFailureInfo) => {
+            setThinking(false)
+            const hasText = streamedRef.current !== ''
+            if (hasText) {
+              // Partial content is preserved and labeled honestly: never a
+              // silent look-alike of a completed answer.
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === asstId
+                    ? { ...m, incomplete: true, incompleteReason: failure.kind === 'aborted' ? 'stopped' : 'interrupted' }
+                    : m,
+                ),
+              )
+            } else {
+              setMessages((prev) => prev.filter((m) => m.id !== asstId))
+            }
+            if (failure.kind === 'aborted') return // user Stop — not an error
+            const server = serverError as { message: string; code: string } | null
+            setError(server ? `${server.message}` : failure.message || streamFailureMessage(failure.kind, failure.status))
+          },
+        },
+        { signal: controller.signal },
+      )
+
       if (newProjectId && !projectId) setProjectId(newProjectId)
       void loadProjects()
     } catch (e) {
+      // Failures BEFORE the stream was consumable (fetch rejection, non-OK
+      // status) — typed the same way, never the browser's raw wording.
+      setThinking(false)
       if ((e as Error).name === 'AbortError') {
         if (streamedRef.current !== '') {
-          setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current } : m)))
+          setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, incomplete: true, incompleteReason: 'stopped' } : m)))
         } else {
           setMessages((prev) => prev.filter((m) => m.id !== asstId))
         }
       } else {
-        setError((e as Error).message)
-        setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
+        if (streamedRef.current === '') setMessages((prev) => prev.filter((m) => m.id !== asstId))
+        else setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, incomplete: true, incompleteReason: 'interrupted' } : m)))
+        setError((e as Error).message || streamFailureMessage('http', null))
       }
     } finally {
       setStreaming(false)
       setThinking(false)
+      streamingRef.current = false
+      streamingAsstIdRef.current = null
       abortRef.current = null
     }
   }
@@ -437,9 +514,24 @@ export function CodeGiftz() {
                 <div className={cn('max-w-[90%] rounded-2xl px-4 py-3', m.role === 'user' ? 'bg-[rgba(212,175,55,0.14)] text-white/90' : 'bean-glass text-white/85')}>
                   {m.role === 'user' ? (
                     <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed">{m.content}</p>
-                  ) : m.content ? (
+                  ) : m.content || m.incomplete ? (
                     <>
-                      <Markdown content={m.content} />
+                      <Markdown
+                        content={
+                          // Complete answers have balanced fences — only an
+                          // in-flight or interrupted message ever needs the fix.
+                          m.incomplete || (streaming && m.id === streamingAsstIdRef.current)
+                            ? closeUnbalancedFences(m.content)
+                            : m.content
+                        }
+                      />
+                      {m.incomplete ? (
+                        <p className="mt-2 border-t border-[rgba(212,175,55,0.12)] pt-2 text-[10.5px] text-amber-300">
+                          {m.incompleteReason === 'stopped'
+                            ? 'Generation stopped — the text above is incomplete.'
+                            : 'Response interrupted — the text above is incomplete.'}
+                        </p>
+                      ) : null}
                       {m.changes.length > 0 ? (
                         <div className="mt-2 flex flex-wrap gap-1.5 border-t border-[rgba(212,175,55,0.12)] pt-2">
                           {m.changes.map((c) => (
@@ -472,7 +564,17 @@ export function CodeGiftz() {
       </div>
 
       {error ? (
-        <div className="mx-5 mb-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>
+        <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          <span className="min-w-0">{error}</span>
+          {lastPromptRef.current && !streaming ? (
+            <button
+              onClick={() => { const p = lastPromptRef.current; if (p) void send(p) }}
+              className="shrink-0 rounded border border-red-400/40 px-2 py-1 text-[11px] text-red-200 transition-colors hover:bg-red-500/20"
+            >
+              Retry
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {attachments.length > 0 || uploading ? (
