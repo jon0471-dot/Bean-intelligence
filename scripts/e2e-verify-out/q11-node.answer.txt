@@ -1,18 +1,34 @@
-Based on the retrieved evidence, here are the latest Node.js versions as of today (November 3, 2026):
+Based on the retrieved evidence, here's the current status of Node.js versions:
 
-**LTS (Long Term Support) line:**
-- Node.js 24.22.2 (LTS) - Release date not specified in the evidence
+**LTS Line:**
+- Node.js 26 (Lithium) is the current LTS version
+- The first LTS release in this line was Node.js 26.13.0, released on October 28, 2026
+- This version will be supported until the end of April 2029
 
-**Current line:**
-- Node.js 26.12.1 (Current) - Release date not specified in the evidence
+**Current Line:**
+- Node.js 26.10.0 is the most recent Current version, released on September 22, 2026
+- Starting with Node.js 27, the project will switch to one major release per year, with each reaching LTS after spending half a year as Current
 
-The evidence also mentions that Node.js 27.0.0-alpha.0.0.0 is in development, but it's not yet a stable release.
-According to the retrieved evidence [3], Node.js 24.22.2 (LTS) and Node.js 26.12.1 (Current) are the latest releases. 
+Note that Node.js 24 left Active LTS on October 20, 2026, and is no longer in the active support phase.
+Node.js 26.13.0 Lithium is the first LTS release in the 26 line, released on October 28, 2026 [2]. Node.js 26.10.0 is the most recent Current version, released on September 22, 2026 [1]. 
 
-**LTS (Long Term Support) line:** [3]
-- Node.js 24.22.2 (LTS) - Release date not specified in the evidence [3]
+**LTS Line:**
+- Node.js 26 (Lithium) is the current LTS version [2]
+- This version will be supported until the end of April 2029 [2]
 
-**Current line:** [3]
-- Node.js 26.12.1 (Current) - Release date not specified in the evidence [3]
+**Current Line:**
+- Node.js 26.10.0 is the most recent Current version [1]
+- Starting with Node.js 27 the project switches to one major release per year, with each reaching LTS after spending half a year as Current [6]
 
-The evidence also mentions that Node.js 27.0.0-alpha.0.0.0 is in development [3], but it's not yet a stable release.
+Note that Node.js 24 left Active LTS on October 20, 2026 [5].Based on the retrieved evidence, here's the current status of Node.js versions:
+
+**LTS Line:**
+- Node.js 26 (Lithium) is the current LTS version
+- The first LTS release in this line was Node.js 26.13.0, released on October 28, 2026
+- This version will be supported until the end of April 2029
+
+**Current Line:**
+- Node.js 26.10.0 is the most recent Current version, released on September 22, 2026
+- Starting with Node.js 27, the project will switch to one major release per year, with each reaching LTS after spending half a year as Current
+
+Note that Node.js 24 left Active LTS on October 20, 2026, and is no longer in the active support phase.
