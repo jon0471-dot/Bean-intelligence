@@ -1392,3 +1392,18 @@ Verification (all executed):
   tab click switched the editor (main.js → index.html) with both tabs intact; "Close index.html"
   removed the tab and the editor fell back to main.js exactly per the close handler's fallback.
   Screenshot: scripts/giftz-hydration-fixed.png — the gold tab pill renders pixel-identical.
+
+---
+Task ID: STREAMFIX-1103-VERIFY (post-fix evidence audit)
+Agent: main (Z.ai)
+Task: Independent re-verification of the streaming reliability work — no new features, no UI changes.
+
+CODE AUDIT (all from disk, no memory claims): stream-config.ts (5 env vars, all clamped/validated, unset max_tokens = NO cap sent); sse-client.ts (final decoder.decode() flush + parser.flush() for a trailing frameless line; protocol failure on close-without-done; watchdog; abort class; reader always released); sse.ts (heartbeat clamped ≤30s < 60s client watchdog; disconnect containment); hosted-llm.ts sseDeltas (idle guard, total-duration guard, streaming UTF-8 decode, FINAL FLUSH of residual line + pending decoder bytes, finish_reason=length → typed UpstreamTruncatedError even after [DONE]); route.ts (done carries partial flag; error payloads typed UPSTREAM_*; persistence only on succeeded; disconnect containment persists the complete answer). Zero streaming-code commits since d09c5c3 (git log d09c5c3..HEAD on riishe/adapters/api-riishe = EMPTY) — audited code == built code.
+
+TESTS: bun test (repo root) → 839 pass / 0 fail / 54 files (836 prior + 3 NEW empty-stream pins added to riishe-streaming.test.ts — the ONLY file changed this audit; the 10 required scenarios all map to named tests, empty stream was the one gap). tsc --noEmit → 0 errors in src/ + tests/ (6 pre-existing scripts/-confined error files unchanged). eslint on the touched test file → 0. npm run build → ✓ Compiled successfully 16.7s, exit 0 (run with the dev server DOWN — no OOM contention).
+
+LIVE E2E (re-run, real gateway/research; verification instance :3100 which is EMPIRICALLY wired to scripts/e2e-verify-out/verify.db — proved by registering a probe account via HTTP and observing it appear in verify.db and NOT in db/custom.db): T1 short 8 deltas done partial=false; T2 LONG (screenshot failure class) 2085 deltas / 20291 chars 21.9s, 1 reset (verification rewrite), reset-aware final 10106 chars == DB row BYTE-EXACT; T3 Tamil 140 Tamil chars ZERO U+FFFD byte-exact persisted; Q15 Spain 1–0 Argentina AET (ground-truth match); Q14 all items dated Oct 2026/Jul 2026, no stale Blackwell; Q11 LTS headline correct vs nodejs.org live recheck (26.13.0 Latest LTS) but the secondary "Current" framing (26.10.0) is stale post-promotion → graded PARTIAL (model/research residual, not transport); T7 client disconnect at 6s → server contained + persisted 3292 chars; max_tokens probe re-run: uncapped finish=stop/212 chars, capped finish=LENGTH/148 chars cut mid-sentence.
+
+DB EVIDENCE: db/custom.db sha256-over-all-messages checksum IDENTICAL before/after the full e2e (654 rows, 13 tables, counts identical) — the real database and existing conversation history are provably untouched. The e2e copy grew additively only (+32 messages / +16 conversations, same schema).
+
+PREVIEW: platform dev server is DOWN (localhost:3000 refuses; public preview 502 via Caddy) — needs the user's platform Restart. NOT restarted via shell per platform rules. E2E therefore ran on the separate production instance (:3100, same streaming code, its own DB copy) and is LABELED as such; preview verification remains NOT VERIFIED until the user restarts and it is probed.

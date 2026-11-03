@@ -2,357 +2,109 @@
 
 data: {"type":"stage","stage":"researching"}
 
-data: {"research":{"queries":["FIFA World Cup 2026 final winner score","FIFA World Cup 2026 final result","2026 FIFA World Cup champion","FIFA World Cup 2026 final winner score latest news update"]}}
+: keepalive
+
+data: {"research":{"queries":["FIFA World Cup 2026 final result","FIFA World Cup 2026 winner score","FIFA World Cup 2026 final match recap","FIFA World Cup 2026 final result latest news update"]}}
 
 data: {"type":"stage","stage":"solving"}
 
-data: {"delta":"Spain","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"Spain","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" won","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" won","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" the","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" the","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" ","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":"202","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"202","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":"6","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"6","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" FIFA","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" FIFA","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" World","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" World","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" Cup","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" Cup","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" final","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" final","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" by","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" by","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" defeating","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" beating","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" Argentina","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" Argentina","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" ","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":"1","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"1","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":"-","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"-","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":"0","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"0","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" after","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" in","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" extra","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" extra","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" time","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" time","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":".","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" [","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" The","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"4","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" match","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"].","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" took","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" The","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" place","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" match","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" on","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" took","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" Sunday","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" place","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" at","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" July","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" the","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" New","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":"19","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" York","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" New","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" Jersey","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":"202","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" Stadium","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":"6","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" [","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"3","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" at","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"].","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" New","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" This","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" York","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" was","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" New","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" Spain","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" Jersey","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"'s","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" Stadium","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" second","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" in","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" World","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" front","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" Cup","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" of","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" title","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" a","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":" [","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" crowd","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"1","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
-data: {"delta":" of","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" over","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"80","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"000","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" spectators","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":".","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Spanish","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" forward","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Ferr","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"an","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Torres","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" scored","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" the","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" winning","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" goal","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" in","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" extra","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" time","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" and","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" was","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" named","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" the","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Man","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" of","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" the","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Match","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" [","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"2","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"6","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"].","conversationId":"cmw01h9dw0014qarei521ygfi"}
+data: {"delta":"].","conversationId":"cmw02vp7k0017qapy175j01r5"}
 
 data: {"type":"stage","stage":"verifying"}
 
-data: {"reset":true}
-
-data: {"type":"stage","stage":"solving"}
-
-data: {"delta":"\n","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"Spain","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" won","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" the","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"202","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"6","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" FIFA","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" World","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Cup","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" final","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" by","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" defeating","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Argentina","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"1","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"-","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"0","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" after","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" extra","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" time","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" [","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"2","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"4","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"5","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"].","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" The","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" match","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" took","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" place","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" on","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Sunday","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" July","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"19","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"202","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"6","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" at","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" New","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" York","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" New","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Jersey","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Stadium","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" in","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" front","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" of","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" a","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" crowd","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" of","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" over","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" ","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"80","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":",","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"000","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" spectators","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" [","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"6","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"].","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Spanish","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" forward","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Ferr","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"an","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Torres","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" scored","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" the","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" winning","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" goal","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" in","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" extra","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" time","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" and","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" was","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" named","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Man","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" of","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" the","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" Match","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":" [","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"2","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"delta":"].","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"reset":true}
-
-data: {"delta":"Spain won the 2026 FIFA World Cup final by defeating Argentina 1-0 after extra time. The match took place on Sunday, July 19, 2026, at New York New Jersey Stadium in front of a crowd of over 80,000 spectators. Spanish forward Ferran Torres scored the winning goal in extra time and was named the Man of the Match [2, 6].","conversationId":"cmw01h9dw0014qarei521ygfi"}
-
-data: {"done":true,"conversationId":"cmw01h9dw0014qarei521ygfi","durationMs":16982,"partial":false,"messageId":"cmw01hmhn0018qareyluithac","firstTokenMs":15249,"meta":{"states":["PARTIALLY_VERIFIED"],"sources":[{"id":2,"title":"Who won the last World Cup?","url":"https://www.britannica.com/question/Who-won-the-last-World-Cup","hostName":"www.britannica.com","date":null,"official":false,"social":false,"pageRead":false},{"id":6,"title":"FIFA World Cup 2026™ Final","url":"https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/final","hostName":"www.fifa.com","date":null,"official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"source freshness","status":"warning","detail":"No retrieved source states a publication date; freshness could not be verified."},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 2 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":14402},{"stage":"verifying","durationMs":1378}],"degraded":["page read failed: page_reader timed out after 10000ms","page read failed: page_reader timed out after 10000ms","claim-repair pass did not improve grounding; unverified statements remain flagged"],"retrievedAt":"2026-11-03T01:59:06.777Z","verificationNote":"2 statements restate the retrieved evidence without a citation marker (e.g., \"Spain won the 2026 FIFA World Cup final by defeating Argentina 1-0 after extra time.\") — the supporting sources are listed under Sources. the detail \"Match\" could not be located in the cited sources' text (full page text was unavailable this run — the check ran against titles and snippets; the articles may still contain them) — treat as unverified. publication dates could not be verified for 2 of the cited sources — the latest status is stated only as of the dated reports. no retrieved source states a publication date; freshness could not be verified","router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"What"},{"family":"wh","match":"was"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":16978,"understandMs":0,"researchMs":14402,"searchMs":2449,"pageReadMs":10002,"solveTtftMs":846,"solveMs":1196,"verifyMs":1378,"repairMs":1377,"solvePasses":2}}}
+data: {"done":true,"conversationId":"cmw02vp7k0017qapy175j01r5","durationMs":16151,"partial":false,"messageId":"cmw02w1oa001bqapyy10p8ulp","firstTokenMs":16067,"meta":{"states":["VERIFIED_FROM_SOURCES"],"sources":[{"id":1,"title":"2026 FIFA World Cup: Complete Guide to the Tournament","url":"https://www.britannica.com/event/2026-FIFA-World-Cup","hostName":"www.britannica.com","date":"Oct 28, 2026","official":false,"social":false,"pageRead":false},{"id":3,"title":"FIFA World Cup 2026: Highlights: Spain v Argentina: Final","url":"https://www.sbs.com.au/sport/video/fifa-world-cup-2026-highlights-spain-v-argentina-final/87twe9fvz","hostName":"www.sbs.com.au","date":null,"official":false,"social":false,"pageRead":false},{"id":4,"title":"2026 FIFA World Cup Recap - Frontline - The Hindu","url":"https://frontline.thehindu.com/other/sport/fifa-worldcup-2026-spain-argentina-football/article71244152.ece","hostName":"frontline.thehindu.com","date":"Jul 20, 2026","official":false,"social":false,"pageRead":false}],"verification":[{"check":"citation integrity","status":"passed","detail":"all citation markers resolve to retrieved sources"},{"check":"publication dates","status":"warning","detail":"publication date could not be verified for 1 of the displayed sources"}],"stages":[{"stage":"researching","durationMs":15108},{"stage":"verifying","durationMs":1}],"degraded":["page read failed: page_reader timed out after 10000ms","page read failed: page_reader timed out after 10000ms"],"retrievedAt":"2026-11-03T02:38:19.257Z","verificationNote":"Publication date could not be verified for 1 of the cited sources — the latest status is stated only as of the dated reports","router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"What"},{"family":"wh","match":"was"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":16149,"understandMs":0,"researchMs":15108,"searchMs":3103,"pageReadMs":10001,"solveTtftMs":959,"solveMs":1039,"verifyMs":1,"solvePasses":1}}}
 
