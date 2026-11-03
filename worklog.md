@@ -1431,3 +1431,29 @@ RESULTS (scripts/preview-acceptance-out/report.json, harness scripts/preview-acc
 - Reconciliation of the audited run-0237 "PERSIST FAIL" (t2): raw t2-long.sse contains exactly 1 reset event (verification rewrite) — the old harness double-counted across the reset; reset-aware accounting matches the persisted row. Independently re-confirmed by this run's reset-aware parser (0 resets, exact matches).
 
 VERDICT: functional suite 6/9 PASS (items 3,4,5,6,7,9); items 1,2,8 FAIL on the single environmental root cause (ingress default -> dead :3000). Per the acceptance instruction: OVERALL NOT CLAIMED COMPLETE — the preview in its normal form remains unavailable. Unblocking requires a platform-side action only: restart that brings the app onto the ingress' default target (:3000), or re-point the ingress default to the live :3100 instance. After that, re-run scripts/preview-acceptance.py (default-route probes will flip to 200).
+
+---
+Task ID: PREVIEW-PORT-RECOVERY-1103 (preview 502 / port 3100-vs-3000 mismatch recovery)
+Agent: main (Z.ai)
+Task: restore the normal preview URL; inspect platform preview/ingress/port configuration; correct the mismatch via the platform-supported mechanism; no RIISHE/streaming/db/ingress changes, no new servers, no shell process management.
+
+ROOT CAUSE (measured, not assumed):
+- Platform ingress is Caddy on :81 (config copy inspected at /tmp/my-project/Caddyfile; live service not writable from the sandbox): default handle -> reverse_proxy localhost:3000; per-request steering via ?XTransformPort=<n>. Ingress target is therefore NOT project-configurable -> the app must bind :3000.
+- Platform boot (start.sh, /tmp/boot-timeline.log, this boot 2026-11-03T03:25:28Z): init steps -> "custom dev script" (runs the project dev script) -> "Starting Caddy server". Normal launch path = package.json "dev" = `next dev -p 3000 | tee dev.log` (port hard-pinned by -p; binds the network interface, dev.log banner: Network http://21.0.8.100:3000).
+- The 02:20:22 (previous sandbox session) platform restart instead re-launched the PREVIOUS session's throwaway production verification command: `bun .next/standalone/server.js` with process env PORT=3100, DATABASE_URL=.../scripts/e2e-verify-out/verify.db, loopback HOSTNAME — none of which exists in ANY project file (.env checked in both roots; Glob .env* -> only DATABASE_URL=file:/home/z/my-project/db/custom.db). Next standalone honors process env over defaults, hence 127.0.0.1:3100 + the E2E DB copy, while ingress kept targeting :3000 -> 502. Project config was never wrong; the stale captured launch env was.
+- This boot's "custom dev script" came up correctly on :3000 (dev.log: Ready in 1160ms; "Environments: .env"). First-hit compiles of / panic'd transiently (Turbopack "Failed to write app endpoint /page", GET / 500 x8 — races the boot's "Setting permissions" step) and self-recovered; later requests compile clean.
+
+CURRENT STATE VERIFIED (scripts/infra-port-probe.py — strictly READ-ONLY: HTTP GETs + os.stat only; 2026-11-03T03:44:52Z):
+- 127.0.0.1:3000: / -> 200 (x-powered-by Next.js), /api/health -> 200 ok:true live:true.
+- 127.0.0.1:3100: connection refused (the 02:20 instance died with the previous sandbox session; NOT restarted by me).
+- PUBLIC PREVIEW DEFAULT ROUTE (no steering): / -> 200, title "BEAN Intelligence — Brand-Owned AI Platform"; /api/health -> 200 ok:true live:true (fresh live gateway+research probes). ?XTransformPort=3000 -> 200; ?XTransformPort=3100 -> 502 (nothing there — consistent).
+- Single serving path: only :3000 answers; ingress only targets :3000.
+- DB wiring: e2e probe account (exists ONLY in verify.db) fails to authenticate on the live app (GET /api/riishe/conversations -> 404 auth-gate) -> app NOT wired to verify.db; .env (loaded per dev.log) points to db/custom.db. db/custom.db mtime 01:36:40Z UNCHANGED through all probes (real user data untouched); verify.db mtime 03:11:38Z (previous session's E2E).
+
+CONFIG HARDENING APPLIED (the only file change; no runtime impact on the running dev process):
+- package.json "start": pinned `PORT=3000 HOSTNAME=0.0.0.0 DATABASE_URL=file:/home/z/my-project/db/custom.db` ahead of `bun .next/standalone/server.js` — script-level assignments override any inherited stale env, so ANY future production launch (even a stale re-launch of the 02:20 kind) binds 0.0.0.0:3000 on the real DB. "dev" intentionally untouched (-p 3000 is already env-proof).
+- .next/standalone deliberately NOT rebuilt (build caused the earlier OOM; absent entrypoint makes a stale raw `bun .next/standalone/server.js` re-launch fail fast instead of binding a wrong port).
+
+RESTRICTION COMPLIANCE: RIISHE streaming code untouched; no DB/schema/data changes; no DB deleted/reset; no second app server introduced (the :3000 process is the platform's own boot); no fake health endpoints; shell used ONLY to execute the read-only probe script (GET + stat), never to start/kill/signal processes or edit ingress.
+
+VERDICT: preview restored and verified on its normal URL (default route, no steering) — platform's 03:25 boot + start-script pin; residual known behavior: first-hit 500s during boot-time compile (self-heals within seconds; documented).
