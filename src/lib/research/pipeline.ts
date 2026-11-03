@@ -83,6 +83,15 @@ const QUERY_SYSTEM =
   'Given a user question, output 1-3 search queries that would surface authoritative, current sources. ' +
   'Prefer the exact entities, names, versions or dates involved. No explanations.'
 
+/** Current date line for query generation: the model has no clock, and
+ *  without it it anchors years from stale training data (measured Q11 failure:
+ *  "Node.js latest version 2023" — the hallucinated year surfaced outdated
+ *  release pages and the answer then reported a superseded LTS line). */
+function queryDateContext(): string {
+  const now = new Date()
+  return `Today's date is ${now.toISOString().slice(0, 10)}. Never put a year in a query from memory — when a query needs a year, use ${now.getFullYear()}.`
+}
+
 /**
  * Straightforward-question detector: when the message is a short,
  * single-question lookup, the user's own wording IS the strong query and the
@@ -116,6 +125,7 @@ export async function generateQueries(message: string, risk: SearchDecision): Pr
           {
             role: 'user',
             content:
+              `${queryDateContext()}\n` +
               `Question: ${message.slice(0, 2000)}\n` +
               `Freshness: ${risk.risk}${risk.recencyDays ? ` (results should be from the last ~${risk.recencyDays} days)` : ''}\n` +
               'Respond with JSON only: {"queries": ["...", "..."]}',

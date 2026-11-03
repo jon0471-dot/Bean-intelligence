@@ -24,6 +24,7 @@ import {
   UpstreamBillingError,
   UpstreamRateLimitError,
 } from '@/lib/upstream/gateway'
+import { streamConfig } from '@/lib/riishe/stream-config'
 
 /**
  * Typed truncation: the provider finished the stream with
@@ -33,9 +34,14 @@ import {
  * class so the stream surfaces as an incomplete generation.
  */
 export class UpstreamTruncatedError extends Error {
-  constructor(message = 'upstream truncated the response at its output length limit (finish_reason: length)') {
+  /** The text the provider produced before the cap cut it off (null when the
+   *  caller already consumed the partial deltas itself). Continuation logic
+   *  uses it so a length-capped answer is continued, not discarded. */
+  readonly partialText: string | null
+  constructor(message = 'upstream truncated the response at its output length limit (finish_reason: length)', partialText: string | null = null) {
     super(message)
     this.name = 'UpstreamTruncatedError'
+    this.partialText = partialText
   }
 }
 
@@ -52,13 +58,32 @@ const BACKEND_ID = 'bean-llm-hosted-primary'
  * tokens: if no chunk arrives within `idleTimeoutMs`, the iterator is
  * released (best-effort — SDK limitation, same class as withTimeout) and a
  * labeled error propagates ("... timed out ..." so classifyUpstreamError
- * maps it to the honest timeout class). While tokens ARE flowing, no limit
- * applies — a long legitimate answer is never cut short by this guard.
+ * maps it to the honest timeout class). While tokens ARE flowing, no idle
+ * limit applies — a long legitimate answer is never cut short by this guard.
+ *
+ * TOTAL DURATION GUARD (2026-11-03 reliability work order): an independent
+ * wall-clock cap bounds the WHOLE stream so a pathological slow-drip upstream
+ * cannot hold a turn (and its connection slot) forever while technically
+ * never going idle. Default 10 minutes — far beyond any legitimate turn on
+ * this platform — configurable via RIISHE_STREAM_MAX_DURATION_MS (0 = off).
+ * Firing it is a LABELED timeout error, never a fake completion.
+ *
+ * FINAL FLUSH (2026-11-03): when the upstream closes, any residual buffered
+ * line (a final `data:` frame without a trailing blank line) and any pending
+ * streaming-decoder bytes were previously DISCARDED. Both are now processed
+ * before the generator returns, so the last token of a response is never
+ * dropped.
+ *
+ * Both timeouts are configurable (RIISHE_STREAM_IDLE_TIMEOUT_MS /
+ * RIISHE_STREAM_MAX_DURATION_MS) via stream-config; defaults reproduce the
+ * previously verified behavior. Explicit opts still win (callers/tests).
  */
 export const UPSTREAM_STREAM_IDLE_TIMEOUT_MS = 120_000
 
 export interface SseDeltaOptions {
   idleTimeoutMs?: number
+  /** Total wall-clock cap for the whole stream; 0 disables. */
+  maxDurationMs?: number
 }
 
 /**
@@ -93,7 +118,10 @@ export async function* sseDeltas(
   stream: AsyncIterable<unknown>,
   opts: SseDeltaOptions = {},
 ): AsyncGenerator<string, void, unknown> {
-  const idleTimeoutMs = opts.idleTimeoutMs ?? UPSTREAM_STREAM_IDLE_TIMEOUT_MS
+  const cfg = streamConfig()
+  const idleTimeoutMs = opts.idleTimeoutMs ?? cfg.streamIdleTimeoutMs
+  const maxDurationMs = opts.maxDurationMs ?? cfg.streamMaxDurationMs
+  const startedAt = Date.now()
   const iterator = stream[Symbol.asyncIterator]()
   const decodeChunk = makeChunkDecoder()
   let buffer = ''
@@ -103,9 +131,35 @@ export async function* sseDeltas(
   // complete answer.
   let truncated = false
   let doneSentinel = false
+  /** Process one complete SSE line (shared by the loop and the final flush).
+   *  Returns the line's content delta (if any) and whether the [DONE]
+   *  sentinel was seen. NOT a generator — the callers yield on its behalf. */
+  const processLine = (rawLine: string): { delta: string | null; done: boolean } => {
+    const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+    // Spec: the space after "data:" is optional ("data:{...}" is legal).
+    const payload = line.startsWith('data:')
+      ? (line.startsWith('data: ') ? line.slice(6) : line.slice(5))
+      : null
+    if (payload === null) return { delta: null, done: false }
+    if (payload.trim() === '[DONE]') return { delta: null, done: true }
+    let delta: string | null = null
+    try {
+      const json = JSON.parse(payload) as {
+        choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>
+      }
+      const choice = json.choices?.[0]
+      const content: string | undefined = choice?.delta?.content
+      if (choice?.finish_reason === 'length') truncated = true
+      if (typeof content === 'string' && content.length > 0) delta = content
+    } catch {
+      // partial JSON across chunk boundary — carried in buffer
+    }
+    return { delta, done: false }
+  }
   try {
     while (true) {
       let stallTimer: ReturnType<typeof setTimeout> | undefined
+      let totalTimer: ReturnType<typeof setTimeout> | undefined
       const next = await Promise.race([
         iterator.next(),
         new Promise<never>((_, reject) => {
@@ -114,38 +168,51 @@ export async function* sseDeltas(
             idleTimeoutMs,
           )
         }),
-      ]).finally(() => clearTimeout(stallTimer))
+        // Total wall-clock backstop — only when enabled (maxDurationMs > 0).
+        ...(maxDurationMs > 0
+          ? [
+              new Promise<never>((_, reject) => {
+                totalTimer = setTimeout(
+                  () =>
+                    reject(
+                      new Error(
+                        `upstream stream timed out: total stream duration exceeded ${maxDurationMs}ms`,
+                      ),
+                    ),
+                  Math.max(0, maxDurationMs - (Date.now() - startedAt)),
+                )
+              }),
+            ]
+          : []),
+      ]).finally(() => {
+        clearTimeout(stallTimer)
+        clearTimeout(totalTimer)
+      })
       if (next.done) break
       buffer += decodeChunk(next.value)
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
       for (const rawLine of lines) {
-        const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
-        // Spec: the space after "data:" is optional ("data:{...}" is legal).
-        const payload = line.startsWith('data:')
-          ? (line.startsWith('data: ') ? line.slice(6) : line.slice(5))
-          : null
-        if (payload === null) continue
-        if (payload.trim() === '[DONE]') {
-          // The sentinel exits the READ loop — but a finish_reason "length"
-          // observed earlier still raises the truncation error below, so a
-          // length-capped answer can never masquerade as a completion.
+        const parsed = processLine(rawLine)
+        if (parsed.delta !== null) yield parsed.delta
+        if (parsed.done) {
           doneSentinel = true
           break
         }
-        try {
-          const json = JSON.parse(payload) as {
-            choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>
-          }
-          const choice = json.choices?.[0]
-          const delta: string | undefined = choice?.delta?.content
-          if (choice?.finish_reason === 'length') truncated = true
-          if (typeof delta === 'string' && delta.length > 0) yield delta
-        } catch {
-          // partial JSON across chunk boundary — carried in buffer
-        }
       }
       if (doneSentinel) break
+    }
+    // FINAL FLUSH: the generator is ending — process whatever the writer
+    // sent without a trailing blank line, plus the decoder's pending bytes
+    // (a UTF-8 character split exactly at stream end), in that order.
+    if (!doneSentinel) {
+      buffer += decodeChunk('')
+      if (buffer.length > 0) {
+        const parsed = processLine(buffer)
+        if (parsed.delta !== null) yield parsed.delta
+        if (parsed.done) doneSentinel = true
+      }
+      buffer = ''
     }
     if (truncated) throw new UpstreamTruncatedError()
   } finally {
@@ -170,6 +237,20 @@ function buildMessages(req: ChatRequest | CodeTaskRequest) {
     role: m.role as 'user' | 'assistant',
     content: m.content.slice(0, req.maxPromptChars),
   }))
+}
+
+/**
+ * Output-token ceiling for RIISHE chat calls. ONLY applied when the operator
+ * sets RIISHE_MAX_OUTPUT_TOKENS; unset means the provider's own default
+ * applies and BEAN sends no cap at all (never a silent server-side limit).
+ * The provider reports hitting the ceiling via finish_reason "length", which
+ * both the streaming and non-streaming paths surface as the typed
+ * UpstreamTruncatedError — an explicitly identified truncation, never a
+ * silent cut and never a fake timeout.
+ */
+function outputTokenFields(): { max_tokens?: number } {
+  const configured = streamConfig().maxOutputTokens
+  return configured !== null ? { max_tokens: configured } : {}
 }
 
 /**
@@ -277,10 +358,22 @@ export const hostedLlmAdapter: TaskAdapter = {
     const completion = (await createWithGatewayGuard(zai, {
       messages: buildMessages(req),
       thinking: { type: req.thinkingEnabled ? 'enabled' : 'disabled' },
+      ...outputTokenFields(),
     })) as {
-      choices?: Array<{ message?: { content?: string } }>
+      choices?: Array<{ message?: { content?: string }; finish_reason?: string | null }>
     }
-    const content = completion.choices?.[0]?.message?.content ?? ''
+    const choice = completion.choices?.[0]
+    const content = choice?.message?.content ?? ''
+    // Non-streaming truncation is detected EXACTLY like the streaming one:
+    // finish_reason "length" is its own honest class (never a silent short
+    // answer, never a generic failure). The truncated text rides on the
+    // error so continuation logic can resume instead of discarding it.
+    if (choice?.finish_reason === 'length') {
+      throw new UpstreamTruncatedError(
+        'upstream truncated the response at its output length limit (finish_reason: length)',
+        content,
+      )
+    }
     if (!content) {
       throw new Error('Upstream returned an empty completion')
     }
@@ -300,6 +393,7 @@ export const hostedLlmAdapter: TaskAdapter = {
       messages: buildMessages(req),
       stream: true,
       thinking: { type: req.thinkingEnabled ? 'enabled' : 'disabled' },
+      ...outputTokenFields(),
     })) as AsyncIterable<unknown>
     yield* sseDeltas(stream)
   },

@@ -1,0 +1,24 @@
+: connected
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"7","conversationId":"cmw01g0li0008qare7eudn9nt"}
+
+data: {"delta":" times","conversationId":"cmw01g0li0008qare7eudn9nt"}
+
+data: {"delta":" ","conversationId":"cmw01g0li0008qare7eudn9nt"}
+
+data: {"delta":"8","conversationId":"cmw01g0li0008qare7eudn9nt"}
+
+data: {"delta":" is","conversationId":"cmw01g0li0008qare7eudn9nt"}
+
+data: {"delta":" ","conversationId":"cmw01g0li0008qare7eudn9nt"}
+
+data: {"delta":"56","conversationId":"cmw01g0li0008qare7eudn9nt"}
+
+data: {"delta":".","conversationId":"cmw01g0li0008qare7eudn9nt"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmw01g0li0008qare7eudn9nt","durationMs":792,"partial":false,"messageId":"cmw01g17l000cqaretoy95d8g","firstTokenMs":785,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":2}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"router":{"task":"research","confidence":0.55,"signals":[{"family":"wh","match":"what"},{"family":"wh","match":"is"}],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":784,"understandMs":2,"researchMs":null,"solveTtftMs":775,"solveMs":777,"verifyMs":2,"solvePasses":1}}}
+
