@@ -1307,3 +1307,31 @@ LIVE E2E (real account/gateway/model, platform dev server :3000 — read-only us
 - Research batch (5 turns, all completed): Q13 Scene protagonist Suriya via exact-title evidence, villain honestly unresolved against a conflicting interview source (mechanism PASS; the character-reveal hunt is new and unverified-live due to throttling); Q14 NVIDIA all-new dated official items (Oct 12/21 2026), zero 2023 mixing, zero stock/rocket noise (PASS); Q11 said 16.4 / Oct 6 (minor-announcement granularity; patch 16.4.3/Oct 23 ground truth) — GitHub-releases query added in response, live re-run pending; Q29 correctly separated LTS/Current/Alpha lines but mis-selected 24.22.1 as "latest LTS" while citing 26.13.0 (Oct 28) — version-line selection rule added in response, live re-run pending; Q15 search tools failed (real upstream throttle) and the answer degraded HONESTLY (no fabricated final) — retry pending.
 - Streaming: all 14 turns completed with done partial=false; reset protocol observed firing on repair passes (q13/q14/q29) and the client-side replacement verified against raw SSE.
 - ENVIRONMENT LIMIT (recorded honestly): after ~13 turns the authorized gateway began returning REAL HTTP 429 on chat completions (direct SDK probe reproduced it; searches still worked — separate endpoint class). The app degraded exactly as designed: typed UPSTREAM_RATE_LIMITED payload, breaker fail-fast, no fabricated answers, 4 consecutive turns verified. Q11/Q15/Q29 re-runs and the Q27 multi-page PDF QA turn are prepared (scripts + uploaded 3-page fixture with honest note "3 of 3 pages had extractable text") but NOT EXECUTED at report time due to the throttle; they will run when the quota window clears.
+
+---
+Task ID: TURBOPACK-INCIDENT
+Agent: main (Z.ai)
+Task: Investigate and fix "An unexpected Turbopack error occurred" on Next.js 16.1.3 dev server (GET / -> 500)
+
+Root Cause (evidence-based):
+- dev.log: every GET / failed with FATAL "Turbopack Error: Failed to write app endpoint /page"; panic log
+  /tmp/next-panic-b0c3242c45af6f9d24fe6f346e9bc6e5.log (snapshot in scripts/turbopack-incident-evidence/).
+- Panic chain: [project]/src/app/globals.css [app-client] (css) -> PostCss/Tailwind source-glob tracking
+  (track_glob -> raw_read_dir) -> "Unable to watch /home/z/my-project/bean-workspace — Permission denied (os error 13)".
+- Timeline proof: dev server started 00:38 (platform sandbox restore); bean-workspace Birth 00:38:35.5,
+  Change 00:38:42.9 — the directory was being recreated mid-restore exactly while Turbopack ran its initial
+  scan; the transient EPERM window has since closed (dir is 755 z:z; node read_dir verified OK).
+- Persistence mechanism: Turbopack cached the panicked task result (first compile 2.1s = real attempt, all
+  later GETs 3–16ms = cached replay) in the persistent cache .next/dev/cache/turbopack/731ace46/*.sst (116 MB);
+  every subsequent request replayed the same panic even though the filesystem was healthy -> overlay showed
+  "unexpected Turbopack error" + stale badge. NOT a code/import/dependency/Next.js-version defect.
+
+Fix (recovery, no source changes):
+- Invalidated the poisoned compile state by touching src/app/globals.css mtime ONLY (zero content change);
+  turbo-tasks re-executed the glob scan against the healthy FS -> full fresh compile succeeded.
+- Verified: GET / -> 200 (compile 3.9s, then 31ms cached); /api/health 200; /api/products 200; compiled CSS
+  chunk 200; POST /api/riishe/chat unauth -> 401 (auth gate intact, route compiled); persistent cache dir
+  updated at recovery moment (good result committed). bun test -> 803 pass / 0 fail (50 files).
+- No UI/model/provider/gateway/config changes; no Next.js upgrade/downgrade; no files deleted; dev server
+  untouched (read-only HTTP probes only, per platform rules). If a future sandbox recycle reproduces the
+  race, the same one-step recovery applies (touch any input of the failing endpoint's module graph).
