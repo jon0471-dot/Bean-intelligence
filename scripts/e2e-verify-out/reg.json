@@ -1,1 +1,1 @@
-{"ok":true,"user":{"id":"cmw01g0ie0000qarejd0zjwse","email":"e2e-stream-1103@bean.dev","name":"Stream E2E","role":"member"}}
+{"ok":false,"error":{"code":"VALIDATION_ERROR","message":"An account with this email already exists."}}

@@ -1,0 +1,38 @@
+{
+  "db": "/home/z/my-project/db/custom.db",
+  "tables": {
+    "AuditLog": 95,
+    "CodeFile": 1,
+    "CodeMessage": 7,
+    "CodeProject": 1,
+    "Conversation": 217,
+    "Document": 5,
+    "GenerationJob": 12,
+    "ImageAsset": 0,
+    "Message": 654,
+    "RiisheMemory": 0,
+    "Session": 67,
+    "UsageRecord": 331,
+    "User": 41
+  },
+  "message_rows": 654,
+  "message_checksum": "967f93bfac0e5ec91b43ec73618fea59ba014783eec073b8d5700ea754728295",
+  "e2e_users": [
+    "e2e-30q-1102@bean.dev",
+    "e2e-browser-ui3-1101@bean-test.dev",
+    "e2e-closecheck-1101@bean.dev",
+    "e2e-csrf-1792923488@bean-test.dev",
+    "e2e-evalfix-1102@bean.dev",
+    "e2e-origin-fix@bean.test",
+    "e2e-quality-1793193150@bean-test.dev",
+    "e2e-quality-1793198250@bean-test.dev",
+    "e2e-quality-1793203222@bean-test.dev",
+    "e2e-quality-1793235955@bean-test.dev",
+    "e2e-research-1792925669@bean-test.dev",
+    "e2e-riishe-up-1792929254@bean-test.dev",
+    "e2e-stream-fix-1793547997@bean-test.dev",
+    "e2e-upgrade-1101b@bean.dev"
+  ],
+  "e2e_conversations": 148,
+  "e2e_messages": 298
+}

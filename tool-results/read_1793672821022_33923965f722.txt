@@ -1,0 +1,673 @@
+     1→/**
+     2→ * BEAN Intelligence — RIISHE streaming reliability regression tests.
+     3→ * Run: bun test tests/unit/riishe-streaming.test.ts
+     4→ *
+     5→ * Covers the 12 required scenarios from the work order, plus the server-side
+     6→ * SSE writer contract. Everything runs against the REAL production code:
+     7→ *  - src/lib/riishe/sse-client.ts (client frame parser + stream consumer);
+     8→ *  - src/lib/riishe/sse.ts (server writer: keepalive, disconnect tolerance);
+     9→ *  - src/lib/adapters/hosted-llm.ts sseDeltas (upstream stall guard).
+    10→ * Only the TRANSPORT (Readables / async iterables) is fault-injected; no
+    11→ * network calls are made.
+    12→ */
+    13→import { describe, test, expect } from 'bun:test'
+    14→import {
+    15→  CLIENT_IDLE_WATCHDOG_MS,
+    16→  classifyHttpFailure,
+    17→  consumeRiisheStream,
+    18→  createSseFrameParser,
+    19→  streamFailureMessage,
+    20→  type RiisheStreamEvent,
+    21→  type StreamFailureInfo,
+    22→} from '../../src/lib/riishe/sse-client'
+    23→import { createSseWriter, DEFAULT_SSE_HEARTBEAT_MS } from '../../src/lib/riishe/sse'
+    24→import { sseDeltas } from '../../src/lib/adapters/hosted-llm'
+    25→
+    26→const encoder = new TextEncoder()
+    27→
+    28→/** Build a Response whose body replays the given STRING frames. */
+    29→function sseResponse(frames: string[], opts: { delayMs?: number } = {}): Response {
+    30→  const stream = new ReadableStream<Uint8Array>({
+    31→    async start(c) {
+    32→      for (const f of frames) {
+    33→        c.enqueue(encoder.encode(f))
+    34→        if (opts.delayMs) await new Promise((r) => setTimeout(r, opts.delayMs))
+    35→      }
+    36→      c.close()
+    37→    },
+    38→  })
+    39→  return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } })
+    40→}
+    41→
+    42→/** Build a Response from RAW byte chunks (for multibyte split tests). */
+    43→function byteResponse(chunks: Uint8Array[]): Response {
+    44→  const stream = new ReadableStream<Uint8Array>({
+    45→    start(c) {
+    46→      for (const b of chunks) c.enqueue(b)
+    47→      c.close()
+    48→    },
+    49→  })
+    50→  return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } })
+    51→}
+    52→
+    53→/** Callback recorder for consumeRiisheStream. */
+    54→function recorder() {
+    55→  const events: RiisheStreamEvent[] = []
+    56→  const failures: StreamFailureInfo[] = []
+    57→  let completed: RiisheStreamEvent | null = null
+    58→  return {
+    59→    callbacks: {
+    60→      onEvent: (e: RiisheStreamEvent) => events.push(e),
+    61→      onComplete: (e: RiisheStreamEvent) => {
+    62→        completed = e
+    63→      },
+    64→      onFailure: (f: StreamFailureInfo) => failures.push(f),
+    65→    },
+    66→    events,
+    67→    failures,
+    68→    get completed() {
+    69→      return completed
+    70→    },
+    71→  }
+    72→}
+    73→
+    74→const delta = (text: string, extra: Record<string, unknown> = {}) =>
+    75→  `data: ${JSON.stringify({ delta: text, ...extra })}\n\n`
+    76→
+    77→describe('scenario 1 — short response completes normally', () => {
+    78→  test('deltas arrive in order and onComplete fires with the persisted message id', async () => {
+    79→    const r = recorder()
+    80→    await consumeRiisheStream(
+    81→      sseResponse([
+    82→        ': connected\n\n',
+    83→        delta('Hello', { conversationId: 'c1' }),
+    84→        delta('!', { conversationId: 'c1' }),
+    85→        'data: {"done":true,"conversationId":"c1","messageId":"m1","partial":false}\n\n',
+    86→      ]),
+    87→      r.callbacks,
+    88→    )
+    89→    expect(r.events.filter((e) => e.delta).map((e) => e.delta)).toEqual(['Hello', '!'])
+    90→    expect(r.completed).not.toBeNull()
+    91→    expect(r.completed?.messageId).toBe('m1')
+    92→    expect(r.failures).toHaveLength(0)
+    93→  })
+    94→})
+    95→
+    96→describe('scenario 2 — long response streaming over an extended period', () => {
+    97→  test('100 chunks streamed over time are all received, in order, without loss', async () => {
+    98→    const r = recorder()
+    99→    const frames = Array.from({ length: 100 }, (_, i) => delta(`chunk-${i} `))
+   100→    frames.push('data: {"done":true}\n\n')
+   101→    await consumeRiisheStream(sseResponse(frames, { delayMs: 1 }), r.callbacks)
+   102→    const deltas = r.events.filter((e) => e.delta).map((e) => e.delta)
+   103→    expect(deltas).toHaveLength(100)
+   104→    expect(deltas[0]).toBe('chunk-0 ')
+   105→    expect(deltas[99]).toBe('chunk-99 ')
+   106→    expect(r.completed).not.toBeNull()
+   107→    expect(r.failures).toHaveLength(0)
+   108→  })
+   109→})
+   110→
+   111→describe('scenario 3 — response containing multiple code blocks', () => {
+   112→  test('code fences split across deltas reassemble byte-exact', async () => {
+   113→    const block1 = '```python\nprint("one")\nprint(2 + 2)\n```'
+   114→    const block2 = '```js\nconst x = [1, 2].map(n => n * 2);\n```'
+   115→    const full = `Here is code:\n\n${block1}\n\nand more:\n\n${block2}\n\ndone.`
+   116→    const r = recorder()
+   117→    // Deliberately split INSIDE the fences at awkward points.
+   118→    await consumeRiisheStream(
+   119→      sseResponse([
+   120→        delta(full.slice(0, 40)),
+   121→        delta(full.slice(40, 75)),
+   122→        delta(full.slice(75, 120)),
+   123→        delta(full.slice(120)),
+   124→        'data: {"done":true}\n\n',
+   125→      ]),
+   126→      r.callbacks,
+   127→    )
+   128→    const content = r.events.filter((e) => e.delta).map((e) => e.delta).join('')
+   129→    expect(content).toBe(full)
+   130→    expect(content.match(/```/g)?.length).toBe(4)
+   131→    expect(r.completed).not.toBeNull()
+   132→  })
+   133→})
+   134→
+   135→describe('scenario 4 — response containing Markdown tables', () => {
+   136→  test('table rows stream intact (no rows dropped or reordered)', async () => {
+   137→    const table = [
+   138→      '| Year | Downloads |',
+   139→      '| --- | ---: |',
+   140→      '| 2024 | 1.2M |',
+   141→      '| 2025 | 3.4M |',
+   142→      '| 2026 | 7.9M |',
+   143→    ].join('\n')
+   144→    const r = recorder()
+   145→    const lines = table.split('\n').map((l) => delta(`${l}\n`))
+   146→    await consumeRiisheStream(sseResponse([...lines, delta('After the table.'), 'data: {"done":true}\n\n']), r.callbacks)
+   147→    const content = r.events.filter((e) => e.delta).map((e) => e.delta).join('')
+   148→    expect(content).toContain('| Year | Downloads |')
+   149→    expect(content).toContain('| 2026 | 7.9M |')
+   150→    expect(content.trimEnd().endsWith('After the table.')).toBe(true)
+   151→    expect(r.completed).not.toBeNull()
+   152→  })
+   153→})
+   154→
+   155→describe('scenario 5 — Unicode and Tamil characters split across chunks', () => {
+   156→  test('a multibyte character cut in half at a network boundary reassembles correctly', async () => {
+   157→    const tamil = 'வணக்கம் RIISHE நண்பரே'
+   158→    const frame = delta(`${tamil} — மொழிபெயர்ப்பு சோதனை`)
+   159→    const bytes = encoder.encode(frame)
+   160→    // Split at a byte offset INSIDE a multibyte sequence.
+   161→    const splitAt = 12
+   162→    const r = recorder()
+   163→    await consumeRiisheStream(byteResponse([bytes.slice(0, splitAt), bytes.slice(splitAt)]), r.callbacks)
+   164→    const content = r.events.filter((e) => e.delta).map((e) => e.delta).join('')
+   165→    expect(content).toBe(`${tamil} — மொழிபெயர்ப்பு சோதனை`)
+   166→    expect(content).not.toContain('\uFFFD')
+   167→  })
+   168→
+   169→  test('an emoji split exactly at a surrogate boundary also reassembles', async () => {
+   170→    const frame = delta('gold ✨ done')
+   171→    const bytes = encoder.encode(frame)
+   172→    const starAt = bytes.findIndex((b, i) => b === 0xe2 && bytes[i + 1] === 0x9c)
+   173→    const r = recorder()
+   174→    await consumeRiisheStream(byteResponse([bytes.slice(0, starAt + 1), bytes.slice(starAt + 1)]), r.callbacks)
+   175→    const content = r.events.filter((e) => e.delta).map((e) => e.delta).join('')
+   176→    expect(content).toBe('gold ✨ done')
+   177→  })
+   178→})
+   179→
+   180→describe('scenario 6 — network connection interruption mid-stream', () => {
+   181→  test('a dying connection classifies as network failure, never success', async () => {
+   182→    const stream = new ReadableStream<Uint8Array>({
+   183→      start(c) {
+   184→        c.enqueue(encoder.encode(delta('partial one ')))
+   185→        setTimeout(() => c.error(new TypeError('network error')), 5)
+   186→      },
+   187→    })
+   188→    const r = recorder()
+   189→    await consumeRiisheStream(new Response(stream), r.callbacks)
+   190→    expect(r.completed).toBeNull() // NEVER labeled complete
+   191→    expect(r.failures).toHaveLength(1)
+   192→    expect(r.failures[0].kind).toBe('network')
+   193→    // The honest category wording — not the raw browser string.
+   194→    expect(r.failures[0].message).toBe(streamFailureMessage('network', null))
+   195→    expect(r.failures[0].message).toContain('connection to RIISHE was lost')
+   196→    expect(r.events.filter((e) => e.delta)).toHaveLength(1) // partial preserved for the caller
+   197→  })
+   198→})
+   199→
+   200→describe('scenario 7 — provider returning an error during generation', () => {
+   201→  test('the typed error event is surfaced and the turn is never marked complete', async () => {
+   202→    const r = recorder()
+   203→    await consumeRiisheStream(
+   204→      sseResponse([
+   205→        delta('The answer begins '),
+   206→        'data: {"error":"The upstream AI gateway is rate-limited right now (HTTP 429).","code":"UPSTREAM_RATE_LIMITED","partial":true}\n\n',
+   207→        // Server closes WITHOUT a done event (error payload is always last).
+   208→      ]),
+   209→      r.callbacks,
+   210→    )
+   211→    const errorEvent = r.events.find((e) => e.error)
+   212→    expect(errorEvent?.code).toBe('UPSTREAM_RATE_LIMITED')
+   213→    expect(errorEvent?.error).toContain('rate-limited')
+   214→    expect(r.completed).toBeNull()
+   215→    // At the transport layer the clean close without `done` is a protocol
+   216→    // failure — the hook layer preserves the SERVER's wording instead.
+   217→    expect(r.failures).toHaveLength(1)
+   218→    expect(r.failures[0].kind).toBe('protocol')
+   219→  })
+   220→})
+   221→
+   222→describe('scenario 8 — timeout during generation', () => {
+   223→  test('client watchdog: a wedged stream (no bytes at all) is classified as timeout', async () => {
+   224→    const never = new ReadableStream<Uint8Array>({
+   225→      start() {
+   226→        /* never enqueues, never closes */
+   227→      },
+   228→    })
+   229→    const r = recorder()
+   230→    await consumeRiisheStream(new Response(never), r.callbacks, { idleWatchdogMs: 30 })
+   231→    expect(r.completed).toBeNull()
+   232→    expect(r.failures).toHaveLength(1)
+   233→    expect(r.failures[0].kind).toBe('timeout')
+   234→    expect(r.failures[0].message).toBe(streamFailureMessage('timeout', null))
+   235→  })
+   236→
+   237→  test('upstream stall guard: sseDeltas throws a labeled timeout when tokens stop', async () => {
+   238→    let releases = 0
+   239→    let calls = 0
+   240→    const stalled = {
+   241→      [Symbol.asyncIterator]() {
+   242→        return {
+   243→          next: () => {
+   244→            calls += 1
+   245→            if (calls === 1) {
+   246→              // One chunk arrives, then the upstream goes silent forever.
+   247→              return new Promise<IteratorResult<unknown>>((resolve) =>
+   248→                setTimeout(() => resolve({ done: false, value: { 0: 100 } }), 1),
+   249→              )
+   250→            }
+   251→            return new Promise<IteratorResult<unknown>>(() => {}) // never settles
+   252→          },
+   253→          return: () => {
+   254→            releases += 1
+   255→            return Promise.resolve({ done: true as const, value: undefined })
+   256→          },
+   257→        }
+   258→      },
+   259→    }
+   260→    let caught: Error | null = null
+   261→    try {
+   262→      for await (const _ of sseDeltas(stalled as unknown as AsyncIterable<unknown>, { idleTimeoutMs: 30 })) {
+   263→        void _
+   264→      }
+   265→      expect.unreachable()
+   266→    } catch (e) {
+   267→      caught = e as Error
+   268→    }
+   269→    expect(caught?.message).toContain('timed out')
+   270→    expect(releases).toBe(1) // the iterator was released best-effort
+   271→  })
+   272→
+   273→  test('while tokens flow, the stall guard never fires', async () => {
+   274→    const slowButAlive = {
+   275→      [Symbol.asyncIterator]() {
+   276→        let n = 0
+   277→        return {
+   278→          next: async () => {
+   279→            n += 1
+   280→            if (n > 4) return { done: true as const, value: undefined }
+   281→            await new Promise((r) => setTimeout(r, 25))
+   282→            const text = encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: `t${n} ` } }] })}\n\n`)
+   283→            return { done: false as const, value: Object.fromEntries(text.entries()) }
+   284→          },
+   285→        }
+   286→      },
+   287→    }
+   288→    const out: string[] = []
+   289→    for await (const d of sseDeltas(slowButAlive as unknown as AsyncIterable<unknown>, { idleTimeoutMs: 200 })) {
+   290→      out.push(d)
+   291→    }
+   292→    expect(out.join('')).toBe('t1 t2 t3 t4 ')
+   293→  })
+   294→
+   295→  test('classifyUpstreamError maps the stall message to the timeout class (payload contract)', () => {
+   296→    // The stall error text contains "timed out" — classifyHttpFailure /
+   297→    // upstreamStreamErrorPayload must produce the honest timeout category.
+   298→    const info = classifyHttpFailure(504)
+   299→    expect(info.kind).toBe('timeout')
+   300→    expect(info.message).toContain('timed out')
+   301→  })
+   302→})
+   303→
+   304→describe('scenario 9 — user pressing Stop', () => {
+   305→  test('an abort surfaces as kind "aborted" (no error banner semantics)', async () => {
+   306→    const stream = new ReadableStream<Uint8Array>({
+   307→      start(c) {
+   308→        c.enqueue(encoder.encode(delta('kept partial ')))
+   309→        setTimeout(() => {
+   310→          const abortErr = new Error('The user aborted the request.')
+   311→          abortErr.name = 'AbortError'
+   312→          c.error(abortErr)
+   313→        }, 5)
+   314→      },
+   315→    })
+   316→    const r = recorder()
+   317→    await consumeRiisheStream(new Response(stream), r.callbacks)
+   318→    expect(r.completed).toBeNull()
+   319→    expect(r.failures).toHaveLength(1)
+   320→    expect(r.failures[0].kind).toBe('aborted')
+   321→    expect(r.events.filter((e) => e.delta)).toHaveLength(1) // partial kept
+   322→  })
+   323→})
+   324→
+   325→describe('scenario 10 — two consecutive chat requests', () => {
+   326→  test('parser state never leaks between turns', async () => {
+   327→    const r1 = recorder()
+   328→    await consumeRiisheStream(sseResponse([delta('first '), delta('turn'), 'data: {"done":true}\n\n']), r1.callbacks)
+   329→    const r2 = recorder()
+   330→    await consumeRiisheStream(sseResponse([delta('second '), delta('turn'), 'data: {"done":true}\n\n']), r2.callbacks)
+   331→    const c1 = r1.events.filter((e) => e.delta).map((e) => e.delta).join('')
+   332→    const c2 = r2.events.filter((e) => e.delta).map((e) => e.delta).join('')
+   333→    expect(c1).toBe('first turn')
+   334→    expect(c2).toBe('second turn')
+   335→    expect(c2).not.toContain('first')
+   336→    expect(r1.completed).not.toBeNull()
+   337→    expect(r2.completed).not.toBeNull()
+   338→  })
+   339→})
+   340→
+   341→describe('scenario 11 — stream ending without a valid completion event', () => {
+   342→  test('a clean close WITHOUT done is a protocol failure, never a success', async () => {
+   343→    const r = recorder()
+   344→    await consumeRiisheStream(sseResponse([delta('looks finished but '), delta('never completed')]), r.callbacks)
+   345→    expect(r.completed).toBeNull()
+   346→    expect(r.failures).toHaveLength(1)
+   347→    expect(r.failures[0].kind).toBe('protocol')
+   348→    expect(r.failures[0].message).toContain('ended before the model finished')
+   349→  })
+   350→
+   351→  test('a malformed JSON frame is skipped, not fatal — later frames still parse', async () => {
+   352→    const r = recorder()
+   353→    await consumeRiisheStream(
+   354→      sseResponse(['data: {not-json\n\n', delta('still alive '), 'data: {"done":true}\n\n']),
+   355→      r.callbacks,
+   356→    )
+   357→    expect(r.events.filter((e) => e.delta).map((e) => e.delta)).toEqual(['still alive '])
+   358→    expect(r.completed).not.toBeNull()
+   359→    expect(r.failures).toHaveLength(0)
+   360→  })
+   361→})
+   362→
+   363→describe('scenario 12 — final chunk arriving separately from previous chunks', () => {
+   364→  test('a final frame WITHOUT the trailing blank line is flushed at close', async () => {
+   365→    const r = recorder()
+   366→    await consumeRiisheStream(
+   367→      sseResponse([delta('before '), delta('final '), 'data: {"done":true,"messageId":"last"}']),
+   368→      r.callbacks,
+   369→    )
+   370→    expect(r.completed).not.toBeNull()
+   371→    expect(r.completed?.messageId).toBe('last')
+   372→    expect(r.failures).toHaveLength(0)
+   373→  })
+   374→
+   375→  test('a data line split mid-JSON across network chunks is buffered, not lost', async () => {
+   376→    const r = recorder()
+   377→    const frame = delta('tail-end')
+   378→    const bytes = encoder.encode(frame)
+   379→    const cut = bytes.indexOf(0x7d) // inside the JSON "}" region
+   380→    await consumeRiisheStream(byteResponse([bytes.slice(0, cut), bytes.slice(cut)]), r.callbacks)
+   381→    expect(r.events.filter((e) => e.delta).map((e) => e.delta)).toEqual(['tail-end'])
+   382→    expect(r.completed).toBeNull() // this stream has no done event (delta only)
+   383→    expect(r.failures.map((f) => f.kind)).toEqual(['protocol'])
+   384→  })
+   385→})
+   386→
+   387→describe('SSE frame parser — protocol details', () => {
+   388→  test('handles CRLF frames, comments, and multi-line data payloads', () => {
+   389→    const p = createSseFrameParser()
+   390→    const out = p.push(': hi\r\ndata: {"delta":"a"}\r\n\r\ndata: {"delta":"b"}\n\n')
+   391→    expect(out.map((e) => e.delta)).toEqual(['a', 'b'])
+   392→    // Multi-line data joins with \n (spec behavior; BEAN never sends it, but
+   393→    // a spec-compliant peer could).
+   394→    const multi = p.push('data: {"delta":"x\\ny"}\n\n')
+   395→    expect(multi.map((e) => e.delta)).toEqual(['x\ny'])
+   396→    const flushed = p.flush()
+   397→    expect(flushed).toHaveLength(0)
+   398→  })
+   399→
+   400→  test('comment-only keepalive frames produce no events', () => {
+   401→    const p = createSseFrameParser()
+   402→    expect(p.push(': keepalive\n\n')).toHaveLength(0)
+   403→    expect(p.push(': keepalive\n\n: connected\n\n')).toHaveLength(0)
+   404→  })
+   405→
+   406→  test('a [DONE] sentinel maps to a done event', () => {
+   407→    const p = createSseFrameParser()
+   408→    expect(p.push('data: [DONE]\n\n')).toEqual([{ done: true }])
+   409→  })
+   410→})
+   411→
+   412→describe('server SSE writer (createSseWriter)', () => {
+   413→  function fakeController() {
+   414→    const written: string[] = []
+   415→    let closed = false
+   416→    const dec = new TextDecoder()
+   417→    return {
+   418→      controller: {
+   419→        enqueue(chunk: Uint8Array) {
+   420→          if (closed) throw new TypeError('Controller is already closed')
+   421→          written.push(dec.decode(chunk))
+   422→        },
+   423→        close() {
+   424→          if (closed) throw new TypeError('Already closed')
+   425→          closed = true
+   426→        },
+   427→      } as unknown as ReadableStreamDefaultController<Uint8Array>,
+   428→      written,
+   429→      isClosed: () => closed,
+   430→    }
+   431→  }
+   432→
+   433→  test('send() emits single-line data frames; comment() emits comment frames', () => {
+   434→    const { controller, written } = fakeController()
+   435→    const w = createSseWriter(controller, { heartbeatMs: 60_000 })
+   436→    expect(w.send({ delta: 'hi' })).toBe(true)
+   437→    expect(w.comment('connected')).toBe(true)
+   438→    expect(written[0]).toBe(`data: ${JSON.stringify({ delta: 'hi' })}\n\n`)
+   439→    expect(written[1]).toBe(': connected\n\n')
+   440→    w.close()
+   441→    expect(w.isClosed()).toBe(true)
+   442→  })
+   443→
+   444→  test('heartbeat emits a keepalive comment after the idle window', async () => {
+   445→    const { controller, written } = fakeController()
+   446→    const w = createSseWriter(controller, { heartbeatMs: 15 })
+   447→    w.comment('connected')
+   448→    const before = written.length
+   449→    await new Promise((r) => setTimeout(r, 60))
+   450→    expect(written.length).toBeGreaterThan(before)
+   451→    expect(written.slice(before).some((s) => s === ': keepalive\n\n')).toBe(true)
+   452→    w.close()
+   453→  }, CLIENT_IDLE_WATCHDOG_MS)
+   454→
+   455→  test('closing twice is safe; enqueue-after-close returns false without throwing', () => {
+   456→    const { controller, written } = fakeController()
+   457→    const w = createSseWriter(controller, { heartbeatMs: DEFAULT_SSE_HEARTBEAT_MS })
+   458→    w.close()
+   459→    w.close() // idempotent
+   460→    expect(w.send({ delta: 'late' })).toBe(false)
+   461→    expect(w.comment('late')).toBe(false)
+   462→    expect(written).toHaveLength(0)
+   463→    expect(w.isClosed()).toBe(true)
+   464→  })
+   465→
+   466→  test('a consumer disconnect is contained: no throw, onClosed(client_gone) once', () => {
+   467→    const reasons: string[] = []
+   468→    const { controller, written } = fakeController()
+   469→    const w = createSseWriter(controller, { heartbeatMs: 60_000, onClosed: (r) => reasons.push(r) })
+   470→    // Simulate the runtime closing under us (client disconnected).
+   471→    ;(controller as unknown as { close(): void }).close()
+   472→    expect(w.send({ delta: 'into the void' })).toBe(false)
+   473→    expect(w.isClosed()).toBe(true)
+   474→    expect(reasons).toEqual(['client_gone'])
+   475→    expect(written).toHaveLength(0)
+   476→  })
+   477→})
+   478→
+   479→// ---------------------------------------------------------------------------
+   480→// 2026-11-02 upstream SSE adapter hardening (sseDeltas)
+   481→// ---------------------------------------------------------------------------
+   482→
+   483→import { UpstreamTruncatedError } from '../../src/lib/adapters/hosted-llm'
+   484→
+   485→function frameOf(text: string): string {
+   486→  return `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`
+   487→}
+   488→
+   489→async function collect(
+   490→  stream: AsyncIterable<unknown>,
+   491→  opts?: { idleTimeoutMs?: number; maxDurationMs?: number },
+   492→): Promise<string> {
+   493→  const out: string[] = []
+   494→  for await (const d of sseDeltas(stream, opts)) out.push(d)
+   495→  return out.join('')
+   496→}
+   497→
+   498→describe('upstream SSE adapter hardening (2026-11-02)', () => {
+   499→  test('plain string chunks decode to deltas (no byte-record assumption)', async () => {
+   500→    const stream = {
+   501→      async *[Symbol.asyncIterator]() {
+   502→        yield 'data: {"choices":[{"delta":{"content":"Hello "}}]}\n\n'
+   503→        yield 'data: {"choices":[{"delta":{"content":"world"}}]}\n\n'
+   504→        yield 'data: [DONE]\n\n'
+   505→      },
+   506→    }
+   507→    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('Hello world')
+   508→  })
+   509→
+   510→  test('Uint8Array chunks with a Tamil character SPLIT across chunks reassemble (zero U+FFFD)', async () => {
+   511→    // "வணக்கம்" — split the multibyte sequence in the middle of a character.
+   512→    const word = 'வணக்கம்'
+   513→    const bytes = encoder.encode(frameOf(word))
+   514→    const splitAt = frameOf('').length + 6 // inside the first multibyte char
+   515→    const chunk1 = bytes.slice(0, splitAt)
+   516→    const chunk2 = bytes.slice(splitAt)
+   517→    const stream = {
+   518→      async *[Symbol.asyncIterator]() {
+   519→        yield chunk1
+   520→        yield chunk2
+   521→        yield encoder.encode('data: [DONE]\n\n')
+   522→      },
+   523→    }
+   524→    const text = await collect(stream as unknown as AsyncIterable<unknown>)
+   525→    expect(text).toBe(word)
+   526→    expect(text).not.toContain('\uFFFD')
+   527→  })
+   528→
+   529→  test('data: without a space and CRLF line endings both parse per spec', async () => {
+   530→    const payload = JSON.stringify({ choices: [{ delta: { content: 'spec-safe' } }] })
+   531→    const stream = {
+   532→      async *[Symbol.asyncIterator]() {
+   533→        yield encoder.encode(`data:${payload}\r\n\r\n`)
+   534→        yield encoder.encode('data: [DONE]\r\n\r\n')
+   535→      },
+   536→    }
+   537→    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('spec-safe')
+   538→  })
+   539→
+   540→  test('finish_reason "length" raises the typed truncation error even after [DONE]', async () => {
+   541→    const stream = {
+   542→      async *[Symbol.asyncIterator]() {
+   543→        yield encoder.encode(frameOf('partial json {"id":'))
+   544→        yield encoder.encode('data: {"choices":[{"delta":{},"finish_reason":"length"}]}\n\n')
+   545→        yield encoder.encode('data: [DONE]\n\n')
+   546→      },
+   547→    }
+   548→    let caught: unknown = null
+   549→    const deltas: string[] = []
+   550→    try {
+   551→      for await (const d of sseDeltas(stream as unknown as AsyncIterable<unknown>)) deltas.push(d)
+   552→    } catch (e) {
+   553→      caught = e
+   554→    }
+   555→    expect(deltas.join('')).toBe('partial json {"id":')
+   556→    expect(caught).toBeInstanceOf(UpstreamTruncatedError)
+   557→  })
+   558→
+   559→  test('finish_reason "stop" is a normal completion (no truncation error)', async () => {
+   560→    const stream = {
+   561→      async *[Symbol.asyncIterator]() {
+   562→        yield encoder.encode(frameOf('done properly '))
+   563→        yield encoder.encode('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n')
+   564→        yield encoder.encode('data: [DONE]\n\n')
+   565→      },
+   566→    }
+   567→    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('done properly ')
+   568→  })
+   569→
+   570→  test('the truncation error classifies as its own honest payload (not a generic failure)', async () => {
+   571→    const { upstreamStreamErrorPayload } = await import('../../src/lib/upstream/gateway')
+   572→    const payload = upstreamStreamErrorPayload(new UpstreamTruncatedError())
+   573→    expect(payload.code).toBe('UPSTREAM_TRUNCATED')
+   574→    expect(payload.partial).toBe(true)
+   575→    expect(payload.error).toContain('length limit')
+   576→  })
+   577→})
+   578→
+   579→// ---- 2026-11-03 reliability work order additions ---------------------------
+   580→
+   581→describe('final flush — a last data line without a trailing blank line is not dropped', () => {
+   582→  test('the residual buffered line is processed when the stream closes', async () => {
+   583→    const stream = {
+   584→      async *[Symbol.asyncIterator]() {
+   585→        yield encoder.encode(frameOf('first '))
+   586→        // Ends WITHOUT the trailing \n\n and WITHOUT [DONE].
+   587→        yield encoder.encode('data: {"choices":[{"delta":{"content":"last token"}}]}')
+   588→      },
+   589→    }
+   590→    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('first last token')
+   591→  })
+   592→
+   593→  test('a UTF-8 character split exactly at stream end is flushed, not corrupted', async () => {
+   594→    // 'த' in UTF-8 is 3 bytes; cut it so the final chunk ends the stream with
+   595→    // the remaining bytes and no trailing newline.
+   596→    const full = encoder.encode('data: {"choices":[{"delta":{"content":"தமிழ்"}}]}')
+   597→    const cut = full.length - 2
+   598→    const stream = {
+   599→      async *[Symbol.asyncIterator]() {
+   600→        yield full.slice(0, cut)
+   601→        yield full.slice(cut) // ends the stream, no trailing newline
+   602→      },
+   603→    }
+   604→    expect(await collect(stream as unknown as AsyncIterable<unknown>)).toBe('தமிழ்')
+   605→  })
+   606→})
+   607→
+   608→describe('total duration guard — a slow-drip stream cannot hold a turn forever', () => {
+   609→  test('fires a labeled total-duration timeout when the stream outlives the cap', async () => {
+   610→    const drip = {
+   611→      [Symbol.asyncIterator]() {
+   612→        return {
+   613→          next: () => new Promise<IteratorResult<unknown>>(() => {}), // never settles
+   614→        }
+   615→      },
+   616→    }
+   617→    let caught: Error | null = null
+   618→    const t0 = Date.now()
+   619→    try {
+   620→      for await (const _ of sseDeltas(drip as unknown as AsyncIterable<unknown>, {
+   621→        idleTimeoutMs: 5_000, // idle guard NOT the first to fire
+   622→        maxDurationMs: 40,
+   623→      })) {
+   624→        void _
+   625→      }
+   626→      expect.unreachable()
+   627→    } catch (e) {
+   628→      caught = e as Error
+   629→    }
+   630→    expect(caught?.message).toContain('total stream duration exceeded')
+   631→    expect(Date.now() - t0).toBeLessThan(2_000)
+   632→  })
+   633→
+   634→  test('a healthy stream well under the cap completes untouched', async () => {
+   635→    const stream = {
+   636→      async *[Symbol.asyncIterator]() {
+   637→        yield encoder.encode(frameOf('quick '))
+   638→        yield encoder.encode('data: [DONE]\n\n')
+   639→      },
+   640→    }
+   641→    expect(
+   642→      await collect(
+   643→        stream as unknown as AsyncIterable<unknown>,
+   644→        { idleTimeoutMs: 1_000, maxDurationMs: 5_000 },
+   645→      ),
+   646→    ).toBe('quick ')
+   647→  })
+   648→
+   649→  test('maxDurationMs 0 disables the total cap (idle guard still applies)', async () => {
+   650→    const drip = {
+   651→      [Symbol.asyncIterator]() {
+   652→        return {
+   653→          next: () => new Promise<IteratorResult<unknown>>(() => {}),
+   654→        }
+   655→      },
+   656→    }
+   657→    let caught: Error | null = null
+   658→    try {
+   659→      for await (const _ of sseDeltas(drip as unknown as AsyncIterable<unknown>, {
+   660→        idleTimeoutMs: 30,
+   661→        maxDurationMs: 0,
+   662→      })) {
+   663→        void _
+   664→      }
+   665→      expect.unreachable()
+   666→    } catch (e) {
+   667→      caught = e as Error
+   668→    }
+   669→    // The IDLE guard fired (not the total cap) — the cap was truly off.
+   670→    expect(caught?.message).toContain('no tokens received for 30ms')
+   671→  })
+   672→})
+   673→

@@ -1,31 +1,18 @@
-Based on the retrieved evidence, here are NVIDIA's most recent announcements with their dates:
+Based on the retrieved evidence, here are NVIDIA's most recent announcements with dates:
 
-1. NVIDIA and Meta to Expand Collaboration on Muse (October 27, 2026) [2]
-   - This announcement, made 7 days ago according to the source, details the expanded collaboration between NVIDIA and Meta on the Muse family of models amid robust growth.
+1. NVIDIA announced a $1 billion commitment to advance U.S. science over the next five years, with a focus on quantum computing, healthcare, and energy security. This announcement was made on October 8, 2026 [1].
 
-2. NVIDIA Marketplace - Official NVIDIA Store for Data Center (November 2, 2026) [3]
-   - This is the most recent announcement, made 3 hours ago according to the source, regarding the official NVIDIA Store for Data Center.
+2. There was a significant dividend hike by Nvidia on September 23, 2026, which put dividend growth stocks in the spotlight [4].
 
-3. NVIDIA and Supply Chain Partners Expand Capacity to Accelerate AI Infrastructure Buildout (October 21, 2026) [1]
-   - This announcement details new capacity agreements and manufacturing facilities to support volume growth and strengthen supply chain resiliency, which will drive a 2.5x increase in capacity over the current levels.
-Based on the retrieved evidence, here are NVIDIA's most recent announcements:
+3. At SIGGRAPH 2026 (July 20, 2026), NVIDIA made announcements including the expansion of the NVIDIA Agent Toolkit with new Omniverse Libraries for putting AI agents to work building [3].
 
-1. NVIDIA and Supply Chain Partners Expand Capacity to Accelerate AI Infrastructure Buildout [1]
-   - This announcement details new capacity agreements and manufacturing facilities to support volume growth and strengthen supply chain resiliency, which will drive a 2.5x increase in capacity over the current levels.
+4. The NVIDIA Newsroom shows a post dated October 30, 2026, titled "Things That Go Beep in the Night: Agentic AI Joins the..." [5], though the full announcement isn't visible in the excerpt provided.
+Based on the retrieved evidence, here are NVIDIA's most recent announcements with dates:
 
-2. NVIDIA and Meta to Expand Collaboration on Muse [2]
-   - This announcement details the expanded collaboration between NVIDIA and Meta on the Muse family of models amid robust growth.
+1. NVIDIA announced a $1 billion commitment to advance U.S. science over the next five years, with a focus on quantum computing, healthcare, and energy security [1].
 
-3. NVIDIA Marketplace - Official NVIDIA Store for Data Center [3]
-   - This is the official NVIDIA Store for Data Center.
+2. There was a significant dividend hike by Nvidia on September 23, 2026, which put dividend growth stocks in the spotlight [4].
 
-For the specific dates mentioned in the original answer, the exact event dates could not be verified from the cited sources. The sources only provide their publication dates (October 21, 2026 for [1], October 27, 2026 for [2], and November 2, 2026 for [3]).Based on the retrieved evidence, here are NVIDIA's most recent announcements with their dates:
+3. At SIGGRAPH 2026 (July 20, 2026), NVIDIA made announcements including the expansion of the NVIDIA Agent Toolkit with new Omniverse Libraries for putting AI agents to work building [3].
 
-1. NVIDIA and Meta to Expand Collaboration on Muse (October 27, 2026) [2]
-   - This announcement, made 7 days ago according to the source, details the expanded collaboration between NVIDIA and Meta on the Muse family of models amid robust growth.
-
-2. NVIDIA Marketplace - Official NVIDIA Store for Data Center (November 2, 2026) [3]
-   - This is the most recent announcement, made 3 hours ago according to the source, regarding the official NVIDIA Store for Data Center.
-
-3. NVIDIA and Supply Chain Partners Expand Capacity to Accelerate AI Infrastructure Buildout (October 21, 2026) [1]
-   - This announcement details new capacity agreements and manufacturing facilities to support volume growth and strengthen supply chain resiliency, which will drive a 2.5x increase in capacity over the current levels.
+4. The NVIDIA Newsroom has a post titled "Things That Go Beep in the Night: Agentic AI Joins the..." [5], but the exact date of this announcement could not be verified from the provided evidence.
