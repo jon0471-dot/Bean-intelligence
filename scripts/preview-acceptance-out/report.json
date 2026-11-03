@@ -1,0 +1,179 @@
+{
+  "startedAt": "2026-11-03T03:11:11Z",
+  "items": {
+    "S0_session": {
+      "status": 200,
+      "user": "e2e-stream-1103@bean.dev",
+      "userId": "cmw01g0ie0000qarejd0zjwse"
+    },
+    "T1_homepage": {
+      "status": 200,
+      "bytes": 9964,
+      "time_s": 0.08,
+      "title": "BEAN Intelligence — Brand-Owned AI Platform",
+      "markers": {
+        "BEAN": true,
+        "RIISHE": true,
+        "bean-intelligence": false,
+        "<title>": true
+      },
+      "default_route_home": 502,
+      "default_route_health": 502
+    },
+    "T2_health": {
+      "status": 200,
+      "ok": true,
+      "live": true,
+      "riishe_available": true,
+      "riishe_probe": "Gateway responded to a live completion probe.",
+      "riishe_research": true,
+      "time": "2026-11-03T03:11:13.459Z"
+    },
+    "T3_open_existing": {
+      "status": 200,
+      "conversations": 16,
+      "picked": {
+        "id": "cmw02vp7k0017qapy175j01r5",
+        "title": "What happened in the FIFA World Cup 2026 final? Who won and ",
+        "messages": 2,
+        "updatedAt": "2026-11-03T02:38:03.105Z"
+      },
+      "detail_status": 200,
+      "detail_rows": 2
+    },
+    "T4_normal_stream": {
+      "http": 200,
+      "deltas": 8,
+      "chars": 22,
+      "resets": 0,
+      "comments": 1,
+      "first_content_ts": 0.858,
+      "last_content_ts": 0.858,
+      "max_gap_any_s": 0.0,
+      "max_gap_content_s": 0.0,
+      "wall_s": 0.858,
+      "done_partial": false,
+      "done_messageId": "cmw042du4001xqapybrhrpmnb",
+      "done_durationMs": 730,
+      "done_firstTokenMs": 726,
+      "meta_states": [
+        "UNVERIFIED"
+      ],
+      "error_frame": null,
+      "premature_eof": false,
+      "conversationId": "cmw02vp7k0017qapy175j01r5"
+    },
+    "T5_long_stream": {
+      "http": 200,
+      "deltas": 1906,
+      "chars": 9023,
+      "resets": 0,
+      "comments": 1,
+      "first_content_ts": 1.599,
+      "last_content_ts": 18.691,
+      "max_gap_any_s": 0.79,
+      "max_gap_content_s": 0.79,
+      "wall_s": 18.691,
+      "done_partial": false,
+      "done_messageId": "cmw042s9d0025qapyhlt0vij5",
+      "done_durationMs": 18615,
+      "done_firstTokenMs": 840,
+      "meta_states": [
+        "UNVERIFIED"
+      ],
+      "error_frame": null,
+      "premature_eof": false,
+      "conversationId": "cmw042dwa0021qapyvdhbhbxd"
+    },
+    "T6_tamil_stream": {
+      "http": 200,
+      "deltas": 213,
+      "chars": 247,
+      "resets": 0,
+      "comments": 1,
+      "first_content_ts": 2.613,
+      "last_content_ts": 5.032,
+      "max_gap_any_s": 2.01,
+      "max_gap_content_s": 2.01,
+      "wall_s": 5.032,
+      "done_partial": false,
+      "done_messageId": "cmw042w56002dqapyjs919ce1",
+      "done_durationMs": 4963,
+      "done_firstTokenMs": 1074,
+      "meta_states": [
+        "UNVERIFIED"
+      ],
+      "error_frame": null,
+      "premature_eof": false,
+      "conversationId": "cmw042sba0029qapybmuaw22m",
+      "tamil_chars_streamed": 217,
+      "streamed_head": "சென்னை தமிழ்நாட்டின் தலைநகரம் மற்றும் ஒரு முக்கியமான துறைமுக நகரமாகும். இந்நகரம் அதன் பண்டைய கோவில்கள், நவீன கட்டடக்கலை மற்றும் நீண்ட கடற்கரைக்காக அறியப்படுகிறது. சென்னை இந்தியாவின் தகவல் தொழில்நுட்பத"
+    },
+    "T7_persistence": [
+      {
+        "tag": "t4",
+        "detail_status": 200,
+        "rows": 4,
+        "assistant_rows": 2,
+        "persisted_len": 22,
+        "streamed_len": 22,
+        "exact_match": true,
+        "head_match": true
+      },
+      {
+        "tag": "t5",
+        "detail_status": 200,
+        "rows": 2,
+        "assistant_rows": 1,
+        "persisted_len": 9023,
+        "streamed_len": 9023,
+        "exact_match": true,
+        "head_match": true
+      },
+      {
+        "tag": "t6",
+        "detail_status": 200,
+        "rows": 2,
+        "assistant_rows": 1,
+        "persisted_len": 247,
+        "streamed_len": 247,
+        "exact_match": true,
+        "head_match": true,
+        "tamil_chars_persisted": 217
+      }
+    ],
+    "T9_history_intact": {
+      "list_status": 200,
+      "conversations_after": 18,
+      "new_conversations": 2,
+      "old_rows_byte_identical": true,
+      "only_appended": true,
+      "all_before_still_present": true,
+      "rows_before": 2,
+      "rows_after": 4
+    },
+    "T8_errors": {
+      "sse_response_headers_t4": {
+        "date": "Tue, 03 Nov 2026 03:11:14 GMT",
+        "content-type": "text/event-stream",
+        "content-length": "1228",
+        "connection": "keep-alive",
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+        "abc": "preview-chat-5607195a-212f-4a85-8f55-146057425b38",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-origin": "https://preview-chat-5607195a-212f-4a85-8f55-146057425b38.space-z.ai",
+        "access-control-expose-headers": "Date,x-fc-request-id",
+        "cache-control": "no-cache, no-transform",
+        "x-fc-request-id": "1-6ae950d1-14e10392-7b5cc91fd58a",
+        "x-session-id": "chat-5607195a-212f-4a85-8f55-146057425b38"
+      },
+      "sse_error_frames": [],
+      "unexpected_status": [],
+      "dev_log_last_write": "2026-11-03T01:48:03Z",
+      "note": "server-side stdout of the platform-started production instance is not readable from this shell; HTTP-level + SSE-level error evidence collected above",
+      "run0237_t2_reset_events": 1,
+      "run0237_t2_done_partial": false
+    }
+  },
+  "finishedAt": "2026-11-03T03:11:38Z"
+}

@@ -1,0 +1,159 @@
+{
+  "ok": true,
+  "conversation": {
+    "id": "cmw02vp7k0017qapy175j01r5",
+    "title": "What happened in the FIFA World Cup 2026 final? Who won and ",
+    "messages": [
+      {
+        "id": "cmw02vp7m0019qapy2tn3dtmy",
+        "role": "user",
+        "content": "What happened in the FIFA World Cup 2026 final? Who won and what was the score?",
+        "createdAt": "2026-11-03T02:38:03.107Z",
+        "metadata": null
+      },
+      {
+        "id": "cmw02w1oa001bqapyy10p8ulp",
+        "role": "assistant",
+        "content": "Spain won the 2026 FIFA World Cup final by beating Argentina 1-0 in extra time [4]. The match took place at the New York New Jersey Stadium [3]. This was Spain's second World Cup title [1].",
+        "createdAt": "2026-11-03T02:38:19.258Z",
+        "metadata": {
+          "states": [
+            "VERIFIED_FROM_SOURCES"
+          ],
+          "sources": [
+            {
+              "id": 1,
+              "title": "2026 FIFA World Cup: Complete Guide to the Tournament",
+              "url": "https://www.britannica.com/event/2026-FIFA-World-Cup",
+              "hostName": "www.britannica.com",
+              "date": "Oct 28, 2026",
+              "official": false,
+              "social": false,
+              "pageRead": false
+            },
+            {
+              "id": 3,
+              "title": "FIFA World Cup 2026: Highlights: Spain v Argentina: Final",
+              "url": "https://www.sbs.com.au/sport/video/fifa-world-cup-2026-highlights-spain-v-argentina-final/87twe9fvz",
+              "hostName": "www.sbs.com.au",
+              "date": null,
+              "official": false,
+              "social": false,
+              "pageRead": false
+            },
+            {
+              "id": 4,
+              "title": "2026 FIFA World Cup Recap - Frontline - The Hindu",
+              "url": "https://frontline.thehindu.com/other/sport/fifa-worldcup-2026-spain-argentina-football/article71244152.ece",
+              "hostName": "frontline.thehindu.com",
+              "date": "Jul 20, 2026",
+              "official": false,
+              "social": false,
+              "pageRead": false
+            }
+          ],
+          "verification": [
+            {
+              "check": "citation integrity",
+              "status": "passed",
+              "detail": "all citation markers resolve to retrieved sources"
+            },
+            {
+              "check": "publication dates",
+              "status": "warning",
+              "detail": "publication date could not be verified for 1 of the displayed sources"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "researching",
+              "durationMs": 15108
+            },
+            {
+              "stage": "verifying",
+              "durationMs": 1
+            }
+          ],
+          "degraded": [
+            "page read failed: page_reader timed out after 10000ms",
+            "page read failed: page_reader timed out after 10000ms"
+          ],
+          "retrievedAt": "2026-11-03T02:38:19.257Z",
+          "verificationNote": "Publication date could not be verified for 1 of the cited sources \u2014 the latest status is stated only as of the dated reports",
+          "router": {
+            "task": "research",
+            "confidence": 0.55,
+            "signals": [
+              {
+                "family": "wh",
+                "match": "What"
+              },
+              {
+                "family": "wh",
+                "match": "was"
+              }
+            ],
+            "codeExecution": false,
+            "imageAnalysis": false
+          },
+          "timings": {
+            "totalMs": 16149,
+            "understandMs": 0,
+            "researchMs": 15108,
+            "searchMs": 3103,
+            "pageReadMs": 10001,
+            "solveTtftMs": 959,
+            "solveMs": 1039,
+            "verifyMs": 1,
+            "solvePasses": 1
+          }
+        }
+      },
+      {
+        "id": "cmw042d9v001vqapy39de25fi",
+        "role": "user",
+        "content": "Reply with exactly this token and nothing else: PREVIEW-ACCEPTANCE-OK",
+        "createdAt": "2026-11-03T03:11:13.844Z",
+        "metadata": null
+      },
+      {
+        "id": "cmw042du4001xqapybrhrpmnb",
+        "role": "assistant",
+        "content": "\nPREVIEW-ACCEPTANCE-OK",
+        "createdAt": "2026-11-03T03:11:14.573Z",
+        "metadata": {
+          "states": [
+            "UNVERIFIED"
+          ],
+          "sources": [],
+          "verification": [],
+          "stages": [
+            {
+              "stage": "verifying",
+              "durationMs": 0
+            }
+          ],
+          "degraded": [
+            "search not warranted: no freshness signals; answerable from stable knowledge"
+          ],
+          "router": {
+            "task": "general",
+            "confidence": 0.7,
+            "signals": [],
+            "codeExecution": false,
+            "imageAnalysis": false
+          },
+          "timings": {
+            "totalMs": 727,
+            "understandMs": 1,
+            "researchMs": null,
+            "solveTtftMs": 725,
+            "solveMs": 726,
+            "verifyMs": 0,
+            "solvePasses": 1
+          }
+        }
+      }
+    ]
+  }
+}
