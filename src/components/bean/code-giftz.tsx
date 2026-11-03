@@ -589,18 +589,31 @@ export function CodeGiftz() {
           <div className="flex flex-wrap items-center gap-1 border-b border-[rgba(212,175,55,0.08)] px-3 py-1.5">
             {openTabs.map((p) => {
               const f = files.find((x) => x.path === p)
+              // HYDRATION FIX (nested button): the tab pill was a button
+              // element containing the close button element — invalid HTML
+              // that broke hydration. The pill is now a NON-INTERACTIVE flex
+              // container holding two SIBLING buttons: tab selection and
+              // close. Every class (border, padding, radius, active/inactive
+              // variants, hover targets) moved to the container unchanged, so
+              // spacing, sizing, colors and hover behavior are pixel-
+              // identical; both actions remain real buttons (keyboard +
+              // screen-reader safe).
               return (
-                <button
+                <div
                   key={p}
-                  onClick={() => { setActiveFile(p); setFileView('code'); setEditing(false) }}
                   className={cn(
                     'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] transition-colors',
                     activeFile === p ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.1)] text-[#f0c75e]' : 'border-white/10 text-white/50 hover:border-[rgba(212,175,55,0.3)]',
                   )}
                 >
-                  <FileCode2 className="h-3 w-3" />
-                  {p}
-                  {f?.origin === 'modified' ? <span className="h-1.5 w-1.5 rounded-full bg-amber-400" title="edited" /> : null}
+                  <button
+                    onClick={() => { setActiveFile(p); setFileView('code'); setEditing(false) }}
+                    className="inline-flex items-center gap-1"
+                  >
+                    <FileCode2 className="h-3 w-3" />
+                    {p}
+                    {f?.origin === 'modified' ? <span className="h-1.5 w-1.5 rounded-full bg-amber-400" title="edited" /> : null}
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); setOpenTabs((prev) => prev.filter((x) => x !== p)); if (activeFile === p) setActiveFile(openTabs.find((x) => x !== p) ?? null) }}
                     className="ml-0.5 text-white/30 hover:text-white/70"
@@ -608,7 +621,7 @@ export function CodeGiftz() {
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
-                </button>
+                </div>
               )
             })}
           </div>
