@@ -1361,3 +1361,34 @@ LIVE E2E (real gateway, real research; verification instance of the production b
 - max_tokens live probe: without=finish stop/219 chars; max_tokens=40 → finish LENGTH/144 chars cut mid-sentence (the exact class continuation now handles).
 - ENVIRONMENT INCIDENT (recorded honestly): the platform-managed dev server was OOM-killed by the kernel (dmesg: next-server anon-rss 1.65GB) during the FIRST production build on the 4GB sandbox — the preview went down (502). NOT restarted via shell per platform rules; needs the platform's Restart action. E2E was therefore run against the standalone production build on :3100 (separate process, DB copy), not the platform server.
 - REMAINING LIMITS (honest): 4GB sandbox RAM (build + dev server concurrently can OOM); gateway 429 throttle windows (breaker fail-fast in place); page_reader 10s timeouts happen under upstream latency; provider output cap applies when configured or by provider default; continuation bound = 1 pass; tool-loop path truncations surface as UPSTREAM_TRUNCATED without auto-continuation.
+
+---
+Task ID: GIFTZ-HYDRATION-1103
+Agent: main (Z.ai)
+Task: CODE GIFTZ — fix nested button hydration error (src/components/bean/code-giftz.tsx)
+
+Root cause: the file tab pill (line ~593) was a <button> containing the close <button> —
+invalid HTML ("In HTML, <button> cannot be a descendant of <button>"), a hydration error class.
+
+Fix (single file, structure-only): the pill is now a NON-INTERACTIVE flex container <div> holding
+two SIBLING buttons — tab selection and close. The container received the ENTIRE original button
+className (border/px/py/rounded/text-[11px]/transition-colors + active/inactive variants + hover
+targets) unchanged, so dimensions, spacing, colors and hover behavior are identical; the selection
+button keeps inline-flex items-center gap-1 for its content; the close button is byte-identical
+(handler incl. stopPropagation, ml-0.5 classes, aria-label "Close <path>"). Both are real buttons:
+keyboard focusable, Enter/Space activate; the close button's accessible name was previously
+unreliable (nested buttons) and is now cleanly exposed.
+
+Full-file scan (comment-stripped structural scanner): no other nested interactive elements exist in
+the component (the 534/538 hits were scanner artifacts — sibling Button/Textarea in a flex row).
+
+Verification (all executed):
+- Scanner re-run post-fix: ZERO nested-interactive findings.
+- eslint on the file: clean. tsc --noEmit (src+tests): clean. npm run build: Compiled successfully.
+- bun test: 836 pass / 0 fail (54 files).
+- LIVE browser E2E (agent-browser + standalone production build on :3100, seeded project + 3 files,
+  real session): page loaded with ZERO console/page errors (0 hydration/"descendant" messages across
+  login → CODE GIFTZ → project open → 2 tabs → selection → close); explorer click opened a 2nd tab;
+  tab click switched the editor (main.js → index.html) with both tabs intact; "Close index.html"
+  removed the tab and the editor fell back to main.js exactly per the close handler's fallback.
+  Screenshot: scripts/giftz-hydration-fixed.png — the gold tab pill renders pixel-identical.
