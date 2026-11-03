@@ -252,3 +252,85 @@ describe('search policy — no false positive on English "actually"', () => {
     expect(shouldSearch('¿Cuáles son las noticias de hoy sobre la NASA?').search).toBe(true)
   })
 })
+
+// ---- 2026-11-03 reliability & accuracy work order additions ----------------
+
+import { buildUserTurn } from '../../src/lib/riishe/prompts'
+
+describe('Q15 — event status (upcoming/ongoing/completed) and the current date', () => {
+  test('the base protocol requires the event-status determination and correct tense', () => {
+    const p = generalPrompt()
+    expect(p).toContain('Event status check')
+    expect(p).toContain('UPCOMING, ONGOING, or COMPLETED')
+    expect(p).toContain('Never describe a completed event as future')
+  })
+
+  test('every user turn states today\'s date (the model has no clock)', () => {
+    const turn = buildUserTurn('Who won the 2026 FIFA World Cup final?', {
+      evidenceBlock: null,
+      task: 'general',
+      staleness: null,
+    })
+    expect(turn).toContain("TODAY'S DATE:")
+    expect(turn).toContain(new Date().toISOString().slice(0, 10))
+    expect(turn).toContain('(UTC)')
+  })
+})
+
+describe('Q17 — string functions state their exact character range', () => {
+  test('the coding protocol pins ASCII vs Unicode honesty and edge cases', () => {
+    const p = codingPrompt()
+    expect(p).toContain('State the exact character range a string/text function handles')
+    expect(p).toContain('silently excludes accented letters, non-Latin scripts and non-ASCII digits')
+    expect(p).toContain('Unicode property classes')
+    expect(p).toContain('keep digits/numbers when the requirement says alphanumeric')
+    expect(p).toContain('State how the empty string is treated')
+    expect(p).toContain('keep time/space complexity claims accurate')
+  })
+})
+
+describe('Q19 — linked-list O(1) insertion carries its precondition', () => {
+  test('the data-structure rule states the node-reference condition', () => {
+    const p = codingPrompt()
+    expect(p).toContain('linked-list insertion is O(1) ONLY when the relevant node reference is already available')
+    expect(p).toContain('finding it first is O(n)')
+  })
+})
+
+describe('Q21 — SQL answers verify intermediate tables and edge cases', () => {
+  test('the coding protocol requires sample-table rechecks and honest NULL behavior', () => {
+    const p = codingPrompt()
+    expect(p).toContain('SQL answers: verify every intermediate/sample table against the query\'s actual semantics')
+    expect(p).toContain('handle duplicate values (DISTINCT vs not)')
+    expect(p).toContain('fewer-than-N-distinct-values case')
+    expect(p).toContain('return NULL when no qualifying row exists')
+    expect(p).toContain('Label database-specific syntax')
+  })
+})
+
+describe('Q22 — React hook explanations cannot contradict their examples', () => {
+  test('the coding protocol pins dependency-array semantics and Strict Mode', () => {
+    const p = codingPrompt()
+    expect(p).toContain('React hook explanations: describe the dependency array EXACTLY as the example shows it')
+    expect(p).toContain('[] runs once after the initial mount')
+    expect(p).toContain('Strict Mode intentionally double-invokes effects in development')
+    expect(p).toContain('[userId] re-runs whenever userId changes')
+    expect(p).toContain('never let the prose contradict the code')
+  })
+
+  test('useMemo is framed as a performance optimization, never a guarantee', () => {
+    const p = codingPrompt()
+    expect(p).toContain('useMemo as a PERFORMANCE optimization that React may skip')
+    expect(p).toContain('never as a semantic guarantee or a mandatory step')
+  })
+})
+
+describe('§5 — answer-internal consistency check before finalizing', () => {
+  test('the coding protocol requires code/prose/samples/complexity to agree', () => {
+    const p = codingPrompt()
+    expect(p).toContain('Answer-internal consistency')
+    expect(p).toContain('every sample output must follow from actually running/deriving it')
+    expect(p).toContain('every intermediate or sample table must match the real query/code semantics')
+    expect(p).toContain('Fix or explicitly qualify any mismatch instead of shipping it')
+  })
+})
