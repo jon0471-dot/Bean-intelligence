@@ -1335,3 +1335,29 @@ Fix (recovery, no source changes):
 - No UI/model/provider/gateway/config changes; no Next.js upgrade/downgrade; no files deleted; dev server
   untouched (read-only HTTP probes only, per platform rules). If a future sandbox recycle reproduces the
   race, the same one-step recovery applies (touch any input of the failing endpoint's module graph).
+
+---
+Task ID: STREAMFIX-1103
+Agent: main (Z.ai)
+Task: RIISHE intelligence quality, streaming reliability & response-limit improvements (2026-11-03 work order)
+
+Audit → gaps → fixes (all minimal, evidence-first):
+- Streaming lifecycle audited end-to-end (composer hook → route → sse writer → adapter sseDeltas → gateway → sse-client → persistence). Prior-session hardening held; remaining gaps fixed:
+  (a) sseDeltas FINAL FLUSH — a last `data:` line without a trailing blank line and pending TextDecoder bytes were DISCARDED at stream end; both now processed (regression-tested with a mid-character stream-end case).
+  (b) TOTAL-DURATION GUARD — new wall-clock cap on the upstream stream (default 10 min, RIISHE_STREAM_MAX_DURATION_MS, 0=off) against pathological slow-drip streams; fires a LABELED timeout, never a fake completion.
+  (c) CONFIG — new src/lib/riishe/stream-config.ts: RIISHE_STREAM_IDLE_TIMEOUT_MS (120s), RIISHE_STREAM_MAX_DURATION_MS (600s), RIISHE_UPSTREAM_TIMEOUT_MS (90s), RIISHE_HEARTBEAT_INTERVAL_MS (15s, clamped ≤30s so it can never outrun the client's 60s watchdog), RIISHE_MAX_OUTPUT_TOKENS (unset = NO cap sent; provider default applies — never a silent server-side cap). All clamped/validated; wired into hosted-llm (idle+total+max_tokens), sse.ts (heartbeat), orchestrator (non-streaming timeout).
+  (d) OUTPUT CONTROL — max_tokens passthrough verified LIVE (gateway returns finish_reason=length at the cap); non-streaming chat now detects finish_reason "length" and raises the typed UpstreamTruncatedError carrying the partial text (streaming detection already existed).
+  (e) CONTROLLED CONTINUATION — new src/lib/riishe/continuation.ts: on a length-cap truncation the partial is PRESERVED and ONE bounded continuation pass resumes exactly where it stopped (no repetition instruction); bound exceeded → typed error propagates with ALL produced text; empty partial → no continuation. Non-tool-loop path only; degradation note recorded.
+- Intelligence fixes: TODAY'S DATE now rides with EVERY user turn + query-refinement prompt (measured Q11 root cause: query gen hallucinated "2023", surfacing stale release pages → superseded LTS line); event-status rule (upcoming/ongoing/completed, correct tense — Q15); Q17 exact-character-range/Unicode/empty-string/complexity rule; Q19 linked-list O(1)-only-with-node-reference caveat; Q21 SQL sample-table recheck + duplicates + NULL-case + dialect-labeling rule; Q22 React dependency-array consistency + Strict Mode + useMemo-is-not-a-guarantee; §5 answer-internal consistency rule; version rule extended: snippet-only evidence → say exact patch/dates unverifiable, never reconstruct support windows.
+- Tests: NEW stream-config (8), continuation (7), output-config/max_tokens (4), query-date (1) suites; streaming suite +7 (final flush ×2, total guard ×3, plus prior); answer-protocol pins +10 (Q15/Q17/Q19/Q21/Q22/§5/TODAY). bun test → 836 pass / 0 fail (54 files). tsc --noEmit src+tests clean. eslint on all touched files → 0. npm run build → Compiled successfully (×3).
+
+LIVE E2E (real gateway, real research; verification instance of the production build on :3100 with a COPY of the DB — platform dev server untouched; scripts/e2e-streamfix-1103.sh, evidence scripts/e2e-verify-out/):
+- Short turn: 8 deltas, done partial=false, persisted byte-exact.
+- LONG turn (the screenshot failure class): 2,052 deltas / 19,521 chars streamed in 18.8s, done partial=false; verification rewrite (reset protocol) → final 9,708 chars PERSISTED BYTE-EXACT (streamed-final == DB row, similarity 1.0).
+- Tamil turn: complete, zero U+FFFD.
+- Q15 FIFA: completed-event tense, Spain 1–0 Argentina AET, Jul 19 2026, Ferran Torres — matches verified ground truth. Q14 NVIDIA: newest items all Oct–Nov 2026 with dates, zero stale mixing.
+- Q11 Node.js (2 fix iterations): queries fixed 2023→2026 (date context); final run answers Node.js 26.13.0 (Lithium) as latest LTS with date+citation — line assignment and exact patch correct; ±1-day date nuance vs the reference article recorded honestly; page_reader 10s timeouts on both release-table pages that run (upstream latency, recorded, not papered over).
+- CANCELLATION: client dropped mid-stream (curl timeout at 6s) → server contained the disconnect and persisted the complete 3,307-char answer (disconnect containment verified live).
+- max_tokens live probe: without=finish stop/219 chars; max_tokens=40 → finish LENGTH/144 chars cut mid-sentence (the exact class continuation now handles).
+- ENVIRONMENT INCIDENT (recorded honestly): the platform-managed dev server was OOM-killed by the kernel (dmesg: next-server anon-rss 1.65GB) during the FIRST production build on the 4GB sandbox — the preview went down (502). NOT restarted via shell per platform rules; needs the platform's Restart action. E2E was therefore run against the standalone production build on :3100 (separate process, DB copy), not the platform server.
+- REMAINING LIMITS (honest): 4GB sandbox RAM (build + dev server concurrently can OOM); gateway 429 throttle windows (breaker fail-fast in place); page_reader 10s timeouts happen under upstream latency; provider output cap applies when configured or by provider default; continuation bound = 1 pass; tool-loop path truncations surface as UPSTREAM_TRUNCATED without auto-continuation.
