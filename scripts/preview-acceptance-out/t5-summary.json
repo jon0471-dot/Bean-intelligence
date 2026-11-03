@@ -1,0 +1,22 @@
+{
+  "http": 200,
+  "deltas": 1906,
+  "chars": 9023,
+  "resets": 0,
+  "comments": 1,
+  "first_content_ts": 1.599,
+  "last_content_ts": 18.691,
+  "max_gap_any_s": 0.79,
+  "max_gap_content_s": 0.79,
+  "wall_s": 18.691,
+  "done_partial": false,
+  "done_messageId": "cmw042s9d0025qapyhlt0vij5",
+  "done_durationMs": 18615,
+  "done_firstTokenMs": 840,
+  "meta_states": [
+    "UNVERIFIED"
+  ],
+  "error_frame": null,
+  "premature_eof": false,
+  "conversationId": "cmw042dwa0021qapyvdhbhbxd"
+}

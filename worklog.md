@@ -1407,3 +1407,27 @@ LIVE E2E (re-run, real gateway/research; verification instance :3100 which is EM
 DB EVIDENCE: db/custom.db sha256-over-all-messages checksum IDENTICAL before/after the full e2e (654 rows, 13 tables, counts identical) — the real database and existing conversation history are provably untouched. The e2e copy grew additively only (+32 messages / +16 conversations, same schema).
 
 PREVIEW: platform dev server is DOWN (localhost:3000 refuses; public preview 502 via Caddy) — needs the user's platform Restart. NOT restarted via shell per platform rules. E2E therefore ran on the separate production instance (:3100, same streaming code, its own DB copy) and is LABELED as such; preview verification remains NOT VERIFIED until the user restarts and it is probed.
+
+---
+Task ID: PREVIEW-ACCEPT-1103 (final preview acceptance test)
+Agent: main (Z.ai)
+Task: 9-item Final Preview Acceptance Test against the public preview domain. No production code modified.
+
+PREVIEW STATE AT TEST TIME (02:53–03:16 UTC): default preview route (what a browser hits) -> HTTP 502 on / and /api/health with the platform placeholder page. Root cause chain measured end-to-end: platform ingress -> sandbox ingress :81 (Caddyfile default handle) -> localhost:3000 -> NOTHING LISTENING (dev server dead since ~01:48; dev.log last write 2026-11-03T01:48:03Z; localhost:3000 refuses). The 02:20:22 platform restart started the PRODUCTION standalone build (bun server.js, PID 4822) on 127.0.0.1:3100 — healthy — but the ingress default still targets :3000. No process started/killed/signaled per platform rules; no ingress edit (root-owned + reload forbidden).
+
+WORKING PATH DISCOVERED AND USED: the ingress' own steering query (?XTransformPort=3100) is forwarded by the platform preview domain — measured, not assumed. All functional tests therefore ran against the REAL PUBLIC PREVIEW DOMAIN over HTTPS (same origin, same ingress, same production instance the preview would serve). SPA limitation documented: in-app asset/XHR URLs omit the steering param, so a real browser session cannot work off the default route (network log: all /_next/static/* + fonts -> 502; screenshots browser-default-route.png = platform placeholder, browser-steered-home.png = correct <title> but unhydrated).
+
+RESULTS (scripts/preview-acceptance-out/report.json, harness scripts/preview-acceptance.py, raw .sse + screenshots archived):
+- S0 session via preview: 200 (e2e-stream-1103@bean.dev).
+- T1 homepage: steered 200 (title "BEAN Intelligence — Brand-Owned AI Platform", BEAN/RIISHE markers); default route 502 -> FAIL on default route.
+- T2 /api/health: 200 ok:true live:true, riishe.available=true (live completion probe), research probe live.
+- T3 open existing conversation: list 200 (16 convs / 32 msgs), opened FIFA-2026-final conv cmw02vp7k…, detail 200 with 2 rows. DB caveat: the 02:20 instance is process-env-wired to scripts/e2e-verify-out/verify.db (E2E isolation copy; verify.db mtime moved exactly at test time 03:11:38Z; db/custom.db untouched since 01:36 — real user data provably not exercised).
+- T4 normal prompt in the existing conv: 200 SSE, 8 deltas/22 chars, first token 726ms, done partial=false + messageId, persisted EXACT (22==22).
+- T5 long response (silent-termination class): 1906 deltas/9023 chars over 18.7s, continuous arrival (max gap 0.79s; first 1.6s -> last 18.7s), done partial=false, no premature EOF, persisted EXACT (9023==9023).
+- T6 Tamil: 213 deltas/247 chars, 217 Tamil codepoints streamed, persisted EXACT (247==247, 217 Tamil chars, zero U+FFFD).
+- T7 persistence: 3/3 turns byte-exact streamed==persisted.
+- T8 errors: zero SSE error frames, zero unexpected statuses on the working path, SSE headers correct (text/event-stream, no-cache/no-transform); browser-level failures are exclusively the 502 ingress issue. Server-side stdout of the :3100 instance not readable from the shell (limitation noted).
+- T9 history intact: 16->18 conversations (+2 = my T5/T6), all 16 pre-existing still present; opened conv old rows BYTE-IDENTICAL, only appended (2->4 rows); real db/custom.db untouched.
+- Reconciliation of the audited run-0237 "PERSIST FAIL" (t2): raw t2-long.sse contains exactly 1 reset event (verification rewrite) — the old harness double-counted across the reset; reset-aware accounting matches the persisted row. Independently re-confirmed by this run's reset-aware parser (0 resets, exact matches).
+
+VERDICT: functional suite 6/9 PASS (items 3,4,5,6,7,9); items 1,2,8 FAIL on the single environmental root cause (ingress default -> dead :3000). Per the acceptance instruction: OVERALL NOT CLAIMED COMPLETE — the preview in its normal form remains unavailable. Unblocking requires a platform-side action only: restart that brings the app onto the ingress' default target (:3000), or re-point the ingress default to the live :3100 instance. After that, re-run scripts/preview-acceptance.py (default-route probes will flip to 200).

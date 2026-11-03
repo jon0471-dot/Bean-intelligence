@@ -1,0 +1,24 @@
+: connected
+
+data: {"type":"stage","stage":"solving"}
+
+data: {"delta":"\n","conversationId":"cmw02vp7k0017qapy175j01r5"}
+
+data: {"delta":"PRE","conversationId":"cmw02vp7k0017qapy175j01r5"}
+
+data: {"delta":"VIEW","conversationId":"cmw02vp7k0017qapy175j01r5"}
+
+data: {"delta":"-","conversationId":"cmw02vp7k0017qapy175j01r5"}
+
+data: {"delta":"ACCEPT","conversationId":"cmw02vp7k0017qapy175j01r5"}
+
+data: {"delta":"ANCE","conversationId":"cmw02vp7k0017qapy175j01r5"}
+
+data: {"delta":"-","conversationId":"cmw02vp7k0017qapy175j01r5"}
+
+data: {"delta":"OK","conversationId":"cmw02vp7k0017qapy175j01r5"}
+
+data: {"type":"stage","stage":"verifying"}
+
+data: {"done":true,"conversationId":"cmw02vp7k0017qapy175j01r5","durationMs":730,"partial":false,"messageId":"cmw042du4001xqapybrhrpmnb","firstTokenMs":726,"meta":{"states":["UNVERIFIED"],"sources":[],"verification":[],"stages":[{"stage":"verifying","durationMs":0}],"degraded":["search not warranted: no freshness signals; answerable from stable knowledge"],"router":{"task":"general","confidence":0.7,"signals":[],"codeExecution":false,"imageAnalysis":false},"timings":{"totalMs":727,"understandMs":1,"researchMs":null,"solveTtftMs":725,"solveMs":726,"verifyMs":0,"solvePasses":1}}}
+
