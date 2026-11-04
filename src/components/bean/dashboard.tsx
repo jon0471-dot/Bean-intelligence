@@ -2,12 +2,30 @@
 
 /**
  * BEAN Intelligence — dashboard: four flagship products + live availability.
+ *
+ * MEASURED CHANGE (2026-11-04 connectivity audit) — availability information
+ * only; the card design, colors, typography and grid are unchanged:
+ *  - the health data is REFRESHED periodically (45s) and on tab focus, and a
+ *    manual refresh control exists — availability used to be fetched ONCE on
+ *    mount and then presented as current forever, however old it got;
+ *  - a 'checking' state shows while a probe round-trip is in flight;
+ *  - failures show their MEASURED category + HTTP status (from the health
+ *    payload's structured failureCategory/httpStatus fields) instead of a
+ *    bare red badge with no reason;
+ *  - 'not configured' (no backend deployed — JAZMII) is now distinguished
+ *    from 'unavailable' (a deployed backend failed its probe);
+ *  - probe durations render ONLY for probes that actually completed
+ *    (latencyMs != null); a deferred probe (429 breaker open) or a product
+ *    with nothing to probe shows no duration;
+ *  - every card shows how old its evidence is ("checked Ns ago" from the
+ *    real probe's checkedAt) and a refresh failure is announced instead of
+ *    silently presenting stale data as current.
  */
-import { useEffect, useState } from 'react'
-import { ArrowRight, Image as ImageIcon, Video, Code2, Sparkles } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowRight, Image as ImageIcon, Video, Code2, RefreshCw, Sparkles } from 'lucide-react'
 import { beanFetch, GoldBadge, StatusDot, type BeanProductPublic } from './shared'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
-import { productStatus, type ProductHealthEntry } from '@/lib/registry/status'
+import { productStatus, type ProductHealthEntry, type ProductStatus } from '@/lib/registry/status'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { ViewId } from './shell'
 
@@ -20,39 +38,145 @@ const ICONS: Record<string, React.ElementType> = {
   'code-giftz': Code2,
 }
 
-/**
- * MEASURED CHANGE (2026-10-29): /api/health now reports the separately
- * probed capabilities per product (research for RIISHE, sandbox for CODE
- * GIFTZ). The dashboard maps them with the EXISTING badge atoms only:
- * Operational (green) / Degraded (gold) / Unavailable (red) — no new styles.
- * Degraded means: the product works, but a measured capability (e.g.
- * current-web research) is failing upstream right now.
- */
+/** Refresh cadence: slower than the server's 20s probe cache TTL window
+ *  (each refresh therefore carries a REAL re-probe, not a cache replay),
+ *  fast enough that the 45s-old data never looks current. */
+const HEALTH_REFRESH_INTERVAL_MS = 45_000
+/** Client-side bound for the health request itself (connection timeouts and
+ *  failure handling — a hung request must resolve into an honest error). */
+const HEALTH_FETCH_TIMEOUT_MS = 15_000
+/** Minimum gap between automatic refreshes (tab-focus storms). */
+const MIN_REFRESH_GAP_MS = 10_000
+
+interface ProbeInfo {
+  detail: string
+  latencyMs: number | null
+  checkedAt?: string
+  httpStatus?: number | null
+  failureCategory?: string | null
+  cached?: boolean
+}
+
 interface HealthData {
   products: Record<
     string,
-    ProductHealthEntry & { probe: { detail: string; latencyMs: number | null } }
+    ProductHealthEntry & {
+      status?: ProductStatus
+      probe?: ProbeInfo
+      lastHealthyAt?: string | null
+      lastGenerationAttempt?: {
+        at: string
+        ok: boolean
+        failureCategory?: string | null
+        httpStatus?: number | null
+      } | null
+      research?: { available: boolean; probe?: ProbeInfo }
+      sandbox?: { available: boolean; probe?: ProbeInfo }
+    }
   >
+}
+
+/** Human labels for the measured failure categories (never raw details).
+ *  Compact by design: the card footer must stay a single line so all four
+ *  cards can share one height (the 2026-11-04 card-uniformity change). */
+const FAILURE_LABELS: Record<string, string> = {
+  'rate-limited': 'rate-limited',
+  auth: 'credentials rejected',
+  billing: 'account restricted',
+  timeout: 'timed out',
+  network: 'connection lost',
+  unreachable: 'unreachable',
+  misconfigured: 'misconfigured',
+  redirected: 'redirected probe',
+  'not-configured': 'backend not deployed',
+  'backend-error': 'backend error',
+}
+
+function failureLabel(category?: string | null, httpStatus?: number | null): string {
+  if (!category) return ''
+  const base = FAILURE_LABELS[category] ?? 'backend error'
+  return httpStatus != null ? `${base} (HTTP ${httpStatus})` : base
+}
+
+function ageSeconds(checkedAt: string | undefined, now: number): number | null {
+  if (!checkedAt) return null
+  const t = Date.parse(checkedAt)
+  if (Number.isNaN(t)) return null
+  return Math.max(0, Math.round((now - t) / 1000))
+}
+
+/** Capability-probe failure fields (research / sandbox secondary probes). */
+function capInfo(p?: ProbeInfo): { category?: string | null; httpStatus?: number | null } {
+  return { category: p?.failureCategory ?? null, httpStatus: p?.httpStatus ?? null }
+}
+
+function formatAge(age: number | null): string {
+  if (age == null) return ''
+  if (age < 5) return 'just now'
+  if (age < 90) return `${age}s ago`
+  return `${Math.floor(age / 60)}m ago`
 }
 
 export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
   const [products, setProducts] = useState<BeanProductPublic[] | null>(null)
   const [health, setHealth] = useState<HealthData | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
+  const [now, setNow] = useState(() => Date.now())
+  const lastRefreshAtRef = useRef(0)
+
+  const refreshHealth = useCallback(async () => {
+    // Avoid excessive health-check requests: skip if a refresh is already in
+    // flight or one completed less than the minimum gap ago.
+    if (Date.now() - lastRefreshAtRef.current < MIN_REFRESH_GAP_MS) return
+    lastRefreshAtRef.current = Date.now()
+    setRefreshing(true)
+    try {
+      const h = await beanFetch<HealthData>('/api/health', { timeoutMs: HEALTH_FETCH_TIMEOUT_MS })
+      setHealth(h)
+      setRefreshError(null)
+    } catch (e) {
+      // Keep the last measured status visible, but SAY the refresh failed —
+      // stale information must never pass itself off as current.
+      setRefreshError(
+        e instanceof Error && e.name === 'AbortError'
+          ? `refresh timed out after ${HEALTH_FETCH_TIMEOUT_MS / 1000}s`
+          : 'refresh failed',
+      )
+    } finally {
+      setRefreshing(false)
+    }
+  }, [])
 
   useEffect(() => {
     void (async () => {
       try {
-        const [p, h] = await Promise.all([
-          beanFetch<{ products: BeanProductPublic[] }>('/api/products'),
-          beanFetch<HealthData>('/api/health'),
+        const [p] = await Promise.all([
+          beanFetch<{ products: BeanProductPublic[] }>('/api/products', { timeoutMs: HEALTH_FETCH_TIMEOUT_MS }),
+          refreshHealth(),
         ])
         setProducts(p.products)
-        setHealth(h)
       } catch {
         setProducts([])
+        setRefreshError('could not reach the availability service')
       }
     })()
-  }, [])
+
+    // Periodic refresh without a full page reload + refresh when the tab
+    // becomes visible again (returning to a stale tab updates it first).
+    const interval = setInterval(() => void refreshHealth(), HEALTH_REFRESH_INTERVAL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshHealth()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    // Lightweight ticker so "checked Ns ago" stays truthful between refreshes.
+    const tick = setInterval(() => setNow(Date.now()), 10_000)
+    return () => {
+      clearInterval(interval)
+      clearInterval(tick)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [refreshHealth])
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
@@ -71,11 +195,35 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
           const Icon = ICONS[p.id] ?? Sparkles
           const probe = health?.products?.[p.id]
           const status = productStatus(p.available, probe)
+          const checking = refreshing && health !== null
+          const latency = probe?.probe?.latencyMs
+          const coreFailed = status === 'unavailable'
+          // Which measured capability is failing, for Degraded products.
+          const degradedCapability: { label: string; category?: string | null; httpStatus?: number | null } | null =
+            status === 'degraded'
+              ? p.id === 'riishe'
+                ? { label: 'research', ...(capInfo(probe?.research?.probe)) }
+                : p.id === 'code-giftz'
+                  ? { label: 'sandbox', ...(capInfo(probe?.sandbox?.probe)) }
+                  : p.id === 'laxii'
+                    ? {
+                        label: 'generation',
+                        category: probe?.generation?.failureCategory ?? null,
+                        httpStatus: probe?.generation?.httpStatus ?? null,
+                      }
+                    : null
+              : null
+          const failureText =
+            coreFailed || status === 'not-configured'
+              ? failureLabel(probe?.probe?.failureCategory, probe?.probe?.httpStatus)
+              : degradedCapability
+                ? `${degradedCapability.label}: ${failureLabel(degradedCapability.category, degradedCapability.httpStatus) || 'unavailable'}`
+                : ''
           return (
             <button
               key={p.id}
               onClick={() => onNavigate(p.id as ViewId)}
-              className="bean-glass bean-glass-hover group min-w-0 overflow-hidden rounded-xl p-5 text-left"
+              className="bean-glass bean-glass-hover group min-w-0 overflow-hidden rounded-xl p-5 text-left sm:min-h-[207px]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
@@ -88,13 +236,23 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
                   </div>
                 </div>
                 <span className="shrink-0 whitespace-nowrap">
-                  {status === 'operational' ? (
+                  {checking ? (
+                    /* Probe round-trip in flight — the honest transient state.
+                       Existing badge atom, existing tones: no new styles. */
+                    <GoldBadge tone="gold">Checking…</GoldBadge>
+                  ) : !health ? (
+                    <GoldBadge tone="gold">Status unknown</GoldBadge>
+                  ) : status === 'operational' ? (
                     <GoldBadge tone="green"><span className="mr-1 inline-flex items-center gap-1.5"><StatusDot ok pulse={false} />Operational</span></GoldBadge>
                   ) : status === 'degraded' ? (
                     /* Gold badge, deliberately without a status dot: the existing
                        StatusDot only encodes ok/not-ok (green/red), and a degraded
                        product is neither — the text carries the state. */
                     <GoldBadge tone="gold">Degraded</GoldBadge>
+                  ) : status === 'not-configured' ? (
+                    /* Missing configuration is a DIFFERENT situation from a
+                       failed connection (JAZMII: no video backend deployed). */
+                    <GoldBadge tone="gold">Not configured</GoldBadge>
                   ) : (
                     <GoldBadge tone="red"><span className="mr-1 inline-flex items-center gap-1.5"><StatusDot ok={false} />Unavailable</span></GoldBadge>
                   )}
@@ -102,8 +260,22 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
               </div>
               <p className="mt-3 min-h-[40px] break-words text-[13px] leading-relaxed text-white/55">{p.description}</p>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                <span className="whitespace-nowrap text-[11px] text-white/35">
-                  {probe ? (probe.probe.latencyMs != null ? `probe ${probe.probe.latencyMs}ms` : 'probe —') : ''}
+                <span
+                  className="whitespace-nowrap text-[11px] text-white/35"
+                  title={probe?.probe?.detail ? `${probe.probe.detail}${probe.probe.checkedAt ? ` (checked ${new Date(probe.probe.checkedAt).toLocaleString()})` : ''}` : undefined}
+                >
+                  {/* Duration ONLY for a probe that actually completed. The
+                      per-probe checkedAt lives in the payload and the hover
+                      tooltip; the visible age indicator is global (next to
+                      Refresh) because all cards share one fetch cycle. */}
+                  {health
+                    ? latency != null
+                      ? `probe ${latency}ms`
+                      : status === 'not-configured'
+                        ? 'not probed'
+                        : 'probe deferred'
+                    : ''}
+                  {failureText ? ` · ${failureText}` : ''}
                 </span>
                 <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-[#f0c75e] opacity-70 transition-opacity group-hover:opacity-100">
                   Open workspace <ArrowRight className="h-3.5 w-3.5" />
@@ -128,11 +300,33 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
           </p>
         </div>
         <div className="bean-glass rounded-xl p-4">
-          <div className="mb-1 text-xs font-semibold tracking-wide text-[#f0c75e]">Metered & guarded</div>
+          <div className="mb-1 text-xs font-semibold tracking-wide text-[#f0c75e]">Metered &amp; guarded</div>
           <p className="text-xs leading-relaxed text-white/45">
             Per-product quotas, rate limits and concurrency are enforced in the API, not the UI.
           </p>
         </div>
+      </div>
+
+      {/* Manual refresh — availability information only, existing styling.
+          The global "last checked" age keeps stale data from posing as
+          current without lengthening any card footer. */}
+      <div className="mt-3 flex items-center justify-end gap-3">
+        {health ? (
+          <span className="text-[11px] text-white/35">
+            {refreshError
+              ? `refresh failed (${refreshError}) — showing the last measured status`
+              : `availability checked ${formatAge(ageSeconds(health.products?.riishe?.probe?.checkedAt, now))}`}
+          </span>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => void refreshHealth()}
+          disabled={refreshing || products === null}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#f0c75e] opacity-70 transition-opacity hover:opacity-100 disabled:opacity-40"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Checking availability…' : 'Refresh availability'}
+        </button>
       </div>
     </div>
   )

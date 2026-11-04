@@ -6,11 +6,36 @@
  * this boundary into customer responses.
  */
 
+/**
+ * MEASURED CHANGE (2026-11-04 connectivity audit): an honest, coarse failure
+ * category carried alongside the probe outcome, so the dashboard can show
+ * WHY a backend is down (rate-limited vs unreachable vs misconfigured vs a
+ * redirect pretending to be health) without parsing free-text details.
+ * Null/absent on a healthy report.
+ */
+export type HealthFailureCategory =
+  | 'rate-limited'
+  | 'auth'
+  | 'billing'
+  | 'timeout'
+  | 'network'
+  | 'unreachable'
+  | 'misconfigured'
+  | 'redirected'
+  | 'not-configured'
+  | 'backend-error'
+
 export interface HealthReport {
   healthy: boolean
   checkedAt: string
   latencyMs: number | null
   detail: string
+  /** HTTP status the probe observed, when a real HTTP response was received.
+   *  null/absent = no HTTP exchange happened (network error, deferral) or the
+   *  transport does not expose one (managed SDK). */
+  httpStatus?: number | null
+  /** Coarse failure class for unhealthy outcomes (null when healthy). */
+  failureCategory?: HealthFailureCategory | null
   /** True when this report is served from the short-lived probe cache —
    *  it reflects the last REAL probe (checkedAt is that probe's time),
    *  never a fabricated fresh success. */

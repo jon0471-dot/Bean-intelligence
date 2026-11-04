@@ -243,6 +243,15 @@ export async function probeSandboxHealth(): Promise<HealthReport> {
     healthy: outcome.ok,
     checkedAt,
     latencyMs: Date.now() - t0,
+    // Structured failure class (2026-11-04 connectivity audit): a sandbox
+    // probe that was killed at the deadline is a TIMEOUT; a runtime that
+    // could not spawn/exited nonzero is a backend error of THIS host.
+    httpStatus: null,
+    failureCategory: outcome.ok
+      ? null
+      : outcome.detail.includes('timed out after')
+        ? ('timeout' as const)
+        : ('backend-error' as const),
     detail: outcome.detail,
   }
 }
