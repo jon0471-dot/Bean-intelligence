@@ -158,18 +158,23 @@ export async function storeResultAsset(
   height: number,
   meta: Record<string, unknown> = {},
 ): Promise<StoredAsset> {
+  // 2026-11-04: hosted generation outputs arrive as JPEG; the artifact store
+  // now records the REAL mime/extension instead of hardcoding PNG.
+  const mime = typeof meta.mime === 'string' ? meta.mime : 'image/png'
+  const ext = mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png'
+  const { mime: _m, ...restMeta } = meta
   const row = await db.imageAsset.create({
     data: {
       userId,
       kind,
-      mime: 'image/png',
+      mime,
       width,
       height,
       bytes: png.length,
-      metaJson: JSON.stringify({ ext: 'png', ...meta }),
+      metaJson: JSON.stringify({ ext, ...restMeta }),
     },
   })
-  const file = assetPath(userId, row.id, 'png')
+  const file = assetPath(userId, row.id, ext)
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, png)
   return {
@@ -178,7 +183,7 @@ export async function storeResultAsset(
     width,
     height,
     bytes: png.length,
-    mime: 'image/png',
+    mime,
     url: `/api/laxii/assets/${row.id}`,
   }
 }

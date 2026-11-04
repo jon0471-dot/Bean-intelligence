@@ -24,6 +24,7 @@ import { classifyUpstreamError, healthFailureCategory } from '@/lib/upstream/gat
 import { getBackend } from '@/lib/registry/backends'
 import { processEnhancementJob, processEditJob } from '@/lib/laxii/jobs'
 import { processVideoJob } from '@/lib/jobs/video-worker'
+import { storeResultAsset } from '@/lib/laxii/assets'
 import fs from 'fs'
 import path from 'path'
 
@@ -68,6 +69,27 @@ async function processImageJob(job: JobRow): Promise<void> {
     const filename = `${job.id}.${ext}`
     fs.writeFileSync(path.join(dir, filename), result.bytes)
 
+    // 2026-11-04 go-live: the generation result is ALSO registered as a
+    // real ImageAsset so it can seed follow-up work (conversational edits,
+    // variations) with full ownership checks — the UI's "Use as source"
+    // chains from any completed generation.
+    let assetUrl: string | null = null
+    let assetId: string | null = null
+    try {
+      const asset = await storeResultAsset(job.userId, 'result', result.bytes, result.width, result.height, {
+        jobId: job.id,
+        artifact: 'generation',
+        mime: 'image/jpeg',
+      })
+      assetUrl = asset.url
+      assetId = asset.id
+    } catch (e) {
+      logger.warn('laxii.generation_asset_failed', {
+        jobId: job.id,
+        message: e instanceof Error ? e.message : String(e),
+      })
+    }
+
     await updateJob(job.id, {
       status: 'completed',
       progress: 100,
@@ -75,6 +97,7 @@ async function processImageJob(job: JobRow): Promise<void> {
       backendId: backend.id,
       resultJson: JSON.stringify({
         imageUrl: `/api/laxii/images/${job.id}`,
+        ...(assetUrl ? { assetUrl, assetId } : {}),
         width: result.width,
         height: result.height,
         format: result.format,

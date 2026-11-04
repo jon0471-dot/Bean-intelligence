@@ -13,3 +13,35 @@
 {"at":"2026-11-04T16:07:17.889Z","step":"riishe-turn3-research","status":400,"contentPreview":"","hasSourceLink":false,"metaKeys":[],"toolEvidence":false}
 {"at":"2026-11-04T16:07:17.889Z","step":"riishe-persistence","messageCount":0,"roles":"","firstUserTurn":"","contextIntact":false}
 {"at":"2026-11-04T16:08:45.250Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:15:09.918Z","step":"riishe-turn1-stream","status":200,"contentType":"text/event-stream","streamedChars":53,"conversationId":"cmw2bicnj001lss9fapyw6yfn","preview":"I acknowledge your project codename is GOLDEN CANYON.","gotDone":true,"streamError":null}
+{"at":"2026-11-04T16:15:10.385Z","step":"riishe-turn2-context","status":200,"answer":"\nGOLDEN CANYON","contextHeld":true}
+{"at":"2026-11-04T16:16:17.890Z","step":"riishe-turn3-research","status":429,"contentPreview":"","hasSourceLink":false,"metaKeys":[],"toolEvidence":false}
+{"at":"2026-11-04T16:16:17.950Z","step":"riishe-persistence","status":200,"messageCount":5,"roles":"user,assistant,user,assistant,user","firstUserTurn":"My project codename is GOLDEN CANYON. Acknowledge it in one ","contextIntact":true}
+{"at":"2026-11-04T16:16:33.314Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:16:34.661Z","step":"laxii-t2i-submit","status":202,"jobId":"cmw2bk6ld0024ss9fifjvuxhc"}
+{"at":"2026-11-04T16:17:12.294Z","step":"laxii-t2i-complete","jobId":"cmw2bk6ld0024ss9fifjvuxhc","status":"completed","bytes":186940,"width":1024,"height":1024,"imageStatus":200,"jpegMagic":true,"artifact":"scripts/golive-out/laxii/t2i-cmw2bk6ld0024ss9fifjvuxhc.jpg","errorMessage":null}
+{"at":"2026-11-04T16:17:13.714Z","step":"laxii-edit-submit","status":404,"jobId":null,"mode":"conversational-edit"}
+{"at":"2026-11-04T16:18:42.818Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:18:45.204Z","step":"laxii-t2i-submit","status":202,"jobId":"cmw2bmzbl002css9fl5ru71os"}
+{"at":"2026-11-04T16:19:21.631Z","step":"laxii-t2i-complete","jobId":"cmw2bmzbl002css9fl5ru71os","status":"completed","bytes":131909,"width":1024,"height":1024,"imageStatus":200,"jpegMagic":true,"artifact":"scripts/golive-out/laxii/t2i-cmw2bmzbl002css9fl5ru71os.jpg","errorMessage":null}
+{"at":"2026-11-04T16:19:21.802Z","step":"laxii-edit-source-upload","status":201,"assetId":"cmw2bnrk3002jss9fmhtvd87m","responsePreview":"{\"ok\":true,\"asset\":{\"id\":\"cmw2bnrk3002jss9fmhtvd87m\",\"kind\":\"original\",\"width\":1024,\"height\":1024,\"bytes\":131909,\"mime\":"}
+{"at":"2026-11-04T16:19:23.355Z","step":"laxii-edit-submit","status":202,"jobId":"cmw2bnsrb002mss9frrxua4eb","mode":"conversational-edit"}
+{"at":"2026-11-04T16:19:29.466Z","step":"laxii-edit-complete","jobId":"cmw2bnsrb002mss9frrxua4eb","status":"failed","pngMagic":false,"artifact":null,"errorMessage":"API request failed with status 400: {\"error\":{\"code\":\"1210\",\"message\":\"API 调用参数有误，请检查文档。request body invalid: image_to_image task must provide images\"}}"}
+{"at":"2026-11-04T16:23:09.579Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:23:30.801Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:28:52.644Z","step":"giftz-live-answer","status":200,"contentType":"text/event-stream","chars":0,"hasDebounceCode":false,"projectId":null,"preview":""}
+{"at":"2026-11-04T16:28:52.644Z","step":"giftz-sandbox-run","skipped":true,"reason":"no projectId"}
+{"at":"2026-11-04T16:29:27.520Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:29:27.615Z","step":"jazmii-submit-t2v","status":202,"jobId":"cmw2c0r0d0038ss9f4ypskxjv","code":null,"message":null}
+{"at":"2026-11-04T16:31:54.968Z","step":"giftz-live-answer","status":401,"contentType":"application/json","chars":0,"hasDebounceCode":false,"projectId":null,"preview":"","streamError":null}
+{"at":"2026-11-04T16:31:54.969Z","step":"giftz-sandbox-run","skipped":true,"reason":"no projectId"}
+{"at":"2026-11-04T16:32:02.524Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:32:05.627Z","step":"giftz-live-answer","status":200,"contentType":"text/event-stream","chars":1052,"hasDebounceCode":true,"projectId":"cmw2c42jz003fss9f5ow3es6b","preview":"I'll create a simple debounce function that returns a wrapper delaying the function execution until after `wait` milliseconds have elapsed s","streamError":null}
+{"at":"2026-11-04T16:32:05.798Z","step":"giftz-sandbox-run","status":400,"ok":false,"outputPreview":"[object Object]","exitCode":null}
+{"at":"2026-11-04T16:32:06.475Z","step":"giftz-persistence","status":200,"restored":true}
+{"at":"2026-11-04T16:32:35.672Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:32:39.024Z","step":"giftz-live-answer","status":200,"contentType":"text/event-stream","chars":1041,"hasDebounceCode":true,"projectId":"cmw2c4slu003tss9f33xauqri","preview":"I'll write a simple debounce function that returns a debounced wrapper. This implementation uses setTimeout and clearTimeout to delay functi","streamError":null}
+{"at":"2026-11-04T16:32:39.411Z","step":"giftz-task-lookup","status":200,"preview":"{\"ok\":true,\"tasks\":[]}"}
+{"at":"2026-11-04T16:32:39.523Z","step":"giftz-persistence","status":200,"restored":true}
+{"at":"2026-11-04T16:33:04.541Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:33:20.330Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
