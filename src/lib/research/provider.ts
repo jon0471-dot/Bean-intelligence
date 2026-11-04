@@ -17,6 +17,7 @@ import type { SearchFunctionResultItem } from 'z-ai-web-dev-sdk'
 import type { HealthReport } from '@/lib/adapters/types'
 import {
   classifyUpstreamError,
+  healthFailureCategory,
   noteUpstream429,
   noteUpstreamSkip,
   upstreamCoolingDown,
@@ -179,6 +180,8 @@ export async function probeResearchHealth(): Promise<HealthReport> {
       checkedAt,
       // Deferred = no network call was made, so no latency was measured.
       latencyMs: null,
+      httpStatus: null,
+      failureCategory: 'rate-limited',
       detail:
         'Research (web_search) deferred: the functions endpoint class is rate-limited upstream (HTTP 429 observed moments ago) and its cooldown breaker is open — no network call was made to avoid worsening the throttle. Recovery is verified by the next real probe.',
     }
@@ -190,6 +193,8 @@ export async function probeResearchHealth(): Promise<HealthReport> {
       healthy: true,
       checkedAt,
       latencyMs: Date.now() - t0,
+      httpStatus: null,
+      failureCategory: null,
       detail: `Research gateway responded to a live web_search probe (${Array.isArray(results) ? results.length : 0} result(s) in ${Date.now() - t0}ms).`,
     }
   } catch (e) {
@@ -207,6 +212,8 @@ export async function probeResearchHealth(): Promise<HealthReport> {
       healthy: false,
       checkedAt,
       latencyMs: Date.now() - t0,
+      httpStatus: failure.status,
+      failureCategory: healthFailureCategory(failure.kind),
       detail,
     }
   }

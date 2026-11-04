@@ -17,6 +17,7 @@ import type {
 import { estimateTokens } from '@/lib/api/validate'
 import {
   classifyUpstreamError,
+  healthFailureCategory,
   noteUpstream429,
   noteUpstreamSkip,
   upstreamCoolingDown,
@@ -323,6 +324,11 @@ export const hostedLlmAdapter: TaskAdapter = {
         healthy,
         checkedAt: new Date().toISOString(),
         latencyMs: Date.now() - t0,
+        // The managed SDK does not expose the HTTP status of a successful
+        // completion; recording a guessed status would violate the honesty
+        // contract, so it stays null on success.
+        httpStatus: null,
+        failureCategory: healthy ? null : 'backend-error',
         detail: healthy ? 'Gateway responded to a live completion probe.' : 'Empty probe response.',
       }
     } catch (e) {
@@ -347,6 +353,11 @@ export const hostedLlmAdapter: TaskAdapter = {
         // is not a probe latency and would misrepresent a skipped check as
         // a measured one. null means "no latency was measured".
         latencyMs: deferred ? null : Date.now() - t0,
+        // Structured failure class + observed HTTP status (when the error
+        // carried one): the dashboard renders WHY the product is down from
+        // these fields instead of parsing the free-text detail.
+        httpStatus: failure.status,
+        failureCategory: healthFailureCategory(failure.kind),
         detail,
       }
     }

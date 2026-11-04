@@ -37,34 +37,53 @@ export interface ApiErrorShape {
 /** Typed fetch for the BEAN API envelope. */
 export async function beanFetch<T>(
   url: string,
-  init?: RequestInit & { json?: unknown },
+  init?: RequestInit & { json?: unknown; timeoutMs?: number },
 ): Promise<T> {
-  const { json, ...rest } = init ?? {}
-  const res = await fetch(url, {
-    ...rest,
-    headers: {
-      ...(json !== undefined ? { 'content-type': 'application/json' } : {}),
-      ...(rest.headers ?? {}),
-    },
-    body: json !== undefined ? JSON.stringify(json) : rest.body,
-  })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok || data?.ok === false) {
-    // A 401 means the server no longer recognizes this session. Announce it
-    // so the app shell drops the (now stale) local identity and returns to
-    // the sign-in view — sidebar identity and server identity stay in sync.
-    if (res.status === 401 && typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('bean:unauthorized'))
-    }
-    const err: ApiErrorShape = data?.error ?? {
-      code: 'INTERNAL_ERROR',
-      message: `Request failed (${res.status})`,
-    }
-    const e = new Error(err.message) as Error & { code?: string }
-    e.code = err.code
-    throw e
+  const { json, timeoutMs, ...rest } = init ?? {}
+  // MEASURED CHANGE (2026-11-04 connectivity audit): optional client-side
+  // connection timeout. WITHOUT it, a hung request (dead network, stalled
+  // server) left the awaiting caller pending FOREVER — the dashboard's
+  // health fetch showed skeletons indefinitely with no failure signal.
+  // Opt-in (undefined = unchanged behavior for every existing caller), and
+  // never overrides a caller-supplied AbortSignal. The timer is always
+  // cleared so it never keeps the event loop alive past the request.
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let signal = rest.signal
+  if (timeoutMs && !signal) {
+    const controller = new AbortController()
+    timer = setTimeout(() => controller.abort(), timeoutMs)
+    signal = controller.signal
   }
-  return data as T
+  try {
+    const res = await fetch(url, {
+      ...rest,
+      signal,
+      headers: {
+        ...(json !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...(rest.headers ?? {}),
+      },
+      body: json !== undefined ? JSON.stringify(json) : rest.body,
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || data?.ok === false) {
+      // A 401 means the server no longer recognizes this session. Announce it
+      // so the app shell drops the (now stale) local identity and returns to
+      // the sign-in view — sidebar identity and server identity stay in sync.
+      if (res.status === 401 && typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('bean:unauthorized'))
+      }
+      const err: ApiErrorShape = data?.error ?? {
+        code: 'INTERNAL_ERROR',
+        message: `Request failed (${res.status})`,
+      }
+      const e = new Error(err.message) as Error & { code?: string }
+      e.code = err.code
+      throw e
+    }
+    return data as T
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 export function useSession() {
