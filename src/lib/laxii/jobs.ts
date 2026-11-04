@@ -37,6 +37,13 @@ import { enhanceImage, type EnhanceOptions } from './enhance'
 import { loadAsset, readAssetBytes, storeResultAsset } from './assets'
 import { workerRequest } from './worker'
 import { getBackend } from '@/lib/registry/backends'
+import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
+import {
+  noteRealAttempt,
+  UPSTREAM_FAILURE_CATEGORIES,
+  type RealAttemptRecord,
+} from '@/lib/adapters/last-attempts'
+import { classifyUpstreamError, healthFailureCategory } from '@/lib/upstream/gateway'
 
 export interface JobLike {
   id: string
@@ -65,11 +72,11 @@ export interface EnhanceJobParams {
 }
 
 export interface EditJobParams {
-  mode: 'smart-edit' | 'object-removal' | 'reference-guided'
+  mode: 'smart-edit' | 'object-removal' | 'reference-guided' | 'conversational-edit'
   assetId: string
-  maskStrokes: MaskStrokeSpec[]
-  faceZones: FaceZoneSpec[]
-  shaping: MaskShaping
+  maskStrokes?: MaskStrokeSpec[]
+  faceZones?: FaceZoneSpec[]
+  shaping?: MaskShaping
   prompt: string
   negativePrompt?: string
   steps?: number
@@ -80,6 +87,8 @@ export interface EditJobParams {
   referenceAssetId?: string
   ipAdapterScale?: number
   maxGenerativeSidePx?: number
+  /** Hosted conversational edit: edited-output dimensions (optional). */
+  size?: string
 }
 
 interface StageCtx {
@@ -349,12 +358,160 @@ export async function processEnhancementJob(job: JobLike): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Hosted conversational edit (authorized images.edit endpoint — real)
+// ---------------------------------------------------------------------------
+
+/**
+ * Whole-image generative edit through the authorized backend: the user's
+ * image + prompt → edited image. NOT pixel-preserving by design (that is
+ * what the masked worker path is for); provenance states exactly that.
+ * The images-class 429 breaker is honored inside the adapter.
+ */
+async function processHostedEditJob(job: JobLike, startedAt: number): Promise<void> {
+  const ctx: StageCtx = { job, lastProgress: 0 }
+  const backend = getBackend('bean-image-hosted-edit')!
+  const params = JSON.parse(job.paramsJson) as EditJobParams
+  try {
+    if (backend.enabled !== true) {
+      throw new BeanApiError('PROVIDER_UNAVAILABLE', 'Hosted image editing is not enabled in this deployment.')
+    }
+    await progress(ctx, 10)
+    if (await checkCancelled(ctx)) return
+
+    const imageBytes = await readAssetBytes(job.userId, params.assetId)
+    const inputAsset = await loadAsset(job.userId, params.assetId)
+    await progress(ctx, 30)
+
+    // Bound the submission payload: longest side ≤ 1024, JPEG q90.
+    const prepared = await sharp(imageBytes)
+      .rotate()
+      .removeAlpha()
+      .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 90 })
+      .toBuffer()
+    if (await checkCancelled(ctx)) return
+
+    await progress(ctx, 45)
+    const editFn = hostedImageAdapter.editImage
+    if (!editFn) throw new Error('The hosted edit adapter has no edit implementation.')
+    const result = await editFn.call(hostedImageAdapter, {
+      prompt: params.prompt,
+      imageBase64: prepared.toString('base64'),
+      ...(params.size ? { size: params.size } : {}),
+      timeoutMs: backend.timeouts.requestMs,
+    })
+    await progress(ctx, 80)
+
+    // Decode the provider output and re-encode as PNG (asset pipeline).
+    const outRaw = await toRaw(result.bytes)
+    const outPng = await encodePng(outRaw.data, outRaw.width, outRaw.height)
+    const resultAsset = await storeResultAsset(job.userId, 'result', outPng, outRaw.width, outRaw.height, {
+      jobId: job.id,
+      provenance: {
+        engine: 'hosted-edit',
+        pipeline: 'managed-images-edit',
+        mode: 'conversational-edit',
+        promptLength: params.prompt.length,
+        requestedSize: params.size ?? null,
+        note: 'Whole-image generative edit — NOT pixel-preserving. The full output is the provider edit of the prepared input.',
+      },
+    })
+
+    await db.generationJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'completed',
+        progress: 100,
+        finishedAt: new Date(),
+        backendId: backend.id,
+        resultJson: JSON.stringify({
+          imageUrl: resultAsset.url,
+          originalUrl: inputAsset.url,
+          width: outRaw.width,
+          height: outRaw.height,
+          format: 'png',
+          bytes: outPng.length,
+          durationMs: Date.now() - startedAt,
+          provenance: {
+            engine: 'hosted-edit',
+            pipeline: 'managed-images-edit',
+            mode: 'conversational-edit',
+            inputPreparedMaxSidePx: 1024,
+          },
+        }),
+      },
+    })
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: backend.id,
+      kind: 'image-editing',
+      imageCount: 1,
+      durationMs: Date.now() - startedAt,
+      success: true,
+    })
+    noteRealAttempt('image-editing', {
+      at: new Date().toISOString(),
+      ok: true,
+      backendId: backend.id,
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    })
+    logger.info('laxii.hosted_edit_completed', { jobId: job.id, bytes: outPng.length })
+  } catch (e) {
+    const isBean = e instanceof BeanApiError
+    const failure = classifyUpstreamError(e)
+    const category = healthFailureCategory(failure.kind)
+    const message = isBean ? e.message : e instanceof Error ? e.message.slice(0, 240) : 'The hosted edit could not complete.'
+    const code = failure.kind === 'rate_limited' ? 'RATE_LIMITED' : isBean ? e.code : 'BACKEND_FAILURE'
+    const record: RealAttemptRecord = {
+      at: new Date().toISOString(),
+      ok: false,
+      backendId: backend.id,
+      failureCategory: category,
+      httpStatus: failure.status,
+      upstream: UPSTREAM_FAILURE_CATEGORIES.has(category),
+    }
+    noteRealAttempt('image-editing', record)
+    logger.warn('laxii.hosted_edit_failed', { jobId: job.id, code, kind: failure.kind, message: message.slice(0, 200) })
+    await failJob(
+      job.id,
+      code,
+      failure.kind === 'rate_limited'
+        ? 'The image backend is rate-limited right now (HTTP 429). Try again shortly.'
+        : failure.kind === 'timeout'
+          ? 'The image backend stopped responding before the edit finished.'
+          : failure.kind === 'auth' || failure.kind === 'billing'
+            ? 'The image backend rejected the request for account/configuration reasons. This needs an operator — retrying will not change it.'
+            : message,
+    )
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: backend.id,
+      kind: 'image-editing',
+      success: false,
+      errorCode: code,
+      durationMs: Date.now() - startedAt,
+    })
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Generative editing (Diffusers worker — registry-gated)
 // ---------------------------------------------------------------------------
 
 export async function processEditJob(job: JobLike): Promise<void> {
-  const ctx: StageCtx = { job, lastProgress: 0 }
   const startedAt = Date.now()
+  // PHASE 4: whole-image conversational edits run on the authorized hosted
+  // editing backend (real provider execution, honest failure classes).
+  const params = JSON.parse(job.paramsJson) as EditJobParams
+  if (params.mode === 'conversational-edit') {
+    await processHostedEditJob(job, startedAt)
+    return
+  }
+  const ctx: StageCtx = { job, lastProgress: 0 }
   const backend = getBackend('bean-image-selfhosted-diffusers')
   try {
     if (backend?.enabled !== true) {
@@ -376,13 +533,13 @@ export async function processEditJob(job: JobLike): Promise<void> {
       await sharp(imageBytes).rotate().removeAlpha().png().toBuffer(),
     )
 
-    const maskStrokes = await loadMaskStrokes(job.userId, params.maskStrokes)
+    const maskStrokes = await loadMaskStrokes(job.userId, params.maskStrokes ?? [])
     if (maskStrokes.length === 0) {
       throw new BeanApiError('VALIDATION_ERROR', 'A mask is required for generative editing.')
     }
     let mask = await buildMask(maskStrokes, workingOriginal.width, workingOriginal.height)
-    mask = shapeMask(mask, params.shaping)
-    const faceZones = toFaceZones(params.faceZones)
+    mask = shapeMask(mask, params.shaping ?? { expandPx: 2, featherPx: 8 })
+    const faceZones = toFaceZones(params.faceZones ?? [])
     const protection = applyFaceProtection(mask, faceZones)
     mask = protection.mask
     await progress(ctx, 26)

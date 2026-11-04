@@ -78,6 +78,15 @@ const schema = z.discriminatedUnion('mode', [
     seed: z.number().int().min(0).max(2 ** 31 - 1).optional(),
     ipAdapterScale: z.number().min(0).max(1).optional(),
   }),
+  z.object({
+    mode: z.literal('conversational-edit'),
+    assetId: z.string().min(1),
+    prompt: z.string().min(3).max(2000),
+    // Edited-output dimensions; omitted = provider default (honest pass-through).
+    size: z
+      .enum(['1024x1024', '768x1344', '864x1152', '1344x768', '1152x864', '1440x720', '720x1440'])
+      .optional(),
+  }),
 ])
 
 /**
@@ -85,10 +94,14 @@ const schema = z.discriminatedUnion('mode', [
  *
  * Provider resolution happens BEFORE any job row is created:
  *  - strict-preserve → deterministic local engine (runs today);
- *  - smart-edit / object-removal / reference-guided → the local Diffusers
- *    worker, which is registry-gated. While it is disabled this route
- *    returns the truthful 503 PROVIDER_UNAVAILABLE and nothing is queued —
- *    the user's original image is untouched, and no fake hope is recorded.
+ *  - conversational-edit → authorized hosted image editing (whole-image
+ *    regenerative edit: background changes, object insertion/removal via
+ *    prompt, lighting, restyle, variations). NOT pixel-preserving — stated.
+ *  - smart-edit / object-removal / reference-guided (brush-mask work) → the
+ *    local Diffusers worker, which is registry-gated. While it is disabled
+ *    this route returns the truthful 503 PROVIDER_UNAVAILABLE and nothing is
+ *    queued — the user's original image is untouched, and no fake hope is
+ *    recorded.
  */
 export async function POST(request: Request) {
   return handle(async () => {
@@ -102,6 +115,10 @@ export async function POST(request: Request) {
     if (body.mode === 'strict-preserve') {
       opTask = 'image-enhancement'
       backendId = 'bean-image-local-sharp'
+    } else if (body.mode === 'conversational-edit') {
+      resolveProvider('hosted-edit')
+      opTask = 'image-editing'
+      backendId = 'bean-image-hosted-edit'
     } else {
       // Throws PROVIDER_UNAVAILABLE while the worker is disabled — before
       // any job is created.
@@ -160,6 +177,11 @@ export async function GET() {
     return ok({
       capabilities: {
         'strict-preserve': { available: true, engine: 'deterministic-sharp' },
+        'conversational-edit': {
+          available: true,
+          engine: 'hosted-edit',
+          note: 'Whole-image generative edit on the authorized backend. Not pixel-preserving; edits run as a tracked job.',
+        },
         'smart-edit': { available: worker.registryEnabled, engine: 'diffusers-worker' },
         'object-removal': { available: worker.registryEnabled, engine: 'diffusers-worker' },
         'reference-guided': { available: worker.registryEnabled, engine: 'diffusers-worker' },

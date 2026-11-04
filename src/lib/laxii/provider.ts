@@ -26,6 +26,7 @@ export type LaxiiOp =
   | 'identity-generate'
   | 'object-removal'
   | 'model-upscale'
+  | 'hosted-edit'
 
 export type LaxiiProviderChoice = 'managed' | 'local-engine' | 'diffusers-worker'
 
@@ -46,6 +47,10 @@ export function resolveProvider(op: LaxiiOp): LaxiiProviderChoice {
   switch (op) {
     case 'deterministic-enhance':
       return 'local-engine'
+    case 'hosted-edit':
+      // PHASE 4: whole-image conversational edit through the authorized
+      // hosted editing endpoint (registry-gated like every backend).
+      return 'managed'
     case 'text-to-image': {
       if (providerSetting() === 'diffusers' && workerEnabled()) return 'diffusers-worker'
       return 'managed'
@@ -80,20 +85,31 @@ export function taskForOp(op: LaxiiOp): 'image-generation' | 'image-enhancement'
       return 'image-generation'
     case 'deterministic-enhance':
       return 'image-enhancement'
+    case 'hosted-edit':
     default:
       return 'image-editing'
   }
 }
 
 export interface ProviderDescriptor {
-  backendId: 'bean-image-hosted-primary' | 'bean-image-local-sharp' | 'bean-image-selfhosted-diffusers'
+  backendId:
+    | 'bean-image-hosted-primary'
+    | 'bean-image-hosted-edit'
+    | 'bean-image-local-sharp'
+    | 'bean-image-selfhosted-diffusers'
   provider: LaxiiProviderChoice
 }
 
-export function backendForChoice(choice: LaxiiProviderChoice): ProviderDescriptor['backendId'] {
+export function backendForChoice(
+  choice: LaxiiProviderChoice,
+  /** Which managed endpoint the caller needs (default: generation). */
+  task?: 'image-generation' | 'image-editing' | 'image-enhancement',
+): ProviderDescriptor['backendId'] {
   switch (choice) {
     case 'managed':
-      return 'bean-image-hosted-primary'
+      // The managed choice serves two tasks: text-to-image goes to the
+      // generation descriptor; whole-image edits go to the edit descriptor.
+      return task === 'image-editing' ? 'bean-image-hosted-edit' : 'bean-image-hosted-primary'
     case 'local-engine':
       return 'bean-image-local-sharp'
     case 'diffusers-worker':
