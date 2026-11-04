@@ -1,0 +1,50 @@
+{
+  "ranAt": "2026-11-04T00:33:21.863Z",
+  "baseUrl": "http://127.0.0.1:3100",
+  "mode": "stream-e2e",
+  "totalChecks": 6,
+  "passed": 6,
+  "allPassed": true,
+  "questions": [
+    {
+      "id": "STREAM-E2E-long-coding-answer",
+      "kind": "e2e",
+      "answerChars": 20770,
+      "deltas": 5044,
+      "firstTokenMs": 869,
+      "durationMs": 57092,
+      "passed": 6,
+      "total": 6,
+      "allPassed": true,
+      "checks": [
+        {
+          "name": "turn reached a legitimate terminal state (done, no error frame)",
+          "passed": true
+        },
+        {
+          "name": "answer is a LONG answer (> 6,000 chars streamed)",
+          "passed": true
+        },
+        {
+          "name": "content arrived incrementally (> 50 deltas — real streaming)",
+          "passed": true
+        },
+        {
+          "name": "first token arrived promptly (< 30s — thinking phase bounded)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact (no truncation, no duplication)",
+          "passed": true
+        },
+        {
+          "name": "project files were created from the answer (>= 1)",
+          "passed": true
+        }
+      ],
+      "files": [
+        "main.html"
+      ]
+    }
+  ]
+}

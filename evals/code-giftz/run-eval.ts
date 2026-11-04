@@ -26,6 +26,10 @@
 import { QUESTIONS, LONG_STREAM_PROMPT, answerContainsGroundTruth, type EvalQuestion } from './questions'
 import { mkdirSync, writeFileSync } from 'node:fs'
 
+// Helpers are exported so targeted probes (e.g. scripts/giftz-r3-probe.ts)
+// can reuse the exact same live-turn + 429-retry machinery. main() only runs
+// when this file is invoked directly (import.meta.main), never on import.
+
 const args = process.argv.slice(2)
 const STREAM_E2E = args.includes('--stream-e2e')
 const baseUrlIdx = args.indexOf('--base-url')
@@ -33,24 +37,29 @@ const BASE_URL = (baseUrlIdx >= 0 ? args[baseUrlIdx + 1] : process.env.GIFTZ_EVA
 
 const RESULTS_DIR = new URL('./results/', import.meta.url).pathname
 
-interface TurnResult {
+export interface TurnResult {
   deltas: string[]
   text: string
   terminal: Record<string, unknown> | null
   projectId: string | null
   stageFrames: number
+  /** Stage names seen (thinking / verifying / revising — verification only
+   *  frames appear when the operator enabled the self-verification pipeline). */
+  stages: string[]
+  /** Public verification summary from the done frame (null when disabled). */
+  verification: Record<string, unknown> | null
   firstTokenMs: number | null
   durationMs: number
 }
 
-async function api(path: string, init: RequestInit & { cookie?: string } = {}): Promise<Response> {
+export async function api(path: string, init: RequestInit & { cookie?: string } = {}): Promise<Response> {
   const headers: Record<string, string> = { 'content-type': 'application/json', ...(init.cookie ? { cookie: init.cookie } : {}) }
   if (init.headers) Object.assign(headers, init.headers)
   return fetch(`${BASE_URL}${path}`, { ...init, headers })
 }
 
 /** Register a dedicated eval account (normal public API — no auth changes). */
-async function authenticate(): Promise<string> {
+export async function authenticate(): Promise<string> {
   const email = `giftz-eval-${Date.now()}@bean-eval.dev`
   const password = 'EvalOnly2026x'
   const register = await api('/api/auth/register', {
@@ -90,7 +99,7 @@ async function streamTurn(cookie: string, message: string, opts: { signal?: Abor
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  const result: TurnResult = { deltas: [], text: '', terminal: null, projectId: null, stageFrames: 0, firstTokenMs: null, durationMs: 0 }
+  const result: TurnResult = { deltas: [], text: '', terminal: null, projectId: null, stageFrames: 0, stages: [], verification: null, firstTokenMs: null, durationMs: 0 }
   let done = false
   while (!done) {
     const { done: streamDone, value } = await reader.read()
@@ -112,8 +121,19 @@ async function streamTurn(cookie: string, message: string, opts: { signal?: Abor
         result.deltas.push(evt.delta)
         result.text += evt.delta
       }
-      if (evt.stage) result.stageFrames += 1
+      if (evt.stage) {
+        result.stageFrames += 1
+        result.stages.push(String(evt.stage))
+        // 'revising' = the corrected answer REPLACES the streamed draft (the
+        // same reset semantics the product client implements). Without the
+        // reset the accumulated text would be draft+revision while the
+        // persisted answer is the revision only.
+        if (evt.stage === 'revising') result.text = ''
+      }
       if (typeof evt.projectId === 'string') result.projectId = evt.projectId
+      if (evt.verification && typeof evt.verification === 'object') {
+        result.verification = evt.verification as Record<string, unknown>
+      }
       if (evt.done || evt.error) {
         result.terminal = evt
         done = true // stop consuming at the terminal frame, like the UI
@@ -146,7 +166,7 @@ const isRateLimitedTurn = (t: TurnResult): boolean =>
 /** Stream one turn, retrying ONLY the upstream-throttle failure class: wait
  *  out the product's 60s 429 cooldown, then regenerate live. Any other
  *  failure (or exhausted retries) is returned as-is and recorded honestly. */
-async function streamTurnWith429Retry(cookie: string, message: string): Promise<TurnResult> {
+export async function streamTurnWith429Retry(cookie: string, message: string): Promise<TurnResult> {
   let turn = await streamTurn(cookie, message)
   for (let attempt = 1; attempt <= RATE_LIMIT_RETRIES && isRateLimitedTurn(turn); attempt++) {
     console.log(`    upstream 429 — waiting ${Math.round(UPSTREAM_429_COOLDOWN_MS / 1000) + 5}s for the cooldown to clear, then retrying (${attempt}/${RATE_LIMIT_RETRIES})`)
@@ -278,4 +298,4 @@ async function main(): Promise<void> {
   if (!summary.allPassed) process.exit(1)
 }
 
-await main()
+if (import.meta.main) await main()

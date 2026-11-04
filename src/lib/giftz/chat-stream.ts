@@ -82,6 +82,14 @@ export interface GiftzTurnResult {
   tokensOutEst: number
   /** How many provider passes the answer spanned (0 = single pass). */
   continuationCount: number
+  /** Self-verification summary (null when verification is disabled/skipped).
+   *  Public fields only — the verifier's internal trace never rides the wire. */
+  verification?: {
+    status: 'verified' | 'corrected' | 'corrected-unverified' | 'unverified' | 'skipped'
+    attempts: number
+    corrections: number
+    issuesFound: number
+  } | null
 }
 
 export interface GiftzChatStreamDeps {
@@ -240,6 +248,7 @@ export function createGiftzChatStream(deps: GiftzChatStreamDeps): ReadableStream
             durationMs: Date.now() - startedAt,
             changes: result.changes,
             files,
+            verification: result.verification ?? null,
           })
         } catch (e) {
           if (isClientDisconnected(e) || clientGone) {
