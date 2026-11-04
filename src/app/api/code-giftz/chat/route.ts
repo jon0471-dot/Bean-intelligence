@@ -31,6 +31,7 @@ import { verificationConfig } from '@/lib/verification/config'
 import { verifyAndCorrect, publicVerificationSummary, type VerificationOutcome } from '@/lib/verification/pipeline'
 import { UpstreamTruncatedError } from '@/lib/adapters/hosted-llm'
 import { ClientDisconnectedError } from '@/lib/giftz/chat-stream'
+import { filterConversationsByTitle } from '@/lib/riishe/conversation-view'
 
 const MAX_HISTORY = 12
 const MAX_FILE_CONTEXT_CHARS = 24_000
@@ -610,14 +611,39 @@ export async function POST(request: Request) {
   })
 }
 
-/** Project list for the CODE GIFTZ sidebar. */
-export async function GET() {
+/** Project list for the CODE GIFTZ sidebar. `?q=` filters by title
+ *  (case-insensitive) across ALL of the user's projects — the recent list
+ *  itself is capped, but a search must still find older threads (the exact
+ *  RIISHE conversation-search semantics, reusing the same pure filter so
+ *  both products behave identically). Filtering happens in JS because
+ *  SQLite's LIKE is only ASCII-case-aware. */
+export async function GET(request: Request) {
   return handle(async () => {
     const user = await requireUser()
+    const q = new URL(request.url).searchParams.get('q')?.trim() ?? ''
+    if (q.length > 0) {
+      const candidates = await db.codeProject.findMany({
+        where: { userId: user.id },
+        orderBy: { updatedAt: 'desc' },
+        take: 200,
+        include: { _count: { select: { messages: true, files: true } } },
+      })
+      const projects = filterConversationsByTitle(
+        candidates.map((p) => ({
+          id: p.id,
+          title: p.title,
+          messages: p._count.messages,
+          files: p._count.files,
+          updatedAt: p.updatedAt.toISOString(),
+        })),
+        q,
+      ).slice(0, 50)
+      return ok({ projects, query: q })
+    }
     const projects = await db.codeProject.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: 'desc' },
-      take: 30,
+      take: 50,
       include: { _count: { select: { messages: true, files: true } } },
     })
     return ok({
