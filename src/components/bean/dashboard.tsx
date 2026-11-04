@@ -189,7 +189,14 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* sm:auto-rows-fr: both grid rows share one resolved height, so all
+          four product cards are exactly the same size at every 2-column
+          viewport (card-uniformity requirement). Above ~1200px both rows
+          already rest on the shared 207px min-height floor, so nothing
+          changes there; below it, the row height follows the tallest card's
+          wrapped text instead of clipping it (no text may be truncated).
+          Base (mobile, single column) keeps per-content row heights. */}
+      <div className="grid gap-4 sm:auto-rows-fr sm:grid-cols-2">
         {(products ?? Array.from({ length: 4 }, () => null)).map((p, i) => {
           if (!p) return <Skeleton key={i} className="h-44 rounded-xl bg-white/5" />
           const Icon = ICONS[p.id] ?? Sparkles
