@@ -1,0 +1,190 @@
+{
+  "startedAt": "2026-11-04T10:45:35.047Z",
+  "base": "http://localhost:3000",
+  "products": {
+    "riishe": {
+      "status": "unavailable",
+      "available": false,
+      "latencyMs": 176,
+      "httpStatus": 429,
+      "failureCategory": "rate-limited",
+      "detail": "Upstream gateway rate-limited (HTTP 429) — probe rejected. chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+      "lastHealthyAt": null,
+      "live": {
+        "unauthWall": {
+          "status": 401,
+          "expected": 401,
+          "pass": true
+        },
+        "liveAttempt": {
+          "at": "2026-11-04T10:45:35.155Z",
+          "status": 429,
+          "ms": 25,
+          "bodyExcerpt": "{\"ok\":false,\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle\"}}"
+        }
+      }
+    },
+    "laxii": {
+      "status": "operational",
+      "available": true,
+      "latencyMs": 142,
+      "httpStatus": 404,
+      "failureCategory": null,
+      "detail": "Gateway reachable (HTTP 404 in 142ms) and client configured with 7 sizes. This health check does NOT run a generation; the full generation path was verified once at the deployment probe (scripts/stage0-report.json).",
+      "lastHealthyAt": "2026-11-04T10:45:33.795Z",
+      "live": {
+        "generateSubmit": {
+          "status": 202,
+          "ms": 14,
+          "jobId": "cmw1zqiwu002essu3ogw5kikh",
+          "error": null
+        },
+        "generateResult": {
+          "status": 200,
+          "jobStatus": "failed",
+          "progress": 15,
+          "error": "The image backend could not complete this request.",
+          "ms": 584
+        },
+        "assetUpload": {
+          "status": 201,
+          "ms": 16,
+          "assetId": "cmw1zqmgo002jssu3iq3q4h1q"
+        },
+        "enhanceSubmit": {
+          "status": 202,
+          "ms": 15,
+          "jobId": "cmw1zqmh3002mssu3v75p23lh",
+          "error": null
+        },
+        "enhanceResult": {
+          "jobStatus": "completed",
+          "error": null
+        },
+        "smartEditRefusal": {
+          "status": 503,
+          "code": "PROVIDER_UNAVAILABLE",
+          "message": "This editing capability requires local generative models, which are not operational yet. Generative editing is not operational: the local Diffusers worker has not passed its hardware preflight and no "
+        }
+      }
+    },
+    "jazmii": {
+      "status": "not-configured",
+      "available": false,
+      "latencyMs": null,
+      "httpStatus": null,
+      "failureCategory": "not-configured",
+      "detail": "No video-generation backend is deployed. BEAN does not simulate video jobs — deployment of a licensed GPU worker is required before JAZMII can accept requests.",
+      "lastHealthyAt": null,
+      "live": {
+        "submit": {
+          "status": 200,
+          "rejected": true,
+          "code": "NO_BACKEND",
+          "message": "JAZMII cannot accept video jobs yet. No video-generation backend is deployed — BEAN does not simulate video generation. Deploy a licensed GPU worker (see docs/m",
+          "ms": 20
+        },
+        "jobRecord": {
+          "id": "cmw1zqoup002vssu3i5qeecd6",
+          "status": "unsupported",
+          "errorCode": "NO_BACKEND"
+        },
+        "jobPoll": {
+          "status": 200,
+          "jobStatus": "unsupported"
+        }
+      }
+    },
+    "code-giftz": {
+      "status": "unavailable",
+      "available": false,
+      "latencyMs": 264,
+      "httpStatus": 429,
+      "failureCategory": "rate-limited",
+      "detail": "Upstream gateway rate-limited (HTTP 429) — probe rejected. chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+      "lastHealthyAt": null,
+      "live": {
+        "unauthWall": {
+          "status": 401,
+          "expected": 401,
+          "pass": true
+        },
+        "modelCatalogue": {
+          "status": 200,
+          "count": 7,
+          "ids": [
+            "bean-chat-hosted",
+            "bean-image-hosted",
+            "bean-image-enhance-local",
+            "bean-image-edit-local",
+            "bean-video-selfhosted-candidate",
+            "bean-code-hosted",
+            "bean-external-openai-compatible"
+          ],
+          "states": [
+            "bean-chat-hosted:unavailable",
+            "bean-image-hosted:available",
+            "bean-image-enhance-local:available",
+            "bean-image-edit-local:disabled",
+            "bean-video-selfhosted-candidate:disabled",
+            "bean-code-hosted:unavailable",
+            "bean-external-openai-compatible:awaiting-credentials"
+          ]
+        },
+        "liveAttempt": {
+          "at": "2026-11-04T10:45:43.740Z",
+          "status": 200,
+          "ms": 48,
+          "contentType": "text/event-stream",
+          "bodyExcerpt": "data: {\"stage\":\"thinking\"}\n\ndata: {\"error\":\"The upstream AI gateway is rate-limited right now (HTTP 429). This usually clears within a few minutes — your question is kept below, so you can retry without retyping it.\",\"code\":\"UPSTREAM_RATE_LIMITED\",\"partial\":true}\n\n"
+        }
+      }
+    }
+  },
+  "isolation": {
+    "riisheStatus": "unavailable",
+    "laxiiStatus": "operational",
+    "jazmiiStatus": "not-configured",
+    "giftzStatus": "unavailable",
+    "note": "Each product derives its status from its OWN probe; a chat-class 429 must not affect laxii/jazmii states."
+  },
+  "credentialLeakScan": {
+    "health": {
+      "scannedBytes": 3257,
+      "hits": []
+    },
+    "riishe-chat": {
+      "scannedBytes": 198,
+      "hits": []
+    },
+    "laxii-generate": {
+      "scannedBytes": 102,
+      "hits": []
+    },
+    "laxii-upload": {
+      "scannedBytes": 182,
+      "hits": []
+    },
+    "laxii-enhance": {
+      "scannedBytes": 114,
+      "hits": []
+    },
+    "laxii-edit": {
+      "scannedBytes": 445,
+      "hits": []
+    },
+    "jazmii-generate": {
+      "scannedBytes": 277,
+      "hits": []
+    },
+    "v1-models": {
+      "scannedBytes": 2681,
+      "hits": []
+    },
+    "giftz-chat": {
+      "scannedBytes": 265,
+      "hits": []
+    }
+  },
+  "finishedAt": "2026-11-04T10:45:43.740Z"
+}

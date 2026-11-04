@@ -37,18 +37,42 @@ const STORE_KEY = '__bean_health_probe_cache__'
 interface HealthCacheStore {
   cache: Map<string, CacheEntry>
   inFlight: Map<string, Promise<HealthReport>>
+  /** Key -> checkedAt of the last probe that ACTUALLY succeeded (fresh run,
+   *  not a cached replay). Survives cache-TTL expiry; resets on process
+   *  restart (an honest unknown rather than a fabricated timestamp). */
+  lastHealthyAt: Map<string, string>
 }
 
 function store(): HealthCacheStore {
   const g = globalThis as unknown as Record<string, unknown>
-  if (!g[STORE_KEY]) g[STORE_KEY] = { cache: new Map(), inFlight: new Map() }
-  return g[STORE_KEY] as HealthCacheStore
+  if (!g[STORE_KEY]) g[STORE_KEY] = { cache: new Map(), inFlight: new Map(), lastHealthyAt: new Map() }
+  const s = g[STORE_KEY] as HealthCacheStore
+  // Shape backfill: a store object created by an older module instance (dev
+  // hot-reload or route-bundle duplication — the exact fragmentation this
+  // globalThis keying exists for) may predate a newer field. MEASURED live
+  // 2026-11-04: lastHealthyAtFor crashed with "Cannot read properties of
+  // undefined (reading 'get')" against a store created before the field
+  // existed. Backfill instead of trusting the shape.
+  if (!s.lastHealthyAt) s.lastHealthyAt = new Map()
+  return s
 }
 
 export function clearHealthCacheForTests(): void {
   const s = store()
   s.cache.clear()
   s.inFlight.clear()
+  s.lastHealthyAt.clear()
+}
+
+/**
+ * MEASURED CHANGE (2026-11-04 connectivity audit): expose WHEN a backend
+ * last passed its real probe. The dashboard renders this as "last successful
+ * check" so a consumer can always tell how old the evidence behind a status
+ * is — a cached report keeps its original checkedAt, and this tracker keeps
+ * the last success even after the cache entry itself has expired.
+ */
+export function lastHealthyAtFor(key: string): string | null {
+  return store().lastHealthyAt.get(key) ?? null
 }
 
 export async function cachedHealth(
@@ -58,7 +82,7 @@ export async function cachedHealth(
 ): Promise<HealthReport> {
   const ttlMs = opts?.ttlMs ?? HEALTH_CACHE_TTL_MS
   const now = Date.now()
-  const { cache, inFlight } = store()
+  const { cache, inFlight, lastHealthyAt } = store()
   const hit = cache.get(key)
   if (hit && hit.expiresAt > now) {
     return { ...hit.report, cached: true }
@@ -69,6 +93,9 @@ export async function cachedHealth(
     .then((report) => {
       // checkedAt stays the REAL probe time — staleness is visible, not hidden.
       cache.set(key, { report, expiresAt: Date.now() + ttlMs })
+      // A fresh SUCCESS records the last-healthy timestamp (a cached replay
+      // never touches this — only real probe outcomes do).
+      if (report.healthy) lastHealthyAt.set(key, report.checkedAt)
       return report
     })
     .finally(() => inFlight.delete(key))

@@ -15,6 +15,12 @@ import { logger } from '@/lib/observability/logger'
 import { recordUsage } from '@/lib/observability/metering'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
 import { withTimeout } from '@/lib/adapters/hosted-llm'
+import {
+  noteRealAttempt,
+  UPSTREAM_FAILURE_CATEGORIES,
+  type RealAttemptRecord,
+} from '@/lib/adapters/last-attempts'
+import { classifyUpstreamError, healthFailureCategory } from '@/lib/upstream/gateway'
 import { getBackend } from '@/lib/registry/backends'
 import { processEnhancementJob, processEditJob } from '@/lib/laxii/jobs'
 import fs from 'fs'
@@ -84,9 +90,34 @@ async function processImageJob(job: JobRow): Promise<void> {
       success: true,
     })
     logger.info('laxii.job_completed', { jobId: job.id, durationMs: result.durationMs })
+    // REAL-attempt evidence (2026-11-04 connectivity audit): a genuine
+    // success overrides any previous upstream-failure evidence.
+    noteRealAttempt('image-generation', {
+      at: new Date().toISOString(),
+      ok: true,
+      backendId: backend.id,
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     const timedOut = message.includes('timed out')
+    // Classify the failure honestly: only UPSTREAM-class failures (throttle,
+    // auth, network...) count as product-health evidence; a content-policy
+    // or user-error rejection is request-specific, not a product state.
+    const failure = classifyUpstreamError(e)
+    const category = timedOut && failure.kind === 'other' ? 'timeout' : healthFailureCategory(failure.kind)
+    const isUpstream = UPSTREAM_FAILURE_CATEGORIES.has(category)
+    const record: RealAttemptRecord = {
+      at: new Date().toISOString(),
+      ok: false,
+      backendId: backend.id,
+      failureCategory: category,
+      httpStatus: failure.status,
+      upstream: isUpstream,
+    }
+    noteRealAttempt('image-generation', record)
     await updateJob(job.id, {
       status: 'failed',
       finishedAt: new Date(),
