@@ -48,14 +48,17 @@ export interface ProductHealthEntry {
   research?: { available: boolean }
   /** CODE GIFTZ — local sandbox execution capability. */
   sandbox?: { available: boolean }
-  /** LAXII — hosted generation capability, evidenced by the most recent
-   *  REAL generation attempt (2026-11-04 connectivity audit): a reachable
-   *  gateway that is throttling generations is Degraded, not Operational. */
+  /** LAXII/JAZMII — hosted generation capability, evidenced by the most
+   *  recent REAL generation attempt (2026-11-04 connectivity audit) or by
+   *  the LABELED shared-account throttle inference. A reachable gateway
+   *  that is throttling generations is Degraded, not Operational. */
   generation?: {
     available: boolean
     failureCategory?: string | null
     httpStatus?: number | null
     checkedAt?: string
+    /** Set when the evidence is cross-class shared-account inference. */
+    note?: string
   }
 }
 

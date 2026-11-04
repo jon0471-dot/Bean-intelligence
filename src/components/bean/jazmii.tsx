@@ -18,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { beanFetch, GoldBadge, StatusDot, timeAgo } from './shared'
 import { Video, ShieldAlert, Info, Download, X, Film } from 'lucide-react'
 
-interface Availability { available: boolean; reason: string; product: string }
+interface Availability { available: boolean; accountThrottled?: boolean; reason: string; product: string }
 interface VideoJob {
   id: string
   status: string
@@ -140,6 +140,7 @@ export function Jazmii() {
   }
 
   const operational = availability?.available === true
+  const throttled = operational && availability?.accountThrottled === true
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -150,17 +151,19 @@ export function Jazmii() {
 
       <div className="bean-glass mb-6 rounded-xl border-amber-500/25 p-5">
         <div className="mb-2 flex items-center gap-2">
-          {operational ? <Film className="h-4 w-4 text-emerald-400" /> : <ShieldAlert className="h-4 w-4 text-amber-400" />}
+          {operational && !throttled ? <Film className="h-4 w-4 text-emerald-400" /> : <ShieldAlert className="h-4 w-4 text-amber-400" />}
           <span className="text-sm font-semibold text-amber-300">Availability: reported truthfully</span>
         </div>
         <p className="text-[13px] leading-relaxed text-white/60">
           {availability?.reason ?? 'Checking backend availability…'}
         </p>
         <div className="mt-3 flex items-center gap-2 text-[11px] text-white/40">
-          <StatusDot ok={operational} pulse={!operational} />
-          {operational
+          <StatusDot ok={operational && !throttled} pulse={!operational || throttled} />
+          {operational && !throttled
             ? 'Generation runs as a tracked job — this page never holds the request open. Each completed job is the evidence.'
-            : 'Video generation is not currently accepting jobs for this environment.'}
+            : operational && throttled
+              ? 'The shared gateway account is throttled — submissions are rejected until the breaker clears. Existing jobs keep polling.'
+              : 'Video generation is not currently accepting jobs for this environment.'}
         </div>
       </div>
 

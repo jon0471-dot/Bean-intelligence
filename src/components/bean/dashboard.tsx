@@ -218,7 +218,13 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
                         category: probe?.generation?.failureCategory ?? null,
                         httpStatus: probe?.generation?.httpStatus ?? null,
                       }
-                    : null
+                    : p.id === 'jazmii'
+                      ? {
+                          label: 'generation',
+                          category: probe?.generation?.failureCategory ?? null,
+                          httpStatus: probe?.generation?.httpStatus ?? null,
+                        }
+                      : null
               : null
           const failureText =
             coreFailed || status === 'not-configured'
@@ -258,7 +264,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
                     <GoldBadge tone="gold">Degraded</GoldBadge>
                   ) : status === 'not-configured' ? (
                     /* Missing configuration is a DIFFERENT situation from a
-                       failed connection (JAZMII: no video backend deployed). */
+                       failed connection (external providers without credentials). */
                     <GoldBadge tone="gold">Not configured</GoldBadge>
                   ) : (
                     <GoldBadge tone="red"><span className="mr-1 inline-flex items-center gap-1.5"><StatusDot ok={false} />Unavailable</span></GoldBadge>

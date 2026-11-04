@@ -8,6 +8,7 @@ import { getProduct } from '@/lib/registry/products'
 import { getBackend } from '@/lib/registry/backends'
 import { enqueueJob } from '@/lib/jobs/queue'
 import { ensureVideoPoller } from '@/lib/jobs/video-worker'
+import { upstreamBreakerState, type UpstreamEndpointClass } from '@/lib/upstream/gateway'
 
 /**
  * JAZMII — submit a REAL video-generation job (async; no HTTP request is
@@ -111,12 +112,21 @@ export async function GET() {
     }
     const backend = getBackend('bean-video-hosted-primary')
     const product = getProduct('jazmii')
+    // Shared-account throttle (labeled cross-class inference — same evidence
+    // contract as /api/health): a fresh 429 on ANY gateway class means new
+    // submissions would be rejected at the provider edge right now.
+    const accountThrottled = (
+      ['chat', 'functions', 'images', 'video', 'audio'] as UpstreamEndpointClass[]
+    ).some((cls) => upstreamBreakerState(cls).coolingDown)
     return ok({
       productAvailability: {
         available: backend?.enabled === true,
+        accountThrottled,
         reason:
           backend?.enabled === true
-            ? 'JAZMII is operational: submissions run on the authorized hosted video backend. Completion is proven by each job, individually.'
+            ? accountThrottled
+              ? 'JAZMII runs on the authorized hosted video backend. The shared gateway account is rate-limited right now (HTTP 429 observed moments ago) — new submissions will be rejected until the breaker clears. Try again shortly.'
+              : 'JAZMII is operational: submissions run on the authorized hosted video backend. Completion is proven by each job, individually.'
             : backend?.unavailableReason ?? 'No backend configured.',
         product: product?.name ?? 'JAZMII',
       },

@@ -1,27 +1,27 @@
 {
-  "at": "2026-11-04T15:14:42.380Z",
+  "at": "2026-11-04T16:02:19.254Z",
   "baseUrlRecorded": true,
   "apiKeyPresent": true,
   "probes": [
     {
       "endpointClass": "chat",
       "attempted": true,
-      "ok": false,
-      "status": 429,
-      "latencyMs": 26,
-      "failureKind": "rate_limited",
-      "evidence": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
-      "at": "2026-11-04T15:14:26.366Z"
+      "ok": true,
+      "status": 200,
+      "latencyMs": 471,
+      "failureKind": null,
+      "evidence": "completion content length=2, preview=\"OK\"",
+      "at": "2026-11-04T16:02:00.760Z"
     },
     {
       "endpointClass": "functions",
       "attempted": true,
-      "ok": false,
-      "status": 429,
-      "latencyMs": 9,
-      "failureKind": "rate_limited",
-      "evidence": "Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
-      "at": "2026-11-04T15:14:34.376Z"
+      "ok": true,
+      "status": 200,
+      "latencyMs": 2488,
+      "failureKind": null,
+      "evidence": "web_search returned 1 result(s)",
+      "at": "2026-11-04T16:02:11.249Z"
     },
     {
       "endpointClass": "image-meta",
@@ -31,12 +31,12 @@
       "latencyMs": 4,
       "failureKind": null,
       "evidence": "GET /models -> HTTP 404",
-      "at": "2026-11-04T15:14:42.380Z"
+      "at": "2026-11-04T16:02:19.254Z"
     }
   ],
   "verdict": {
-    "chat": "NOT-OPERATIONAL",
-    "functions": "NOT-OPERATIONAL",
+    "chat": "OPERATIONAL",
+    "functions": "OPERATIONAL",
     "imageMeta": "REACHABLE"
   }
 }

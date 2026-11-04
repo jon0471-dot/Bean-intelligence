@@ -11,7 +11,7 @@ import { lastRealAttempt, recentUpstreamFailure } from '@/lib/adapters/last-atte
 import { probeResearchHealth } from '@/lib/research/provider'
 import { probeSandboxHealth } from '@/lib/sandbox/runner'
 import { getBackendsForProduct } from '@/lib/registry/backends'
-import { productStatus, type ProductStatus } from '@/lib/registry/status'
+import { productStatus, type ProductHealthEntry, type ProductStatus } from '@/lib/registry/status'
 import {
   upstreamBreakerState,
   UPSTREAM_429_COOLDOWN_MS,
@@ -109,6 +109,33 @@ export async function GET() {
     const videoBackend = getBackendsForProduct('jazmii')[0]
     const jazmiiEnabled = registryEnabled('jazmii')
 
+    // Shared-account throttle evidence (LABELED inference, 2026-11-04): all
+    // gateway endpoint classes ride ONE provider account, and the measured
+    // pattern today is account-wide 429s. When ANY class carries a fresh
+    // breaker (a 429 within its cooldown window, max 10 min), a generation
+    // class whose reachability probe still passes is honestly Degraded —
+    // reachability alone would repeat the "HTTP 200 ≠ operational" trap
+    // while submissions would be rejected at the provider edge. The payload
+    // states the evidence is cross-class, never passes it off as a probe of
+    // the product's own endpoint.
+    const throttleClasses = (['chat', 'functions', 'images', 'video', 'audio'] as UpstreamEndpointClass[])
+      .map((cls) => ({ cls, ...upstreamBreakerState(cls) }))
+      .filter((b) => b.coolingDown && b.last429At !== null)
+    const accountThrottled = throttleClasses.length > 0
+    const throttleCheckedAt = throttleClasses
+      .map((b) => b.last429At as string)
+      .sort()
+      .pop() ?? null
+    const sharedThrottleEvidence: NonNullable<ProductHealthEntry['generation']> | undefined = accountThrottled
+      ? {
+          available: false,
+          failureCategory: 'rate-limited',
+          httpStatus: 429,
+          ...(throttleCheckedAt ? { checkedAt: throttleCheckedAt } : {}),
+          note: 'Shared-account throttle observed on other gateway endpoint classes; submissions would be rejected until the breaker clears.',
+        }
+      : undefined
+
     const riisheEntry: ProductEntry = {
       status: productStatus(registryEnabled('riishe'), {
         available: riishe.healthy,
@@ -139,7 +166,7 @@ export async function GET() {
         }
       : generationAttempt
         ? { available: true, failureCategory: null, httpStatus: null, checkedAt: generationAttempt.at }
-        : undefined
+        : sharedThrottleEvidence
 
     const laxiiEntry: ProductEntry = {
       status: productStatus(registryEnabled('laxii'), {
@@ -187,7 +214,7 @@ export async function GET() {
         }
       : videoAttempt
         ? { available: true, failureCategory: null, httpStatus: null, checkedAt: videoAttempt.at }
-        : undefined
+        : sharedThrottleEvidence
 
     const jazmiiEntry: ProductEntry = {
       status: productStatus(jazmiiEnabled, {
