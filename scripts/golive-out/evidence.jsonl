@@ -1,0 +1,15 @@
+{"at":"2026-11-04T16:05:12.569Z","step":"auth","ok":true,"user":"golive-acc-1793808312@bean-e2e.test"}
+{"at":"2026-11-04T16:05:12.705Z","step":"jazmii-submit-t2v","status":429,"jobId":null,"code":null,"message":null}
+{"at":"2026-11-04T16:05:40.763Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:05:40.861Z","step":"jazmii-submit-t2v","status":202,"jobId":"cmw2b664a000qss9f54bak44c","code":null,"message":null}
+{"at":"2026-11-04T16:06:01.126Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:06:01.444Z","step":"riishe-turn1-stream","status":200,"contentType":"text/event-stream","streamedChars":294,"conversationId":"cmw2b6lz1000vss9foqze34lp","preview":"Saved to memory: “for this conversation: my project codename is GOLDEN CANYON. Reply by confirming the codename in one short sentence.”. I'll recall this in our","gotDone":true}
+{"at":"2026-11-04T16:06:01.522Z","step":"riishe-turn2-context","status":429,"answer":"","contextHeld":false}
+{"at":"2026-11-04T16:06:11.819Z","step":"riishe-turn3-research","status":429,"contentPreview":"","hasSourceLink":false,"metaKeys":[],"toolEvidence":false}
+{"at":"2026-11-04T16:06:13.737Z","step":"riishe-persistence","status":404,"conversationListed":false,"messageCount":4,"roles":"user,assistant,user,user","firstUserTurn":"Remember this for this conversation: my project codename is "}
+{"at":"2026-11-04T16:07:17.050Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
+{"at":"2026-11-04T16:07:17.782Z","step":"riishe-turn1-stream","status":200,"contentType":"text/event-stream","streamedChars":0,"conversationId":null,"preview":"","gotDone":false}
+{"at":"2026-11-04T16:07:17.839Z","step":"riishe-turn2-context","status":400,"answer":"","contextHeld":false}
+{"at":"2026-11-04T16:07:17.889Z","step":"riishe-turn3-research","status":400,"contentPreview":"","hasSourceLink":false,"metaKeys":[],"toolEvidence":false}
+{"at":"2026-11-04T16:07:17.889Z","step":"riishe-persistence","messageCount":0,"roles":"","firstUserTurn":"","contextIntact":false}
+{"at":"2026-11-04T16:08:45.250Z","step":"auth","ok":true,"user":"golive-acc-1793808340@bean-e2e.test"}
