@@ -29,6 +29,7 @@ import {
   CredentialsNotConfiguredError,
   DecryptionFailedError,
 } from './crypto'
+import { validateProviderBaseUrl } from './url-guard'
 
 /** Registered external provider kinds the gateway genuinely implements. */
 export const REGISTERED_PROVIDERS = ['openai-compatible'] as const
@@ -69,6 +70,14 @@ export async function createProviderCredential(input: CreateCredentialInput): Pr
       'VALIDATION_ERROR',
       `Unsupported provider "${input.provider}". Supported: ${REGISTERED_PROVIDERS.join(', ')}.`,
     )
+  }
+  // W6 SEC-W6-01 (SSRF): the base URL drives a server-side fetch WITH the
+  // credential attached — validate BEFORE anything else (also before the
+  // master-key gate, so a configuration mistake surfaces as a typed 400
+  // instead of being masked by the 503 fail-closed state).
+  if (input.baseUrl?.trim()) {
+    const guard = validateProviderBaseUrl(input.baseUrl)
+    if (!guard.ok) throw new BeanApiError('VALIDATION_ERROR', `Provider base URL rejected: ${guard.reason}`)
   }
   if (!isCredentialEncryptionConfigured()) {
     throw new CredentialsNotConfiguredError()
@@ -130,6 +139,11 @@ export async function replaceProviderCredential(
   credentialId: string,
   input: { apiKey: string; label?: string; baseUrl?: string | null },
 ): Promise<CredentialView> {
+  // W6 SEC-W6-01: URL validation first (see createProviderCredential).
+  if (input.baseUrl?.trim()) {
+    const guard = validateProviderBaseUrl(input.baseUrl)
+    if (!guard.ok) throw new BeanApiError('VALIDATION_ERROR', `Provider base URL rejected: ${guard.reason}`)
+  }
   if (!isCredentialEncryptionConfigured()) throw new CredentialsNotConfiguredError()
   const row = await db.providerCredential.findUnique({ where: { id: credentialId } })
   if (!row || row.status !== 'active') {
@@ -171,6 +185,14 @@ export async function decryptProviderCredential(
   const row = await db.providerCredential.findUnique({ where: { id: credentialId } })
   if (!row || row.status !== 'active') {
     throw new BeanApiError('NO_BACKEND', 'No active credential is configured for this provider.')
+  }
+  // Defense-in-depth (W6 SEC-W6-01): a hand-edited DB row can carry a URL
+  // that never passed write-time validation — re-check before any fetch.
+  if (row.baseUrl) {
+    const guard = validateProviderBaseUrl(row.baseUrl)
+    if (!guard.ok) {
+      throw new BeanApiError('PRODUCT_UNAVAILABLE', 'The configured provider base URL is not allowed by the SSRF policy; fix or replace the credential.')
+    }
   }
   let payload: ProviderSecretPayload
   try {

@@ -25,7 +25,7 @@
  * of its own.
  */
 import { planGatewayChat, executeGatewayChat, gatewayErrorFor, isGatewayCancelled } from '@/lib/ai-gateway/gateway'
-import { VERIFIER_SYSTEM_PROMPT, buildVerifierUserTurn, buildRevisionInstruction } from './prompts'
+import { VERIFIER_SYSTEM_PROMPT, buildVerifierUserTurn, buildVerificationFocus, buildRevisionInstruction } from './prompts'
 import type { VerificationConfig } from './config'
 import type { GenerationGuard } from '@/lib/giftz/chat-stream'
 import { ClientDisconnectedError } from '@/lib/giftz/chat-stream'
@@ -97,11 +97,12 @@ async function runVerifierPass(
   answer: string,
   config: VerificationConfig,
   ctx: GatewayCallContext,
+  focus: string | null,
 ): Promise<VerifierReport | null> {
   try {
     const plan = await planGatewayChat({
       model: config.verificationModel,
-      messages: [{ role: 'user', content: buildVerifierUserTurn(originalRequest, answer, config.maxInputChars) }],
+      messages: [{ role: 'user', content: buildVerifierUserTurn(originalRequest, answer, config.maxInputChars, focus) }],
       system: VERIFIER_SYSTEM_PROMPT,
       // Verifiers benefit from determinism; the hosted path documents that it
       // does not forward sampling parameters (never silently ignored).
@@ -180,6 +181,10 @@ export async function verifyAndCorrect(args: VerifyAndCorrectArgs): Promise<Veri
     if (args.guard?.aborted) throw new ClientDisconnectedError()
   }
 
+  // W6 verification-aware focus: detected ONCE from the original request
+  // (never from the draft — a draft cannot choose its own audit checklist).
+  const focus = buildVerificationFocus(args.originalRequest)
+
   let current = args.draft
   let attempts = 0
   let corrections = 0
@@ -198,7 +203,7 @@ export async function verifyAndCorrect(args: VerifyAndCorrectArgs): Promise<Veri
     ensureAlive()
     attempts += 1
     args.onStage?.('verifying')
-    last = await runVerifierPass(args.originalRequest, current, config, ctx)
+    last = await runVerifierPass(args.originalRequest, current, config, ctx, focus)
 
     if (last === null) {
       // Verifier unavailable or unusable output — honest uncertainty, no
