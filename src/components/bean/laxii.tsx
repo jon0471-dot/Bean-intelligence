@@ -116,7 +116,7 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [opts, setOpts] = useState({ denoise: true, exposureWhiteBalance: true, grade: true, localContrast: true, upscaleFactor: 1 })
-  const [editCaps, setEditCaps] = useState<{ smartEditAvailable: boolean; reason: string | null }>({ smartEditAvailable: false, reason: null })
+  const [editCaps, setEditCaps] = useState<{ smartEditAvailable: boolean; hostedEditAvailable: boolean; reason: string | null }>({ smartEditAvailable: false, hostedEditAvailable: false, reason: null })
 
   // ---- Mask editor state (see MaskEditor) ----
   const [editorReset, setEditorReset] = useState(0)
@@ -142,10 +142,11 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
       const d = await beanFetch<{ capabilities: Record<string, { available: boolean }>; unavailableReason: string | null }>('/api/laxii/edit')
       setEditCaps({
         smartEditAvailable: d.capabilities['smart-edit']?.available === true,
+        hostedEditAvailable: d.capabilities['conversational-edit']?.available === true,
         reason: d.unavailableReason ?? null,
       })
     } catch {
-      setEditCaps({ smartEditAvailable: false, reason: null })
+      setEditCaps({ smartEditAvailable: false, hostedEditAvailable: false, reason: null })
     }
   }, [])
 
@@ -280,6 +281,46 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  /** PHASE 4: whole-image conversational edit on the authorized hosted
+   *  editing endpoint. Follow-up edits chain naturally: use any completed
+   *  result as the next source via the gallery's "Use as source" action. */
+  async function submitConversationalEdit() {
+    if (!asset || busy) return
+    const p = prompt.trim()
+    if (p.length < 3) {
+      setError('Describe the edit in the prompt box first (what should change, style, lighting…).')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      await beanFetch('/api/laxii/edit', {
+        method: 'POST',
+        json: { mode: 'conversational-edit', assetId: asset.id, prompt: p },
+      })
+      setNotice('AI edit queued — this is a whole-image generative edit (not pixel-preserving).')
+      await loadJobs()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Load a completed result back into the studio as the editing source. */
+  function useJobAsSource(imageUrl: string) {
+    const m = /\/api\/laxii\/assets\/([\w-]+)$/.exec(imageUrl)
+    if (!m) return
+    // Geometry is re-measured server-side on the next edit's preparation
+    // step; the preview here uses the result URL directly.
+    setAsset({ id: m[1], width: null, height: null, bytes: 0, url: imageUrl })
+    setMode('edit')
+    setEditorReset((n) => n + 1)
+    setNotice('Result loaded as the editing source — describe the next edit and run AI Edit.')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -427,6 +468,15 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
                   Apply Strict-Preserve edit
                 </Button>
                 <Button
+                  onClick={() => void submitConversationalEdit()}
+                  disabled={busy || !editCaps.hostedEditAvailable || prompt.trim().length < 3}
+                  variant="outline"
+                  className="w-full border-[rgba(212,175,55,0.4)] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.08)]"
+                >
+                  <Wand2 className="mr-1.5 h-4 w-4" />
+                  AI Edit (whole image){editCaps.hostedEditAvailable ? '' : ' — unavailable'}
+                </Button>
+                <Button
                   onClick={() => {
                     setError(editCaps.reason ?? 'Smart Edit requires the local generative engine, which is not verified yet.')
                   }}
@@ -435,10 +485,10 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
                   className="w-full border-white/15 text-white/60 hover:bg-white/5"
                 >
                   <Brush className="mr-1.5 h-4 w-4" />
-                  Smart Edit (generative){editCaps.smartEditAvailable ? '' : ' — unavailable'}
+                  Smart Edit (masked, local){editCaps.smartEditAvailable ? '' : ' — unavailable'}
                 </Button>
                 <p className="text-[10px] leading-relaxed text-white/30">
-                  Smart Edit needs the local Diffusers worker (masked inpaint). Until it passes hardware preflight and a real inference test on the GPU host, BEAN refuses the job instead of silently regenerating your whole image.
+                  AI Edit regenerates the whole image from your description — fast, but not pixel-preserving. Strict-Preserve keeps unmasked pixels bit-exact locally. Masked Smart Edit still needs the local Diffusers worker (hardware-gated) — BEAN refuses it instead of silently regenerating your image.
                 </p>
               </div>
             ) : null}
@@ -461,7 +511,7 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
           <ScrollArea className="h-[calc(100vh-14rem)] min-h-[420px]">
             <div className="grid gap-4 pr-3 sm:grid-cols-2 xl:grid-cols-3">
               {jobs.map((j) => (
-                <JobCard key={j.id} job={j} compare={compare} setCompare={setCompare} />
+                <JobCard key={j.id} job={j} compare={compare} setCompare={setCompare} onUseAsSource={useJobAsSource} />
               ))}
             </div>
           </ScrollArea>
@@ -632,7 +682,7 @@ function MaskEditor({ asset, resetKey, registerGetMasks }: MaskEditorProps) {
   )
 }
 
-function JobCard({ job, compare, setCompare }: { job: Job; compare: 'after' | 'before' | 'diff'; setCompare: (v: 'after' | 'before' | 'diff') => void }) {
+function JobCard({ job, compare, setCompare, onUseAsSource }: { job: Job; compare: 'after' | 'before' | 'diff'; setCompare: (v: 'after' | 'before' | 'diff') => void; onUseAsSource?: (imageUrl: string) => void }) {
   const isPreservation = job.task === 'image-enhancement' || job.task === 'image-editing'
   const view = isPreservation && job.report ? compare : 'after'
   const src = view === 'before' ? job.originalUrl : view === 'diff' ? job.diffUrl : job.imageUrl
@@ -667,13 +717,25 @@ function JobCard({ job, compare, setCompare }: { job: Job; compare: 'after' | 'b
             {job.durationMs ? <div className="text-[10px] text-white/30">{(job.durationMs / 1000).toFixed(1)}s · {job.bytes ? Math.round(job.bytes / 1024) : '?'} KB</div> : null}
           </div>
           {job.status === 'completed' && job.imageUrl ? (
-            <a
-              href={job.imageUrl}
-              download={`bean-laxii-${job.id}.${job.format === 'png' ? 'png' : 'jpg'}`}
-              className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2 py-1 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
-            >
-              <Download className="h-3 w-3" /> Download
-            </a>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {onUseAsSource ? (
+                <button
+                  type="button"
+                  onClick={() => onUseAsSource(job.imageUrl!)}
+                  title="Load this result as the source for the next edit"
+                  className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2 py-1 text-[11px] text-white/60 hover:bg-white/5"
+                >
+                  <Brush className="h-3 w-3" /> Use as source
+                </button>
+              ) : null}
+              <a
+                href={job.imageUrl}
+                download={`bean-laxii-${job.id}.${job.format === 'png' ? 'png' : 'jpg'}`}
+                className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2 py-1 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
+              >
+                <Download className="h-3 w-3" /> Download
+              </a>
+            </div>
           ) : job.status === 'failed' ? (
             <GoldBadge tone="red">Failed</GoldBadge>
           ) : (

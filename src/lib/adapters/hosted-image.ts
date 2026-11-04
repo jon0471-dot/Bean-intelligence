@@ -247,13 +247,6 @@ export const hostedImageAdapter: TaskAdapter = {
     if (!SUPPORTED_SIZE_SET.has(req.size)) {
       throw new Error(`Unsupported size ${req.size} for configured backend`)
     }
-    // PHASE 1 gateway recovery (2026-11-04): image generations ride the same
-    // account as chat/functions and were measured 429ing while the cheap
-    // reachability probe passed. The images endpoint class now carries its
-    // own 429 breaker: while it is open, generation requests fail fast with
-    // the honest typed error and ZERO network traffic — one bounded probe
-    // per cooldown window instead of a retry storm into an account-wide
-    // throttle. The queue worker surfaces this as the rate-limited class.
     if (upstreamCoolingDown('images')) {
       noteUpstreamSkip('images')
       throw new UpstreamRateLimitError(
@@ -292,6 +285,71 @@ export const hostedImageAdapter: TaskAdapter = {
     const isJpeg = bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8
     if (!isJpeg) throw new Error('Upstream payload was not a valid image')
     const [w, h] = req.size.split('x').map((n) => parseInt(n, 10))
+    return { bytes, width: w, height: h, format: 'jpeg', durationMs: Date.now() - t0 }
+  },
+
+  /**
+   * PHASE 4 (2026-11-04): REAL image-to-image editing through the gateway's
+   * images.edit endpoint (image + prompt → edited image). Powers LAXII's
+   * conversational editing: background changes, object insertion/removal via
+   * prompt, lighting changes, restyling and variations — all as provider
+   * execution, never local fakery.
+   *
+   * Contract:
+   *  - `imageBase64` is the raw base64 of a JPEG/PNG the user owns (already
+   *    ownership-checked upstream; resized server-side by the caller);
+   *  - `size` is optional; when given it must be one of the gateway's
+   *    literal sizes (the edited output dimensions);
+   *  - the SAME images-class 429 breaker guards this endpoint (fail fast,
+   *    zero traffic while open; real 429 opens the breaker with escalation);
+   *  - the payload is validated by JPEG magic bytes before it is trusted.
+   */
+  async editImage(req: {
+    prompt: string
+    imageBase64: string
+    size?: string
+    timeoutMs?: number
+  }): Promise<ImageResult> {
+    if (req.size !== undefined && !SUPPORTED_SIZE_SET.has(req.size)) {
+      throw new Error(`Unsupported size ${req.size} for configured backend`)
+    }
+    if (upstreamCoolingDown('images')) {
+      noteUpstreamSkip('images')
+      throw new UpstreamRateLimitError(
+        'images',
+        'image edit not attempted: the upstream gateway is rate-limited (HTTP 429 observed moments ago); ' +
+          'request skipped to avoid worsening the throttle',
+        false,
+      )
+    }
+    const t0 = Date.now()
+    const zai = await ZAI.create()
+    const body: Record<string, unknown> = {
+      prompt: req.prompt.slice(0, 4000),
+      image: req.imageBase64,
+      ...(req.size ? { size: req.size } : {}),
+    }
+    let res
+    try {
+      res = await zai.images.generations.edit(body as never)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      if (/\bstatus\s+429\b|\bHTTP\s+429\b/.test(message)) {
+        noteUpstream429('images')
+        throw new UpstreamRateLimitError(
+          'images',
+          `image edit is rate-limited upstream (HTTP 429): ${message.slice(0, 200)}`,
+        )
+      }
+      throw e
+    }
+    noteUpstreamSuccess('images')
+    const b64 = res.data?.[0]?.base64
+    if (!b64) throw new Error('Upstream returned no edited image payload')
+    const bytes = Buffer.from(b64, 'base64')
+    const isJpeg = bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8
+    if (!isJpeg) throw new Error('Upstream payload was not a valid image')
+    const [w, h] = (req.size ?? '1024x1024').split('x').map((n) => parseInt(n, 10))
     return { bytes, width: w, height: h, format: 'jpeg', durationMs: Date.now() - t0 }
   },
 }
