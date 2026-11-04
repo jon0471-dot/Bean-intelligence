@@ -18,9 +18,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Markdown, Spinner, timeAgo, beanFetch } from './shared'
+import { Markdown, Spinner, beanFetch } from './shared'
 import { consumeRiisheStream, streamFailureMessage, type StreamFailureInfo } from '@/lib/riishe/sse-client'
+import {
+  GiftzSidebarBody,
+  GiftzSidebarCollapsedRail,
+  GiftzSidebarMobile,
+  GiftzSidebarMobileTrigger,
+  type ProjectSummary,
+  type SidebarActionResult,
+} from './code-giftz-sidebar'
 import { cn } from '@/lib/utils'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -28,8 +35,6 @@ import {
   Code2,
   Send,
   Square,
-  Trash2,
-  Plus,
   FileCode2,
   FilePlus2,
   Pencil,
@@ -46,7 +51,6 @@ import {
   BadgeCheck,
 } from 'lucide-react'
 
-interface ProjectSummary { id: string; title: string; messages: number; files: number; updatedAt: string }
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -135,6 +139,12 @@ export function CodeGiftz() {
   const [attachments, setAttachments] = useState<FileMeta[]>([])
   const [uploading, setUploading] = useState(false)
   const [workspaceWidth, setWorkspaceWidth] = useState(46) // percent of the row
+  // Sidebar (ChatGPT-style): search query (debounced server fetch), the
+  // mobile Sheet drawer, and the desktop collapsed rail.
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const streamedRef = useRef('')
   const abortRef = useRef<AbortController | null>(null)
@@ -151,14 +161,37 @@ export function CodeGiftz() {
 
   const hasHtml = files.some((f) => f.path === 'index.html' || f.path === 'main.html')
 
-  const loadProjects = useCallback(async () => {
+  const loadProjects = useCallback(async (q?: string) => {
     try {
-      const d = await beanFetch<{ projects: ProjectSummary[] }>('/api/code-giftz/chat')
+      const query = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''
+      const d = await beanFetch<{ projects: ProjectSummary[] }>(`/api/code-giftz/chat${query}`)
       setProjects(d.projects)
     } catch { /* non-fatal */ }
   }, [])
 
   useEffect(() => { void loadProjects() }, [loadProjects])
+
+  // Debounced sidebar search: 250ms after the query settles, the server
+  // filters across ALL of the user's conversations (not just the recent 50).
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (q.length === 0) {
+      setSearching(false)
+      void loadProjects()
+      return
+    }
+    setSearching(true)
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          const d = await beanFetch<{ projects: ProjectSummary[] }>(`/api/code-giftz/chat?q=${encodeURIComponent(q)}`)
+          setProjects(d.projects)
+        } catch { /* non-fatal — the last list stays visible */ }
+        setSearching(false)
+      })()
+    }, 250)
+    return () => clearTimeout(t)
+  }, [searchQuery, loadProjects])
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [messages, streaming, thinking, verifying])
   // Unmount during generation stops the request instead of leaving an
   // orphaned stream running (and its server-side generation continuing).
@@ -207,13 +240,28 @@ export function CodeGiftz() {
     setShowPreview(false)
   }
 
-  async function deleteProject(id: string) {
+  /** Sidebar rename (owner-checked server-side; sanitizer is the same pure
+   *  helper RIISHE uses). Returns a result shape so the dialog can show an
+   *  honest failure instead of closing over an error. */
+  async function renameProject(id: string, title: string): Promise<SidebarActionResult> {
+    try {
+      await beanFetch(`/api/code-giftz/chat/${id}`, { method: 'PATCH', json: { title } })
+      await loadProjects(searchQuery)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+
+  /** Sidebar delete — called ONLY from the confirmation dialog. */
+  async function deleteProject(id: string): Promise<SidebarActionResult> {
     try {
       await beanFetch(`/api/code-giftz/chat/${id}`, { method: 'DELETE' })
       if (projectId === id) newProject()
-      void loadProjects()
+      await loadProjects(searchQuery)
+      return { ok: true }
     } catch (e) {
-      setError((e as Error).message)
+      return { ok: false, error: (e as Error).message }
     }
   }
 
@@ -505,6 +553,10 @@ export function CodeGiftz() {
         <MessageSquareCode className="h-4 w-4 text-[#d4af37]" />
         <div className="text-sm font-semibold tracking-wide">CODE GIFTZ</div>
         <span className="hidden text-xs text-white/35 sm:inline">Chat-first coding · sandbox · live preview</span>
+        {/* Mobile: the conversation drawer opens from the header (<lg). */}
+        <div className="ml-auto lg:hidden">
+          <GiftzSidebarMobileTrigger onClick={() => setSidebarOpen(true)} />
+        </div>
       </div>
 
       <div className="bean-scroll flex-1 overflow-y-auto px-5 py-4">
@@ -909,49 +961,36 @@ export function CodeGiftz() {
 
   return (
     <div
-      className="grid min-h-[calc(100vh-3.5rem-2rem)] lg:h-[calc(100vh-3.5rem-1.5rem)] lg:grid-cols-[220px_1fr]"
+      className={cn(
+        'grid min-h-[calc(100vh-3.5rem-2rem)] lg:h-[calc(100vh-3.5rem-1.5rem)]',
+        sidebarCollapsed ? 'lg:grid-cols-[48px_1fr]' : 'lg:grid-cols-[220px_1fr]',
+      )}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()
         if (e.dataTransfer?.files?.length) void uploadFiles(e.dataTransfer.files)
       }}
     >
-      {/* Projects rail */}
-      <aside className="hidden flex-col border-r border-[rgba(212,175,55,0.1)] lg:flex">
-        <div className="p-3">
-          <Button onClick={newProject} className="w-full justify-start bg-[rgba(212,175,55,0.12)] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.2)]" variant="outline">
-            <Plus className="mr-1.5 h-4 w-4" /> New project
-          </Button>
-        </div>
-        <ScrollArea className="flex-1 px-2 pb-3">
-          {projects.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs text-white/30">No projects yet</p>
-          ) : (
-            projects.map((p) => (
-              <div
-                key={p.id}
-                className={cn(
-                  'group mb-0.5 flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-[13px] transition-colors',
-                  projectId === p.id ? 'bg-[rgba(212,175,55,0.1)] text-[#f0c75e]' : 'text-white/60 hover:bg-white/5',
-                )}
-                onClick={() => void openProject(p.id)}
-              >
-                <div className="min-w-0">
-                  <div className="truncate">{p.title}</div>
-                  <div className="text-[10px] text-white/30">{p.files} files · {timeAgo(p.updatedAt)}</div>
-                </div>
-                <button
-                  className="ml-2 hidden text-white/30 hover:text-red-400 group-hover:block"
-                  onClick={(e) => { e.stopPropagation(); void deleteProject(p.id) }}
-                  aria-label={`Delete ${p.title}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))
-          )}
-        </ScrollArea>
-      </aside>
+      {/* Conversations rail (desktop) — ChatGPT-style, collapsible; the
+          mobile drawer lives at the bottom of this tree. */}
+      {sidebarCollapsed ? (
+        <GiftzSidebarCollapsedRail onExpand={() => setSidebarCollapsed(false)} onNew={newProject} />
+      ) : (
+        <aside className="hidden flex-col border-r border-[rgba(212,175,55,0.1)] lg:flex">
+          <GiftzSidebarBody
+            projects={projects}
+            activeId={projectId}
+            searching={searching}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpen={(id) => void openProject(id)}
+            onNew={newProject}
+            onRename={renameProject}
+            onDelete={deleteProject}
+            onCollapse={() => setSidebarCollapsed(true)}
+          />
+        </aside>
+      )}
 
       {/* Chat + workspace row */}
       <div className="flex min-h-0 min-w-0">
@@ -968,6 +1007,21 @@ export function CodeGiftz() {
           {workspace}
         </div>
       </div>
+
+      {/* Conversations drawer (mobile <lg) — same body, same capabilities. */}
+      <GiftzSidebarMobile
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
+        projects={projects}
+        activeId={projectId}
+        searching={searching}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onOpen={(id) => void openProject(id)}
+        onNew={newProject}
+        onRename={renameProject}
+        onDelete={deleteProject}
+      />
     </div>
   )
 }
