@@ -6,9 +6,12 @@
  *
  * What is pinned here, against REAL production code:
  *  1. productStatus (the dashboard mapping, registry/status.ts) — the honest
- *     three-state derivation incl. the DEGRADED middle state a research-only
+ *     state derivation incl. the DEGRADED middle state a research-only
  *     429 must produce for RIISHE (partial availability, never "fully
- *     operational while current-web research is rate-limited upstream").
+ *     operational while current-web research is rate-limited upstream"),
+ *     and — since the 2026-11-04 connectivity audit — the separate
+ *     NOT-CONFIGURED state for a product with no enabled backend at all
+ *     (missing deployment ≠ failed connection).
  *  2. The LAXII image-backend probe semantics (hosted-image.ts): configured
  *     vs reachable vs credentials-rejected vs rate-limited vs unreachable —
  *     and the honesty boundary that a REACHABLE gateway is never reported as
@@ -30,14 +33,18 @@ import { productStatus } from '../../src/lib/registry/status'
 // 1. productStatus — the dashboard mapping (client-safe, pure)
 // ---------------------------------------------------------------------------
 
-describe('productStatus: healthy / degraded / unavailable derivation', () => {
-  test('a product with NO enabled backend is unavailable regardless of any probe (JAZMII truth)', () => {
-    // Even a probe that claims full health cannot green a product the
+describe('productStatus: healthy / degraded / unavailable / not-configured derivation', () => {
+  test('a product with NO enabled backend is not-configured regardless of any probe (JAZMII truth)', () => {
+    // 2026-11-04 connectivity audit: the no-backend state got its own honest
+    // name — 'not-configured' — so the dashboard can distinguish a MISSING
+    // deployment (JAZMII: no video worker exists) from a FAILED CONNECTION
+    // ('unavailable'). The truth policy itself is unchanged and still holds:
+    // even a probe that claims full health cannot green a product the
     // registry has no enabled backend for — measured beats configured, but a
     // disabled registry entry outranks everything.
-    expect(productStatus(false, { available: true })).toBe('unavailable')
-    expect(productStatus(false, { available: true, research: { available: true } })).toBe('unavailable')
-    expect(productStatus(false)).toBe('unavailable')
+    expect(productStatus(false, { available: true })).toBe('not-configured')
+    expect(productStatus(false, { available: true, research: { available: true } })).toBe('not-configured')
+    expect(productStatus(false)).toBe('not-configured')
   })
 
   test('enabled backend with NO probe evidence yet falls back to the registry flag (pre-audit behavior)', () => {

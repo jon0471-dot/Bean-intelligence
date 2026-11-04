@@ -33,7 +33,32 @@
  * verified by a real probe call, never assumed.
  */
 
+import type { HealthFailureCategory } from '../adapters/types'
+
 export type UpstreamEndpointClass = 'functions' | 'chat'
+
+/**
+ * MEASURED CHANGE (2026-11-04 connectivity audit): map an upstream failure
+ * kind to the honest coarse category the health payload/dashboard renders.
+ * One canonical mapping shared by the LLM, research and sandbox probes so
+ * the same upstream failure always reports the same category.
+ */
+export function healthFailureCategory(kind: UpstreamFailureKind): HealthFailureCategory {
+  switch (kind) {
+    case 'rate_limited':
+      return 'rate-limited'
+    case 'auth':
+      return 'auth'
+    case 'billing':
+      return 'billing'
+    case 'timeout':
+      return 'timeout'
+    case 'network':
+      return 'network'
+    default:
+      return 'backend-error'
+  }
+}
 
 export type UpstreamFailureKind =
   | 'rate_limited'
