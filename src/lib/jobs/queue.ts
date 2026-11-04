@@ -23,6 +23,7 @@ import {
 import { classifyUpstreamError, healthFailureCategory } from '@/lib/upstream/gateway'
 import { getBackend } from '@/lib/registry/backends'
 import { processEnhancementJob, processEditJob } from '@/lib/laxii/jobs'
+import { processVideoJob } from '@/lib/jobs/video-worker'
 import fs from 'fs'
 import path from 'path'
 
@@ -35,6 +36,7 @@ type JobRow = {
   task: string
   status: string
   paramsJson: string
+  resultJson: string | null
 }
 
 async function updateJob(id: string, data: Record<string, unknown>) {
@@ -156,6 +158,11 @@ export function enqueueJob(jobId: string): void {
         await processEnhancementJob(job)
       } else if (job.task === 'image-editing') {
         await processEditJob(job)
+      } else if (job.task === 'video-generation') {
+        // JAZMII — real asynchronous lifecycle: submit → bounded polling →
+        // server-side download + validation → storage → completed. Never a
+        // simulated job; failures surface through the honest failure path.
+        await processVideoJob(job)
       } else {
         await updateJob(job.id, {
           status: 'failed',

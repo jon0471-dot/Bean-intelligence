@@ -20,6 +20,7 @@ import {
   healthFailureCategory,
   noteUpstream429,
   noteUpstreamSkip,
+  noteUpstreamSuccess,
   upstreamCoolingDown,
   UpstreamAuthError,
   UpstreamBillingError,
@@ -141,6 +142,8 @@ export async function webSearch(query: string, opts: WebSearchOptions = {}): Pro
     // error so degraded reports carry the real reason, not a bare "unavailable".
     throw normalizeUpstreamError('functions', 'web_search', e)
   }
+  // PHASE 1 bounded backoff: a real success resets the consecutive-429 streak.
+  noteUpstreamSuccess('functions')
 
   if (!Array.isArray(raw)) throw new ResearchToolError('web_search', 'Malformed search response.')
   return raw
@@ -243,6 +246,8 @@ export async function readPage(url: string, timeoutMs = 25_000): Promise<PageCon
   } catch (e) {
     throw normalizeUpstreamError('functions', 'page_reader', e)
   }
+  // PHASE 1 bounded backoff: a real success resets the consecutive-429 streak.
+  noteUpstreamSuccess('functions')
   const html = raw?.data?.html
   if (typeof html !== 'string' || html.length === 0) {
     throw new ResearchToolError('page_reader', 'Page reader returned no content.')
