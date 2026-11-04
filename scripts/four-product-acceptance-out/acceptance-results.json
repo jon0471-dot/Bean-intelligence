@@ -1,0 +1,120 @@
+{
+  "at": "2026-11-04T14:16:14.606Z",
+  "base": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "auth: owner+intruder sessions",
+      "ok": true,
+      "status": 200,
+      "detail": "two isolated users registered and logged in",
+      "at": "2026-11-04T14:16:10.604Z"
+    },
+    {
+      "step": "code-giftz: turn submitted (real model call)",
+      "ok": false,
+      "status": 429,
+      "detail": "honest failure: {\"code\":\"RATE_LIMITED\",\"message\":\"chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skip",
+      "at": "2026-11-04T14:16:10.625Z",
+      "evidence": {
+        "projectId": null,
+        "hasAnswer": false,
+        "error": {
+          "code": "RATE_LIMITED",
+          "message": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle"
+        }
+      }
+    },
+    {
+      "step": "laxii: text-to-image job submitted",
+      "ok": true,
+      "status": 202,
+      "detail": "job cmw279ci4002psslwfdkf6ct6 queued",
+      "at": "2026-11-04T14:16:10.640Z",
+      "evidence": {
+        "jobId": "cmw279ci4002psslwfdkf6ct6"
+      }
+    },
+    {
+      "step": "laxii: real generation completed with retrievable artifact",
+      "ok": false,
+      "status": 200,
+      "detail": "job ended as \"failed\" (recorded honestly)",
+      "at": "2026-11-04T14:16:13.700Z",
+      "evidence": {
+        "status": "failed",
+        "resultUrl": "",
+        "pollStatus": 200
+      }
+    },
+    {
+      "step": "laxii: per-mode capability truth endpoint",
+      "ok": true,
+      "status": 200,
+      "detail": "GET /api/laxii/edit returns honest mode availability",
+      "at": "2026-11-04T14:16:13.713Z"
+    },
+    {
+      "step": "laxii: reference-image upload (server-measured geometry)",
+      "ok": false,
+      "status": 201,
+      "detail": "asset cmw279f18002usslwrrvovt2p 1x1",
+      "at": "2026-11-04T14:16:13.920Z"
+    },
+    {
+      "step": "laxii: masked edit honestly refused while worker is disabled",
+      "ok": true,
+      "status": 503,
+      "detail": "typed PROVIDER_UNAVAILABLE — nothing queued, nothing faked",
+      "at": "2026-11-04T14:16:13.933Z"
+    },
+    {
+      "step": "riishe: real assistant turn",
+      "ok": false,
+      "status": 429,
+      "detail": "honest failure: {\"code\":\"RATE_LIMITED\",\"message\":\"chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\\\"error\\\":\\\"Too ",
+      "at": "2026-11-04T14:16:14.400Z",
+      "evidence": {
+        "conversationId": null,
+        "answerStart": ""
+      }
+    },
+    {
+      "step": "jazmii: honest rejection (no video backend deployed)",
+      "ok": true,
+      "status": 200,
+      "detail": "NO_BACKEND: JAZMII cannot accept video jobs yet. No video-generation backend is deployed — BEAN does not simulat",
+      "at": "2026-11-04T14:16:14.422Z"
+    },
+    {
+      "step": "jazmii: availability reported truthfully + audit trail kept",
+      "ok": true,
+      "status": 200,
+      "detail": "available=false (No video-generation backend is deployed. BEAN does not simul), unsupported records=1",
+      "at": "2026-11-04T14:16:14.486Z",
+      "evidence": {
+        "ok": true,
+        "productAvailability": {
+          "available": false,
+          "reason": "No video-generation backend is deployed. BEAN does not simulate video jobs — deployment of a licensed GPU worker is required before JAZMII can accept requests.",
+          "product": "JAZMII"
+        },
+        "jobs": [
+          {
+            "id": "cmw279ff70031sslwyflxf9r0",
+            "status": "unsupported",
+            "errorCode": "NO_BACKEND",
+            "errorMessage": "JAZMII is not operational: no licensed video-generation backend is deployed in this environment.",
+            "queuedAt": "2026-11-04T14:16:14.420Z"
+          }
+        ]
+      }
+    },
+    {
+      "step": "health: per-product honest statuses with structured evidence",
+      "ok": true,
+      "status": 200,
+      "detail": "{\"riishe\":{\"status\":\"unavailable\",\"latencyMs\":null,\"failureCategory\":\"rate-limited\",\"httpStatus\":429},\"laxii\":{\"status\":\"degraded\",\"latencyMs\":7,\"failureCategory\":null,\"httpStatus\":404},\"jazmii\":{\"status\":\"not-configured\",\"latencyMs\":null,\"failureCategory\":\"not-configured\",\"httpStatus\":null},\"code-giftz\":{\"status\":\"unavailable\",\"latencyMs\":null,\"failureCategory\":\"rate-limited\",\"httpStatus\":429}}",
+      "at": "2026-11-04T14:16:14.606Z"
+    }
+  ]
+}
