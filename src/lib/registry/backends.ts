@@ -162,6 +162,52 @@ const HOSTED_IMAGE: BackendDescriptor = {
 }
 
 /**
+ * LAXII — authorized hosted IMAGE EDITING (images.edit endpoint).
+ *
+ * ENABLED: real image+prompt→edited-image execution through the gateway
+ * (conversational editing, background changes, object insertion/removal via
+ * prompt, lighting, restyle, variations). The preservation-critical masked
+ * inpainting pipeline STILL requires the local Diffusers worker below — the
+ * hosted endpoint cannot honor brush-mask pixel preservation, and BEAN does
+ * not pretend otherwise.
+ */
+const HOSTED_IMAGE_EDIT: BackendDescriptor = {
+  id: 'bean-image-hosted-edit',
+  productId: 'laxii',
+  task: 'image-editing',
+  provider: 'Z.ai authorized hosted inference gateway',
+  modelIdentity:
+    'Provider-managed image editing model; exact checkpoint not disclosed to tenant',
+  revision: null,
+  endpointType: 'managed-sdk',
+  deploymentMode: 'authorized-hosted',
+  runtime: 'Provider-managed GPU runtime (no tenant-side GPU required)',
+  limits: {
+    maxPromptChars: 4000,
+    outputSizes: ['1024x1024', '768x1344', '864x1152', '1344x768', '1152x864', '1440x720', '720x1440'],
+    inputImage: 'ownership-checked server-side; downscaled before submission to bound payload',
+    preservation: 'whole-image regenerative edit — NOT pixel-preserving; masked preservation requires the local worker',
+  },
+  license: {
+    name: 'Access governed by platform inference agreement',
+    commercialUse: 'authorized',
+    note:
+      'Edited images are delivered to the customer; upstream model weights are not redistributed by BEAN.',
+    sourceUrl: 'https://z.ai',
+    verifiedAt: '2026-11-04',
+  },
+  dataHandling:
+    'The submitted image and prompt are processed by the provider under its platform terms. Results are stored under BEAN storage with per-user access checks.',
+  metering: { unit: 'image', costUnit: null },
+  secrets: ['ZAI_GATEWAY_CREDENTIALS (managed by platform runtime)'],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 4 },
+  timeouts: { requestMs: 180_000, queueMs: 10_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
  * LAXII — deterministic local enhancement engine (Sharp, in-process).
  * ENABLED because it is real and executed: masks, compositing, grading and
  * metrics run on this host with no upstream dependency. It deliberately does
@@ -392,6 +438,7 @@ const HOSTED_CODE_LLM: BackendDescriptor = {
 export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_LLM,
   HOSTED_IMAGE,
+  HOSTED_IMAGE_EDIT,
   LOCAL_SHARP_ENGINE,
   DIFFUSERS_WORKER,
   HOSTED_VIDEO,

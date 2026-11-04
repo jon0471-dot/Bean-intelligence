@@ -102,5 +102,7 @@ export interface TaskAdapter {
   chat?(req: ChatRequest): Promise<ChatResult>
   chatStream?(req: ChatRequest): AsyncGenerator<string, void, unknown>
   generateImage?(req: ImageRequest): Promise<ImageResult>
+  /** Real image-to-image editing (image + prompt → edited image). */
+  editImage?(req: { prompt: string; imageBase64: string; size?: string; timeoutMs?: number }): Promise<ImageResult>
   codeTask?(req: CodeTaskRequest): Promise<CodeTaskResult>
 }
