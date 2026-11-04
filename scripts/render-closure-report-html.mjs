@@ -2,16 +2,17 @@
  * Render docs/reports/W1-W5-FINAL-CLOSURE-REPORT.md to a styled,
  * self-contained HTML preview in download/ for the Z.ai preview interface.
  */
-const { execSync } = require('node:child_process')
+import { execSync } from 'node:child_process'
 
 const SRC = '/home/z/my-project/docs/reports/W1-W5-FINAL-CLOSURE-REPORT.md'
 const OUT = '/home/z/my-project/download/W1-W5-FINAL-CLOSURE-REPORT.html'
 
-let md
+
+let mdParse = null
 try {
   // prefer marked if available
-  md = require('marked')
-  var markedParse = md.marked ?? md.parse ?? md
+  mdParse = (await import('marked')).marked ?? null
+  var markedParse = mdParse
 } catch {
   markedParse = null
 }
@@ -85,7 +86,8 @@ function inline(s) {
   return t
 }
 
-const src = require('node:fs').readFileSync(SRC, 'utf8')
+import { readFileSync, writeFileSync } from 'node:fs'
+const src = readFileSync(SRC, 'utf8')
 const body = render(src)
 
 const html = `<!doctype html>
@@ -146,5 +148,5 @@ ${body}
 <div class="footer">Generated from docs/reports/W1-W5-FINAL-CLOSURE-REPORT.md — canonical source of truth. All statuses use the fixed vocabulary {PASS, PARTIAL, BLOCKED, FAIL, NOT VERIFIED}; every claim carries an artifact on disk.</div>
 </div></body></html>`
 
-require('node:fs').writeFileSync(OUT, html)
+writeFileSync(OUT, html)
 console.log('rendered', OUT, html.length, 'bytes')
