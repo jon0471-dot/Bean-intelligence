@@ -229,11 +229,13 @@ async function giftz(): Promise<void> {
   const ct = t1.headers.get('content-type') ?? ''
   let answer = ''
   let projectId: string | null = null
-  if (ct.includes('text/event-stream') && t1.body) {
+  let streamError: string | null = null
+  if (ct.includes('text/event-stream') && t1.body && typeof (t1.body as ReadableStream).getReader === 'function') {
     const dec = new TextDecoder()
+    const reader = (t1.body as ReadableStream).getReader()
     let buf = ''
     while (true) {
-      const { done, value } = await t1.body.read()
+      const { done, value } = await reader.read()
       if (done) break
       buf += dec.decode(value, { stream: true })
       const lines = buf.split('\n')
@@ -243,6 +245,7 @@ async function giftz(): Promise<void> {
         try {
           const evt = JSON.parse(line.slice(5))
           if (typeof evt.delta === 'string') answer += evt.delta
+          if (evt.error) streamError = String(evt.error).slice(0, 200)
           if (evt.projectId) projectId = evt.projectId
           if (evt.conversationId && !projectId) projectId = evt.conversationId
         } catch { /* partial */ }
@@ -256,20 +259,25 @@ async function giftz(): Promise<void> {
   const hasCode = /function\s+debounce|const\s+debounce/.test(answer)
   rec('giftz-live-answer', {
     status: t1.status, contentType: ct, chars: answer.length,
-    hasDebounceCode: hasCode, projectId, preview: answer.slice(0, 140),
+    hasDebounceCode: hasCode, projectId, preview: answer.slice(0, 140), streamError,
   })
 
-  // Sandbox execution of the generated code (real run when the route accepts).
-  const codeMatch = /```(?:javascript|js)?\n([\s\S]*?)```/.exec(answer)
-  if (codeMatch && projectId) {
-    const run = await api('POST', '/api/code-giftz/run', { projectId, code: codeMatch[1], language: 'javascript' })
-    rec('giftz-sandbox-run', {
-      status: run.status, ok: run.json?.ok ?? null,
-      outputPreview: String(run.json?.output ?? run.json?.error ?? '').slice(0, 200),
-      exitCode: run.json?.exitCode ?? null,
-    })
+  // Sandbox execution of the generated code: the task route records the
+  // coding task; the run route executes the task's OWN files with explicit
+  // approval. Resolve the latest task for this project, then run it.
+  if (projectId) {
+    const tasks = await api('GET', `/api/code-giftz/tasks?projectId=${projectId}`).catch(() => ({ status: 0, json: null as any }))
+    const taskId = Array.isArray(tasks.json?.tasks) ? tasks.json.tasks[0]?.id : (tasks.json?.tasks?.[0]?.id ?? null)
+    rec('giftz-task-lookup', { status: tasks.status, taskId, preview: JSON.stringify(tasks.json).slice(0, 120) })
+    if (taskId) {
+      const run = await api('POST', '/api/code-giftz/run', { taskId, approval: true })
+      rec('giftz-sandbox-run', {
+        status: run.status, ok: run.json?.ok ?? null,
+        outputPreview: JSON.stringify(run.json?.result ?? run.json).slice(0, 300),
+      })
+    }
   } else {
-    rec('giftz-sandbox-run', { skipped: true, reason: projectId ? 'no fenced code block' : 'no projectId' })
+    rec('giftz-sandbox-run', { skipped: true, reason: 'no projectId' })
   }
 
   // Persistence of the coding conversation.
@@ -317,14 +325,33 @@ async function laxii(): Promise<void> {
     errorMessage: j1.errorMessage ?? null,
   })
   const resultAssetId = j1.imageUrl ? String(j1.imageUrl).split('/').pop() : null
-  if (!resultAssetId) return
+  if (!resultAssetId || !imageBytes) return
+
+  // The generated image becomes the EDIT SOURCE through the normal user
+  // flow: download the artifact, upload it as an owned asset, then run the
+  // conversational edit on it.
+  const form = new FormData()
+  form.append('file', new Blob([new Uint8Array(imageBytes)], { type: 'image/jpeg' }), `t2i-${jobId}.jpg`)
+  form.append('kind', 'original')
+  const upRes = await fetch(`${BASE}/api/laxii/assets`, {
+    method: 'POST',
+    headers: { Cookie: cookie },
+    body: form,
+  })
+  const upJson = await upRes.json().catch(() => null)
+  const editSourceId = upJson?.asset?.id ?? null
+  rec('laxii-edit-source-upload', {
+    status: upRes.status, assetId: editSourceId,
+    responsePreview: JSON.stringify(upJson).slice(0, 120),
+  })
+  if (!editSourceId) return
 
   // 2. Real conversational edit on the generated image (reference-image edit).
   if (!(await waitForClassOpen('images'))) {
     rec('laxii-edit-skipped', { reason: 'images breaker reopened' })
     return
   }
-  const e1 = await api('POST', '/api/laxii/edit', { mode: 'conversational-edit', assetId: resultAssetId, prompt: 'Change the car color to midnight blue and replace the sky with dramatic storm clouds', size: '1024x1024' })
+  const e1 = await api('POST', '/api/laxii/edit', { mode: 'conversational-edit', assetId: editSourceId, prompt: 'Change the car color to midnight blue and replace the sky with dramatic storm clouds', size: '1024x1024' })
   const e1Id = e1.json?.job?.id ?? null
   rec('laxii-edit-submit', { status: e1.status, jobId: e1Id, mode: 'conversational-edit' })
   if (!e1Id) return
