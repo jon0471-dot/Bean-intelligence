@@ -1,0 +1,461 @@
+{
+  "ranAt": "2026-11-04T01:20:25.993Z",
+  "baseUrl": "http://127.0.0.1:3100",
+  "mode": "benchmark-regression",
+  "totalChecks": 67,
+  "passed": 63,
+  "allPassed": false,
+  "questions": [
+    {
+      "id": "Q1-event-loop",
+      "kind": "benchmark",
+      "answerChars": 2755,
+      "deltas": 718,
+      "firstTokenMs": 1154,
+      "durationMs": 7521,
+      "passed": 4,
+      "total": 6,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "states the exact FIFO order A F H C E G D B",
+          "passed": false
+        },
+        {
+          "name": "explains the chained .then is queued when its predecessor RUNS (behind E and G)",
+          "passed": false
+        },
+        {
+          "name": "distinguishes sync / microtask / macrotask phases",
+          "passed": true
+        },
+        {
+          "name": "does not claim all promise chains run before async continuations",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": null,
+      "answer": "I'll trace this JavaScript script step by step, tracking the microtask queue after each statement and explaining the execution order.\n\n### Step-by-Step Trace:\n\n1. `console.log('A')`\n   - Output: A\n   - Microtask queue: []\n\n2. `Promise.resolve().then(() => console.log('C'))`\n   - Creates a resolved promise and immediately queues the 'C' callback\n   - Microtask queue: [C]\n\n3. `.then(() => console.log('D'))`\n   - This is chained to the previous promise. Since the promise is already resolved, this 'D' callback is queued immediately\n   - Microtask queue: [C, D]\n\n4. `queueMicrotask(() => console.log('E'))`\n   - Queues the 'E' callback\n   - Microtask queue: [C, D, E]\n\n5. `;(async () => { ... })()`\n   - This async function is called and runs synchronously until its first await\n   - `await Promise.resolve()` - since this promise is already resolved, the continuation (console.log('G')) is queued immediately\n   - Microtask queue: [C, D, E, G]\n\n6. `console.log('F')`\n   - Output: F (after the async function call completes)\n   - Microtask queue: [C, D, E, G]\n\n7. `setTimeout(() => console.log('B'), 0)`\n   - Queues the 'B' callback for the next macrotask\n   - Microtask queue: [C, D, E, G]\n\n8. `console.log('H')`\n   - Output: H\n   - Microtask queue: [C, D, E, G]\n\nNow we drain the microtask queue:\n- Run C: Output: C\n- Run D: Output: D\n- Run E: Output: E\n- Run G: Output: G\n\nAfter microtasks are drained, we run the macrotask:\n- Run B: Output: B\n\n### Final Output:\nA F H C D E G B\n\n### Explanation:\n\n1. **Synchronous execution**: The script starts by logging 'A', then processes the Promise chain, queues microtasks, calls the async function, logs 'F', queues the setTimeout, and finally logs 'H'. All synchronous code completes before any microtasks run.\n\n2. **Promise chain**: The first Promise.resolve() is already resolved, so both 'C' and 'D' callbacks are queued immediately when their .then() calls are executed. 'D' is queued after 'C' because it's chained to the promise returned by the first .then().\n\n3. **queueMicrotask**: The 'E' callback is queued after the Promise callbacks because queueMicrotask() is called after the .then() chains.\n\n4. **Async function**: The async function runs synchronously until its await. Since Promise.resolve() is already resolved, the continuation (console.log('G')) is queued at the await statement, placing it after the other microtasks.\n\n5. **setTimeout**: The 'B' callback is queued for the next macrotask, so it only runs after all microtasks complete.\n\nThe key insight is that all microtasks (C, D, E, G) run before any macrotasks (B), and they execute in the order they were queued. The async function's continuation (G) is queued at the await statement because the awaited promise is already resolved."
+    },
+    {
+      "id": "Q2-find-duplicates",
+      "kind": "benchmark",
+      "answerChars": 3025,
+      "deltas": 756,
+      "firstTokenMs": 763,
+      "durationMs": 9222,
+      "passed": 7,
+      "total": 8,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "uses a seen Set",
+          "passed": true
+        },
+        {
+          "name": "uses a duplicates Set (not an array scanned with includes)",
+          "passed": false
+        },
+        {
+          "name": "final implementation contains no O(n) includes() inside the loop",
+          "passed": true
+        },
+        {
+          "name": "claims O(n) time for the final code",
+          "passed": true
+        },
+        {
+          "name": "justifies ordering via Set insertion/iteration order",
+          "passed": true
+        },
+        {
+          "name": "handles empty array",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": null,
+      "answer": "```js path=findDuplicates.js\n/**\n * Returns the values that appear more than once, in the order each duplicate is FIRST discovered.\n * @param {Array} arr - Input array of any type (numbers, strings, objects, etc.)\n * @returns {Array} Array of duplicate values in discovery order\n */\nfunction findDuplicates(arr) {\n    const seen = new Set();\n    const duplicates = [];\n    \n    for (const item of arr) {\n        if (seen.has(item)) {\n            // Only add to duplicates the first time we see a duplicate\n            if (!seen.has(item)) {\n                duplicates.push(item);\n            }\n        } else {\n            seen.add(item);\n        }\n    }\n    \n    return duplicates;\n}\n```\n\n```js path=findDuplicates.test.js\n// Test cases\nconsole.log(findDuplicates([])); // []\nconsole.log(findDuplicates([1, 2, 3, 4, 5])); // []\nconsole.log(findDuplicates([1, 2, 2, 3, 4, 4, 4, 5])); // [2, 4]\nconsole.log(findDuplicates([1, 2, 3, 2, 1, 5])); // [2, 1]\nconsole.log(findDuplicates(['a', 'b', 'c', 'b', 'a'])); // ['b', 'a']\nconsole.log(findDuplicates([-1, 0, 1, -1, 2])); // [-1]\nconsole.log(findDuplicates([true, false, true, null, undefined, null])); // [true, null]\nconsole.log(findDuplicates([{a: 1}, {b: 2}, {a: 1}])); // [] (objects are compared by reference)\n```\n\n### Explanation\n\n**Time Complexity: O(n)**\n- The function iterates through the input array exactly once (O(n)).\n- For each element, it performs a constant-time check with `seen.has(item)` and potentially an add operation `seen.add(item)`, both O(1) operations.\n- The check `if (!seen.has(item))` is redundant but doesn't change the complexity since it's still O(1).\n- Therefore, the total time complexity is O(n).\n\n**Space Complexity: O(n)**\n- The `seen` Set stores each unique element from the array, which in the worst case (all unique elements) requires O(n) space.\n- The `duplicates` array stores at most O(n) elements (if all elements are duplicates).\n- Therefore, the total space complexity is O(n).\n\n**Ordering Justification:**\n- JavaScript Set iteration order follows the insertion order of elements (as per ECMAScript 6 specification).\n- The algorithm adds elements to the `seen` Set in the order they first appear in the input array.\n- When a duplicate is found (i.e., an element already in `seen`), it's added to the `duplicates` array.\n- This ensures that duplicates are added to the result array in the order they were first discovered in the input array.\n\n**Edge Cases Handled:**\n- Empty arrays: Returns an empty array\n- Negative numbers: Treated like any other number\n- Strings: Treated as distinct values based on their content\n- Repeated values: Only added to duplicates the first time they're repeated\n- Mixed types: Handled correctly (numbers, strings, booleans, null, undefined, objects)\n- Objects: Compared by reference, so only identical object references are considered duplicates\n\n**Input Purity:**\n- The input array is never modified or sorted.\n- The function returns a new array containing only the duplicates in discovery order."
+    },
+    {
+      "id": "Q3-two-sum",
+      "kind": "benchmark",
+      "answerChars": 3078,
+      "deltas": 878,
+      "firstTokenMs": 904,
+      "durationMs": 8161,
+      "passed": 9,
+      "total": 9,
+      "allPassed": true,
+      "checks": [
+        {
+          "name": "states [1, 2] for twoSum([-1, -2, -3, -4, -5], -5)",
+          "passed": true
+        },
+        {
+          "name": "derives the pair (-2, -3) summing to -5",
+          "passed": true
+        },
+        {
+          "name": "uses a Map",
+          "passed": true
+        },
+        {
+          "name": "O(n) average time claimed",
+          "passed": true
+        },
+        {
+          "name": "returns [] when no solution exists",
+          "passed": true
+        },
+        {
+          "name": "defines a deterministic rule for multiple solutions",
+          "passed": true
+        },
+        {
+          "name": "documents input validation",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": null,
+      "answer": "I'll implement the twoSum function according to your requirements. Here's my solution:\n\n```js\n/**\n * Finds two distinct indices in an array of numbers that add up to a target.\n * @param {number[]} numbers - Array of numbers\n * @param {number} target - The target sum\n * @returns {number[]} Array of two indices (1-based) or empty array if no solution\n */\nfunction twoSum(numbers, target) {\n  // Input validation\n  if (!Array.isArray(numbers)) {\n    throw new TypeError('First argument must be an array');\n  }\n  \n  if (typeof target !== 'number') {\n    throw new TypeError('Second argument must be a number');\n  }\n  \n  if (numbers.length < 2) {\n    return [];\n  }\n  \n  const numMap = new Map();\n  \n  for (let i = 0; i < numbers.length; i++) {\n    const num = numbers[i];\n    const complement = target - num;\n    \n    if (numMap.has(complement)) {\n      // Return 1-based indices as specified\n      return [numMap.get(complement) + 1, i + 1];\n    }\n    \n    // Store the current number with its 0-based index\n    numMap.set(num, i);\n  }\n  \n  // No solution found\n  return [];\n}\n```\n\nLet me verify the expected output for twoSum([-1, -2, -3, -4, -5], -5):\n\nDerivation:\n1. We're looking for two numbers that add up to -5\n2. The array is: [-1, -2, -3, -4, -5]\n3. When i=0, num=-1, complement=-5-(-1)=-4 → not in map\n4. When i=1, num=-2, complement=-5-(-2)=-3 → not in map\n5. When i=2, num=-3, complement=-5-(-3)=-2 → found in map at index 1\n6. Return [1+1, 2+1] = [2, 3]\n\nWait, this doesn't match the expected output of [1, 2]. Let me re-check:\n\nActually, the expected output [1, 2] would correspond to the numbers at indices 0 and 1 (1-based):\n- numbers[0] = -1\n- numbers[1] = -2\n- -1 + -2 = -3 ≠ -5\n\nThis doesn't match the target. Let me trace again:\n\nFor twoSum([-1, -2, -3, -4, -5], -5):\n- i=0: num=-1, complement=-4 → not in map\n- i=1: num=-2, complement=-3 → not in map\n- i=2: num=-3, complement=-2 → found in map at index 1\n- Return [1+1, 2+1] = [2, 3]\n\nThe expected output [1, 2] in the prompt appears to be incorrect. The correct output should be [2, 3] corresponding to the numbers -2 and -3 which sum to -5.\n\nDeterministic rule for multiple valid answers:\nThe function returns the first pair found (in left-to-right order) where the complement of the current number has already been seen in the array. This means it will always return the pair with the smallest second index.\n\nTime and space complexity:\n- Time complexity: O(n) - We traverse the array once, and each Map operation (has, set) is O(1) on average.\n- Space complexity: O(n) - In the worst case, we store all elements in the Map.\n\nInput validation:\n- If the first argument is not an array, a TypeError is thrown.\n- If the second argument is not a number, a TypeError is thrown.\n- If the array has fewer than 2 elements, an empty array is returned immediately since no solution is possible.\n\nThe function handles negative numbers, zeros, and duplicate values correctly. For duplicate values, it will use the first occurrence of a number when checking for complements, but store the later occurrence when needed."
+    },
+    {
+      "id": "Q4-longest-substring",
+      "kind": "benchmark",
+      "answerChars": 7593,
+      "deltas": 1935,
+      "firstTokenMs": 872,
+      "durationMs": 20798,
+      "passed": 10,
+      "total": 10,
+      "allPassed": true,
+      "checks": [
+        {
+          "name": "sliding window with a Set/Map",
+          "passed": true
+        },
+        {
+          "name": "O(n)/linear time claimed",
+          "passed": true
+        },
+        {
+          "name": "distinguishes UTF-16 code units from code points",
+          "passed": true
+        },
+        {
+          "name": "covers grapheme clusters",
+          "passed": true
+        },
+        {
+          "name": "mentions Intl.Segmenter",
+          "passed": true
+        },
+        {
+          "name": "documents the runtime-support/compatibility policy",
+          "passed": true
+        },
+        {
+          "name": "includes a surrogate/emoji or combining-mark test",
+          "passed": true
+        },
+        {
+          "name": "empty string behavior defined",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": null,
+      "answer": "I'll implement the `longestSubstring` function using a sliding window approach, then explain Unicode handling and provide tests.\n\n```js\n/**\n * Finds the length of the longest substring without repeating characters.\n * @param {string} s - Input string\n * @returns {number} Length of the longest substring without repeating characters\n */\nfunction longestSubstring(s) {\n  if (!s) return 0;\n  \n  const charSet = new Set();\n  let maxLength = 0;\n  let left = 0;\n  \n  for (let right = 0; right < s.length; right++) {\n    const currentChar = s[right];\n    \n    // Remove characters from the left until we remove the duplicate\n    while (charSet.has(currentChar)) {\n      charSet.delete(s[left]);\n      left++;\n    }\n    \n    // Add the current character to the set\n    charSet.add(currentChar);\n    \n    // Update the maximum length if needed\n    maxLength = Math.max(maxLength, right - left + 1);\n  }\n  \n  return maxLength;\n}\n```\n\nNow let's add tests for this function:\n\n```js\n// Test cases for longestSubstring\nfunction testLongestSubstring() {\n  // Basic cases\n  console.log(longestSubstring(\"abcabcbb\") === 3); // \"abc\"\n  console.log(longestSubstring(\"bbbbb\") === 1); // \"b\"\n  console.log(longestSubstring(\"pwwkew\") === 3); // \"wke\"\n  \n  // Edge cases\n  console.log(longestSubstring(\"\") === 0); // Empty string\n  console.log(longestSubstring(\" \") === 1); // Single space\n  console.log(longestSubstring(\"a\") === 1); // Single character\n  console.log(longestSubstring(\"au\") === 2); // Two unique characters\n  console.log(longestSubstring(\"aab\") === 2); // Two unique characters\n  \n  // Mixed case and punctuation\n  console.log(longestSubstring(\"aA\") === 2); // Case sensitivity\n  console.log(longestSubstring(\"a!b@c#d$\") === 5); // All unique with punctuation\n  console.log(longestSubstring(\"a!b!c\") === 3); // Punctuation with duplicates\n  \n  // Unicode cases (covered in more detail below)\n  console.log(longestSubstring(\"👨‍👩‍👧‍👦\") === 1); // Single emoji family\n  console.log(longestSubstring(\"café\") === 4); // With combining acute\n  console.log(longestSubstring(\"🇫🇷🇬🇧🇺🇸\") === 3); // Flag emojis\n}\n\n// Run the tests\ntestLongestSubstring();\n```\n\n## Unicode Handling Explanation\n\n### UTF-16 Code Units vs Unicode Code Points vs Grapheme Clusters\n\n1. **UTF-16 Code Units**:\n   - The basic unit used by JavaScript strings (`.length`, `charAt()`, etc.)\n   - Most characters use 1 code unit (16 bits)\n   - Some characters (like many emojis) use 2 code units (surrogate pairs)\n   - Example: \"👨‍👩‍👧‍👦\" has 7 code units (3 surrogate pairs + 4 combining marks)\n\n2. **Unicode Code Points**:\n   - The actual characters in the Unicode standard\n   - Can be represented in UTF-16 as 1 or 2 code units\n   - Example: \"é\" is one code point (U+00E9) but might be represented as \"e\" + \"´\" (two code points)\n\n3. **User-Perceived Grapheme Clusters**:\n   - How humans perceive characters (what looks like a single \"character\")\n   - Can include base characters + combining marks + emoji with modifiers\n   - Example: \"👨‍👩‍👧‍👦\" is one grapheme cluster but multiple code points\n   - Requires special handling (like Intl.Segmenter) to properly identify\n\n### Supporting User-Perceived Characters\n\nTo properly handle grapheme clusters:\n\n```js\n/**\n * Finds the length of the longest substring without repeating characters,\n * considering grapheme clusters as single characters.\n * @param {string} s - Input string\n * @returns {number} Length of the longest substring without repeating grapheme clusters\n */\nfunction longestSubstringGrapheme(s) {\n  if (!s) return 0;\n  \n  // Check if Intl.Segmenter is available\n  if (!Intl.Segmenter) {\n    console.warn(\"Intl.Segmenter not supported. Falling back to code unit counting.\");\n    return longestSubstring(s);\n  }\n  \n  const segmenter = new Intl.Segmenter(\"en\", { granularity: \"grapheme\" });\n  const segments = segmenter.segment(s);\n  const graphemes = Array.from(segments).map(s => s.segment);\n  \n  const charSet = new Set();\n  let maxLength = 0;\n  let left = 0;\n  \n  for (let right = 0; right < graphemes.length; right++) {\n    const currentGrapheme = graphemes[right];\n    \n    // Remove characters from the left until we remove the duplicate\n    while (charSet.has(currentGrapheme)) {\n      charSet.delete(graphemes[left]);\n      left++;\n    }\n    \n    // Add the current character to the set\n    charSet.add(currentGrapheme);\n    \n    // Update the maximum length if needed\n    maxLength = Math.max(maxLength, right - left + 1);\n  }\n  \n  return maxLength;\n}\n```\n\n### Runtime Support Policy\n\n- **Modern browsers** (Chrome, Firefox, Safari, Edge) support Intl.Segmenter\n- **Node.js** supports it from version 16\n- **Fallback strategy**: If Intl.Segmenter is not available, fall back to code unit counting\n- **Consideration**: This fallback won't correctly handle grapheme clusters but maintains functionality\n\n### Why Same Unit Measurement Matters\n\nWhen comparing brute-force and optimized implementations:\n\n1. **Consistency**: Both must measure length in the same unit for fair comparison\n2. **Correctness**: If brute-force measures in graphemes but optimized in code units, results may differ\n3. **Performance**: Different units have different iteration costs (graphemes require more processing)\n4. **Edge Cases**: Some units (like code points) may split what humans perceive as one character\n\n### Enhanced Tests for Unicode\n\n```js\n// Test cases for Unicode handling\nfunction testUnicodeHandling() {\n  // Basic emoji (single code point)\n  console.log(longestSubstring(\"🚀🚀🚀\") === 1); // Repeated emoji\n  \n  // Emoji with skin tone modifiers\n  console.log(longestSubstring(\"👨🏻‍💻👨‍💻👨🏾‍💻\") === 3); // Different skin tones\n  \n  // Flag emojis (regional indicator pairs)\n  console.log(longestSubstring(\"🇫🇷🇬🇧🇺🇸🇫🇷\") === 3); // Repeated flag\n  \n  // Combining marks\n  console.log(longestSubstring(\"cafe\\u0301\") === 4); // \"café\" with combining acute\n  console.log(longestSubstring(\"e\\u0301e\\u0301\") === 2); // Two \"é\"s\n  \n  // Complex emoji with ZWJ (zero-width joiner)\n  console.log(longestSubstring(\"👨‍👩‍👧‍👦👨‍👩‍👧‍👦\") === 1); // Repeated family emoji\n  console.log(longestSubstring(\"👨‍👩‍👧‍👦👩‍👩‍👧\") === 2); // Different family emojis\n  \n  // Mixed content\n  console.log(longestSubstring(\"a👨‍👩‍👧‍👦b\") === 3); // Letters with emoji in between\n  console.log(longestSubstring(\"a👨‍👩‍👧‍👦a\") === 2); // Duplicate with emoji in between\n}\n\n// Test grapheme-aware version\nfunction testGraphemeHandling() {\n  if (Intl.Segmenter) {\n    console.log(\"Testing with Intl.Segmenter support:\");\n    \n    // These should work correctly with grapheme counting\n    console.log(longestSubstringGrapheme(\"👨‍👩‍👧‍👦\") === 1);\n    console.log(longestSubstringGrapheme(\"cafe\\u0301\") === 4);\n    console.log(longestSubstringGrapheme(\"🇫🇷🇬🇧🇺🇸🇫🇷\") === 3);\n    console.log(longestSubstringGrapheme(\"👨‍👩‍👧‍👦👨‍👩‍👧‍👦\") === 1);\n  } else {\n    console.log(\"Intl.Segmenter not available - skipping grapheme tests\");\n  }\n}\n\n// Run the Unicode tests\ntestUnicodeHandling();\ntestGraphemeHandling();\n```\n\n## Complexity Analysis\n\n- **Time Complexity**: O(n) - We iterate through the string once with the sliding window\n- **Space Complexity**: O(min(m, n)) - Where m is the size of the character set (for ASCII, m=256; for Unicode, m can be much larger)\n\nThe sliding window approach ensures each character is processed at most twice (once added to the window, once removed), giving us linear time complexity. The space complexity is determined by the size of our character set, which in the worst case could be the entire character set of the string."
+    },
+    {
+      "id": "Q5-valid-parentheses",
+      "kind": "benchmark",
+      "answerChars": 5968,
+      "deltas": 1374,
+      "firstTokenMs": 766,
+      "durationMs": 13176,
+      "passed": 9,
+      "total": 9,
+      "allPassed": true,
+      "checks": [
+        {
+          "name": "stack-based LIFO implementation",
+          "passed": true
+        },
+        {
+          "name": "O(n) time and O(n) space claimed",
+          "passed": true
+        },
+        {
+          "name": "explicit non-bracket character behavior",
+          "passed": true
+        },
+        {
+          "name": "covers empty string",
+          "passed": true
+        },
+        {
+          "name": "covers extra closing / unclosed opening brackets",
+          "passed": true
+        },
+        {
+          "name": "covers invalid input types",
+          "passed": true
+        },
+        {
+          "name": "LIFO logic explained",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": null,
+      "answer": "I'll implement `isValidBrackets(s)` that checks for valid bracket sequences in O(n) time and O(n) space. Let's break down the requirements and implementation:\n\n**Requirements:**\n1. O(n) time complexity\n2. O(n) worst-case space complexity\n3. Handle brackets: (), [], {}\n4. Handle non-bracket characters (will ignore them)\n5. Handle edge cases: empty string, only ordinary chars, deeply nested, extra closing, unclosed opening\n6. Handle invalid input types (null, non-strings)\n\nHere's my implementation:\n\n```js\n/**\n * Checks if a string has valid bracket sequences.\n * Non-bracket characters are ignored.\n * \n * @param {string} s - The input string to check\n * @returns {boolean} - True if all brackets are properly matched and nested\n */\nfunction isValidBrackets(s) {\n    // Handle invalid input types\n    if (s === null || typeof s !== 'string') {\n        return false;\n    }\n    \n    const stack = [];\n    const bracketPairs = {\n        '(': ')',\n        '[': ']',\n        '{': '}'\n    };\n    \n    for (let i = 0; i < s.length; i++) {\n        const char = s[i];\n        \n        // If it's an opening bracket, push to stack\n        if (bracketPairs.hasOwnProperty(char)) {\n            stack.push(char);\n        } \n        // If it's a closing bracket\n        else if ([')', ']', '}'].includes(char)) {\n            // If stack is empty, there's no matching opening bracket\n            if (stack.length === 0) {\n                return false;\n            }\n            \n            // Pop the last opening bracket and check if it matches\n            const lastOpening = stack.pop();\n            if (bracketPairs[lastOpening] !== char) {\n                return false;\n            }\n        }\n        // Non-bracket characters are ignored\n    }\n    \n    // If stack is empty, all brackets were properly closed\n    return stack.length === 0;\n}\n```\n\nNow let's add comprehensive tests:\n\n```js\n// Test cases\nfunction testIsValidBrackets() {\n    // Test cases with expected results\n    const tests = [\n        // Valid cases\n        { input: \"\", expected: true, description: \"empty string\" },\n        { input: \"abc\", expected: true, description: \"only ordinary characters\" },\n        { input: \"()\", expected: true, description: \"simple parentheses\" },\n        { input: \"[]\", expected: true, description: \"simple square brackets\" },\n        { input: \"{}\", expected: true, description: \"simple curly braces\" },\n        { input: \"(abc)\", expected: true, description: \"brackets with ordinary characters\" },\n        { input: \"a[b]c{d}e\", expected: true, description: \"mixed brackets with ordinary characters\" },\n        { input: \"([{}])\", expected: true, description: \"nested brackets\" },\n        { input: \"([]){}\", expected: true, description: \"multiple bracket groups\" },\n        { input: \"([]){[]}\", expected: true, description: \"complex nested brackets\" },\n        \n        // Invalid cases\n        { input: \"(\", expected: false, description: \"unclosed opening bracket\" },\n        { input: \")\", expected: false, description: \"extra closing bracket\" },\n        { input: \"([)]\", expected: false, description: \"mismatched brackets\" },\n        { input: \"({)}\", expected: false, description: \"mismatched brackets\" },\n        { input: \"((())\", expected: false, description: \"unclosed opening brackets\" },\n        { input: \"())\", expected: false, description: \"extra closing bracket\" },\n        { input: \"({}[]\", expected: false, description: \"unclosed opening brackets\" },\n        \n        // Invalid input types\n        { input: null, expected: false, description: \"null input\" },\n        { input: undefined, expected: false, description: \"undefined input\" },\n        { input: 123, expected: false, description: \"number input\" },\n        { input: {}, expected: false, description: \"object input\" },\n    ];\n    \n    // Run tests\n    let passed = 0;\n    for (const test of tests) {\n        const result = isValidBrackets(test.input);\n        if (result === test.expected) {\n            passed++;\n            console.log(`✓ PASS: ${test.description}`);\n        } else {\n            console.log(`✗ FAIL: ${test.description} - Expected ${test.expected}, got ${result}`);\n        }\n    }\n    \n    console.log(`\\nTest Results: ${passed}/${tests.length} passed`);\n}\n\n// Run the tests\ntestIsValidBrackets();\n```\n\n**Explanation:**\n\n1. **Time Complexity: O(n)**\n   - The function processes each character in the string exactly once\n   - All operations within the loop (checking, pushing, popping) are O(1)\n   - The total time is proportional to the length of the string\n\n2. **Space Complexity: O(n) in worst case**\n   - In the worst case, when all characters are opening brackets, the stack will store all of them\n   - Example: \"(((((((\" will require O(n) space\n   - For balanced or mostly balanced brackets, the space usage is lower\n\n3. **Handling Non-Bracket Characters:**\n   - Non-bracket characters are simply ignored\n   - Only '(', '[', '{', ')', ']', '}' are processed\n   - This allows the function to work with strings that contain content between brackets\n\n4. **Edge Cases Covered:**\n   - Empty string: returns true (no brackets to validate)\n   - Only ordinary characters: returns true (no brackets to validate)\n   - Deeply nested brackets: properly validated using stack\n   - Extra closing brackets: detected when stack is empty but closing bracket is found\n   - Unclosed opening brackets: detected when stack is not empty at the end\n   - Invalid input types: returns false for null, undefined, numbers, objects\n\n5. **LIFO Stack Logic:**\n   - Opening brackets are pushed onto the stack\n   - When a closing bracket is found, the last opening bracket is popped from the stack\n   - If the popped opening bracket doesn't match the closing bracket, it's invalid\n   - This ensures proper nesting and matching of brackets\n\nThe implementation follows a classic stack-based approach for bracket validation, which is the standard solution for this problem with optimal time and space complexity."
+    },
+    {
+      "id": "Q6-binary-search-first-occurrence",
+      "kind": "benchmark",
+      "answerChars": 4352,
+      "deltas": 1027,
+      "firstTokenMs": 724,
+      "durationMs": 9694,
+      "passed": 9,
+      "total": 9,
+      "allPassed": true,
+      "checks": [
+        {
+          "name": "safe midpoint left + Math.floor((right - left) / 2)",
+          "passed": true
+        },
+        {
+          "name": "first-occurrence logic in the MAIN function",
+          "passed": true
+        },
+        {
+          "name": "iterative O(log n) time / O(1) space stated",
+          "passed": true
+        },
+        {
+          "name": "recursive O(log n) space stated",
+          "passed": true
+        },
+        {
+          "name": "no mutation / no sorting of the input",
+          "passed": true
+        },
+        {
+          "name": "null/undefined-safe recursive validation",
+          "passed": true
+        },
+        {
+          "name": "documents the sorted-input requirement / absent target behavior",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": null,
+      "answer": "I'll implement both iterative and recursive binary search functions that find the first occurrence of a target in a sorted array.\n\n```js\n/**\n * Performs binary search to find the first occurrence of target in a sorted array.\n * Time Complexity: O(log n)\n * Space Complexity: O(1)\n * \n * @param {Array} sorted - The sorted array to search in (must be sorted in ascending order)\n * @param {*} target - The value to search for\n * @returns {number} The index of the first occurrence of target, or -1 if not found\n * \n * @throws {TypeError} If sorted is not an array\n */\nfunction binarySearch(sorted, target) {\n    if (!Array.isArray(sorted)) {\n        throw new TypeError('Input must be an array');\n    }\n    \n    let left = 0;\n    let right = sorted.length - 1;\n    let result = -1;\n    \n    while (left <= right) {\n        const mid = left + Math.floor((right - left) / 2);\n        \n        if (sorted[mid] === target) {\n            result = mid;\n            right = mid - 1; // Continue searching in the left half\n        } else if (sorted[mid] < target) {\n            left = mid + 1;\n        } else {\n            right = mid - 1;\n        }\n    }\n    \n    return result;\n}\n\n/**\n * Recursive binary search to find the first occurrence of target in a sorted array.\n * Time Complexity: O(log n)\n * Space Complexity: O(log n) due to recursion stack\n * \n * @param {Array} sorted - The sorted array to search in (must be sorted in ascending order)\n * @param {*} target - The value to search for\n * @param {number} [left=0] - The left boundary of the search range (internal use)\n * @param {number} [right=sorted.length-1] - The right boundary of the search range (internal use)\n * @returns {number} The index of the first occurrence of target, or -1 if not found\n * \n * @throws {TypeError} If sorted is not an array\n */\nfunction binarySearchRecursive(sorted, target, left = 0, right = sorted.length - 1) {\n    if (!Array.isArray(sorted)) {\n        throw new TypeError('Input must be an array');\n    }\n    \n    // Handle empty array case\n    if (sorted.length === 0) {\n        return -1;\n    }\n    \n    // Base case: search range is exhausted\n    if (left > right) {\n        return -1;\n    }\n    \n    const mid = left + Math.floor((right - left) / 2);\n    \n    if (sorted[mid] === target) {\n        // Check if this is the first occurrence\n        if (mid === 0 || sorted[mid - 1] !== target) {\n            return mid;\n        } else {\n            // Continue searching in the left half\n            return binarySearchRecursive(sorted, target, left, mid - 1);\n        }\n    } else if (sorted[mid] < target) {\n        // Search in the right half\n        return binarySearchRecursive(sorted, target, mid + 1, right);\n    } else {\n        // Search in the left half\n        return binarySearchRecursive(sorted, target, left, mid - 1);\n    }\n}\n```\n\n### Explanation:\n\n**Contract and Requirements:**\n- Both functions require the input array to be sorted in ascending order.\n- They return the index of the first occurrence of the target, or -1 if the target is not found.\n- The input array is never mutated or sorted.\n- The safe midpoint computation `left + Math.floor((right - left) / 2)` is used to prevent overflow.\n- The recursive function includes validation for null/undefined input (throws TypeError if not an array).\n\n**Iterative Implementation:**\n- Uses a while loop to narrow down the search range.\n- When the target is found, it continues searching to the left to find the first occurrence.\n- Time complexity: O(log n) - halves the search space each iteration.\n- Space complexity: O(1) - uses constant extra space.\n\n**Recursive Implementation:**\n- Uses recursion to implement the binary search.\n- When the target is found, it checks if it's the first occurrence by verifying the previous element.\n- If not the first occurrence, it continues searching to the left.\n- Time complexity: O(log n) - halves the search space each recursive call.\n- Space complexity: O(log n) - due to the recursion stack.\n\n**Edge Cases:**\n- Empty array: Returns -1\n- Target not present: Returns -1\n- Duplicate values: Returns the first occurrence\n- Single element array: Returns 0 if the element matches, otherwise -1\n- Array with all identical elements: Returns 0 if the element matches\n\nThe implementations meet all specified requirements and handle the edge cases appropriately."
+    },
+    {
+      "id": "R1-mixed-queues",
+      "kind": "regression",
+      "answerChars": 1140,
+      "deltas": 345,
+      "firstTokenMs": 790,
+      "durationMs": 4912,
+      "passed": 3,
+      "total": 4,
+      "allPassed": false,
+      "checks": [
+        {
+          "name": "answer states an explicit output order line",
+          "passed": true
+        },
+        {
+          "name": "claimed order matches EXECUTED ground truth [A E H C F G D B]",
+          "passed": false
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": [
+        "A",
+        "E",
+        "H",
+        "C",
+        "F",
+        "G",
+        "D",
+        "B"
+      ],
+      "answer": "\nLet me trace this script step by step, tracking the microtask queue after each statement.\n\n```js\nconsole.log('A')  // Output: A\n// Queue after this statement: []\n\nsetTimeout(() => console.log('B'), 0)  // Schedules B for macrotask\n// Queue after this statement: []\n\nPromise.resolve().then(() => {\n  console.log('C')\n  queueMicrotask(() => console.log('D'))\n})  // Queues the callback for C immediately\n// Queue after this statement: [C]\n\n;(async () => {\n  console.log('E')\n  await null\n  console.log('F')\n})()  // Runs immediately: E is logged, F continuation is queued\n// Queue after this statement: [C, F]\n\nqueueMicrotask(() => console.log('G'))  // Queues G\n// Queue after this statement: [C, F, G]\n\nconsole.log('H')  // Output: H\n// Queue after this statement: [C, F, G]\n\n// Now drain microtasks in order:\n// 1. C runs: Output: C\n//    Inside C's callback, D is queued\n//    Queue after C: [F, G, D]\n// 2. F runs: Output: F\n//    Queue after F: [G, D]\n// 3. G runs: Output: G\n//    Queue after G: [D]\n// 4. D runs: Output: D\n//    Queue after D: []\n\n// Finally, the macrotask runs:\n// B runs: Output: B\n```\n\nFinal output: A H C F G D B"
+    },
+    {
+      "id": "R2-chained-after-resolved",
+      "kind": "regression",
+      "answerChars": 1980,
+      "deltas": 553,
+      "firstTokenMs": 789,
+      "durationMs": 5173,
+      "passed": 4,
+      "total": 4,
+      "allPassed": true,
+      "checks": [
+        {
+          "name": "answer states an explicit output order line",
+          "passed": true
+        },
+        {
+          "name": "claimed order matches EXECUTED ground truth [A F B C D E]",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": [
+        "A",
+        "F",
+        "B",
+        "C",
+        "D",
+        "E"
+      ],
+      "answer": "I'll trace this script step by step, tracking the microtask queue as we go.\n\n**Microtask Queue Trace:**\n\n1. `console.log('A')` - Output: A\n   - Queue after sync: []\n\n2. `const p = Promise.resolve().then(() => console.log('B'))`\n   - This creates a promise that resolves immediately\n   - `.then()` is called on an already-resolved promise\n   - The callback `() => console.log('B')` is queued immediately\n   - Queue after sync: [B]\n\n3. `queueMicrotask(() => console.log('C'))`\n   - This queues the callback `() => console.log('C')`\n   - Queue after sync: [B, C]\n\n4. `p.then(() => console.log('D'))`\n   - `p` is already resolved (from step 2)\n   - `.then()` is called on an already-resolved promise\n   - The callback `() => console.log('D')` is queued immediately\n   - Queue after sync: [B, C, D]\n\n5. `setTimeout(() => console.log('E'), 0)`\n   - This queues a macrotask, but doesn't affect the microtask queue\n   - Queue after sync: [B, C, D]\n\n6. `console.log('F')` - Output: F\n   - Queue after sync: [B, C, D]\n\n**Draining the microtask queue:**\n- First callback: B - Output: B\n  - No new callbacks enqueued\n  - Queue: [C, D]\n- Second callback: C - Output: C\n  - No new callbacks enqueued\n  - Queue: [D]\n- Third callback: D - Output: D\n  - No new callbacks enqueued\n  - Queue: []\n\n**Macrotask:**\n- setTimeout callback: E - Output: E\n\n**Final output:** A F B C D E\n\n**Explanation of when the second .then callback is enqueued:**\nThe second `.then()` callback (which logs 'D') is enqueued immediately when the statement `p.then(() => console.log('D'))` is executed. This happens because `p` is already resolved by the time this `.then()` is called. The callback is added to the end of the microtask queue at that moment, so it's queued behind the 'B' and 'C' callbacks that were already in the queue. This is different from if `p` were still pending - in that case, the callback would only be queued when `p` actually resolves, which would be after its own callback ('B') had executed."
+    },
+    {
+      "id": "R3-nested-awaits",
+      "kind": "regression",
+      "answerChars": 2434,
+      "deltas": 595,
+      "firstTokenMs": 749,
+      "durationMs": 5496,
+      "passed": 4,
+      "total": 4,
+      "allPassed": true,
+      "checks": [
+        {
+          "name": "answer states an explicit output order line",
+          "passed": true
+        },
+        {
+          "name": "claimed order matches EXECUTED ground truth [A B H C E F D G]",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": [
+        "A",
+        "B",
+        "H",
+        "C",
+        "E",
+        "F",
+        "D",
+        "G"
+      ],
+      "answer": "I'll trace the execution statement by statement, tracking the microtask queue after each statement that logs or enqueues.\n\n```js\nconsole.log('A') // logs 'A'\n// queue after sync: []\n\nasync function inner() {\n  console.log('B')\n  await Promise.resolve()\n  console.log('C')\n}\n// queue after sync: []\n\nasync function outer() {\n  await inner()\n  console.log('D')\n}\n// queue after sync: []\n\nouter() // calls outer() and runs synchronously\n// outer() calls inner() and runs synchronously\n// inner() logs 'B'\n// inner() hits await Promise.resolve() - queues inner's continuation (console.log('C'))\n// outer() suspends at await inner() - outer's continuation (console.log('D')) is NOT queued yet\n// queue after sync: [C]\n\nPromise.resolve().then(() => console.log('E')) // queues E immediately (Promise is already resolved)\n// queue after sync: [C, E]\n\nqueueMicrotask(() => console.log('F')) // queues F\n// queue after sync: [C, E, F]\n\nsetTimeout(() => console.log('G'), 0) // queues G for macrotask\n// queue after sync: [C, E, F]\n\nconsole.log('H') // logs 'H'\n// queue after sync: [C, E, F]\n\n// Now drain microtasks:\n// C runs (logs 'C') - inner() returns, so outer() can resume, which queues outer's continuation (console.log('D'))\n// queue after drain C: [E, F, D]\n\n// E runs (logs 'E')\n// queue after drain E: [F, D]\n\n// F runs (logs 'F')\n// queue after drain F: [D]\n\n// D runs (logs 'D')\n// queue after drain D: []\n\n// No more microtasks, execute macrotask:\n// G runs (logs 'G')\n```\n\nFinal output: A B H C E F D G\n\nExplanation of where each await continuation lands in the microtask queue:\n\n1. The `await Promise.resolve()` in `inner()` queues the continuation (console.log('C')) at the moment the await statement is executed. This happens because `Promise.resolve()` returns an already-resolved promise, so the continuation is queued immediately.\n\n2. The `await inner()` in `outer()` does NOT queue outer's continuation (console.log('D')) at the await statement. Instead, it queues outer's continuation only after `inner()` has completed execution (after 'C' is logged). This is because `inner()` returns a promise that resolves after its entire function completes.\n\nThe key difference is that an await on an already-resolved value queues the continuation immediately, while an await on a pending promise (like calling another async function) queues the continuation only when that promise resolves (after the called function completes)."
+    },
+    {
+      "id": "R4-microtask-spawning-microtask",
+      "kind": "regression",
+      "answerChars": 2189,
+      "deltas": 609,
+      "firstTokenMs": 922,
+      "durationMs": 7656,
+      "passed": 4,
+      "total": 4,
+      "allPassed": true,
+      "checks": [
+        {
+          "name": "answer states an explicit output order line",
+          "passed": true
+        },
+        {
+          "name": "claimed order matches EXECUTED ground truth [A G B D E C F]",
+          "passed": true
+        },
+        {
+          "name": "turn reached a legitimate terminal state (done)",
+          "passed": true
+        },
+        {
+          "name": "streamed answer persisted byte-exact",
+          "passed": true
+        }
+      ],
+      "groundTruth": [
+        "A",
+        "G",
+        "B",
+        "D",
+        "E",
+        "C",
+        "F"
+      ],
+      "answer": "Trace statement by statement:\n\n1. `console.log('A')`\n   - Output: A\n   - Microtask queue: []\n\n2. `Promise.resolve().then(() => { ... })`\n   - Promise is already resolved, so the callback is queued immediately\n   - Microtask queue: [B]\n\n3. `queueMicrotask(() => console.log('D'))`\n   - D is queued\n   - Microtask queue: [B, D]\n\n4. `Promise.resolve().then(() => console.log('E'))`\n   - Promise is already resolved, so the callback is queued immediately\n   - Microtask queue: [B, D, E]\n\n5. `setTimeout(() => console.log('F'), 0)`\n   - F is scheduled as a macrotask\n   - Microtask queue: [B, D, E]\n\n6. `console.log('G')`\n   - Output: G\n   - Microtask queue: [B, D, E]\n\nNow drain the microtask queue FIFO:\n\n7. Drain B:\n   - Output: B\n   - Inside B's callback: `Promise.resolve().then(() => console.log('C'))`\n   - This .then() is chained to a new promise that's still pending, so C is NOT queued yet\n   - Microtask queue: [D, E]\n\n8. Drain D:\n   - Output: D\n   - No new microtasks queued\n   - Microtask queue: [E]\n\n9. Drain E:\n   - Output: E\n   - E's callback completes, which means the promise from its .then() call resolves\n   - This resolution now queues C at the BACK of the microtask queue\n   - Microtask queue: [C]\n\n10. Drain C:\n    - Output: C\n    - No new microtasks queued\n    - Microtask queue: []\n\n11. Macrotask F executes:\n    - Output: F\n\nFinal output on one line: A G B D E C F\n\nExplanation:\n- The synchronous code runs first, logging A and G.\n- Then microtasks are drained in FIFO order:\n  1. B runs first and logs B, but its chained .then() callback (C) isn't queued yet because it's attached to a new promise that's still pending.\n  2. D runs next and logs D.\n  3. E runs next and logs E. When E's callback completes, it resolves the promise from its .then() call, which now queues C at the BACK of the queue.\n  4. Finally, C runs and logs C.\n- After all microtasks are drained, the macrotask F executes and logs F.\n\nThe key point is that C is only queued when E's callback actually runs and completes, not when the .then() is called in the code. This demonstrates how microtasks queue additional microtasks at the back of the queue when they run, maintaining strict FIFO order."
+    }
+  ]
+}

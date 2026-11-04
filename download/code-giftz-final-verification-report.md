@@ -1,141 +1,216 @@
-# CODE GIFTZ — FINAL PRODUCTION VERIFICATION & COMPLETION REPORT
+# CODE GIFTZ — Gateway Recovery Verification Report
 
-**2026-11-03, 10:10 UTC** · Verification-only session (GIFTZ-FINAL-VERIFY). Implementation was completed in prior sessions; this session executed the three verification checks, recovered the public preview, and ran the full regression/safety suite.
+**Work order:** "NEXT ACTION: GATEWAY RECOVERY VERIFICATION"
+**Executed:** 2026-11-04, 08:25–10:50 CST (00:25–02:50 UTC)
+**Scope discipline:** no new features, no unrelated code/UI changes; product changes limited to the response-contract disciplines in `src/app/api/code-giftz/chat/route.ts` — the sanctioned fix path for demonstrated benchmark defects (fix general reasoning root cause → re-run full suite).
 
 ---
 
 ## 1. Executive summary
 
-| Check | Status | One-line result |
-| --- | --- | --- |
-| CHECK 1 — Real-provider streaming verification | **BLOCKED** | Upstream gateway in a sustained HTTP 429 throttle window (continuous 07:40 → 10:10+ UTC, ≥ 2.5 h, re-probed with bounded backoff; the typed-failure path was verified live end-to-end, but **no long generation could complete — not PASSED, per the acceptance rule**) |
-| CHECK 2 — Fresh Q1–Q6 benchmark | **BLOCKED** | Same gateway dependency; the bench command was attempted per protocol and skipped without burning attempts; **no fresh scores exist and no historical results are reused** |
-| CHECK 3 — Public preview recovery | **PARTIAL — 9/13 items PASS live; 3 items BLOCKED, 1 NOT TESTED** | Preview genuinely recovered on port 3000 via the platform's own startup path; public URL, real-DB auth, message submission, error handling, retry, post-failure recovery, refresh, console and network all verified in a real browser; streaming-dependent items blocked by the same gateway throttle |
+| # | Verification | Status | Evidence anchor |
+|---|---|---|---|
+| 1 | Provider health (HTTP 429 cleared) | **PASS** | §2 — exact health response saved |
+| 2 | Real-provider streaming (`giftz-eval-run.sh stream 240`) | **PASS** | §3 — 6/6 checks, exit 0 |
+| 3 | Fresh benchmark (`giftz-eval-run.sh bench 240`) | **FAIL** (66/67 best of 20 fresh runs) | §4 — full run table, 12 root-cause fixes |
+| 4 | Public preview browser E2E (short stream, stop, retry, Markdown, refresh, duplicates) | **PASS** (short/medium streaming + all interaction checks) | §5 — real browser via agent-browser |
+| 4b | Long streaming (>30 s) through the **public preview URL** | **BLOCKED** (platform ingress cuts SSE at ~30 s) | §5.4 — 3 reproduced cuts vs. clean 42 s local run |
+| 5 | Final regression (test / lint / tsc / build) | **PASS** (11 pre-existing `scripts/` tsc errors, unchanged) | §6 |
+| 6 | Isolation & safety (no orphan servers, no production data damage, no secrets leaked) | **PASS** | §6.3 |
 
-**Overall: NOT fully verified.** Two of three checks are blocked by one external dependency (the upstream AI gateway), and the third is partially blocked by the same dependency. Everything executable without the provider was executed and passed with live evidence. No defects requiring code changes were found during verification (the preview recovery was an operations fix — relaunching the platform's own startup script — not a code change).
+**Completion claim per the work order:** real-provider streaming **passes**; the fresh benchmark does **not** yet reach 67/67 in a single fresh run (best 66/67, up from the historical 65/67), so completion is **not claimed** for CHECK-benchmark. Details, root-cause fix history, and the remaining variance are in §4.
 
 ---
 
-## 2. CHECK 1 — Real-provider streaming verification · **BLOCKED**
+## 2. Provider health — HTTP 429 has cleared (**PASS**)
 
-### 2.1 Gateway availability inspection (per §1.1)
+Prior sessions were blocked 2 h+ by a global upstream 429 window (07:40→09:40+ UTC on 2026-11-03). Per the work order, the first action was a single disciplined health probe (no hammering, no retries) through the app's own readiness endpoint, which performs a **real live completion probe** against the gateway:
 
-- Configured provider: the platform-authorized gateway via `z-ai-web-dev-sdk` (no model/provider change made or permitted).
-- Health verification: `GET /api/health` → `ok: true, live: true` with `products.riishe.available: false`, probe detail *"Upstream gateway rate-limited (HTTP 429) — probe rejected"* — **continuous from 07:40 UTC (first probe of the day) through 10:10 UTC (last probe)**, re-checked at 09:11, 09:25, 09:36, 09:45, 09:58, 10:09 and by every eval attempt.
-- `Retry-After` headers: **not exposed** by the provider SDK (inspected `z-ai-web-dev-sdk` — no Retry-After surface; `src/lib/upstream/gateway.ts` documents the measured behavior: single spaced requests still receive 429 six+ minutes after a burst, so the window is long and heuristic backoff is the only option).
-- Rate-limit respect: the app holds a 60 s post-429 circuit breaker (`UPSTREAM_429_COOLDOWN_MS`, sliding) so no call is wasted or hammering; the eval harness probes the app's own health endpoint every 30 s (breaker-gated, so real requests only when the breaker is open) and **skips the eval entirely (exit 2) rather than burning attempts** when the window stays closed. No credential rotation, no throttling bypass.
+```
+GET http://127.0.0.1:3000/api/health  →  HTTP 200  (2026-11-04T00:25:46Z)
+riishe.available: true      probe: healthy, latencyMs 745,
+                            "Gateway responded to a live completion probe."
+riishe.research.available:  true   (live web_search probe, 1 result in 1253 ms)
+code-giftz.available:       true   (same chat-class probe)
+```
 
-### 2.2 Streaming test execution
+Exact response saved to `scripts/giftz-verify-out/health-probe-1793751944.json`. The gateway stayed healthy for the entire session (~2.5 h of live generation, 20+ eval/preview turns, zero 429 events observed).
 
-`scripts/giftz-eval-run.sh stream 240` — invoked per protocol (09:11, 09:25, 10:0x); each run: bounded wait loop → never healthy → **skipped without attempts**. Consequently the long-response metrics (request ID, TTFT, delta count, char count, terminal event, byte-exact persistence) **could not be produced this session and are NOT fabricated**. Status: **BLOCKED**.
+---
 
-Live evidence that WAS produced on the real provider path this session (the throttled gateway exercises the typed failure path end-to-end, HTTP → SSE → UI):
+## 3. Real-provider streaming — `stream 240` (**PASS**)
 
-- SSE turn returns **exactly one terminal frame**: `{"error":"The upstream AI gateway is rate-limited right now (HTTP 429). … your question is kept below, so you can retry without retyping it.","code":"UPSTREAM_RATE_LIMITED","partial":true}` — `done` correctly absent, zero deltas, **no generic "network error" anywhere**, no crash.
-- Server log shows typed `codegiftz.chat_failed` records and **zero occurrences of the historical crash signature `Invalid state: Controller is already closed`**.
-- Harness artifacts retained: `scripts/giftz-verify-out/t3-short-prompt.sse`, `t4-retry.sse`, `rc1.sse`, `rc2.sse`.
+Environment: platform environment regeneration had wiped `.next/standalone`; rebuilt from current source (`npm run build`, 4 successful builds this session). The eval script started the isolated :3100 verify instance (standalone bundle + DB copy `scripts/giftz-verify-out/verify.db`), waited on the gateway probe (healthy after 0 s), then ran the E2E pack. Production DB untouched.
 
-Most recent completed real-provider streaming run (prior session, post-fix build, retained as prior evidence — **not** claimed as this session's verification): 20,588 chars / 4,667 deltas / 51 s / terminal `done` / streamed == persisted byte-exact / zero duplicate assistant messages.
+**Result: 6/6 checks, EVAL EXIT 0** — report `evals/code-giftz/results/stream-e2e-1793752401863.json`, ran at 2026-11-04T00:33:21Z:
 
-### 2.3 Failure-mode matrix (§1.3)
+| Metric | Measured |
+|---|---|
+| Answer length | **20,770 chars** streamed (check: > 6,000) |
+| Streaming deltas | **5,044** (check: > 50 — real incremental streaming) |
+| TTFT | **869 ms** (check: < 30 s) |
+| Total duration | 57.1 s |
+| Terminal state | legitimate `done`, no error frame |
+| Persistence | streamed answer **byte-exact** (no truncation, no duplication) |
+| Project files | 1 created from the answer (`main.html`) |
 
-| Failure mode | Status | Evidence |
-| --- | --- | --- |
-| Gateway HTTP 429 | **PASS (live)** | typed `UPSTREAM_RATE_LIMITED` frame, `partial:true`, honest wording; 429 recorded in server log; UI renders the typed error card (screenshot `e2e-error-visible.png`) |
-| Recovery after failure | **PASS (live)** | second message after a failed turn succeeded in reaching the API and rendering its own (typed) outcome; UI Retry re-invoked the turn; chat never disabled |
-| Gateway disconnect / idle timeout / overall timeout / user cancellation / partial-response interruption | **NOT TESTED live — requires an active generation (gateway-blocked)**; pinned by 45 unit tests running the real lifecycle with fault-injected deps: `cancel()` mid-generation unwinds with no error frame and releases once; `request.signal` abort unwinds; idle/total guards raise labeled timeouts; truncation preserves partial text on the wire; a fully generated answer persists exactly once even when the client vanishes |
-| Upstream billing cancellation | **NOT TESTED / not claimable** — the authorized SDK exposes no AbortSignal; no claim of provider-side cancellation is made (recorded limitation) |
+No network errors, no duplicate assistant messages, no `Controller is already closed` events in the server log (`grep -c` = 0).
 
-### 2.4 Duplicate-persistence guarantees (verified without the gateway)
+---
 
-- Failed turns persist **zero assistant rows** (live DB assert on the isolated copy: `ASSISTANT_ROWS_TOTAL: 0`).
-- Retry idempotency: retrying a failed turn within the same project collapses the duplicated trailing user prompt (live: **1 user row / 0 assistant rows** after UI-flow retry — `RETRY-COLLAPSE PASS`); a failed *first* turn (no `projectId` yet) legitimately starts a fresh project on retry — still no duplicate rows, observed live in the browser (3 sidebar projects, each with exactly one user row, on the isolated copy; mirrored on the real DB by the clearly-named `browsere2e-*` account used for the preview E2E).
+## 4. Fresh benchmark — `bench 240` (**FAIL at 67/67 — best fresh run 66/67; every check individually demonstrated**)
 
-## 3. CHECK 2 — Fresh benchmark · **BLOCKED**
+### 4.1 Progression
 
-`scripts/giftz-eval-run.sh bench 240` — same gateway throttle; the harness waited its bounded window and skipped (no attempts burned, nothing fabricated). **No fresh Q1–Q6/R1–R4 scores are reported and the historical 65/67 is explicitly NOT reused.** The runner, question pack, and executed-ground-truth mechanism are in place and unattended-ready: per-question content checks (Q1 exact FIFO order `A F H C E G D B` + chained-`.then` timing; Q2 Set-based O(n) with insertion-order justification; Q3 Map-based with the verified `[-1,-2,-3,-4,-5] → [1, 2]` derivation; Q4 sliding window + UTF-16/code-point/grapheme precision incl. `Intl.Segmenter`; Q5 LIFO stack + explicit non-bracket contract; Q6 first-occurrence main function + safe midpoint + O(1)/O(log n) space split; R1–R4 ground truth computed by executing the snippets) plus per-question byte-exact persistence checks.
+20 complete fresh benchmark runs were executed (no historical reuse; every run live-generated all 10 items, Q1–Q6 + R1–R4 = 67 checks). Fresh totals, chronological:
 
-## 4. CHECK 3 — Public preview recovery · **PARTIAL (9 PASS / 3 BLOCKED / 1 NOT TESTED)**
+```
+62, 64, 63, 65, 65, 66, 64, 63, 63, 65, 65, 66, 65, 61, 66, 66, 64, 63, 66, 63  (of 67)
+```
 
-### 4.1 Startup configuration inspection (§3.1)
+Five runs reached **66/67** (runs 6, 12, 15, 16, 19). Result files: `evals/code-giftz/results/benchmark-regression-1793752*.json` through `…93*.json` (timestamps 00:36–02:48 UTC).
 
-| Item | Finding |
-| --- | --- |
-| Platform boot | `start.sh` → init → **"custom dev script"** (runs `package.json "dev"`) → "Starting Caddy server" (boot timeline `/tmp/boot-timeline.log`, last boot 03:25:36 UTC) |
-| `package.json "dev"` | `next dev -p 3000 2>&1 \| tee dev.log` — port hard-pinned to **3000** |
-| `package.json "start"` | `NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 DATABASE_URL=file:/home/z/my-project/db/custom.db bun .next/standalone/server.js` — production fallback also pinned to **3000 + real DB** |
-| Next config | `output: "standalone"`; fresh standalone build present |
-| Ingress | Caddy `:81` default handle → `reverse_proxy localhost:3000` (platform-managed; not modifiable from the sandbox) |
-| Port env | No PORT set in `.env`/project files — the 3100 incident (previous session) was a stale captured launch env, already neutralized by the script-level pins |
-| DB env | `.env` → `DATABASE_URL=file:/home/z/my-project/db/custom.db` (real DB only; no test/mock DB referenced anywhere in startup) |
+### 4.2 Root-cause fixes applied (12 distinct defects, each verified repaired)
 
-Root cause of the 502 (reproduced): the platform's dev server was OOM-killed at ~06:40 UTC (kernel log, previous session's build memory spike) and the platform never re-booted (sandbox uptime 6h28m, last boot 03:25) → nothing listened on :3000 → ingress 502.
+Following the standing rule ("fix the general reasoning root cause, then re-run the full suite"), every observed failure mode was traced to its general defect class and fixed in the response-contract disciplines of `src/app/api/code-giftz/chat/route.ts`:
 
-### 4.2 Recovery (§3.2)
+| # | Observed failure | General root cause | Fix (discipline) | Verified |
+|---|---|---|---|---|
+| 1 | Q2 `handles empty array` / Q4 `empty string behavior` | Edge cases exercised in tests but never documented in prose | D6: "State the contract — in prose, not only in tests" | Pass 19/20, 18/20 |
+| 2 | Q6 `no mutation / no sorting` | Purity never stated explicitly | D6: purity as an explicit sentence | Pass 17/20 |
+| 3 | R2 final line dropped a letter (F, then E) | Final order line assembled from memory, not the trace | D2 + LAST CHECK: copy from trace, verify | Pass 14/20 |
+| 4 | R3 queued outer's continuation at `await callee()` statement | Await-timing rule stated without the two-case split | D2: already-resolved value queues at the statement; pending promise queues at settle | Pass 14/20 |
+| 5 | R2 (over-correction) chained `.then` queued immediately onto `p` | "Already resolved" not judged on the exact receiver; `.then` returns a NEW pending promise | D2 + worked Example 1 (M5/M6, verified by execution) | Pass 14/20 |
+| 6 | Q1 fluent chain `Promise.resolve().then(C).then(D)` misjudged | Implicit receiver of the second `.then` | D2: judge the RECEIVER exactly (fluent-chain rule) | Pass 12/20 |
+| 7 | Q2 array collector with `includes()` guard | Data-structure choice not tied to O(n) claim | D7: "Match data structures to the job" (two-Set pattern, code-shaped contrast) | Pass 13/20 |
+| 8 | Q4 complexity statement omitted despite prompt naming "in O(n)" | Requirements dropped under verbosity | D4: ALWAYS state complexity; repeat the named target over the final code | Pass 18/20 |
+| 9 | Q1 chained callback declared "never resolves" | `.then` callback completion RESOLVES the returned promise — implicit | D2: "a chained .then callback is NEVER lost" | Pass 18/20 |
+| 10 | R4 final line transposed B/G three times (code-order bias) | Assembly by code layout instead of trace chronology | LAST CHECK: running output list built during the trace + position-by-position verification + "registered earlier ≠ printed earlier" | Pass 16/20 |
+| 11 | Q3 invented 1-based indices for a JS array function | Indexing convention never stated | D6: state the convention (JavaScript arrays are 0-based) | Pass 17/20 |
+| 12 | Q5 "LIFO logic explained" failed — stack mechanics explained without naming LIFO | Ordering property not named | D7: name the ordering property correctness depends on | Pass 19/20 |
 
-Relaunched **the platform's own boot path** (`npm run dev`, the exact command `start.sh` runs) on **:3000** — not a second server, not a :3100 workaround. Result:
+Two worked examples inside the contract were **verified by actual execution** before being shipped (the M1–M6 example's ground truth `S1 M1 M2 M3 M5 M4 M6 T1` was initially mis-derived and corrected after executing it — the eval's EXECUTED-ground-truth methodology applied to our own prompt).
 
-- `:3000` LISTEN — `next-server` pid 11219; `GET /` → 200; `/api/health` → 200 `ok:true live:true`.
-- **Public preview URL** `https://preview-chat-5607195a-212f-4a85-8f55-146057425b38.space-z.ai/` → **200** through the real ingress (measured with curl AND in a real browser).
-- Real-DB connection proven by write path: registered `browsere2e-1793699882@bean-test.dev` through the public URL; row verified present in `db/custom.db` (read-only check). No test/mock database in the serving path.
-- Startup does not depend on a manually maintained process in the configuration sense: the platform's own boot sequence reproduces this state on every future boot (both `dev` and `start` scripts are pinned to :3000 + real DB). The relaunch is the same command the platform runs.
-- No secrets exposed in logs (server logs contain only typed lifecycle events; no credentials printed — verified by scan).
+### 4.3 Per-check stability across all 20 fresh runs
 
-### 4.3 Browser E2E on the public preview URL (§3.3) — real browser (agent-browser), not localhost curl
+- **55 of 67 checks: 100% (20/20)** — all structural, persistence, terminal-state, complexity, data-structure, Unicode, validation and byte-exact-persistence checks.
+- **12 checks: 60–95%** — all require either deriving an exact output order for a fresh script variant (Q1-order 12/20, R1 15/20, R2 14/20, R3 14/20, R4 16/20) or making an explicit statement whose phrasing the model sometimes varies (Q2 duplicates-Set 13/20, Q2 no-includes 17/20, Q3 exact pair 17/20, Q3 pair derivation 18/20, Q6 purity 17/20, Q1 chained-then explanation 18/20, Q4 complexity 18/20, Q4 empty-string 18/20, Q2 empty 19/20, Q5 LIFO 19/20).
+- **Every one of the 67 checks passed in at least 12 of 20 fresh runs**; each fix demonstrably repaired its target (e.g. R4 transposition: failed 3× consecutively, passed 4/4 in the four runs after fix #10 when its neighbors were stable).
 
-| # | Item | Status | Evidence |
-| --- | --- | --- | --- |
-| 1 | Application loads | **PASS** | title `BEAN Intelligence — Brand-Owned AI Platform`, dashboard renders |
-| 2 | Login / existing authentication | **PASS** | signed in via the UI form against the real DB; session cookie persisted |
-| 3 | Existing conversations remain accessible | **PASS** | sidebar projects persisted; session + data survived refresh (this session used a dedicated E2E account — real users' conversations untouched) |
-| 4 | New user message can be submitted | **PASS** | prompt submitted in CODE GIFTZ; message bubble + project created |
-| 5 | Short response streams correctly | **BLOCKED** | gateway 429 → typed error instead of a stream (correct behavior; a real stream needs the provider) |
-| 6 | Long response streams correctly | **BLOCKED** | same |
-| 7 | Markdown / code blocks render | **NOT TESTED (live answer required)** | renderer stack present in the served bundle (`react-markdown`/`react-syntax-highlighter` chunks load, HTTP 200); rendering of an actual streamed answer needs the provider |
-| 8 | Stop generation works | **BLOCKED** | requires an active stream; pinned by unit tests (cancel unwinds, releases once, no error frame) |
-| 9 | Error handling works | **PASS** | typed 429 error card with Retry button rendered in the UI (screenshot `e2e-error-visible.png`); question text preserved |
-| 10 | Failed request doesn't disable chat | **PASS** | UI Retry executed; a second, different message submitted and processed after failures (screenshot `e2e-post-failure.png`) |
-| 11 | Refresh doesn't break | **PASS** | reload → session, dashboard and workspace intact; `/api/auth/session`, `/api/products`, `/api/code-giftz/chat` all 200 |
-| 12 | No critical console errors | **PASS** | console: only dev-mode info (React DevTools hint, HMR connected, Fast Refresh); **zero page errors** |
-| 13 | No 502/500/failed requests | **PASS** | full network log: every request 200/304 (scripts, fonts, API calls) — zero ≥ 400 |
+### 4.4 Honest verdict and why iteration stopped
 
-### 4.4 One operational observation (no defect against the checks; no code change made)
+- Historical benchmark: **65/67**. Best fresh result now: **66/67** — an improvement, but the work order's bar is a passing fresh run, and 67/67 was not achieved in a single run. **Benchmark status: FAIL by the strict criterion.**
+- The residual is sampling variance: in the last 6 runs failures rotated among single order/phrase checks (66, 66, 64, 63, 66, 63) while all other items held. Adding more prompt text empirically causes collateral regressions (run 14: 61/67 after +250 chars), so prompt iteration was stopped at the measured sweet spot (~8.3–8.9k chars, deduplicated rules, execution-verified examples).
+- Not attempted (out of scope): weakening checks, hardcoding answers, retry-until-lucky without disclosure — all prohibited. Every run above is disclosed, including the worst (61/67).
+- **Recommended next step (outside this ticket):** a model-side answer self-verification pass (generate → re-derive → compare → regenerate on mismatch) would convert the remaining ~15% per-check variance into near-certainty; it is a product feature and was deliberately not built here.
 
-A failed *first* turn never learns its `projectId` (the typed error frame deliberately carries none), so retrying it from the UI starts a fresh project rather than reusing the empty one; each failed-turn project holds exactly one user row and zero assistant rows — **no duplication of user or assistant content anywhere** (verified live). Mid-conversation retries reuse the project and engage the server-side collapse (verified: 1 user row / 0 assistant rows). Left unchanged deliberately: this is cosmetic, unrelated to the three checks' pass criteria, and any change would violate the verification-only scope.
+Representative best run (1793758752137): Q1 6/6 · Q2 8/8 · Q3 9/9 · Q4 10/10 · Q5 9/9 · Q6 8/9 · R1 4/4 · R2 4/4 · R3 4/4 · R4 4/4 — the single failing check (`Q6 no mutation`) passed in 17/20 runs.
 
-## 5. Regression checks (final gates)
+---
 
-| Gate (work order name → actual) | Result |
-| --- | --- |
-| `npm test` → **`bun test`** (package.json has no `test` script — inspected and used the project's actual runner) | **884 pass / 0 fail** (56 files, 28,627 assertions), incl. 45 new streaming reliability tests |
-| `npm run lint` | **exit 0, zero problems** (project-wide) |
-| `npx tsc --noEmit` | **11 errors — ALL pre-existing, ALL in `scripts/`**; zero in `src/`, `tests/`, `evals/`. Breakdown: `scripts/build-e2e-fixtures.ts` (1, Oct 26, missing `xlsx` types), `scripts/merge-backup/src-running/**` (7, Oct 29, stale backup of an old source tree), `scripts/seed-giftz-project.ts` (1, Nov 3 02:19 — predates the streaming work), `scripts/verify-retrieval-live.ts` (2, Oct 28, stale pipeline API). **None of the changed files (route.ts, code-giftz.tsx, chat-stream.ts, retry.ts, sse-client.ts, gateway.ts, evals/*, tests/*) contribute any error.** Not claimed as zero |
-| `npm run build` | **✓ Compiled successfully, exit 0** (run with the dev server controlled to avoid the OOM class that killed it on Nov 3 ~06:40) |
+## 5. Public preview — recovery and real-browser E2E
 
-## 6. Changed files
+### 5.1 Platform state
 
-**This verification session changed NO product code.** Files touched this session (all verification/ops artifacts):
+- The platform has restarted the preview: `next-server v16.1.3` on **:3000** (pid 1135, platform-managed `bun run dev`, started 00:13), serving the real DB via `.env` `DATABASE_URL=file:…/db/custom.db`.
+- `.env` was regenerated again down to `DATABASE_URL` only (the documented environment-reset failure class). The durable fix from the earlier CSRF ticket held: `resolveSuffixConfig` falls back to the platform scope (`space-z.ai`) when the env var is undefined, so browser mutations through the public origin worked without any config change this time — measured, not assumed.
+- Public URL reachable: `https://preview-chat-5607195a-212f-4a85-8f55-146057425b38.space-z.ai/` → HTTP 200; `/api/health` → HTTP 200 with `riishe.available: true`.
+- The dev server serves the CURRENT source (hot-reload), so the updated disciplines were live in the preview during E2E.
 
-| Path | Reason |
-| --- | --- |
-| `package.json`, `src/**` (route.ts, code-giftz.tsx, sse-client.ts, gateway.ts, chat-stream.ts, retry.ts), `evals/code-giftz/*`, `tests/unit/giftz-*` | **Unchanged this session** — these carry the (prior-session + first-turn) implementation under verification; verified on disk and via gates |
-| `download/code-giftz-final-verification-report.md` | this report |
-| `scripts/giftz-eval-run.sh` | eval harness (prior turn): isolated :3100 instance + gateway-wait + skip-without-burning-attempts |
-| `scripts/giftz-step1-verify.sh`, `giftz-retry-collapse-verify.sh`, `giftz-t5-db-assert.ts`, `giftz-check3-prep.sh` | verification scripts (typed-failure, retry-collapse, DB asserts, preview prep) |
-| `scripts/giftz-verify-out/*` (sse captures, screenshots, server.log, verify.db) | live evidence artifacts (verify.db is an ISOLATED COPY — the real DB was never written by evals) |
-| `dev.log.pre-recovery-1103` | preserved the 2,988-line dev.log containing the original root-cause evidence before relaunch rotated it |
+### 5.2 Real-browser E2E (agent-browser — Chromium, public origin)
+
+Accounts: dedicated `gz-e2e-*@bean-test.dev` / `gz-streamtest-*@bean-test.dev` eval accounts only.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Preview page loads (title, no 502/500) | **PASS** | v1 C1 screenshot; network log: zero 5xx across all runs |
+| Register → dashboard through the public origin | **PASS** | v1/v2: auto sign-in → `#dashboard`; v3: separate **login** path also PASS |
+| Short streaming turn | **PASS** | Stop control visible during generation; terminal state; answer rendered (`v2-c4-short.png`) |
+| Streaming UI live (Stop control present mid-generation) | **PASS** | v2 C4/C6 |
+| Stop mid-generation | **PASS** | Partial code text preserved + honest label "Generation stopped — the text above is incomplete." (`v2-c6-stopped.png`, `c6-after-stop.png`); composer NOT disabled after failure; Retry offered for error states |
+| Retry after stop (re-send same prompt) | **PASS with note** | Server-side retry-collapse kept the DB clean — exactly ONE user row for the repeated prompt (verified read-only in `db/custom.db`); the UI shows the stopped turn's bubble plus the optimistic re-send bubble until refresh (cosmetic; server truth correct — reported, not "fixed", per scope discipline) |
+| Markdown rendering | **PASS** | Live answer rendered heading + bold bullet list + syntax-highlighted code blocks (`c5-markdown.png`); DOM counts headings=1 list=8 code=11 |
+| Project files created + workspace restored | **PASS** | "created index.html / styles.css / app.js" chips; files restored from server after refresh (source of truth) |
+| Refresh persistence | **PASS** | After full reload: rail shows the project (2 files); reopening it restores all 3 prompts **exactly once each** + persisted Markdown answer + files (`v3b-history.png`, 5/5 PASS) |
+| Duplicate messages (DB truth) | **PASS** | Read-only sqlite: 1 user row per prompt, no duplicates (`db/custom.db`, eval accounts only) |
+| Console/page errors | **PASS** | 0 uncaught page errors, 0 console errors (filtered) across all 4 browser runs |
+| HTTP 5xx/502 | **PASS** | 0 across all runs |
+| Session persistence (cookie on public origin) | **PASS** | v3 login → dashboard → reopen project |
+
+### 5.3 Long streaming through the public preview — platform ingress cap discovered (**BLOCKED**)
+
+A systematic cutoff experiment (same dev server, same long prompt, raw HTTP):
+
+| Path | Duration | Chars | Terminal frame |
+|---|---|---|---|
+| public ingress | 29.29 s | 13,166 | **done ✓** (finished just under the cap) |
+| public ingress | 30.15 s | 13,118 | **none — connection cut mid-stream** |
+| public ingress | 30.62 s | 8,912 | **none — cut** |
+| public ingress | 32.59 s | 7,308 | **none — cut** |
+| `127.0.0.1:3000` (ingress bypassed) | **42.14 s** | 15,795 | **done ✓** |
+
+**Conclusion:** the platform ingress in front of the public preview terminates streaming responses at ≈30 s total duration. This is a deployment-level constraint, not an application defect: the standalone app streams 57 s answers fine (§3), the direct local stream ran 42 s to completion, and the UI handles the cut exactly as designed — typed "Response interrupted — the text above is incomplete.", partial text preserved, composer stays enabled, retry offered, server-side generation unwound cleanly (no zombie persistence, `client_disconnected` logged, no `Controller is already closed`).
+
+**Consequences for CHECK 3:** short and medium streaming through the public preview **PASS**; generations requiring > ~30 s through the public URL cannot complete **until the platform raises the ingress streaming timeout** — reported as BLOCKED with the evidence above rather than hidden.
+
+### 5.4 Screenshots
+
+`scripts/giftz-verify-out/preview-e2e/`: `c1-landing.png`, `c2-dashboard.png`, `c4-short-answer.png`, `c5-markdown.png`, `c6-streaming-before-stop.png`, `c6-after-stop.png`, `c7-after-retry.png`, `c8-after-refresh.png`, `v2-c4-short.png`, `v2-c6-stopped.png`, `v2-c7-retry.png`, `v3-history.png`, `v3b-history.png`.
+
+---
+
+## 6. Final regression
+
+### 6.1 Four commands (fresh, this session)
+
+| Command | Result |
+|---|---|
+| `bun test` (project's actual runner — `npm test` is not defined in package.json) | **884 pass / 0 fail** (56 files, 28,627 expect calls, 16.4 s) |
+| `npx eslint .` (equals `npm run lint`) | **0 errors, 0 warnings** |
+| `npx tsc --noEmit` | **11 errors — ALL pre-existing, ALL in `scripts/`** (build fixtures, merge-backup snapshots, seed & retrieval-verify utilities). `src/` is clean; today's `route.ts` changes introduced **zero** new errors. Old/new separation unchanged from the prior session's baseline. |
+| `npm run build` (equals `next build` + standalone assembly) | **✓ compiled successfully** (5 successful builds this session; final build reflects the final source state; `.next/standalone/server.js` present) |
+
+### 6.2 Changed files (complete list for this ticket)
+
+| File | Change |
+|---|---|
+| `src/app/api/code-giftz/chat/route.ts` | Response-contract disciplines only: await/.then two-case timing precision, fluent-chain rule, chained-then-never-lost rule, FIFO-back emphasis, prose edge-case + purity + indexing-convention requirements, two-Set data-structure rule, ordering-property naming, complexity restatement, running-output-list + position-by-position final check, two execution-verified worked examples (restructured: rules deduplicated, examples moved to the end for recency). **No** logic, persistence, streaming, UI or provider changes. |
+| `scripts/giftz-prompt-tighten.py`, `scripts/giftz-stream-cutoff-test.sh`, `scripts/giftz-preview-e2e.sh`, `scripts/giftz-preview-e2e-v3.sh` (+v3b) | New verification tooling (probe splice, ingress-cutoff experiment, browser E2E) |
+| `scripts/giftz-verify-out/…`, `evals/code-giftz/results/…` | Fresh evidence artifacts (health probe JSON, 20 benchmark JSONs, 1 stream JSON, SSE captures, 13 screenshots) |
+
+**Unchanged:** all other product code, UI components, provider configuration, middleware, auth, Prisma schema, migrations.
+
+### 6.3 Isolation & safety
+
+- **No orphan/duplicate servers:** the only listener is the platform's own preview (`:3000`, pid 1135). The eval script's `trap` killed its :3100 instance after every run (verified after the final run).
+- **No production data damage:** the real DB received only new rows under dedicated `gz-*@bean-test.dev` / `gz-streamtest-*@bean-test.dev` eval accounts (verified read-only). No existing user/project rows read-modified-written; all destructive operations ran against `scripts/giftz-verify-out/verify.db`.
+- **No credentials leaked:** `.env` inspection output was redacted before printing; no tokens/keys appear in logs, reports or screenshots.
+- **No unexpected migrations:** `prisma migrate` never invoked.
+
+---
 
 ## 7. Remaining limitations
 
-1. **Upstream gateway throttle (the single blocker).** Sustained global HTTP 429 (≥ 2.5 h at final probe); no Retry-After exposed; long-window behavior measured and documented. Blocks CHECK 1 completion, CHECK 2 entirely, and preview items 5/6/7/8. Everything is staged for instant re-verification when it clears: `scripts/giftz-eval-run.sh stream 240` then `scripts/giftz-eval-run.sh bench 240`.
-2. **No upstream AbortSignal** in the authorized SDK — cancelled turns unwind at the next delta (or idle timeout); no provider-side billing-cancellation claim is possible.
-3. **`max_tokens` semantics** — unset by default (provider default applies; no silent BEAN cap); when set it is the provider's ceiling; output-length cuts now continue once (bounded) before surfacing typed `UPSTREAM_TRUNCATED` with partial text preserved.
-4. **Dev-mode first-hit compile 500s** are a platform-launch-mode artifact (self-healing; all routes were warmed before the browser E2E — the captured network log shows zero ≥ 400).
-5. **Model-quality residual** — R3-class scheduling errors can still occur on novel variants (disciplines reduce, cannot eliminate); the regression pack with executed ground truth catches them mechanically once the gateway allows fresh runs.
+1. **Benchmark variance (primary):** single-run 67/67 not achieved; best 66/67. Root causes exhausted at the prompt level; the residual needs a model-side self-verification pass (feature work, out of scope) or a provider-side determinism knob.
+2. **Public-preview ingress ≈30 s streaming cap (platform):** long generations through the public URL are typed-interrupted with partials preserved. Requires a platform-side timeout increase; the application side is already correct.
+3. **Retry-after-stop UI cosmetics:** after re-sending a stopped prompt, the conversation shows both the stopped turn's user bubble and the re-send's optimistic bubble until refresh; the server (and every later refresh) keeps exactly one. Cosmetic only; left unchanged per scope discipline.
+4. **Pre-existing tsc errors (11):** all in `scripts/` utilities; tracked since the prior session; untouched.
+5. **Environment regeneration wipes `.next/standalone` and `.env` extras:** both failure classes already have durable mitigations (rebuild on demand; platform-scope origin fallback) — rebuild was required once this session.
 
-## 8. Final status
+---
 
-- CHECK 1 Real-provider streaming: **BLOCKED** (external provider; typed-failure + no-duplicate guarantees verified live in its place)
-- CHECK 2 Fresh benchmark: **BLOCKED** (no results fabricated; none reused)
-- CHECK 3 Public preview: **9/13 PASS (live browser evidence), 3 BLOCKED, 1 NOT TESTED** — infrastructure recovery itself complete and verified
-- Overall completion: **NOT CLAIMED** — per the acceptance rule, full verification remains open on exactly one external dependency (the gateway window), with every command and harness ready to produce the outstanding evidence the moment it clears.
+## 8. Final status (four-state)
+
+| Verification item | Status |
+|---|---|
+| Provider health / 429 recovery | **PASS** |
+| Real-provider streaming (`stream 240`, isolated production instance) | **PASS** |
+| Fresh benchmark 67/67 in one run (`bench 240`, 20 fresh runs, 12 root-cause fixes) | **FAIL** (best 66/67; all 67 checks individually demonstrated; variance documented) |
+| Public preview recovered (platform-managed, real DB, current source) | **PASS** |
+| Short/medium streaming via public preview (real browser) | **PASS** |
+| Stop / retry / duplicate-message / refresh-persistence / Markdown (real browser) | **PASS** |
+| Long streaming > 30 s via public preview | **BLOCKED** (platform ingress streaming cap; app behavior correct) |
+| Regression: test / lint / tsc / build | **PASS** (tsc: 11 pre-existing `scripts/` errors, separately reported) |
+| Isolation, safety, no credentials leaked | **PASS** |
+
+**Overall: completion is NOT claimed.** Real-provider streaming and every preview interaction check pass with fresh evidence; the fresh benchmark improved from 65/67 (historical) to a best of 66/67 across 20 disclosed fresh runs but did not reach 67/67 in a single run. The two concrete blockers for full completion are (a) the benchmark's residual single-check variance — fix path: model-side answer self-verification pass; (b) the platform's ~30 s ingress streaming cap — fix path: platform timeout configuration. Everything else required by the work order is verified green with reproducible evidence.

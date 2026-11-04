@@ -57,3 +57,6 @@ prompt
 server.log
 # Skills directory
 /skills/
+# DB backups of the isolated verification environment (never commit DB backups)
+scripts/giftz-verify-out/verify.db.backup-*.db
+scripts/e2e-verify-out/verify.db.backup-*.db
