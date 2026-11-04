@@ -1,6 +1,7 @@
 import { handle, ok } from '@/lib/api/errors'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
+import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
 import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
 import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import { lastHealthyAtFor, HEALTH_CACHE_TTL_MS } from '@/lib/adapters/health-cache'
@@ -11,6 +12,12 @@ import { probeResearchHealth } from '@/lib/research/provider'
 import { probeSandboxHealth } from '@/lib/sandbox/runner'
 import { getBackendsForProduct } from '@/lib/registry/backends'
 import { productStatus, type ProductStatus } from '@/lib/registry/status'
+import {
+  upstreamBreakerState,
+  UPSTREAM_429_COOLDOWN_MS,
+  UPSTREAM_429_COOLDOWN_MAX_MS,
+  type UpstreamEndpointClass,
+} from '@/lib/upstream/gateway'
 
 /**
  * Liveness (this process) + readiness (real backend/capability probes).
@@ -78,7 +85,7 @@ interface ProductEntry {
 
 export async function GET() {
   return handle(async () => {
-    const [riishe, giftz, image, research, sandbox, laxiiLocal, laxiiWorker] = await Promise.all([
+    const [riishe, giftz, image, research, sandbox, laxiiLocal, laxiiWorker, video] = await Promise.all([
       safeProbe('llm-hosted-primary', () => hostedLlmAdapter.health()),
       // CODE GIFTZ probes its own backend descriptor independently (the
       // registry separates bean-llm-hosted-primary from
@@ -94,6 +101,9 @@ export async function GET() {
       //                   host; registry-gated for traffic)
       safeProbe('laxii-local-sharp', () => localLaxiiAdapter.health()),
       safeProbe('laxii-diffusers-worker', () => diffusersWorkerAdapter.health()),
+      // JAZMII (2026-11-04): real reachability probe of the hosted video
+      // backend + video-class breaker state — NEVER a synthetic generation.
+      safeProbe('video-hosted-primary', () => hostedVideoAdapter.health()),
     ])
 
     const videoBackend = getBackendsForProduct('jazmii')[0]
@@ -160,20 +170,34 @@ export async function GET() {
       sandbox: { available: sandbox.healthy, probe: sandbox },
     }
 
+    // JAZMII (2026-11-04): the hosted video backend is registry-enabled, so
+    // the product entry uses the real reachability probe + the video-class
+    // breaker. Capability evidence follows the same real-attempt contract as
+    // LAXII: a recent upstream-class failure on a REAL job degrades the
+    // status; a completed real job is the generation proof. With the backend
+    // absent/disabled the honest 'not-configured' state returns.
+    const videoFailure = recentUpstreamFailure('video-generation')
+    const videoAttempt = lastRealAttempt('video-generation')
+    const videoEvidence = videoFailure
+      ? {
+          available: false,
+          failureCategory: videoFailure.failureCategory,
+          httpStatus: videoFailure.httpStatus,
+          checkedAt: videoFailure.at,
+        }
+      : videoAttempt
+        ? { available: true, failureCategory: null, httpStatus: null, checkedAt: videoAttempt.at }
+        : undefined
+
     const jazmiiEntry: ProductEntry = {
-      // Truthful NO_BACKEND: 'not-configured' (missing deployment), never a
-      // fabricated probe and never the same state as a failed connection.
-      status: productStatus(jazmiiEnabled),
-      available: false,
-      probe: {
-        healthy: false,
-        checkedAt: new Date().toISOString(),
-        latencyMs: null,
-        httpStatus: null,
-        failureCategory: 'not-configured',
-        detail: videoBackend?.unavailableReason ?? 'No backend configured.',
-      },
-      lastHealthyAt: null,
+      status: productStatus(jazmiiEnabled, {
+        available: video.healthy,
+        ...(videoEvidence ? { generation: videoEvidence } : {}),
+      }),
+      available: video.healthy,
+      probe: video,
+      lastHealthyAt: lastHealthyAtFor('video-hosted-primary'),
+      ...(videoEvidence ? { generation: videoEvidence, lastGenerationAttempt: videoAttempt } : {}),
     }
 
     return ok({
@@ -182,6 +206,20 @@ export async function GET() {
       live: true,
       time: new Date().toISOString(),
       probeCacheTtlMs: HEALTH_CACHE_TTL_MS,
+      // PHASE 1 gateway recovery (2026-11-04): operator-visible breaker state
+      // per upstream endpoint class — bounded escalating backoff evidence
+      // (base window, cap, consecutive-429 streak, remaining cooldown) so a
+      // throttled account is DIAGNOSABLE from the health payload alone.
+      // Contains no credentials, no model identities and no endpoints.
+      gateway: {
+        breaker: {
+          baseCooldownMs: UPSTREAM_429_COOLDOWN_MS,
+          maxCooldownMs: UPSTREAM_429_COOLDOWN_MAX_MS,
+          classes: (
+            ['chat', 'functions', 'images', 'video', 'audio'] as UpstreamEndpointClass[]
+          ).map((cls) => ({ class: cls, ...upstreamBreakerState(cls) })),
+        },
+      },
       products: {
         riishe: riisheEntry,
         laxii: laxiiEntry,
