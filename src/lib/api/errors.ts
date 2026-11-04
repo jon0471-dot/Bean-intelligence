@@ -71,16 +71,26 @@ export function ok<T extends Record<string, unknown>>(payload: T, init?: Respons
 }
 
 /** Wrap a route handler so thrown BeanApiErrors become clean responses and
- *  unexpected errors never leak stack traces or internals. */
+ *  unexpected errors never leak stack traces or internals. A missing
+ *  BEAN_CREDENTIALS_MASTER_KEY is a CONFIGURATION state, not a crash — it is
+ *  reported as the typed fail-closed error the credential features promise
+ *  (PRODUCT_UNAVAILABLE + the operator-actionable message), never an opaque
+ *  500. Structural name check: importing the error class here creates a
+ *  chunk-ordering TDZ in the standalone bundle, so the mapping keys on the
+ *  stable error name instead (set by the class itself). */
 export function handle(fn: () => Promise<Response>): Promise<Response> {
   return fn().catch((err: unknown) => {
     if (err instanceof BeanApiError) return err.toResponse()
+    if (err instanceof Error && err.name === 'CredentialsNotConfiguredError') {
+      return new BeanApiError('PRODUCT_UNAVAILABLE', err.message).toResponse()
+    }
     console.error(
       JSON.stringify({
         ts: new Date().toISOString(),
         level: 'error',
         event: 'api.unexpected_error',
         message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? (err.stack ?? '').split('\n').slice(0, 6).join(' | ') : undefined,
       }),
     )
     return new BeanApiError('INTERNAL_ERROR', 'Something went wrong handling your request.').toResponse()

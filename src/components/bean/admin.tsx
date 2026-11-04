@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react'
 import { beanFetch, GoldBadge, Spinner, StatusDot, timeAgo } from './shared'
 import { ShieldCheck, Server, ScrollText } from 'lucide-react'
+import { AdminGateway } from './admin-gateway'
 
 interface Backend {
   id: string
@@ -59,6 +60,11 @@ export function Admin() {
       <div className="mb-6 flex items-center gap-2">
         <ShieldCheck className="h-5 w-5 text-[#d4af37]" />
         <h1 className="text-xl font-semibold tracking-tight">Admin <span className="text-white/40">— restricted diagnostics</span></h1>
+      </div>
+
+      {/* Unified AI gateway management (credentials, API keys, models, verification) */}
+      <div className="mb-8">
+        <AdminGateway />
       </div>
 
       {/* Stats */}

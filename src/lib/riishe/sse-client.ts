@@ -43,8 +43,18 @@ export interface RiisheStreamEvent {
   projectId?: string
   changes?: Array<{ path: string; change: string; diff?: unknown }>
   files?: Array<{ path: string; origin: string }>
-  /** RIISHE pipeline stages; CODE GIFTZ uses 'thinking' before first token. */
-  stage?: 'researching' | 'tools' | 'solving' | 'verifying' | 'thinking'
+  /** RIISHE pipeline stages; CODE GIFTZ uses 'thinking' before first token.
+   *  'verifying'/'revising' are the self-verification pipeline stages
+   *  (CODE GIFTZ): verifying keeps the draft visible; revising means the
+   *  deltas that follow REPLACE the streamed buffer (corrected answer). */
+  stage?: 'researching' | 'tools' | 'solving' | 'verifying' | 'thinking' | 'revising'
+  /** Self-verification summary on the terminal done frame (public fields only). */
+  verification?: {
+    status: 'verified' | 'corrected' | 'corrected-unverified' | 'unverified'
+    attempts: number
+    corrections: number
+    issuesFound: number
+  } | null
 }
 
 export type StreamFailureKind =
