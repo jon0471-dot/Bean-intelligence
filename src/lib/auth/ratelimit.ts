@@ -47,7 +47,11 @@ export const PRODUCT_RATE_LIMITS: Record<string, number> = {
 export const PRODUCT_DAILY_QUOTAS: Record<string, number> = {
   riishe: 300,
   laxii: 40,
-  jazmii: 0, // product unavailable — quota 0 keeps it closed even if enabled
+  // 2026-11-04: JAZMII is operational on the authorized hosted video backend,
+  // so the placeholder 0 (which kept the product closed when no backend
+  // existed) is replaced by the real bounded quota matching its rate-limit
+  // tier. Video jobs are metered in UsageRecord like every other product.
+  jazmii: 6,
   'code-giftz': 150,
 }
 
