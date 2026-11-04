@@ -12,21 +12,23 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  name          String?
-  role          String         @default("member") // member | admin
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  sessions      Session[]
-  conversations Conversation[]
-  jobs          GenerationJob[]
-  usageRecords  UsageRecord[]
-  documents     Document[]
-  codeProjects  CodeProject[]
-  imageAssets   ImageAsset[]
-  memories      RiisheMemory[]
+  id                  String         @id @default(cuid())
+  email               String         @unique
+  passwordHash        String
+  name                String?
+  role                String         @default("member") // member | admin
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  sessions            Session[]
+  conversations       Conversation[]
+  jobs                GenerationJob[]
+  usageRecords        UsageRecord[]
+  documents           Document[]
+  codeProjects        CodeProject[]
+  imageAssets         ImageAsset[]
+  memories            RiisheMemory[]
+  providerCredentials ProviderCredential[]
+  apiKeys             ApiKey[]
 }
 
 model Session {
@@ -218,4 +220,88 @@ model RiisheMemory {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+// ---- Unified AI gateway (2026-11-04 work order) -----------------------------
+// Additive tables only — existing models are untouched. All secret material
+// is stored encrypted (AES-256-GCM) or hashed (SHA-256); raw secrets are
+// NEVER persisted and NEVER returned by any API response.
+
+// External PROVIDER credentials (secret type A): the admin-supplied API keys
+// that let the gateway call third-party inference providers. Encrypted at
+// rest with the master key from the environment; never sent to any client.
+model ProviderCredential {
+  id          String    @id @default(cuid())
+  provider    String // registered provider id, e.g. 'openai-compatible'
+  label       String // admin-chosen display label
+  // AES-256-GCM payload (versioned envelope). Contains the provider API key
+  // and optional endpoint overrides as JSON — readable ONLY server-side with
+  // the master key, which lives outside this database.
+  encrypted   String
+  // Masked, display-only hint (e.g. "sk-…ab12") — no usable secret material.
+  maskedHint  String
+  status      String    @default("active") // active | revoked
+  keyVersion  Int       @default(1) // master-key envelope version
+  baseUrl     String? // endpoint override (non-secret), used by the adapter
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastUsedAt  DateTime?
+  user        User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([provider, status])
+}
+
+// CODE GIFTZ APPLICATION API keys (secret type B): gateway access tokens for
+// BEAN products and third-party integrations. Only a SHA-256 hash is stored;
+// the complete key is shown exactly once at creation.
+model ApiKey {
+  id              String    @id @default(cuid())
+  userId          String // owning administrator
+  name            String
+  prefix          String // first chars (e.g. "bgk_abcd") — lookup + masked display
+  keyHash         String    @unique // SHA-256 hex of the FULL key; raw key never stored
+  permissions     String    @default("[]") // JSON array of granted scopes
+  rateLimitPerMin Int       @default(60)
+  status          String    @default("active") // active | revoked
+  expiresAt       DateTime?
+  lastUsedAt      DateTime?
+  requestCount    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  revokedAt       DateTime?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([keyHash])
+  @@index([userId, status])
+}
+
+// Per-request gateway diagnostics (admin-facing; no prompts, no secrets).
+// Usage aggregates for metering live in UsageRecord (product 'api-gateway').
+model GatewayRequestLog {
+  id         String   @id @default(cuid())
+  authKind   String // session | api-key
+  keyId      String? // application API key id (when api-key auth)
+  userId     String? // owning user of the session or key
+  provider   String
+  model      String
+  endpoint   String
+  status     Int // HTTP status returned
+  errorCode  String?
+  tokensIn   Int?
+  tokensOut  Int?
+  durationMs Int?
+  streamed   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([keyId])
+}
+
+// Runtime-tunable operator settings (self-verification controls, etc.).
+// JSON-string values; admins update via /api/admin/verification.
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedBy String?
+  updatedAt DateTime @updatedAt
 }

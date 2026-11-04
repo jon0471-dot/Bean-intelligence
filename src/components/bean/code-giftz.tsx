@@ -43,6 +43,7 @@ import {
   X,
   MessageSquareCode,
   Save,
+  BadgeCheck,
 } from 'lucide-react'
 
 interface ProjectSummary { id: string; title: string; messages: number; files: number; updatedAt: string }
@@ -55,6 +56,13 @@ interface ChatMessage {
    *  output, honestly labeled instead of silently shown as a full answer. */
   incomplete?: boolean
   incompleteReason?: 'stopped' | 'interrupted'
+  /** Self-verification summary (public fields only — no internal trace). */
+  verification?: {
+    status: 'verified' | 'corrected' | 'corrected-unverified' | 'unverified'
+    attempts: number
+    corrections: number
+    issuesFound: number
+  } | null
 }
 interface ProjectFile { path: string; content: string; origin: 'generated' | 'modified' }
 interface FileChange {
@@ -111,6 +119,8 @@ export function CodeGiftz() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [thinking, setThinking] = useState(false)
+  /** Self-verification stage indicator (only set when the pipeline is enabled). */
+  const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openTabs, setOpenTabs] = useState<string[]>([])
   const [activeFile, setActiveFile] = useState<string | null>(null)
@@ -149,7 +159,7 @@ export function CodeGiftz() {
   }, [])
 
   useEffect(() => { void loadProjects() }, [loadProjects])
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [messages, streaming, thinking])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [messages, streaming, thinking, verifying])
   // Unmount during generation stops the request instead of leaving an
   // orphaned stream running (and its server-side generation continuing).
   useEffect(
@@ -309,6 +319,7 @@ export function CodeGiftz() {
     setStreaming(true)
     streamingRef.current = true
     setThinking(true)
+    setVerifying(false)
     streamedRef.current = ''
     lastPromptRef.current = message
 
@@ -367,6 +378,15 @@ export function CodeGiftz() {
           onEvent: (evt) => {
             if (evt.projectId) newProjectId = evt.projectId
             if (evt.stage === 'thinking') setThinking(true)
+            // Self-verification stages (additive, only sent when the operator
+            // enabled the pipeline): 'verifying' keeps the draft visible;
+            // 'revising' means the deltas that follow REPLACE the buffer.
+            if (evt.stage === 'verifying') setVerifying(true)
+            if (evt.stage === 'revising') {
+              setVerifying(false)
+              streamedRef.current = ''
+              setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, content: '' } : m)))
+            }
             if (evt.error) serverError = { message: evt.error, code: evt.code ?? 'BACKEND_FAILURE' }
             if (evt.delta) {
               streamedRef.current += evt.delta
@@ -377,14 +397,16 @@ export function CodeGiftz() {
           onComplete: (evt) => {
             lastPromptRef.current = null // turn really completed — no Retry
             setThinking(false)
+            setVerifying(false)
             const wireChanges = evt.changes ?? []
+            const wireVerification = evt.verification ?? null
             setLastChanges(
               wireChanges.map((c) => ({ path: c.path, change: c.change === 'modified' ? 'modified' : 'added', diff: c.diff ?? [] })) as FileChange[],
             )
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === asstId
-                  ? { ...m, content: streamedRef.current, changes: wireChanges.map((c) => ({ path: c.path, change: c.change })), incomplete: false }
+                  ? { ...m, content: streamedRef.current, changes: wireChanges.map((c) => ({ path: c.path, change: c.change })), incomplete: false, verification: wireVerification }
                   : m,
               ),
             )
@@ -402,6 +424,7 @@ export function CodeGiftz() {
           },
           onFailure: (failure: StreamFailureInfo) => {
             setThinking(false)
+            setVerifying(false)
             const hasText = streamedRef.current !== ''
             if (hasText) {
               // Partial content is preserved and labeled honestly: never a
@@ -430,6 +453,7 @@ export function CodeGiftz() {
       // Failures BEFORE the stream was consumable (fetch rejection, non-OK
       // status) — typed the same way, never the browser's raw wording.
       setThinking(false)
+      setVerifying(false)
       if ((e as Error).name === 'AbortError') {
         if (streamedRef.current !== '') {
           setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, incomplete: true, incompleteReason: 'stopped' } : m)))
@@ -444,6 +468,7 @@ export function CodeGiftz() {
     } finally {
       setStreaming(false)
       setThinking(false)
+      setVerifying(false)
       streamingRef.current = false
       streamingAsstIdRef.current = null
       abortRef.current = null
@@ -532,6 +557,21 @@ export function CodeGiftz() {
                             : 'Response interrupted — the text above is incomplete.'}
                         </p>
                       ) : null}
+                      {m.verification ? (
+                        <p
+                          className="mt-2 flex items-center gap-1.5 border-t border-[rgba(212,175,55,0.12)] pt-2 text-[10.5px] text-white/45"
+                          data-verification={m.verification.status}
+                        >
+                          <BadgeCheck className="h-3 w-3" />
+                          {m.verification.status === 'verified'
+                            ? 'Answer verified against your request.'
+                            : m.verification.status === 'corrected'
+                              ? `Answer corrected after verification (${m.verification.corrections} revision${m.verification.corrections === 1 ? '' : 's'}) and re-verified.`
+                              : m.verification.status === 'corrected-unverified'
+                                ? 'Answer corrected after verification; the corrected answer could not be fully re-verified.'
+                                : 'This answer could not be fully verified — treat it with care and double-check critical parts.'}
+                        </p>
+                      ) : null}
                       {m.changes.length > 0 ? (
                         <div className="mt-2 flex flex-wrap gap-1.5 border-t border-[rgba(212,175,55,0.12)] pt-2">
                           {m.changes.map((c) => (
@@ -552,8 +592,8 @@ export function CodeGiftz() {
                         </div>
                       ) : null}
                     </>
-                  ) : thinking ? (
-                    <span className="inline-flex items-center gap-2 text-xs text-white/40"><Spinner /> Thinking…</span>
+                  ) : thinking || verifying ? (
+                    <span className="inline-flex items-center gap-2 text-xs text-white/40"><Spinner /> {verifying ? 'Verifying answer…' : 'Thinking…'}</span>
                   ) : null}
                 </div>
               </div>
