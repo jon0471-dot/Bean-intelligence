@@ -7,6 +7,13 @@
  */
 import ZAI from 'z-ai-web-dev-sdk'
 import type { HealthFailureCategory, HealthReport, ImageRequest, ImageResult, TaskAdapter } from './types'
+import {
+  noteUpstream429,
+  noteUpstreamSkip,
+  noteUpstreamSuccess,
+  upstreamCoolingDown,
+  UpstreamRateLimitError,
+} from '@/lib/upstream/gateway'
 
 const BACKEND_ID = 'bean-image-hosted-primary'
 /** Exactly the size literals the gateway SDK accepts. */
@@ -240,14 +247,44 @@ export const hostedImageAdapter: TaskAdapter = {
     if (!SUPPORTED_SIZE_SET.has(req.size)) {
       throw new Error(`Unsupported size ${req.size} for configured backend`)
     }
+    // PHASE 1 gateway recovery (2026-11-04): image generations ride the same
+    // account as chat/functions and were measured 429ing while the cheap
+    // reachability probe passed. The images endpoint class now carries its
+    // own 429 breaker: while it is open, generation requests fail fast with
+    // the honest typed error and ZERO network traffic — one bounded probe
+    // per cooldown window instead of a retry storm into an account-wide
+    // throttle. The queue worker surfaces this as the rate-limited class.
+    if (upstreamCoolingDown('images')) {
+      noteUpstreamSkip('images')
+      throw new UpstreamRateLimitError(
+        'images',
+        'image generation not attempted: the upstream gateway is rate-limited (HTTP 429 observed moments ago); ' +
+          'request skipped to avoid worsening the throttle',
+        false,
+      )
+    }
     // Runtime-validated above; the cast only mirrors the SDK's literal union.
     const size = req.size as SupportedSize
     const t0 = Date.now()
     const zai = await ZAI.create()
-    const res = await zai.images.generations.create({
-      prompt: req.prompt.slice(0, 4000),
-      size,
-    })
+    let res
+    try {
+      res = await zai.images.generations.create({
+        prompt: req.prompt.slice(0, 4000),
+        size,
+      })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      if (/\bstatus\s+429\b|\bHTTP\s+429\b/.test(message)) {
+        noteUpstream429('images')
+        throw new UpstreamRateLimitError(
+          'images',
+          `image generation is rate-limited upstream (HTTP 429): ${message.slice(0, 200)}`,
+        )
+      }
+      throw e
+    }
+    noteUpstreamSuccess('images')
     const b64 = res.data?.[0]?.base64
     if (!b64) throw new Error('Upstream returned no image payload')
     const bytes = Buffer.from(b64, 'base64')

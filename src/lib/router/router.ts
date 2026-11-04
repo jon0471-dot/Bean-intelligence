@@ -20,6 +20,7 @@ import { BeanApiError } from '@/lib/api/errors'
 import { checkDailyQuota, checkRateLimit } from '@/lib/auth/ratelimit'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
+import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
 import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
 import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import type {
@@ -40,13 +41,15 @@ const ADAPTERS: Record<string, TaskAdapter> = {
   // the (currently disabled) local Diffusers worker adapter.
   'bean-image-local-sharp': localLaxiiAdapter,
   'bean-image-selfhosted-diffusers': diffusersWorkerAdapter,
+  // JAZMII — authorized hosted video backend (async task + polling adapter).
+  'bean-video-hosted-primary': hostedVideoAdapter,
   'bean-video-selfhosted-candidate': {
     backendId: 'bean-video-selfhosted-candidate',
     health: async () => ({
       healthy: false,
       checkedAt: new Date().toISOString(),
       latencyMs: null,
-      detail: 'No video-generation worker is deployed in this environment.',
+      detail: 'The self-hosted video worker candidate is not deployed (planned open-weight path, hardware-gated).',
     }),
   },
 }

@@ -20,6 +20,7 @@ import {
   healthFailureCategory,
   noteUpstream429,
   noteUpstreamSkip,
+  noteUpstreamSuccess,
   upstreamCoolingDown,
   UpstreamAuthError,
   UpstreamBillingError,
@@ -287,7 +288,11 @@ async function createWithGatewayGuard(
     )
   }
   try {
-    return await zai.chat.completions.create(body as never)
+    const result = await zai.chat.completions.create(body as never)
+    // PHASE 1 bounded backoff: a real success resets the consecutive-429
+    // streak so the next throttle starts from the base window again.
+    noteUpstreamSuccess('chat')
+    return result
   } catch (e) {
     const failure = classifyUpstreamError(e)
     const raw = e instanceof Error ? e.message : String(e)
