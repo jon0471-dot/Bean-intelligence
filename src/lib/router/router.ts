@@ -41,6 +41,8 @@ const ADAPTERS: Record<string, TaskAdapter> = {
   // the (currently disabled) local Diffusers worker adapter.
   'bean-image-local-sharp': localLaxiiAdapter,
   'bean-image-selfhosted-diffusers': diffusersWorkerAdapter,
+  // LAXII — authorized hosted image editing (conversational edit path).
+  'bean-image-hosted-edit': hostedImageAdapter,
   // JAZMII — authorized hosted video backend (async task + polling adapter).
   'bean-video-hosted-primary': hostedVideoAdapter,
   'bean-video-selfhosted-candidate': {
