@@ -1,0 +1,42 @@
+{
+  "at": "2026-11-04T15:14:42.380Z",
+  "baseUrlRecorded": true,
+  "apiKeyPresent": true,
+  "probes": [
+    {
+      "endpointClass": "chat",
+      "attempted": true,
+      "ok": false,
+      "status": 429,
+      "latencyMs": 26,
+      "failureKind": "rate_limited",
+      "evidence": "API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+      "at": "2026-11-04T15:14:26.366Z"
+    },
+    {
+      "endpointClass": "functions",
+      "attempted": true,
+      "ok": false,
+      "status": 429,
+      "latencyMs": 9,
+      "failureKind": "rate_limited",
+      "evidence": "Function invoke failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+      "at": "2026-11-04T15:14:34.376Z"
+    },
+    {
+      "endpointClass": "image-meta",
+      "attempted": true,
+      "ok": true,
+      "status": 404,
+      "latencyMs": 4,
+      "failureKind": null,
+      "evidence": "GET /models -> HTTP 404",
+      "at": "2026-11-04T15:14:42.380Z"
+    }
+  ],
+  "verdict": {
+    "chat": "NOT-OPERATIONAL",
+    "functions": "NOT-OPERATIONAL",
+    "imageMeta": "REACHABLE"
+  }
+}

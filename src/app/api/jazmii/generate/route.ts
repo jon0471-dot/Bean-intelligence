@@ -6,67 +6,88 @@ import { requireUser } from '@/lib/auth/session'
 import { preflight } from '@/lib/router/router'
 import { getProduct } from '@/lib/registry/products'
 import { getBackend } from '@/lib/registry/backends'
-
-const schema = z.object({
-  prompt: z.string().min(3).max(2000),
-  // NOTE: duration/resolution options are intentionally NOT offered —
-  // no video backend is deployed, so BEAN must not advertise parameters
-  // no worker can honor (spec §2C: never promise unsupported capability).
-})
+import { enqueueJob } from '@/lib/jobs/queue'
+import { ensureVideoPoller } from '@/lib/jobs/video-worker'
 
 /**
- * JAZMII — submit a video-generation job.
+ * JAZMII — submit a REAL video-generation job (async; no HTTP request is
+ * held open while the provider renders).
  *
- * TRUTH POLICY: with no video backend deployed, the router rejects here
- * with a clear, stable error. A rejected request is recorded in the job
- * table as `unsupported` for transparency — it is NEVER presented as
- * queued/running/completed, and no synthetic job is fabricated.
+ * Validation: prompt 3..2000 chars; optional image-to-video driver as an
+ * https URL or data URL (provider-validated); size strictly 'WxH' with
+ * bounded dimensions; duration/fps bounded pass-through — the provider's
+ * own validation errors surface honestly.
  */
+const schema = z.object({
+  prompt: z.string().min(3).max(2000),
+  imageUrl: z
+    .string()
+    .max(8_000_000)
+    .refine(
+      (v) => /^https:\/\//.test(v) || /^data:image\/(png|jpeg|jpg|webp);base64,/.test(v),
+      'imageUrl must be an https URL or a base64 data URL (png/jpeg/webp).',
+    )
+    .optional(),
+  quality: z.enum(['speed', 'quality']).optional(),
+  withAudio: z.boolean().optional(),
+  size: z
+    .string()
+    .regex(/^\d{3,4}x\d{3,4}$/, 'size must be WxH (e.g. 1280x720)')
+    .refine((v) => {
+      const [w, h] = v.split('x').map(Number)
+      return w >= 360 && w <= 1920 && h >= 360 && h <= 1920
+    }, 'size dimensions must be within 360..1920')
+    .optional(),
+  durationSec: z.number().int().min(3).max(12).optional(),
+  fps: z.number().int().min(12).max(60).optional(),
+})
+
 export async function POST(request: Request) {
   return handle(async () => {
     const user = await requireUser()
     const body = await parseBody(request, schema)
 
+    // Routing rules 1–5: availability, rate limit, quota, concurrency, backend.
+    const { backend, release } = await preflight(user.id, 'jazmii', 'video-generation')
     try {
-      await preflight(user.id, 'jazmii', 'video-generation')
-      // Unreachable today: the registry entry is disabled, preflight throws.
-    } catch {
-      // Expected path: PRODUCT_UNAVAILABLE / NO_BACKEND from the router.
-      // Record the truthful rejection (auditable, visible in history).
-      await db.generationJob.create({
+      const job = await db.generationJob.create({
         data: {
           userId: user.id,
           product: 'jazmii',
           task: 'video-generation',
-          status: 'unsupported',
+          status: 'queued',
           progress: 0,
-          paramsJson: JSON.stringify({ prompt: body.prompt }),
-          errorCode: 'NO_BACKEND',
-          errorMessage:
-            'JAZMII is not operational: no licensed video-generation backend is deployed in this environment.',
-          finishedAt: new Date(),
+          paramsJson: JSON.stringify({
+            prompt: body.prompt,
+            ...(body.imageUrl ? { imageUrl: body.imageUrl } : {}),
+            ...(body.quality ? { quality: body.quality } : {}),
+            ...(body.withAudio !== undefined ? { withAudio: body.withAudio } : {}),
+            ...(body.size ? { size: body.size } : {}),
+            ...(body.durationSec ? { durationSec: body.durationSec } : {}),
+            ...(body.fps ? { fps: body.fps } : {}),
+          }),
         },
       })
+      // Fire-and-forget async processing (submit + poll in background).
+      enqueueJob(job.id)
       return ok(
         {
-          rejected: true,
-          code: 'NO_BACKEND',
-          message:
-            'JAZMII cannot accept video jobs yet. No video-generation backend is deployed — BEAN does not simulate video generation. Deploy a licensed GPU worker (see docs/models/MODEL-EVALUATION-REPORT.md) to enable this product.',
+          job: {
+            id: job.id,
+            status: 'queued',
+            progress: 0,
+            queuedAt: job.queuedAt,
+          },
         },
-        { status: 200 },
+        { status: 202 },
       )
+    } finally {
+      release()
     }
-
-    // Defensive: if a backend is ever enabled without an implementation.
-    return ok(
-      { rejected: true, code: 'NO_BACKEND', message: 'Video backend has no adapter implementation.' },
-      { status: 200 },
-    )
   })
 }
 
-/** JAZMII job history (shows the truthful `unsupported` records). */
+/** JAZMII job history + product availability (measured, not hardcoded). */
 export async function GET() {
   return handle(async () => {
     const user = await requireUser()
@@ -75,21 +96,45 @@ export async function GET() {
       orderBy: { queuedAt: 'desc' },
       take: 20,
     })
-    const backend = getBackend('bean-video-selfhosted-candidate')
+    // Recovery: re-attach pollers to running/queued jobs that lost theirs
+    // (restart) so a browser refresh reconnects to the same provider task.
+    for (const j of jobs) {
+      ensureVideoPoller({
+        id: j.id,
+        userId: j.userId,
+        product: j.product,
+        task: j.task,
+        status: j.status,
+        paramsJson: j.paramsJson,
+        resultJson: j.resultJson,
+      })
+    }
+    const backend = getBackend('bean-video-hosted-primary')
     const product = getProduct('jazmii')
     return ok({
       productAvailability: {
-        available: false,
-        reason: backend?.unavailableReason ?? 'No backend configured.',
+        available: backend?.enabled === true,
+        reason:
+          backend?.enabled === true
+            ? 'JAZMII is operational: submissions run on the authorized hosted video backend. Completion is proven by each job, individually.'
+            : backend?.unavailableReason ?? 'No backend configured.',
         product: product?.name ?? 'JAZMII',
       },
-      jobs: jobs.map((j) => ({
-        id: j.id,
-        status: j.status,
-        errorCode: j.errorCode,
-        errorMessage: j.errorMessage,
-        queuedAt: j.queuedAt,
-      })),
+      jobs: jobs.map((j) => {
+        const result = j.resultJson ? (JSON.parse(j.resultJson) as Record<string, unknown>) : null
+        return {
+          id: j.id,
+          status: j.status,
+          progress: j.progress,
+          errorCode: j.errorCode,
+          errorMessage: j.errorMessage,
+          videoUrl: result && j.status === 'completed' ? result.videoUrl : null,
+          format: result?.format,
+          bytes: result?.bytes,
+          queuedAt: j.queuedAt,
+          finishedAt: j.finishedAt,
+        }
+      }),
     })
   })
 }

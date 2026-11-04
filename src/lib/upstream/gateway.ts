@@ -35,7 +35,14 @@
 
 import type { HealthFailureCategory } from '../adapters/types'
 
-export type UpstreamEndpointClass = 'functions' | 'chat'
+/**
+ * Endpoint classes the gateway rate-limits separately (measured 2026-10-29:
+ * functions 429'd while chat still succeeded, then both). PHASE 1 (2026-11-04
+ * AI-GATEWAY-RECOVERY): the SDK's capability surface also serves images,
+ * video (async jobs) and audio on the same account — each gets its own class
+ * so one class's throttle can never fail-fast another class's traffic.
+ */
+export type UpstreamEndpointClass = 'functions' | 'chat' | 'images' | 'video' | 'audio'
 
 /**
  * MEASURED CHANGE (2026-11-04 connectivity audit): map an upstream failure
@@ -149,12 +156,32 @@ const STORE_KEY = '__bean_upstream_cooldown__'
 /** BEAN's own conservative backoff after an observed 429 (not a provider claim). */
 export const UPSTREAM_429_COOLDOWN_MS = 60_000
 
+/**
+ * PHASE 1 bounded escalation (2026-11-04 AI-GATEWAY-RECOVERY): a throttle
+ * window measured to last MINUTES must not be probed every 60s forever.
+ * CONSECUTIVE 429s (no intervening success) double the cooldown up to a hard
+ * 10-minute cap: 60s → 120s → 240s → 480s → 600s → 600s … Any REAL success
+ * resets the streak to the base window. Bounded in both directions: never a
+ * tighter-than-60s probe into a throttle, never an unbounded retry loop.
+ */
+export const UPSTREAM_429_COOLDOWN_MAX_MS = 600_000
+
+/** Escalated cooldown for a streak of consecutive 429s (streak >= 1). */
+export function escalated429CooldownMs(streak: number): number {
+  const n = Math.max(1, Math.floor(streak))
+  return Math.min(UPSTREAM_429_COOLDOWN_MS * 2 ** (n - 1), UPSTREAM_429_COOLDOWN_MAX_MS)
+}
+
 interface CooldownState {
   until: number
   /** How many calls were skipped (failed fast) while the breaker was open. */
   skipped: number
   /** Last observed 429 (for honest logging). */
   last429At: number | null
+  /** Consecutive observed 429s without an intervening real success. */
+  streak: number
+  /** Cooldown that the most recent 429 opened (for honest reporting). */
+  lastCooldownMs: number
 }
 
 function cooldownStore(): Map<UpstreamEndpointClass, CooldownState> {
@@ -167,17 +194,50 @@ function stateFor(cls: UpstreamEndpointClass): CooldownState {
   const store = cooldownStore()
   let s = store.get(cls)
   if (!s) {
-    s = { until: 0, skipped: 0, last429At: null }
+    s = { until: 0, skipped: 0, last429At: null, streak: 0, lastCooldownMs: UPSTREAM_429_COOLDOWN_MS }
     store.set(cls, s)
   }
   return s
 }
 
-/** Register an observed upstream 429: (re)open the cooldown window. */
+/** Register an observed upstream 429: (re)open the cooldown window with the
+ *  escalated duration for the current consecutive-429 streak. */
 export function noteUpstream429(cls: UpstreamEndpointClass, now = Date.now()): void {
   const s = stateFor(cls)
-  s.until = now + UPSTREAM_429_COOLDOWN_MS
+  s.streak += 1
+  s.lastCooldownMs = escalated429CooldownMs(s.streak)
+  s.until = now + s.lastCooldownMs
   s.last429At = now
+}
+
+/**
+ * Register a REAL success through this endpoint class: the streak resets so
+ * the next 429 starts again from the base window. Recovery is still verified
+ * call-by-call — a success never pre-clears an open cooldown; it only proves
+ * the throttle let one request through (which is exactly what a success is).
+ */
+export function noteUpstreamSuccess(cls: UpstreamEndpointClass): void {
+  stateFor(cls).streak = 0
+}
+
+/** Structured breaker state for health payloads and operator reports. */
+export function upstreamBreakerState(cls: UpstreamEndpointClass, now = Date.now()): {
+  coolingDown: boolean
+  remainingMs: number
+  consecutive429s: number
+  currentCooldownMs: number
+  last429At: string | null
+  skippedCalls: number
+} {
+  const s = stateFor(cls)
+  return {
+    coolingDown: s.until > now,
+    remainingMs: Math.max(0, s.until - now),
+    consecutive429s: s.streak,
+    currentCooldownMs: s.lastCooldownMs,
+    last429At: s.last429At !== null ? new Date(s.last429At).toISOString() : null,
+    skippedCalls: s.skipped,
+  }
 }
 
 /** True while the breaker is open for this endpoint class. */

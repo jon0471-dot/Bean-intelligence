@@ -253,10 +253,63 @@ const DIFFUSERS_WORKER: BackendDescriptor = {
 }
 
 /**
- * JAZMII — video generation. NO compatible backend exists in this
- * environment (no GPU worker, no authorized video endpoint). The registry
- * records the PLANNED self-hosted candidate set honestly; the router will
- * refuse traffic with a clear NO_BACKEND error instead of faking jobs.
+ * JAZMII — authorized hosted video generation (async task API).
+ *
+ * ENABLED with the same truth policy as the other hosted backends: the
+ * adapter executes REAL submissions (provider task id) and REAL polling;
+ * outputs are downloaded server-side, validated by container magic bytes
+ * and re-served from BEAN storage. The provider-managed checkpoint is NOT
+ * disclosed to tenants — recorded verbatim. Latency/limit figures below
+ * are BEAN's own enforced policies, not provider claims.
+ */
+const HOSTED_VIDEO: BackendDescriptor = {
+  id: 'bean-video-hosted-primary',
+  productId: 'jazmii',
+  task: 'video-generation',
+  provider: 'Z.ai authorized hosted inference gateway',
+  modelIdentity:
+    'Provider-managed text-to-video / image-to-video model; exact checkpoint not disclosed to tenant',
+  revision: null,
+  endpointType: 'managed-sdk',
+  deploymentMode: 'authorized-hosted',
+  runtime: 'Provider-managed GPU runtime (no tenant-side GPU required); async task submission + polling',
+  limits: {
+    maxPromptChars: 2000,
+    qualityModes: ['speed', 'quality'],
+    audio: 'provider-supported flag (with_audio), off by default',
+    sizeFormat: 'WxH pass-through; the live-accepted set is established by the acceptance run and recorded afterwards',
+    maxOutputBytes: 100 * 1024 * 1024,
+    pollIntervalMs: 5_000,
+    maxPollDurationMs: 15 * 60_000,
+    cancellation: 'Provider exposes no cancel API — BEAN cancellation means stop-tracking (stated honestly in UI/API)',
+  },
+  license: {
+    name: 'Access governed by platform inference agreement',
+    commercialUse: 'authorized',
+    note:
+      'Generated videos are delivered to the customer; upstream model weights are not redistributed by BEAN. No proprietary application (e.g. Flow) is copied or implied.',
+    sourceUrl: 'https://z.ai',
+    verifiedAt: '2026-11-04',
+  },
+  dataHandling:
+    'Prompts and optional reference images are processed by the provider under its platform terms. Output videos are stored under BEAN storage with per-user access checks; provider URLs are never exposed.',
+  metering: { unit: 'video-job', costUnit: null },
+  secrets: ['ZAI_GATEWAY_CREDENTIALS (managed by platform runtime)'],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 2 },
+  timeouts: { requestMs: 30_000, queueMs: 10_000 },
+  // Truthful policy: one submission per job; polling failures surface honestly.
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
+ * JAZMII — planned SELF-HOSTED video worker (candidate). The authorized
+ * hosted backend above is the live path; this disabled entry records the
+ * planned open-weight deployment candidate set honestly (Wan 2.2-class,
+ * hardware-gated). The router serves JAZMII from the FIRST enabled backend
+ * for the product; this one stays disabled until a real GPU worker passes
+ * its preflight + a verified inference test.
  */
 const VIDEO_PLANNED: BackendDescriptor = {
   id: 'bean-video-selfhosted-candidate',
@@ -341,6 +394,7 @@ export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_IMAGE,
   LOCAL_SHARP_ENGINE,
   DIFFUSERS_WORKER,
+  HOSTED_VIDEO,
   VIDEO_PLANNED,
   HOSTED_CODE_LLM,
 ]

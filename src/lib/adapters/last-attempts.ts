@@ -28,7 +28,12 @@
  */
 import type { HealthFailureCategory } from './types'
 
-export type AttemptTask = 'image-generation' | 'image-enhancement' | 'image-editing'
+export type AttemptTask =
+  | 'image-generation'
+  | 'image-enhancement'
+  | 'image-editing'
+  | 'video-generation'
+  | 'audio-generation'
 
 /** Failure categories that indicate the BACKEND/UPSTREAM is failing —
  *  as opposed to a request-specific rejection (content policy, user error). */
