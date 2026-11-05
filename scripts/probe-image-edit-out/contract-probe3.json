@@ -1,0 +1,14 @@
+[
+ {
+  "label": "images-string-b64",
+  "ok": false,
+  "latencyMs": 168,
+  "error": "API request failed with status 400: {\"error\":{\"code\":\"1210\",\"message\":\"API 调用参数有误，请检查文档。\"}}"
+ },
+ {
+  "label": "images-string-dataurl",
+  "ok": false,
+  "latencyMs": 186,
+  "error": "API request failed with status 400: {\"error\":{\"code\":\"1210\",\"message\":\"API 调用参数有误，请检查文档。\"}}"
+ }
+]

@@ -180,7 +180,11 @@ export async function GET() {
         'conversational-edit': {
           available: true,
           engine: 'hosted-edit',
-          note: 'Whole-image generative edit on the authorized backend. Not pixel-preserving; edits run as a tracked job.',
+          note:
+            'Whole-image generative edit on the authorized backend. Not pixel-preserving; edits run as a tracked job. ' +
+            'MEASURED 2026-11-05: the provider rejects every known request shape for this endpoint (10-shape probe, ' +
+            'see docs/reports/LAXII-LIVE-ACCEPTANCE.md) — attempts end in a typed job failure with the provider error ' +
+            'recorded verbatim until the provider documents the contract.',
         },
         'smart-edit': { available: worker.registryEnabled, engine: 'diffusers-worker' },
         'object-removal': { available: worker.registryEnabled, engine: 'diffusers-worker' },
