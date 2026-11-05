@@ -1,0 +1,36 @@
+[
+ {
+  "step": "metadata",
+  "path": "/openapi.json",
+  "status": 404,
+  "len": 18,
+  "preview": "404 page not found"
+ },
+ {
+  "step": "metadata",
+  "path": "/docs",
+  "status": 404,
+  "len": 18,
+  "preview": "404 page not found"
+ },
+ {
+  "step": "metadata",
+  "path": "/api-docs",
+  "status": 404,
+  "len": 18,
+  "preview": "404 page not found"
+ },
+ {
+  "step": "metadata",
+  "path": "/v1/models",
+  "status": 404,
+  "len": 18,
+  "preview": "404 page not found"
+ },
+ {
+  "step": "edit-public-url",
+  "ok": false,
+  "latencyMs": 209,
+  "error": "API request failed with status 400: {\"error\":{\"code\":\"1210\",\"message\":\"API 调用参数有误，请检查文档。request body invalid: image_to_image task must provide images\"}}"
+ }
+]

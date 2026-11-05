@@ -1,0 +1,14 @@
+[
+ {
+  "label": "images-array-b64",
+  "ok": false,
+  "latencyMs": 184,
+  "error": "API request failed with status 400: {\"error\":{\"code\":\"1210\",\"message\":\"API 调用参数有误，请检查文档。request body invalid: image_to_image task must provide images\"}}"
+ },
+ {
+  "label": "images-array-dataurl",
+  "ok": false,
+  "latencyMs": 221,
+  "error": "API request failed with status 400: {\"error\":{\"code\":\"1210\",\"message\":\"API 调用参数有误，请检查文档。request body invalid: image_to_image task must provide images\"}}"
+ }
+]
