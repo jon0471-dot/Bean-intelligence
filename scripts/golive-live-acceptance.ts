@@ -9,7 +9,7 @@
  * Usage: bun scripts/golive-live-acceptance.ts [steps...]
  *   steps: jazmii-submit | riishe | giftz | laxii | jazmii-collect | summary
  */
-import { mkdirSync, writeFileSync, appendFileSync, existsSync, readFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, appendFileSync, existsSync, readFileSync, readdirSync } from 'node:fs'
 
 const BASE = 'http://localhost:3000'
 const OUT = 'scripts/golive-out'
@@ -262,22 +262,37 @@ async function giftz(): Promise<void> {
     hasDebounceCode: hasCode, projectId, preview: answer.slice(0, 140), streamError,
   })
 
-  // Sandbox execution of the generated code: the task route records the
-  // coding task; the run route executes the task's OWN files with explicit
-  // approval. Resolve the latest task for this project, then run it.
-  if (projectId) {
-    const tasks = await api('GET', `/api/code-giftz/tasks?projectId=${projectId}`).catch(() => ({ status: 0, json: null as any }))
-    const taskId = Array.isArray(tasks.json?.tasks) ? tasks.json.tasks[0]?.id : (tasks.json?.tasks?.[0]?.id ?? null)
-    rec('giftz-task-lookup', { status: tasks.status, taskId, preview: JSON.stringify(tasks.json).slice(0, 120) })
-    if (taskId) {
+  // Sandbox execution of generated code: the CORRECT flow (route contract)
+  // is POST /api/code-giftz/tasks {mode:'generate',...} → the task row
+  // carries resultJson.files → POST /api/code-giftz/run {taskId, approval}.
+  // (The earlier draft queried GET /tasks?projectId= which lists only
+  // task-mode jobs — chat turns correctly create none.)
+  {
+    // Space the second chat-class call: the shared account throttles bursts.
+    await sleep(15_000)
+    if (!(await waitForClassOpen('chat', 6 * 60_000))) {
+      rec('giftz-task-create', { code: 'RATE_LIMITED', detail: 'chat-class breaker reopened between calls' })
+    } else {
+    const t = await api('POST', '/api/code-giftz/tasks', {
+      mode: 'generate',
+      prompt: 'Write a JavaScript function isPalindrome(s) that ignores case and non-alphanumeric characters, plus a tiny usage example.',
+      language: 'javascript',
+    })
+    const taskId = t.json?.task?.id ?? null
+    const fileCount = Array.isArray(t.json?.task?.files) ? t.json.task.files.length : 0
+    rec('giftz-task-create', { status: t.status, taskId, fileCount, code: t.json?.code ?? null })
+    if (taskId && fileCount > 0) {
       const run = await api('POST', '/api/code-giftz/run', { taskId, approval: true })
+      const r = run.json?.result ?? {}
       rec('giftz-sandbox-run', {
         status: run.status, ok: run.json?.ok ?? null,
-        outputPreview: JSON.stringify(run.json?.result ?? run.json).slice(0, 300),
+        exitCode: r.exitCode ?? null, timedOut: r.timedOut ?? null,
+        stdoutPreview: String(r.stdout ?? '').slice(0, 200),
+        stderrPreview: String(r.stderr ?? '').slice(0, 200),
+        outputPreview: run.status !== 200 ? JSON.stringify(run.json).slice(0, 300) : undefined,
       })
     }
-  } else {
-    rec('giftz-sandbox-run', { skipped: true, reason: 'no projectId' })
+    }
   }
 
   // Persistence of the coding conversation.
@@ -416,7 +431,7 @@ async function main() {
     // image-to-video driven by the FIRST real LAXII T2I artifact
     const src = `${OUT}/laxii`
     if (!existsSync(src)) throw new Error('no laxii artifact dir — run laxii first')
-    const file = readFileSync(`${src}/${require('node:fs').readdirSync(src).find((f: string) => f.startsWith('t2i-'))}`)
+    const file = readFileSync(`${src}/${readdirSync(src).find((f: string) => f.startsWith('t2i-'))}`)
     const dataUrl = `data:image/jpeg;base64,${file.toString('base64')}`
     await jazmiiSubmit('i2v', dataUrl)
   }

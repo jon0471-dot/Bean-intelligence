@@ -173,7 +173,12 @@ describe('hosted editImage adapter contract', () => {
     })
     expect(state.editCalls).toHaveLength(1)
     expect(state.editCalls[0].prompt).toContain('dusk skyline')
-    expect(state.editCalls[0].image).toBe(JPEG.toString('base64'))
+    // MEASURED gateway contract (2026-11-05): the edit field is `images`
+    // (a string — arrays and the typings' singular `image` are rejected by
+    // name); the value is the self-describing data URL. See
+    // src/lib/adapters/hosted-image.ts for the full 10-shape evidence table.
+    expect(state.editCalls[0].image).toBeUndefined()
+    expect(state.editCalls[0].images).toBe(`data:image/jpeg;base64,${JPEG.toString('base64')}`)
     expect(res.format).toBe('jpeg')
     expect(res.bytes[0]).toBe(0xff)
     expect(res.bytes[1]).toBe(0xd8)

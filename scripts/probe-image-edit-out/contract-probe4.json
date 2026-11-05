@@ -1,0 +1,23 @@
+[
+ {
+  "step": "t2i-raw",
+  "status": 200,
+  "hasUrl": true,
+  "urlHost": "maas-watermark-prod-new.cn-wlcb.ufileos.com",
+  "hasB64": false,
+  "bodyKeys": [
+   "created",
+   "data",
+   "id",
+   "request_id"
+  ],
+  "rawPreview": "{\"created\":1793840519,\"data\":[{\"url\":\"https://maas-watermark-prod-new.cn-wlcb.ufileos.com/2026110509015977ea65c4fd2e4185_watermark.png?UCloudPublicKey=TOKEN_6df395df-5d8c-4f69-90f8-a4fe46088958&Signat"
+ },
+ {
+  "step": "edit-gateway-url",
+  "status": 400,
+  "ok": false,
+  "bytes": null,
+  "rawPreview": "{\"error\":{\"code\":\"1210\",\"message\":\"API 调用参数有误，请检查文档。\"}}"
+ }
+]

@@ -324,9 +324,24 @@ export const hostedImageAdapter: TaskAdapter = {
     }
     const t0 = Date.now()
     const zai = await ZAI.create()
+    // MEASURED CONTRACT (2026-11-05, 10 shape probes recorded in
+    // scripts/probe-image-edit-out/contract-probe*.json):
+    //  - `image` (SDK typings' singular field) is rejected BY NAME — the
+    //    server answers 1210 "image_to_image task must provide images".
+    //  - `images` as an ARRAY (URLs, data-URLs or base64 items) is rejected by
+    //    the same named check — the validator wants a non-array value.
+    //  - `images` as a STRING (URL — including a gateway-issued CDN URL
+    //    captured from a raw T2I response, raw base64, or data URL) passes
+    //    the named check and fails later with a generic 1210 that discloses
+    //    no expected format. Public Z.AI docs describe NO edit endpoint, so
+    //    the exact string format cannot be derived tenant-side.
+    // We therefore send the self-describing data URL (consistent with this
+    // gateway's vision-chat image convention, `image_url.url = data:...`),
+    // which reaches the deepest measured validation stage. The typed 400 is
+    // recorded verbatim on the job — the blocker is external, never faked.
     const body: Record<string, unknown> = {
       prompt: req.prompt.slice(0, 4000),
-      image: req.imageBase64,
+      images: `data:image/jpeg;base64,${req.imageBase64}`,
       ...(req.size ? { size: req.size } : {}),
     }
     let res
