@@ -108,11 +108,19 @@ describe('CODE GIFTZ sidebar — date-grouped history', () => {
   })
 
   test('SSR: sections render with labels and the active row is highlighted', () => {
+    // Calendar-day-safe fixtures: "noon TODAY local" is always inside the
+    // Today bucket and noon-minus-40-days is always inside Older, whatever
+    // wall-clock time the suite runs at (hardcoded calendar dates made this
+    // test fail the next day; now-based offsets fail right after midnight).
+    const noonToday = new Date()
+    noonToday.setHours(12, 0, 0, 0)
+    const older = new Date(noonToday)
+    older.setDate(older.getDate() - 40)
     const html = renderToStaticMarkup(
       React.createElement(GiftzSidebarBody, {
         projects: [
-          { id: 'p1', title: 'Greeting module', messages: 2, files: 1, updatedAt: new Date('2026-11-04T10:00:00Z').toISOString() },
-          { id: 'p2', title: 'Parser fix', messages: 4, files: 2, updatedAt: new Date('2026-10-01T10:00:00Z').toISOString() },
+          { id: 'p1', title: 'Greeting module', messages: 2, files: 1, updatedAt: noonToday.toISOString() },
+          { id: 'p2', title: 'Parser fix', messages: 4, files: 2, updatedAt: older.toISOString() },
         ],
         activeId: 'p1',
         searching: false,

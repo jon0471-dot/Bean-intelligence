@@ -1,61 +1,61 @@
-# BEAN Four-Product Acceptance Report
+# BEAN Four-Product Acceptance Report — FINAL (GO-LIVE)
 
-**Date:** 2026-11-04 · **HEAD:** `942dbbf` (+docs) · **Evidence:** `scripts/four-product-acceptance-out/acceptance-results.json` (live run against the real dev server), `scripts/giftz-verify-out/w6-eval-local-*.json`, browser-rendered inspections.
+**Date:** 2026-11-05 · **Branch/HEAD:** `main` @ `dca2220` (+ this session's commit) · **Evidence:** committed `scripts/golive-out/evidence.jsonl` + artifacts, live DB job rows (cited by id), fresh probe JSON (`scripts/probe-image-edit-out/`, `scripts/giftz-verify-out/`), live-rendered UI captures, and the four per-product LIVE reports (`LAXII-LIVE-ACCEPTANCE.md`, `JAZMII-LIVE-ACCEPTANCE.md`, `CODE-GIFTZ-LIVE-ACCEPTANCE.md`, `W6-FINAL-ACCEPTANCE.md`).
 
 ## 1. Verification environment
 
-Real Next.js dev server on :3000 (the same deployment the public preview serves), real Prisma/SQLite database, real upstream provider gateway. Every result below is from an actual backend execution or an actual rendered page — none from mocks. Provider mocks exist only in isolated adapter unit tests and are never counted as generation proof.
+Real Next.js dev server on :3000 (the deployment the public preview serves), real Prisma/SQLite database, real authorized provider gateway, real local sandbox runner. Every counted result is a real backend execution, a real provider artifact or a real rendered page. Provider mocks exist only inside isolated adapter unit tests and are never counted as generation proof.
 
-## 2. Acceptance matrix (required format)
+## 2. Final acceptance matrix
 
 | Product | Feature | Implementation | Real test | Result |
 |---|---|---|---|---|
-| RIISHE | Assistant & tools (generation, tool loop, research, docs, memory, streaming) | Full (pre-existing, audited) | Unit suites green; live streamed answers verified in prior sessions; **fresh live turn this session: upstream 429** | **PARTIAL** (blocked by external throttling, honestly surfaced) |
-| RIISHE | Conversation persistence + isolation | Full | Live: persisted + listed; intruder → 404 | **PASS** |
-| LAXII | Text-to-image pipeline (submit → queue → worker → artifact → delivery) | Full (pre-existing) | Live: real submission 202, worker invoked real upstream API; upstream 429 → typed `BACKEND_FAILURE` job failure recorded verbatim | **PARTIAL** (pipeline real; completed artifact BLOCKED by upstream 429 today) |
-| LAXII | Enhancement + exact-preservation editing (masks, face zones, reports) | Full deterministic path (pre-existing) | Unit suites (`laxii-preservation`, `laxii-enhance`); real asset upload 201; capability truth endpoint | **PASS** (deterministic scope) |
-| LAXII | Generative masked editing + face-identity preservation (InstantID/IP-Adapter class) | Designed, gated off | Real asset + schema-valid smart-edit → typed **503 PROVIDER_UNAVAILABLE**; worker needs GPU host + licensed checkpoints | **BLOCKED** (hardware/weights; honest refusal verified) |
-| JAZMII | Text-to-video / image-to-video | Honest not-configured surface | Live: typed `NO_BACKEND` rejection persisted as `unsupported` audit record; availability=false with reason | **BLOCKED** (no GPU backend/checkpoint deployed — reported, not simulated) |
-| CODE GIFTZ | Conversation sidebar (search / rename / date groups / counts / delete-confirm / collapse / mobile) | **Built this session** (`11a68bc`) | 24 unit tests + live UI run-through (create → list → rename → search match/no-match/clear → cancel-delete → confirmed-delete → collapse → mobile drawer) | **PASS** |
-| CODE GIFTZ | Persistent database (auto-save, restore-on-refresh, ordering, honest failure states, retry dedupe) | Full (pre-existing, unit-pinned) | Live reopen after reload; IDOR 404; `PERSIST_FAILED` path pinned | **PASS** |
-| CODE GIFTZ | Real coding response (gateway turn) | Full | Real model call attempted → upstream 429 captured verbatim | **PARTIAL** (blocked by external throttling) |
-| CODE GIFTZ | W6 self-verification | Full, gated off by default | Local eval **PASS** (4/4 ground-truth executed, 8/8 detection, 8/8 verifier contract); live gateway-gated eval → designed BLOCKED path | **PASS (local)** / live **BLOCKED** |
+| RIISHE | Assistant: streaming turn, multi-turn context, persistence, memory | Full (pre-existing, audited) | **LIVE 2026-11-04**: turn 1 streamed (SSE 200, conversation created), turn 2 held the codename ("GOLDEN CANYON"), 5-message history re-listed with intact roles; chat-class probe succeeded again 2026-11-05 00:51Z; the research turn hit the account 429 window and is recorded verbatim | **PASS** (generation/context/persistence) · research turn live attempt recorded `RATE_LIMITED` during a throttle window |
+| LAXII | Text-to-image pipeline | Full | **LIVE 2026-11-04**: two completed generations (1024×1024, 186,940 B / 131,909 B, JPEG magic verified, owner-checked delivery); fresh 2026-11-05 attempt honestly `BACKEND_FAILURE` (429 window) | **PASS** |
+| LAXII | Deterministic exact-preservation editing | Full | Completed original/diff asset triples; live honest-503 refusal while GPU worker disabled | **PASS** |
+| LAXII | Hosted conversational editing | Implemented + adapter fixed to the measured contract | Provider rejects every known request shape (10-shape measured probe); typed 400 recorded verbatim on the job; capability endpoint discloses the blocker | **BLOCKED** (undocumented provider contract; unblock = one field once documented) |
+| JAZMII | Text-to-video (async end-to-end) | Full | **LIVE**: 202 submission → provider task `20261105…f82` → completed in ~88 s → 1,506,330-byte MP4 magic-verified server-side → owner-checked Range delivery | **PASS** |
+| JAZMII | Image-to-video | Implemented, unit-pinned | Live submission 202; worker call hit the 2026-11-05 throttle window → typed `RATE_LIMITED` recorded; completion awaits a window | **PARTIAL** (pipeline real; fresh completion blocked) |
+| JAZMII | Progress/cancel/preview/download/history | Full | Worker lifecycle + honest stop-tracking cancel + Range media route (unit-pinned + completed-job media verified) | **PASS** |
+| CODE GIFTZ | Real coding responses (SSE) | Full | **LIVE 2026-11-04**: two streamed answers (1,052/1,041 chars) containing working `debounce` code; honest in-stream 429 error frames keep the message for retry | **PASS** |
+| CODE GIFTZ | Conversation sidebar + persistence | Full | 24 unit tests + live UI run-through; calendar-safe fixture fix this session; project restore verified live | **PASS** |
+| CODE GIFTZ | Task mode + sandbox execution | Full | Contract pinned (approval + ownership + files); sandbox returns verbatim exit code/output; 6 completed tasks in DB (3 with generated `main.js`); fresh task-create attempts today typed-429'd | **PASS** (executor live-verified on gateway-created tasks; fresh creation throttle-gated) |
+| CODE GIFTZ | W6 self-verification | Full, default-off | Local eval PASS this session (4/4 executed ground truth, 8/8 detection, 8/8 verifier contract); live R3 best 66/67; live re-run throttle-gated | **PASS (local)** / live **BLOCKED** |
 
 ## 3. Separation of claim levels
 
-- **Implemented:** everything in the matrix (source-level, tested).
-- **Locally tested:** full unit suite 1018/0/64 files (29,050 expects), tsc 11 pre-existing scripts-only errors, eslint 0, dev-server live API run.
-- **Integration tested:** four-product acceptance run on the real server incl. cross-user IDOR guards, typed failure envelopes, health projection.
-- **Real-provider tested:** RIISHE/GIFTZ/LAXII generations were attempted against the real provider this session and are currently **429-throttled upstream** (rejections recorded verbatim); earlier sessions hold real successful generations (RIISHE streamed answers; LAXII hosted images; GIFTZ 66/67 R3 runs).
-- **Public-preview tested:** dashboard + CODE GIFTZ sidebar inspected in a real browser this session (uniform cards, sidebar flows, honest statuses).
-- **Production-ready:** not claimed — single-node queue/rate-limit stores, process-level sandbox isolation, and the upstream throttle dependency remain documented limitations.
+- **Implemented:** everything in the matrix (source-level, unit-pinned).
+- **Locally tested:** `bun test` **1,045 pass / 0 fail / 67 files** (29k+ expects); `tsc --noEmit` baseline errors remain scripts-only; `eslint` clean on changed files.
+- **Integration tested:** four-product acceptance harness runs on the real server incl. cross-user IDOR guards, typed failure envelopes, health projection.
+- **Real-provider tested:** RIISHE (2-turn conversation), LAXII (2 completed images), CODE GIFTZ (2 streamed coding answers), JAZMII (1 completed video) — all with committed artifacts/rows. 2026-11-05 fresh attempts during the sustained throttle window were recorded as typed failures rather than retried into.
+- **Public-preview tested:** dashboard + product UIs inspected in real browsers this session (uniform cards, honest 5-state statuses, JAZMII degraded-capability label).
+- **Production-ready:** not claimed — single-node queue/rate-limit stores, process-level sandbox isolation, and the shared-account throttle dependency remain documented limitations.
 
-## 4. Regression results (this session)
-
-- `bun test`: **1018 pass / 0 fail / 64 files / 29,050 expects** (was 994/62 before the sidebar work).
-- `eslint .`: 0 problems on all changed files.
-- `tsc --noEmit`: 11 errors, all pre-existing in `scripts/` (baseline preserved; none in changed code).
-- Build not re-run this session (no server-side structural changes beyond routes already type-checked; dev server compiled and served all changes).
-
-## 5. Honest status dashboard (measured at report time)
+## 4. Honest status dashboard (measured at report time)
 
 | Product | Status | Evidence |
 |---|---|---|
-| RIISHE | unavailable | probe deferred; failureCategory `rate-limited` (HTTP 429) |
-| LAXII | degraded | reachability probe 5–13ms OK; recorded generation attempt failing (upstream 429/404) |
-| JAZMII | not-configured | no probe runs; "backend not deployed" |
-| CODE GIFTZ | unavailable | probe deferred; failureCategory `rate-limited` (HTTP 429) |
+| RIISHE | operational↔unavailable (throttle windows) | chat probe 200 at 00:51Z; later probes 429 → breaker escalation; research class independent |
+| LAXII | operational (reachability) with generation gated by the same account throttle | images-class breaker opened on a real 429 during the fresh attempt — exactly the designed behavior |
+| JAZMII | operational (reachability + completed-job evidence) with fresh submissions throttle-gated | video-class typed failures recorded verbatim |
+| CODE GIFTZ | operational↔unavailable (throttle windows) | probe 200 at 01:21Z; later windows 429 |
 
-This is the truthful picture: the platform's own honesty machinery (5-state contract, breaker deferral, last-attempt evidence) is functioning exactly as specified.
+HTTP 200 on reachability is never treated as generation proof; the five-state contract (Operational/Degraded/Unavailable/Not configured/Checking) renders the measured reality, and one product's failure never alters another's health result (per-class breakers + isolated probes).
 
-## 6. Blockers (explicit)
+## 5. Blockers (explicit, current)
 
-1. **Upstream provider throttling (account-level 429)** on chat + image classes — external; all live generation acceptance that requires a fresh provider answer is BLOCKED until it lifts. No workaround without violating the no-fabrication rules.
-2. **No GPU host / licensed video or diffusers checkpoints** — JAZMII stays Not configured; LAXII generative editing stays honestly refused.
-3. **W6 live re-verification + 67/67 R3** — requires blocker 1 to clear.
+1. **Shared-account provider throttling (HTTP 429, all endpoint classes)** — external; the bounded escalating breaker (60 s → 600 s cap) is verified working; fresh live evidence gathering simply waits for windows. No workaround without violating the no-fabrication rules.
+2. **LAXII conversational-edit provider contract** — `/images/generations/edit` rejects every tenant-derivable request shape (10-shape measured probe incl. gateway-issued CDN URLs); public provider docs describe no edit endpoint. Unblock requires the provider's documented contract; the adapter change is then one field.
+3. **Generative masked editing / InstantID-class identity preservation** — requires a GPU host + licensed checkpoints (honest typed 503 refusal shipped); hardware fit for open video models on the workstation not yet assessed (no weights downloaded).
+4. **W6 live R3 (67/67)** — requires chat-class windows; local suite PASS.
 
-## 7. Deliverables & rollback
+## 6. Cost discipline
 
-- Commits this task: `66eac2e` (card uniformity), `11a68bc` (sidebar), `942dbbf` (acceptance harness + evidence), docs commit (this report set).
-- DB backup before any work: `db/custom.db.backup-20261104-135209.db`.
-- Rollback: revert the listed commits; no migrations to undo; user data untouched (test users are isolated `accept-*`/`e2e-4prod` accounts).
+No uncontrolled API spend: acceptance used single spaced real calls per product feature (2 image generations 11-04, 1 video generation 11-04, plus 400-class rejections that cost no inference); the 10-shape edit probe produced only 400 rejections (no inference cost); no alternative-provider credentials exist; no model weights were downloaded.
+
+## 7. Deliverables, migrations, backups, rollback
+
+- This task's commits (session of 2026-11-04/05): `dca2220` (real-artifact GO-LIVE evidence), the pending commit for this session (LAXII edit-contract fix + capability disclosure + calendar-safe fixture + probe scripts + four LIVE acceptance reports + this final matrix).
+- **DB migrations:** none added; schema unchanged. **Backup before any work:** `db/custom.db.backup-20261104-135209.db`.
+- **Deployment config:** single dev-server process on :3000; provider credentials remain tenant-runtime-managed (never in the repo); no new env vars required.
+- **Rollback:** revert the listed commits; no migrations to undo; user data untouched (acceptance runs use isolated `golive-acc-*` / `accept-*` / `e2e-*` accounts).
