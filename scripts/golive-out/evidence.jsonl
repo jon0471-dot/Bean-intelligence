@@ -10,3 +10,8 @@
 {"at":"2026-11-05T02:01:51.826Z","step":"auth","ok":true,"user":"golive-acc-g3-1793844111@bean-e2e.test"}
 {"at":"2026-11-05T02:13:15.403Z","step":"auth","ok":true,"user":"golive-acc-g4-1793844795@bean-e2e.test"}
 {"at":"2026-11-05T02:35:32.285Z","step":"auth","ok":true,"user":"golive-acc-g5-1793846132@bean-e2e.test"}
+{"at":"2026-11-05T05:38:42.065Z","step":"auth","ok":true,"user":"golive-acc@bean-e2e.test"}
+{"at":"2026-11-05T05:49:34.379Z","step":"auth","ok":true,"user":"golive-acc@bean-e2e.test"}
+{"at":"2026-11-05T05:50:45.682Z","step":"breaker-wait-timeout-chat","waitedMs":720000}
+{"at":"2026-11-05T05:50:45.682Z","step":"riishe-blocked","reason":"chat-class breaker stayed open for the whole bounded wait"}
+{"at":"2026-11-05T06:04:35.249Z","step":"auth","ok":true,"user":"golive-acc@bean-e2e.test"}
