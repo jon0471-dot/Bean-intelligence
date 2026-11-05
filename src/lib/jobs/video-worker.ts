@@ -215,7 +215,7 @@ export async function processVideoJob(job: JobRow): Promise<void> {
     })
     logger.info('jazmii.job_completed', { jobId: job.id, bytes: dl.bytesLength, format: dl.format })
     // REAL-attempt evidence: a genuine completion is the capability proof.
-    noteRealAttempt('video-generation', {
+    noteVideoAttempt(params, {
       at: new Date().toISOString(),
       ok: true,
       backendId: backend.id,
@@ -243,11 +243,31 @@ function upstreamRecord(backendId: string, category: string, status: number | nu
   }
 }
 
+/**
+ * GO-LIVE (2026-11-05): record a real video attempt under the umbrella key
+ * ('video-generation' — product-level evidence, unchanged semantics) AND the
+ * per-capability key, so a t2v attempt can never overwrite the i2v
+ * capability's evidence (or vice versa). The capability health model reads
+ * the per-capability keys; the product slot reads the umbrella.
+ */
+function noteVideoAttempt(params: VideoJobParams, record: RealAttemptRecord): void {
+  noteRealAttempt('video-generation', record)
+  noteRealAttempt(params.imageUrl ? 'video-generation-i2v' : 'video-generation-t2v', record)
+}
+
+function jobParams(job: JobRow): VideoJobParams {
+  try {
+    return JSON.parse(job.paramsJson) as VideoJobParams
+  } catch {
+    return { prompt: '' }
+  }
+}
+
 async function handleVideoFailure(job: JobRow, backendId: string, e: unknown, startedAt: Date): Promise<void> {
   const message = e instanceof Error ? e.message : String(e)
   if (e instanceof VideoProviderFailedError) {
     // Provider-reported failure: request-specific, not product-health evidence.
-    noteRealAttempt('video-generation', {
+    noteVideoAttempt(jobParams(job), {
       at: new Date().toISOString(),
       ok: false,
       backendId,
@@ -270,7 +290,7 @@ async function handleVideoFailure(job: JobRow, backendId: string, e: unknown, st
   }
   const failure = classifyUpstreamError(e)
   const category = healthFailureCategory(failure.kind)
-  noteRealAttempt('video-generation', upstreamRecord(backendId, category, failure.status))
+  noteVideoAttempt(jobParams(job), upstreamRecord(backendId, category, failure.status))
   const code = failure.kind === 'rate_limited' ? 'RATE_LIMITED' : failure.kind === 'timeout' ? 'BACKEND_TIMEOUT' : 'BACKEND_FAILURE'
   // Honest display: upstream classes get the product-safe explanation; an
   // unclassified local/boundary failure (e.g. output validation) carries its
