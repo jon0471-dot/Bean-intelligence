@@ -51,7 +51,10 @@ export interface ProductHealthEntry {
   /** LAXII/JAZMII — hosted generation capability, evidenced by the most
    *  recent REAL generation attempt (2026-11-04 connectivity audit) or by
    *  the LABELED shared-account throttle inference. A reachable gateway
-   *  that is throttling generations is Degraded, not Operational. */
+   *  that is throttling generations is Degraded, not Operational.
+   *  GO-LIVE FIX (2026-11-05): this slot is only emitted from REAL success
+   *  or failure evidence — a failed attempt can never render as
+   *  available:true (the previous fallback did exactly that). */
   generation?: {
     available: boolean
     failureCategory?: string | null
@@ -60,6 +63,26 @@ export interface ProductHealthEntry {
     /** Set when the evidence is cross-class shared-account inference. */
     note?: string
   }
+  /** GO-LIVE FINALIZATION (2026-11-05): capability-level health rows. Any
+   *  status-affecting row that is not operational degrades the product —
+   *  an advertised capability being blocked (measured contract blocker,
+   *  unverified capability) must never coexist with a fully-Operational
+   *  badge. Pure display rows (statusAffecting:false) never move the badge.
+   *  Structural (client-safe) subset of the server's CapabilityHealth. */
+  capabilities?: Array<{
+    id?: string
+    label?: string
+    core?: boolean
+    state: 'operational' | 'degraded' | 'blocked' | 'unavailable' | 'not-configured'
+    statusAffecting: boolean
+    evidence?: {
+      checkedAt?: string | null
+      source?: string
+      failureCategory?: string | null
+      httpStatus?: number | null
+      note?: string
+    }
+  }>
 }
 
 export function productStatus(
@@ -76,10 +99,17 @@ export function productStatus(
   // these failing while the core backend answers = degraded (partial
   // availability, never "fully operational while a measured capability
   // fails").
+  // GO-LIVE (2026-11-05): capability-level rows join the same rule — a
+  // status-affecting capability that is degraded/blocked/unavailable/
+  // not-configured degrades the product badge. Display-only rows
+  // (statusAffecting:false) never move the badge.
   const secondaryFailures = [
     probe.research,
     probe.sandbox,
     probe.generation,
+    ...(probe.capabilities ?? [])
+      .filter((c) => c.statusAffecting && c.state !== 'operational')
+      .map((c) => ({ available: false })),
   ].filter((cap) => cap && !cap.available)
   if (secondaryFailures.length > 0) return 'degraded'
   return 'operational'

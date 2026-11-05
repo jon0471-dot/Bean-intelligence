@@ -7,11 +7,19 @@ import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import { lastHealthyAtFor, HEALTH_CACHE_TTL_MS } from '@/lib/adapters/health-cache'
 import type { HealthReport } from '@/lib/adapters/types'
 import { safeProbe } from '@/lib/adapters/safe-probe'
-import { lastRealAttempt, recentUpstreamFailure } from '@/lib/adapters/last-attempts'
+import { lastRealAttempt, recentUpstreamFailure, type AttemptTask } from '@/lib/adapters/last-attempts'
 import { probeResearchHealth } from '@/lib/research/provider'
 import { probeSandboxHealth } from '@/lib/sandbox/runner'
 import { getBackendsForProduct } from '@/lib/registry/backends'
 import { productStatus, type ProductHealthEntry, type ProductStatus } from '@/lib/registry/status'
+import {
+  generationCapability,
+  editingCapability,
+  unverifiedCapability,
+  probeCapability,
+  LAXII_EDIT_CONTRACT_BLOCKER,
+  type CapabilityHealth,
+} from '@/lib/registry/capabilities'
 import {
   upstreamBreakerState,
   UPSTREAM_429_COOLDOWN_MS,
@@ -59,9 +67,18 @@ import {
  *  - laxii.deterministic/generative -> local Sharp engine / Diffusers worker
  *  - code-giftz.available        -> its OWN chat-class probe (see above)
  *  - code-giftz.sandbox.available-> local sandbox runtime capability
- *  - jazmii                      -> 'not-configured': no video backend is
- *                                   deployed; latencyMs stays null (no probe
- *                                   runs — there is nothing to probe).
+ *  - jazmii                      -> real reachability probe + video-class
+ *                                   breaker state.
+ *
+ * GO-LIVE FINALIZATION (2026-11-05): every product also carries
+ * `capabilities[]` — per-capability measured states (operational / degraded
+ * / blocked / unavailable / not-configured) with evidence source, checkedAt
+ * timestamps and the most recent real attempt. The product badge aggregates
+ * the status-affecting rows, so an advertised capability being blocked or
+ * unverified (LAXII conversational editing, JAZMII image-to-video) renders
+ * as Degraded instead of a fully-Operational badge. The `generation` slot
+ * is now derived ONLY from real success / real failure / breaker evidence —
+ * the previous fallback rendered a FAILED attempt as available:true.
  *
  * Circuit-breaker interaction: while a class's 429 cooldown breaker is open,
  * that class's probe is DEFERRED (zero network traffic) and reports
@@ -80,7 +97,53 @@ interface ProductEntry {
   available: boolean
   probe: HealthReport
   lastHealthyAt: string | null
+  capabilities?: CapabilityHealth[]
   [key: string]: unknown
+}
+
+/**
+ * GO-LIVE FIX (2026-11-05): the status-affecting generation slot, derived
+ * from the evidence chain that can NEVER render a failed attempt as
+ * availability: fresh own upstream failure > own class breaker > real
+ * success > labeled shared throttle > absent (probe-driven fallback).
+ * The previous fallback rendered `available: true` from the raw last-attempt
+ * record without checking `.ok` — measured consequence: LAXII's failed
+ * 429 attempt (01:38:04Z) and JAZMII's failed 429 attempt (01:29:24Z) were
+ * presented as `generation.available: true` carrying the failure's own
+ * timestamp, and both products badged Operational on that fabricated
+ * availability. This function is the single fixed definition.
+ */
+function generationSlot(
+  task: AttemptTask,
+  cls: UpstreamEndpointClass,
+  shared: NonNullable<ProductHealthEntry['generation']> | undefined,
+): NonNullable<ProductHealthEntry['generation']> | undefined {
+  const fresh = recentUpstreamFailure(task)
+  if (fresh) {
+    return {
+      available: false,
+      failureCategory: fresh.failureCategory,
+      httpStatus: fresh.httpStatus,
+      checkedAt: fresh.at,
+      note: 'the most recent real attempt failed upstream',
+    }
+  }
+  const br = upstreamBreakerState(cls)
+  if (br.coolingDown && br.last429At) {
+    return {
+      available: false,
+      failureCategory: 'rate-limited',
+      httpStatus: 429,
+      checkedAt: br.last429At,
+      note: 'endpoint-class breaker is open after an observed 429; submissions fail fast until it clears',
+    }
+  }
+  const attempt = lastRealAttempt(task)
+  if (attempt?.ok) {
+    return { available: true, failureCategory: null, httpStatus: null, checkedAt: attempt.at }
+  }
+  if (shared) return shared
+  return undefined
 }
 
 export async function GET() {
@@ -136,15 +199,72 @@ export async function GET() {
         }
       : undefined
 
+    // Capability-level rows (GO-LIVE FINALIZATION, 2026-11-05). Every
+    // advertised capability of every product carries its own measured
+    // state, evidence source and timestamp; the product badge aggregates
+    // them (status-affecting non-operational rows degrade the product).
+    const riisheCapabilities: CapabilityHealth[] = [
+      probeCapability('chat', 'Conversational chat', true, { probe: riishe, note: 'core conversational completion' }),
+      probeCapability('research', 'Current-web research', false, { probe: research, note: 'functions endpoint class (web_search / page_reader)' }),
+    ]
+    const giftzCapabilities: CapabilityHealth[] = [
+      probeCapability('coding-chat', 'Coding chat', true, { probe: giftz, note: 'core coding completion' }),
+      probeCapability('sandbox-execution', 'Sandbox execution', false, { probe: sandbox, note: 'local sandbox runtime' }),
+    ]
+    const laxiiCapabilities: CapabilityHealth[] = [
+      generationCapability('text-to-image', 'Text-to-image', true, {
+        probe: image,
+        freshUpstreamFailure: recentUpstreamFailure('image-generation'),
+        lastAttempt: lastRealAttempt('image-generation'),
+        ownBreaker: upstreamBreakerState('images'),
+        sharedThrottle: sharedThrottleEvidence
+          ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
+          : null,
+      }),
+      editingCapability('conversational-editing', 'Conversational editing', true, {
+        probe: image,
+        lastAttempt: lastRealAttempt('image-editing'),
+        contractBlocker: LAXII_EDIT_CONTRACT_BLOCKER,
+      }),
+      probeCapability('image-enhancement', 'Deterministic enhancement', false, {
+        probe: laxiiLocal,
+        statusAffecting: false,
+        note: 'local Sharp preservation engine (executed, not claimed)',
+      }),
+      probeCapability('generative-worker', 'Local Diffusers worker', false, {
+        probe: laxiiWorker,
+        registryEnabled: getBackendsForProduct('laxii').some((b) => b.endpointType === 'gpu-worker' && b.enabled),
+        statusAffecting: false,
+        note: 'local Diffusers worker (registry-gated smart edit / object removal)',
+      }),
+    ]
+    const jazmiiCapabilities: CapabilityHealth[] = [
+      generationCapability('text-to-video', 'Text-to-video', true, {
+        probe: video,
+        freshUpstreamFailure: recentUpstreamFailure('video-generation-t2v'),
+        lastAttempt: lastRealAttempt('video-generation-t2v'),
+        ownBreaker: upstreamBreakerState('video'),
+        sharedThrottle: sharedThrottleEvidence
+          ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
+          : null,
+      }),
+      unverifiedCapability('image-to-video', 'Image-to-video', false, {
+        probe: video,
+        lastAttempt: lastRealAttempt('video-generation-i2v'),
+      }),
+    ]
+
     const riisheEntry: ProductEntry = {
       status: productStatus(registryEnabled('riishe'), {
         available: riishe.healthy,
         research: { available: research.healthy },
+        capabilities: riisheCapabilities,
       }),
       available: riishe.healthy,
       probe: riishe,
       lastHealthyAt: lastHealthyAtFor('llm-hosted-primary'),
       research: { available: research.healthy, probe: research },
+      capabilities: riisheCapabilities,
     }
 
     // LAXII hosted-generation evidence (2026-11-04 connectivity audit): the
@@ -152,79 +272,63 @@ export async function GET() {
     // generations (measured live: a real generation failed with upstream
     // HTTP 429 while the probe passed). The most recent REAL attempt
     // (recorded by the queue worker, never synthetic) is the capability
-    // evidence: a recent upstream-class failure makes LAXII Degraded, a
-    // success clears it, and after the freshness window the always-on probe
-    // decides again.
-    const generationFailure = recentUpstreamFailure('image-generation')
-    const generationAttempt = lastRealAttempt('image-generation')
-    const generationEvidence = generationFailure
-      ? {
-          available: false,
-          failureCategory: generationFailure.failureCategory,
-          httpStatus: generationFailure.httpStatus,
-          checkedAt: generationFailure.at,
-        }
-      : generationAttempt
-        ? { available: true, failureCategory: null, httpStatus: null, checkedAt: generationAttempt.at }
-        : sharedThrottleEvidence
+    // evidence — GO-LIVE FIX (2026-11-05): via generationSlot(), which never
+    // renders a FAILED attempt as available:true (the previous fallback did
+    // exactly that with LAXII's 01:38:04Z 429 failure).
+    const laxiiGeneration = generationSlot('image-generation', 'images', sharedThrottleEvidence)
 
     const laxiiEntry: ProductEntry = {
       status: productStatus(registryEnabled('laxii'), {
         available: image.healthy,
-        ...(generationEvidence ? { generation: generationEvidence } : {}),
+        ...(laxiiGeneration ? { generation: laxiiGeneration } : {}),
+        capabilities: laxiiCapabilities,
       }),
       available: image.healthy,
       probe: image,
       lastHealthyAt: lastHealthyAtFor('image-hosted-primary'),
-      ...(generationEvidence
+      ...(laxiiGeneration
         ? {
-            generation: generationEvidence,
-            lastGenerationAttempt: generationAttempt,
+            generation: laxiiGeneration,
+            lastGenerationAttempt: lastRealAttempt('image-generation'),
           }
         : {}),
       deterministic: { available: laxiiLocal.healthy, probe: laxiiLocal },
       generative: { available: laxiiWorker.healthy, probe: laxiiWorker },
+      capabilities: laxiiCapabilities,
     }
 
     const giftzEntry: ProductEntry = {
       status: productStatus(registryEnabled('code-giftz'), {
         available: giftz.healthy,
         sandbox: { available: sandbox.healthy },
+        capabilities: giftzCapabilities,
       }),
       available: giftz.healthy,
       probe: giftz,
       lastHealthyAt: lastHealthyAtFor('code-giftz-chat-primary'),
       sandbox: { available: sandbox.healthy, probe: sandbox },
+      capabilities: giftzCapabilities,
     }
 
     // JAZMII (2026-11-04): the hosted video backend is registry-enabled, so
     // the product entry uses the real reachability probe + the video-class
     // breaker. Capability evidence follows the same real-attempt contract as
-    // LAXII: a recent upstream-class failure on a REAL job degrades the
-    // status; a completed real job is the generation proof. With the backend
-    // absent/disabled the honest 'not-configured' state returns.
-    const videoFailure = recentUpstreamFailure('video-generation')
-    const videoAttempt = lastRealAttempt('video-generation')
-    const videoEvidence = videoFailure
-      ? {
-          available: false,
-          failureCategory: videoFailure.failureCategory,
-          httpStatus: videoFailure.httpStatus,
-          checkedAt: videoFailure.at,
-        }
-      : videoAttempt
-        ? { available: true, failureCategory: null, httpStatus: null, checkedAt: videoAttempt.at }
-        : sharedThrottleEvidence
+    // LAXII — GO-LIVE FIX (2026-11-05): via generationSlot(), which never
+    // renders a FAILED attempt as available:true (measured: JAZMII's
+    // 01:29:24Z 429 failure was previously presented as availability).
+    const videoGeneration = generationSlot('video-generation', 'video', sharedThrottleEvidence)
 
     const jazmiiEntry: ProductEntry = {
       status: productStatus(jazmiiEnabled, {
         available: video.healthy,
-        ...(videoEvidence ? { generation: videoEvidence } : {}),
+        ...(videoGeneration ? { generation: videoGeneration } : {}),
+        capabilities: jazmiiCapabilities,
       }),
       available: video.healthy,
       probe: video,
       lastHealthyAt: lastHealthyAtFor('video-hosted-primary'),
-      ...(videoEvidence ? { generation: videoEvidence, lastGenerationAttempt: videoAttempt } : {}),
+      ...(videoGeneration ? { generation: videoGeneration, lastGenerationAttempt: lastRealAttempt('video-generation') } : {}),
+      capabilities: jazmiiCapabilities,
     }
 
     return ok({
