@@ -9,6 +9,8 @@ import { recordAudit } from '@/lib/observability/metering'
 import { loadAsset } from '@/lib/laxii/assets'
 import { resolveProvider } from '@/lib/laxii/provider'
 import { generativeWorkerStatus } from '@/lib/laxii/models'
+import { lastRealAttempt } from '@/lib/adapters/last-attempts'
+import { LAXII_EDIT_CONTRACT_BLOCKER } from '@/lib/registry/capabilities'
 
 const rectSchema = z.object({
   x: z.number().int().min(0),
@@ -169,22 +171,32 @@ export async function POST(request: Request) {
   })
 }
 
-/** Truthful capability state for the edit UI (which modes can run now). */
+/** Truthful capability state for the edit UI (which modes can run now).
+ *  GO-LIVE (2026-11-05): conversational-edit `available` is EVIDENCE-DRIVEN
+ *  — it is true only when the most recent real edit attempt SUCCEEDED (which
+ *  also flips the health payload's capability row to operational). While the
+ *  measured contract blocker stands, the disclosure reports available:false
+ *  with the blocker evidence, so the existing "— unavailable" UI label tells
+ *  the truth instead of advertising a capability that fails at the provider. */
 export async function GET() {
   return handle(async () => {
     await requireUser()
     const worker = generativeWorkerStatus()
+    const editAttempt = lastRealAttempt('image-editing')
+    const editAvailable = Boolean(editAttempt?.ok)
     return ok({
       capabilities: {
         'strict-preserve': { available: true, engine: 'deterministic-sharp' },
         'conversational-edit': {
-          available: true,
+          available: editAvailable,
           engine: 'hosted-edit',
-          note:
-            'Whole-image generative edit on the authorized backend. Not pixel-preserving; edits run as a tracked job. ' +
-            'MEASURED 2026-11-05: the provider rejects every known request shape for this endpoint (10-shape probe, ' +
-            'see docs/reports/LAXII-LIVE-ACCEPTANCE.md) — attempts end in a typed job failure with the provider error ' +
-            'recorded verbatim until the provider documents the contract.',
+          ...(editAvailable
+            ? {}
+            : {
+                note:
+                  'BLOCKED — ' + LAXII_EDIT_CONTRACT_BLOCKER.note,
+                blockerSince: editAttempt?.at ?? LAXII_EDIT_CONTRACT_BLOCKER.measuredAt,
+              }),
         },
         'smart-edit': { available: worker.registryEnabled, engine: 'diffusers-worker' },
         'object-removal': { available: worker.registryEnabled, engine: 'diffusers-worker' },

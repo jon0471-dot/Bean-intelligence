@@ -57,6 +57,28 @@ interface ProbeInfo {
   cached?: boolean
 }
 
+/** GO-LIVE FINALIZATION (2026-11-05): per-capability measured health row
+ *  served by /api/health. The badge aggregates status-affecting rows; the
+ *  card footer names the failing capabilities with their evidence age. */
+interface CapabilityRow {
+  id?: string
+  label?: string
+  core?: boolean
+  state: 'operational' | 'degraded' | 'blocked' | 'unavailable' | 'not-configured'
+  statusAffecting: boolean
+  evidence?: {
+    checkedAt?: string | null
+    source?: string
+    failureCategory?: string | null
+    httpStatus?: number | null
+    note?: string
+  }
+}
+
+function capLabel(c: CapabilityRow): string {
+  return c.label ?? c.id ?? 'capability'
+}
+
 interface HealthData {
   products: Record<
     string,
@@ -72,6 +94,7 @@ interface HealthData {
       } | null
       research?: { available: boolean; probe?: ProbeInfo }
       sandbox?: { available: boolean; probe?: ProbeInfo }
+      capabilities?: CapabilityRow[]
     }
   >
 }
@@ -205,33 +228,36 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
           const checking = refreshing && health !== null
           const latency = probe?.probe?.latencyMs
           const coreFailed = status === 'unavailable'
-          // Which measured capability is failing, for Degraded products.
-          const degradedCapability: { label: string; category?: string | null; httpStatus?: number | null } | null =
-            status === 'degraded'
-              ? p.id === 'riishe'
-                ? { label: 'research', ...(capInfo(probe?.research?.probe)) }
-                : p.id === 'code-giftz'
-                  ? { label: 'sandbox', ...(capInfo(probe?.sandbox?.probe)) }
-                  : p.id === 'laxii'
-                    ? {
-                        label: 'generation',
-                        category: probe?.generation?.failureCategory ?? null,
-                        httpStatus: probe?.generation?.httpStatus ?? null,
-                      }
-                    : p.id === 'jazmii'
-                      ? {
-                          label: 'generation',
-                          category: probe?.generation?.failureCategory ?? null,
-                          httpStatus: probe?.generation?.httpStatus ?? null,
-                        }
-                      : null
-              : null
+          // GO-LIVE (2026-11-05): the failing-capability line is derived from
+          // the measured capability rows (with a fallback to the legacy
+          // slots when a payload predates them). Only status-affecting rows
+          // are named — display-only rows stay in the payload.
+          const failingCapabilities: CapabilityRow[] =
+            probe?.capabilities?.filter((c) => c.statusAffecting && c.state !== 'operational') ??
+            (status === 'degraded'
+              ? ([
+                  p.id === 'riishe'
+                    ? { id: 'research', label: 'research', core: false, state: 'unavailable' as const, statusAffecting: true, evidence: capInfo(probe?.research?.probe) }
+                    : p.id === 'code-giftz'
+                      ? { id: 'sandbox', label: 'sandbox', core: false, state: 'unavailable' as const, statusAffecting: true, evidence: capInfo(probe?.sandbox?.probe) }
+                      : { id: 'generation', label: 'generation', core: true, state: 'unavailable' as const, statusAffecting: true, evidence: { failureCategory: probe?.generation?.failureCategory ?? null, httpStatus: probe?.generation?.httpStatus ?? null } },
+                ] as CapabilityRow[])
+              : [])
           const failureText =
             coreFailed || status === 'not-configured'
               ? failureLabel(probe?.probe?.failureCategory, probe?.probe?.httpStatus)
-              : degradedCapability
-                ? `${degradedCapability.label}: ${failureLabel(degradedCapability.category, degradedCapability.httpStatus) || 'unavailable'}`
+              : failingCapabilities.length > 0
+                ? failingCapabilities
+                    .map((c) => `${capLabel(c)}: ${failureLabel(c.evidence?.failureCategory, c.evidence?.httpStatus) || c.state}`)
+                    .join(' · ')
                 : ''
+          const capabilityTitle = failingCapabilities
+            .map((c) => {
+              const at = c.evidence?.checkedAt ? new Date(c.evidence.checkedAt).toLocaleString() : 'no timestamp'
+              const note = c.evidence?.note ? ` — ${c.evidence.note}` : ''
+              return `${capLabel(c)} (${c.state}, via ${c.evidence?.source ?? 'probe'}, checked ${at})${note}`
+            })
+            .join('\n')
           return (
             <button
               key={p.id}
@@ -274,8 +300,14 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
               <p className="mt-3 min-h-[40px] break-words text-[13px] leading-relaxed text-white/55">{p.description}</p>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <span
-                  className="whitespace-nowrap text-[11px] text-white/35"
-                  title={probe?.probe?.detail ? `${probe.probe.detail}${probe.probe.checkedAt ? ` (checked ${new Date(probe.probe.checkedAt).toLocaleString()})` : ''}` : undefined}
+                  className="min-w-0 break-words text-[11px] text-white/35"
+                  title={
+                    capabilityTitle
+                      ? capabilityTitle
+                      : probe?.probe?.detail
+                        ? `${probe.probe.detail}${probe.probe.checkedAt ? ` (checked ${new Date(probe.probe.checkedAt).toLocaleString()})` : ''}`
+                        : undefined
+                  }
                 >
                   {/* Duration ONLY for a probe that actually completed. The
                       per-probe checkedAt lives in the payload and the hover

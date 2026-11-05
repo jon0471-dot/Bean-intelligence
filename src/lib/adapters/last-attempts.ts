@@ -33,6 +33,12 @@ export type AttemptTask =
   | 'image-enhancement'
   | 'image-editing'
   | 'video-generation'
+  // GO-LIVE (2026-11-05): per-capability video keys — the umbrella
+  // 'video-generation' stays the product-level record; t2v/i2v attempts
+  // additionally record under their own key so one capability's evidence
+  // can never be overwritten by the other's.
+  | 'video-generation-t2v'
+  | 'video-generation-i2v'
   | 'audio-generation'
 
 /** Failure categories that indicate the BACKEND/UPSTREAM is failing —
