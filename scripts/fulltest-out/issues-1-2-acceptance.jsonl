@@ -1,0 +1,20 @@
+{"at":"2026-11-07T16:29:57.592Z","step":"fatal","error":"Unable to connect. Is the computer able to access the url?"}
+{"at":"2026-11-07T16:30:29.482Z","step":"fatal","error":"Unable to connect. Is the computer able to access the url?"}
+{"at":"2026-11-07T16:34:04.256Z","step":"auth","email":"issues12-20261107163403@bean-e2e.test","ok":true}
+{"at":"2026-11-07T16:34:04.577Z","step":"jazmii-submit","status":202,"job":{"id":"cmw6mi8pr0008o2l1c6jjmyde","status":"queued","progress":0,"queuedAt":"2026-11-07T16:34:04.576Z"},"error":null}
+{"at":"2026-11-07T16:34:05.427Z","step":"riishe-chat","status":200,"conversationId":null,"streamedChars":65,"elapsedMs":736,"streamError":null,"preview":"The capital of Japan is Tokyo. The Pacific Ocean surrounds Japan.","classification":"real"}
+{"at":"2026-11-07T16:34:05.621Z","step":"laxii-submit","status":202,"job":"cmw6mi9iq000io2l1w8fqrdmg","keys":["ok","job"],"error":null}
+{"at":"2026-11-07T16:34:46.395Z","step":"laxii-result","jobId":"cmw6mi9iq000io2l1w8fqrdmg","status":"completed","errorCode":null,"errorMessage":"","imageUrl":"/api/laxii/assets/cmw6mj4l3000lo2l14pix7k59"}
+{"at":"2026-11-07T16:34:47.103Z","step":"laxii-artifact","path":"scripts/fulltest-out/issues12-laxii-cmw6mi9iq000io2l1w8fqrdmg.jpg","bytes":98148,"httpStatus":200}
+{"at":"2026-11-07T16:34:47.874Z","step":"giftz-task","status":429,"taskId":null,"error":{"code":"RATE_LIMITED","message":"chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"},"files":[],"responseChars":0}
+{"at":"2026-11-07T16:34:51.036Z","step":"jazmii-no-job"}
+{"at":"2026-11-07T16:34:51.036Z","step":"done","note":"bounded acceptance run complete"}
+{"at":"2026-11-07T16:42:16.017Z","step":"auth-b","email":"issues12b-20261107164215@bean-e2e.test","ok":true}
+{"at":"2026-11-07T16:42:18.533Z","step":"jazmii-submit-b","status":202,"job":{"id":"cmw6mstur0008o277pbrr252m","status":"queued","progress":0,"queuedAt":"2026-11-07T16:42:18.532Z"},"error":null}
+{"at":"2026-11-07T16:45:34.706Z","step":"jazmii-terminal-b","jobId":"cmw6mstur0008o277pbrr252m","status":"completed","progress":100,"errorCode":null,"errorMessage":"","videoUrl":"/api/jazmii/jobs/cmw6mstur0008o277pbrr252m/media","bytes":1924204}
+{"at":"2026-11-07T16:45:35.531Z","step":"jazmii-download-b","httpStatus":200,"bytes":1924204,"savedTo":"scripts/fulltest-out/issues12-jazmii-cmw6mstur0008o277pbrr252m.mp4","containerMagic":"ftyp","magicOk":true}
+{"at":"2026-11-07T16:45:35.788Z","step":"jazmii-mp4-verified","durationSec":10.225806,"width":1280,"height":720,"codec":"h264","profile":"High","nbFrames":"317","playableContainer":true}
+{"at":"2026-11-07T16:45:35.789Z","step":"jazmii-persistence","storageRootExists":true}
+{"at":"2026-11-07T16:45:58.680Z","step":"giftz-task-b","status":200,"taskId":"cmw6mxjps000co2773dkbrslq","error":null,"files":["main.js"]}
+{"at":"2026-11-07T16:45:59.092Z","step":"giftz-sandbox-b","status":200,"ok":true,"exitCode":0,"timedOut":false,"stdout":"level: true\nhello: false\nA man, a plan, a canal: Panama: true\n","verified":true}
+{"at":"2026-11-07T16:45:59.092Z","step":"done-b"}
