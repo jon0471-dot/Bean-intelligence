@@ -11,6 +11,7 @@
  *    protected region is detected).
  * All fixtures are synthetic PNGs built with Sharp — no ML, no network.
  */
+import { deflateSync } from 'node:zlib'
 import { describe, test, expect } from 'bun:test'
 import sharp from 'sharp'
 
@@ -64,6 +65,45 @@ async function uniformImage(v: number): Promise<Buffer> {
   return sharp(Buffer.alloc(W * H * 3, v), { raw: { width: W, height: H, channels: 3 } }).png().toBuffer()
 }
 
+/** Minimal grayscale PNG encoder (IHDR color type 0) — sharp re-encodes raw
+ *  data with alpha, so a TRUE grayscale fixture must be assembled by hand. */
+function grayscalePng(w: number, h: number, draw: (x: number, y: number) => number): Buffer {
+  const raw = Buffer.alloc((w + 1) * h)
+  for (let y = 0; y < h; y++) {
+    raw[y * (w + 1)] = 0
+    for (let x = 0; x < w; x++) raw[y * (w + 1) + 1 + x] = draw(x, y)
+  }
+  const idat = deflateSync(raw, { level: 9 })
+  const crcTable: number[] = []
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    crcTable[n] = c >>> 0
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4)
+    len.writeUInt32BE(data.length)
+    const td = Buffer.concat([Buffer.from(type, 'ascii'), data])
+    let crc = 0xffffffff
+    for (const b of td) crc = crcTable[(crc ^ b) & 0xff] ^ (crc >>> 8)
+    crc = (crc ^ 0xffffffff) >>> 0
+    const crcB = Buffer.alloc(4)
+    crcB.writeUInt32BE(crc)
+    return Buffer.concat([len, td, crcB])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr[8] = 8 // bit depth
+  ihdr[9] = 0 // color type: grayscale
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', idat),
+    chunk('IEND', Buffer.alloc(0)),
+  ])
+}
+
 describe('mask building and geometry', () => {
   test('positive strokes produce alpha 1 inside, 0 outside', async () => {
     const png = await rectMask({ x: 10, y: 10, width: 20, height: 10 })
@@ -84,6 +124,19 @@ describe('mask building and geometry', () => {
       H,
     )
     expect(mask.alpha[12 * W + 12]).toBe(0)
+  })
+
+  test('grayscale masks (PNG color type 0 → 3-channel after sharp raw decode) use LUMINANCE as coverage — regression: they previously marked EVERY pixel editable', async () => {
+    // Hand-built grayscale PNG (IHDR color type 0): sharp's raw decoder
+    // expands it to 3 channels, so this exercises the exact production path
+    // that used to return full coverage for every pixel.
+    const W2 = 64
+    const H2 = 64
+    const gray = grayscalePng(W2, H2, (x, y) => (x >= 10 && x < 30 && y >= 10 && y < 30 ? 255 : 0))
+    const mask = await buildMask([{ kind: 'edit', png: gray }], W2, H2)
+    expect(mask.alpha[15 * W2 + 15]).toBe(1) // inside the painted region
+    expect(mask.alpha[2 * W2 + 2]).toBe(0) // outside — must stay PROTECTED
+    expect(mask.alpha[40 * W2 + 40]).toBe(0) // far outside — must stay PROTECTED
   })
 
   test('masks with wrong geometry are rejected — never silently rescaled', async () => {

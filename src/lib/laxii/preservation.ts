@@ -109,15 +109,23 @@ export async function buildMask(
     const ch = raw.channels
     const weight = stroke.kind === 'edit' ? 1 : -1
     for (let p = 0; p < width * height; p++) {
-      // Coverage source by channel count: G=the value itself, GA/G=opaque,
-      // GA/RGBA=the alpha byte. (Grayscale masks are the common export.)
+      // Coverage source by channel count: G=the value itself, GA=the alpha
+      // byte, RGBA=the alpha byte. RGB (no alpha) = the mask LUMINANCE:
+      // sharp's raw decoder expands grayscale masks to 3 channels, and the
+      // previous behavior treated every RGB pixel as fully-opaque coverage,
+      // which silently marked the WHOLE image editable — a "preservation"
+      // edit then changed 97%+ of the picture instead of only the painted
+      // region (measured 2026-11-07, job cmw5rlueq001er9vi0ljx79p3). White =
+      // editable, black = protected, exactly like the grayscale contract.
       const a =
         ch === 1
           ? raw.data[p]
           : ch === 2
             ? raw.data[p * 2 + 1]
             : ch === 3
-              ? 255
+              ? Math.round(
+                  (raw.data[p * 3] + raw.data[p * 3 + 1] + raw.data[p * 3 + 2]) / 3,
+                )
               : raw.data[p * 4 + 3]
       alpha[p] = Math.max(0, Math.min(1, alpha[p] + weight * (a / 255)))
     }

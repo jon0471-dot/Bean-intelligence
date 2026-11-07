@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { BeanMark } from './landing'
 import { BeanUser } from './shared'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
+import { ProductTestSuite } from './product-test-suite'
 import {
   LayoutDashboard,
   Image as ImageIcon,
@@ -41,6 +42,9 @@ const NAV: Array<{ id: ViewId; label: string; icon: React.ElementType; group: st
   { id: 'usage', label: 'Usage & quotas', icon: BarChart3, group: 'Account' },
   { id: 'settings', label: 'Settings', icon: Settings, group: 'Account' },
 ]
+
+/** Product workspaces that expose the built-in functional test suite. */
+const SUITE_VIEWS = new Set<ViewId>(['riishe', 'laxii', 'jazmii', 'code-giftz'])
 
 export function Shell({
   user,
@@ -140,7 +144,14 @@ export function Shell({
           <BeanMark className="h-6 w-6" />
           <span className="text-xs font-semibold tracking-[0.2em] bean-gold-text">BEAN</span>
         </header>
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1">
+          {children}
+          {SUITE_VIEWS.has(view) ? (
+            <div className="-mt-4">
+              <ProductTestSuite key={view} product={view} />
+            </div>
+          ) : null}
+        </main>
         <footer className="mt-auto border-t border-[rgba(212,175,55,0.08)] px-6 py-3 text-center text-[10px] text-white/25">
           BEAN Intelligence · products owned by BEAN · inference by authorized backends
         </footer>
