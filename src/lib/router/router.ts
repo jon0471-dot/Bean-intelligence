@@ -23,6 +23,9 @@ import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
 import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
 import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
 import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
+import { openAiCompatibleAdapter } from '@/lib/providers/openai-compatible'
+import { wrapWithProviderFallback } from '@/lib/providers/routing'
+import { assertProviderBudget } from '@/lib/providers/cost-guard'
 import type {
   ChatRequest,
   ChatResult,
@@ -36,6 +39,11 @@ const ADAPTERS: Record<string, TaskAdapter> = {
   // (coding-task); it is registered under each backend id it backs.
   'bean-llm-hosted-primary': hostedLlmAdapter,
   'bean-code-llm-hosted-primary': hostedLlmAdapter,
+  // PROVIDER RESILIENCE (2026-11-07): the prepared OpenAI-compatible
+  // fallback for chat/coding. Dormant without credentials (its own
+  // credential gate + registry `enabled` keep it unroutable until the
+  // operator sets BEAN_PROVIDER_OPENAI_*).
+  'bean-llm-openai-compatible': openAiCompatibleAdapter,
   'bean-image-hosted-primary': hostedImageAdapter,
   // LAXII preservation engine (2026-10-31): deterministic local engine +
   // the (currently disabled) local Diffusers worker adapter.
@@ -95,6 +103,10 @@ export interface PreflightOk {
   adapter: TaskAdapter
   /** Must be called exactly once when the adapter call finishes (or fails). */
   release: () => void
+  /** MUTABLE ref: backend id that ACTUALLY served the request. Falls back
+   *  only via explicitly configured, credential-verified providers; usage
+   *  recording reads this so attribution stays truthful. */
+  servedBy: { backendId: string }
 }
 
 /**
@@ -141,18 +153,27 @@ export async function preflight(
     )
   }
 
+  // 3.5 provider request budget (operator-set spend guard, Phase 6).
+  await assertProviderBudget(userId, productId, product.name)
+
   // 4. concurrency (per-user and total, in-flight)
   acquireSlot(enabled[0], userId)
 
   // 5. backend selection — first enabled candidate. Fallback happens only
-  // via the backend's explicit `fallbacks` list; none are configured today.
+  // via the backend's explicit `fallbacks` list (credential-verified,
+  // audit-logged — see providers/routing.ts).
   const backend = enabled[0]
   const adapter = ADAPTERS[backend.id]
   if (!adapter) {
     releaseSlot(backend.id, userId)
     throw new BeanApiError('NO_BACKEND', 'The configured backend has no executable adapter.')
   }
-  return { backend, adapter, release: () => releaseSlot(backend.id, userId) }
+  const servedBy = { backendId: backend.id }
+  return wrapWithProviderFallback(
+    { backend, adapter, release: () => releaseSlot(backend.id, userId), servedBy },
+    ADAPTERS,
+    { productId, task: expectedTask },
+  )
 }
 
 /** Step 6 — request validation against the backend's real limits. */

@@ -324,32 +324,32 @@ export const hostedImageAdapter: TaskAdapter = {
     }
     const t0 = Date.now()
     const zai = await ZAI.create()
-    // VERIFIED PROVIDER CONTRACT (2026-11-07 FIX — resolves the measured
-    // HTTP 400). Evidence chain:
-    //  - 10 measured request shapes (scripts/probe-image-edit-out/, 2026-11-04/05)
-    //    proved `images` — plural, in EVERY array and string form (public URL,
-    //    raw base64, data URL, provider CDN URL) — is rejected with HTTP 400
-    //    code 1210; the plural field was this codebase's invention, derived
-    //    from the singular-name 1210 error text, and never the provider's
-    //    contract.
-    //  - The authorized SDK (z-ai-web-dev-sdk 0.0.18, latest published)
-    //    DEFINES the contract in two places, both verified in this repo's
-    //    node_modules:
-    //      * typings: `interface CreateImageEditBody { model?; prompt; image?; size? }`
-    //        — SINGULAR `image`;
-    //      * its own CLI (dist/cli.js handleImageEdit): body = { prompt,
-    //        image: <data URL of the file>, size: '1024x1024' } sent to
-    //        POST {baseUrl}/images/generations/edit.
-    //  - A prior single probe of the canonical shape landed in the account's
-    //    429 throttle window (no contract verdict) — the 400s belonged to the
-    //    plural `images` field, which this fix removes.
-    // The body below is therefore EXACTLY the SDK's canonical shape: prompt +
-    // singular `image` as a self-describing data URL + literal size. A typed
-    // 400, if the provider still rejects it, is recorded verbatim on the job
-    // — the blocker stays external, never faked.
+    // OFFICIAL PROVIDER CONTRACT (2026-11-07 FIX — resolves the measured
+    // HTTP 400 / 1210). Evidence chain, strongest source first:
+    //  1. The provider's OWN published documentation for this SDK
+    //     (z-ai-web-dev-sdk official skill docs, retrieved 2026-11-07):
+    //     `zai.images.generations.edit({ prompt, images: [{ url: imageSource }],
+    //     size?, model? })` — quoted verbatim: "The images parameter must be
+    //     an array of objects with a url property, not a plain string."
+    //     imageSource may be a remote URL or a base64 data URL.
+    //  2. The gateway validator's own error text (measured 2026-11-07 through
+    //     the real job path): "image_to_image task must provide images" —
+    //     PLURAL, naming the documented field.
+    //  3. Measured history (scripts/probe-image-edit-out/ + finalcap-out/):
+    //     the SDK 0.0.18 CLI's SINGULAR `image` body was measured live and
+    //     rejected with 400/1210; 10 string / flat-string-array forms of
+    //     `images` were likewise rejected; the DOCUMENTED url-keyed-object
+    //     form `images:[{url}]` was never contract-rejected — its only probe
+    //     landed in the account's 429 throttle window (no verdict).
+    // The SDK 0.0.18 typings/CLI disagree with the provider's official docs
+    // AND are the shape that measured 400 — the official documentation wins.
+    // The body below is therefore exactly the documented shape: prompt +
+    // `images: [{ url: <data URL> }]` + literal size. A typed 400, if the
+    // provider still rejects it, is recorded verbatim on the job — the
+    // blocker stays external, never faked.
     const body: Record<string, unknown> = {
       prompt: req.prompt.slice(0, 4000),
-      image: `data:image/jpeg;base64,${req.imageBase64}`,
+      images: [{ url: `data:image/jpeg;base64,${req.imageBase64}` }],
       ...(req.size ? { size: req.size } : {}),
     }
     let res

@@ -5,7 +5,7 @@ import { parseBody } from '@/lib/api/validate'
 import { requireUser } from '@/lib/auth/session'
 import { preflight } from '@/lib/router/router'
 import { recordUsage, recordAudit } from '@/lib/observability/metering'
-import { hostedLlmAdapter, withTimeout } from '@/lib/adapters/hosted-llm'
+import { withTimeout } from '@/lib/adapters/hosted-llm'
 import { upstreamErrorCode, UpstreamRateLimitError, UpstreamAuthError, UpstreamBillingError } from '@/lib/upstream/gateway'
 import { extractFiles } from '@/lib/sandbox/runner'
 
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   return handle(async () => {
     const user = await requireUser()
     const body = await parseBody(request, schema)
-    const { backend, adapter, release } = await preflight(user.id, 'code-giftz', 'coding-task')
+    const { backend, adapter, release, servedBy } = await preflight(user.id, 'code-giftz', 'coding-task')
 
     try {
       if (!adapter.codeTask) {
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         : `${body.prompt}\n\nTarget language: ${body.language}`
 
       const result = await withTimeout(
-        hostedLlmAdapter.codeTask!({
+        adapter.codeTask!({
           mode: body.mode as 'generate',
           messages: [
             { role: 'assistant', content: systemPrompt },
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
           product: 'code-giftz',
           task: 'coding-task',
           status: 'completed',
-          backendId: backend.id,
+          backendId: servedBy.backendId,
           paramsJson: JSON.stringify({
             mode: body.mode,
             prompt: body.prompt,
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       await recordUsage({
         userId: user.id,
         product: 'code-giftz',
-        backendId: backend.id,
+        backendId: servedBy.backendId,
         kind: 'coding-task',
         tokensIn: result.tokensInEst,
         tokensOut: result.tokensOutEst,
