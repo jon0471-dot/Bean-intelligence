@@ -110,7 +110,7 @@ async function progress(ctx: StageCtx, value: number): Promise<void> {
   await db.generationJob.update({ where: { id: ctx.job.id }, data: { progress: value } })
 }
 
-async function failJob(jobId: string, code: string, message: string): Promise<void> {
+async function failJob(jobId: string, code: string, message: string, errorClass?: string): Promise<void> {
   await db.generationJob.update({
     where: { id: jobId },
     data: {
@@ -118,6 +118,7 @@ async function failJob(jobId: string, code: string, message: string): Promise<vo
       finishedAt: new Date(),
       errorCode: code,
       errorMessage: message,
+      ...(errorClass ? { errorClass } : {}),
     },
   })
 }

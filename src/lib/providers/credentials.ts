@@ -169,6 +169,23 @@ export async function resolveProviderCredentials(providerId: string): Promise<Cr
           'Prepared fallback awaiting credentials — an administrator can add an encrypted openai-compatible credential in the gateway console, or set the env vars. Dormant until then; no purchase is made automatically.',
       }
     }
+    case 'llamacpp-local': {
+      // Local llama.cpp lane: "credentials" = a configured local server + the
+      // operator's explicit localhost SSRF opt-in. Values stay unread here.
+      const configured =
+        process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS === '1' &&
+        typeof process.env.BEAN_LLAMACPP_BASE_URL === 'string' &&
+        process.env.BEAN_LLAMACPP_BASE_URL.trim().length > 0
+      return {
+        providerId,
+        status: configured ? 'env-configured' : 'not-configured',
+        present: configured,
+        source: 'BEAN_LLAMACPP_BASE_URL (+ BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS=1)',
+        detail: configured
+          ? 'Local llama.cpp GGUF server configured by the operator (BEAN hardware; no per-request cost).'
+          : 'Local llama.cpp lane dormant — start llama-server, set BEAN_LLAMACPP_BASE_URL and allow local provider endpoints.',
+      }
+    }
     default:
       return {
         providerId,
@@ -183,6 +200,7 @@ export async function resolveProviderCredentials(providerId: string): Promise<Cr
 /** Which provider id serves a given backend id (single source of truth). */
 export function providerIdForBackend(backendId: string): string {
   if (backendId === 'bean-llm-openai-compatible') return 'openai-compatible'
+  if (backendId === 'bean-chat-local-llamacpp') return 'llamacpp-local'
   // Every current hosted backend (LLM, image, edit, video, code) rides the
   // platform-managed z-ai gateway.
   return 'zai-gateway'

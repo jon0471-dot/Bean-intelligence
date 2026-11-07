@@ -48,7 +48,14 @@ import type { HealthFailureCategory } from '../adapters/types'
  * the primary gateway would otherwise fail-fast the fallback before it ever
  * got a chance to serve, defeating provider independence.
  */
-export type UpstreamEndpointClass = 'functions' | 'chat' | 'chat-fallback' | 'images' | 'video' | 'audio'
+export type UpstreamEndpointClass =
+  | 'functions'
+  | 'chat'
+  | 'chat-fallback'
+  | 'chat-llamacpp'
+  | 'images'
+  | 'video'
+  | 'audio'
 
 /**
  * MEASURED CHANGE (2026-11-04 connectivity audit): map an upstream failure

@@ -18,7 +18,7 @@ export async function GET(
     return ok({
       job: {
         id: job.id,
-        status: job.status,
+        status: normalizeJobStatus(job.status),
         progress: job.progress,
         errorCode: job.errorCode,
         errorMessage: job.errorMessage,
@@ -39,4 +39,19 @@ export async function GET(
       },
     })
   })
+}
+
+/** Engine states → legacy vocabulary (product interfaces preserved). */
+function normalizeJobStatus(status: string): string {
+  switch (status) {
+    case 'starting':
+    case 'running':
+    case 'streaming':
+    case 'finalizing':
+      return 'running'
+    case 'retry_wait':
+      return 'queued'
+    default:
+      return status
+  }
 }

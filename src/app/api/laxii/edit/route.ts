@@ -161,7 +161,7 @@ export async function POST(request: Request) {
       {
         job: {
           id: job.id,
-          status: job.status,
+          status: normalizeJobStatus(job.status),
           progress: job.progress,
           mode: body.mode,
           engine: backendId,
@@ -215,4 +215,19 @@ export const dynamic = 'force-dynamic'
 // Exported for tests: the mode → op mapping used before queueing.
 export function opForMode(mode: string): 'masked-inpaint' | 'object-removal' | 'reference-guided' {
   return mode === 'object-removal' ? 'object-removal' : mode === 'reference-guided' ? 'reference-guided' : 'masked-inpaint'
+}
+
+/** Engine states → legacy vocabulary (product interfaces preserved). */
+function normalizeJobStatus(status: string): string {
+  switch (status) {
+    case 'starting':
+    case 'running':
+    case 'streaming':
+    case 'finalizing':
+      return 'running'
+    case 'retry_wait':
+      return 'queued'
+    default:
+      return status
+  }
 }
