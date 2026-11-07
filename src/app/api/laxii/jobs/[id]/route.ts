@@ -22,7 +22,12 @@ export async function GET(
         progress: job.progress,
         errorCode: job.errorCode,
         errorMessage: job.errorMessage,
-        imageUrl: result && job.status === 'completed' ? result.imageUrl : null,
+        // Prefer the owned result-asset URL: every completed generation is
+        // registered as a real ImageAsset, and the UI's "Use as source" /
+        // download flows key off the /api/laxii/assets/<id> shape. Falls back
+        // to the raw job-image route for older rows without a stored asset.
+        imageUrl:
+          result && job.status === 'completed' ? (result.assetUrl ?? result.imageUrl ?? null) : null,
         width: result?.width,
         height: result?.height,
         format: result?.format,
