@@ -24,6 +24,7 @@ import path from 'node:path'
 // ---- env BEFORE importing the worker (poll interval/duration are read at load)
 process.env.JAZMII_VIDEO_POLL_INTERVAL_MS = '15'
 process.env.JAZMII_VIDEO_MAX_POLL_MS = '4000'
+process.env.JAZMII_VIDEO_DOWNLOAD_RETRY_MS = '10'
 
 // ---- scripted z-ai SDK ------------------------------------------------------
 type SubmitCall = Record<string, unknown>
@@ -74,10 +75,12 @@ interface FakeJob {
   resultJson: string | null
   errorCode: string | null
   errorMessage: string | null
+  errorClass?: string | null
   backendId: string | null
   queuedAt: Date
   startedAt: Date | null
   finishedAt: Date | null
+  nextRunAt?: Date | null
 }
 const jobStore = new Map<string, FakeJob>()
 const usageRecords: Array<Record<string, unknown>> = []
@@ -100,6 +103,7 @@ function makeJob(params: Partial<FakeJob> = {}): FakeJob {
     queuedAt: new Date(),
     startedAt: null,
     finishedAt: null,
+    nextRunAt: null,
     ...params,
   }
   jobStore.set(job.id, job)
@@ -145,7 +149,7 @@ import { lastRealAttempt } from '../../src/lib/adapters/last-attempts'
 
 // The worker reads POLL_INTERVAL_MS/MAX_POLL_MS at module load — import it
 // ONLY AFTER the env vars above are set (static imports would hoist past them).
-const { processVideoJob, requestVideoCancel, ensureVideoPoller } = await import(
+const { processVideoJob, requestVideoCancel, ensureVideoPoller, setVideoPoolsActiveProbe } = await import(
   '../../src/lib/jobs/video-worker'
 )
 
@@ -177,6 +181,17 @@ const settle = async (jobId: string, maxMs = 8000): Promise<FakeJob> => {
     const job = jobStore.get(jobId)!
     if (job.status === 'completed' || job.status === 'failed') return job
     await new Promise((r) => setTimeout(r, 25))
+  }
+  return jobStore.get(jobId)!
+}
+
+/** Wait until the row reaches ANY of the given statuses (retry_wait etc.). */
+const waitForStatus = async (jobId: string, statuses: string[], maxMs = 3000): Promise<FakeJob> => {
+  const t0 = Date.now()
+  while (Date.now() - t0 < maxMs) {
+    const job = jobStore.get(jobId)!
+    if (statuses.includes(job.status)) return job
+    await new Promise((r) => setTimeout(r, 10))
   }
   return jobStore.get(jobId)!
 }
@@ -248,23 +263,185 @@ describe('video job lifecycle', () => {
     expect(done.errorMessage).toContain('no video URL')
   })
 
-  test('submit 429 opens the video breaker; the next submission fails fast with zero network calls', async () => {
+  test('submission 429 parks the accepted job in retry_wait — it is NEVER destroyed by a throttle', async () => {
     state.submitImpl = () => {
       throw new Error('API request failed with status 429: Too many requests')
     }
     const job = makeJob()
     await processVideoJob({ ...job })
+    const parked = await waitForStatus(job.id, ['retry_wait'])
+    expect(parked.status).toBe('retry_wait')
+    expect(parked.errorCode).toBe('RATE_LIMITED')
+    expect(parked.errorClass).toBe('rate_limited')
+    expect(parked.errorMessage).toContain('stays queued')
+    const result = JSON.parse(parked.resultJson!) as Record<string, unknown>
+    expect(result.submissionAttempts).toBe(1)
+    expect(result.throttleWaitMs).toBeGreaterThan(0)
+    expect((result.throttle as Record<string, unknown>).attempted).toBe(true)
+    // Exactly ONE real provider request was made (bounded, no retry storm).
+    expect(state.submitCalls).toHaveLength(1)
+    // nextRunAt is scheduled in the future (the breaker-aligned backoff).
+    expect(parked.nextRunAt!.getTime()).toBeGreaterThan(Date.now())
+    // Upstream throttle evidence recorded honestly.
+    expect(lastRealAttempt('video-generation-t2v')?.ok).toBe(false)
+
+    // Second job while the breaker is OPEN: fail fast, ZERO network calls,
+    // and the skip does NOT consume a submission attempt.
+    const job2 = makeJob()
+    await processVideoJob({ ...job2 })
+    const parked2 = await waitForStatus(job2.id, ['retry_wait'])
+    expect(parked2.status).toBe('retry_wait')
+    expect(state.submitCalls).toHaveLength(1) // still exactly one network submit
+    const result2 = JSON.parse(parked2.resultJson!) as Record<string, unknown>
+    expect(result2.submissionAttempts).toBe(0) // skip counted no attempt — zero real submissions were made
+    expect((result2.throttle as Record<string, unknown>).attempted).toBe(false)
+    expect(parked2.errorMessage).toContain('cooldown window')
+  })
+
+  test('throttle budget exhaustion fails the job honestly after 5 real attempts', async () => {
+    state.submitImpl = () => {
+      throw new Error('API request failed with status 429: Too many requests')
+    }
+    const job = makeJob({ resultJson: JSON.stringify({ submissionAttempts: 4, throttleWaitMs: 120_000 }) })
+    await processVideoJob({ ...job })
     const failed = await settle(job.id)
     expect(failed.status).toBe('failed')
     expect(failed.errorCode).toBe('RATE_LIMITED')
+    expect(failed.errorMessage).toContain('kept throttling submissions')
+    expect(failed.errorMessage).toContain('one authorized video provider')
+    const result = JSON.parse(failed.resultJson!) as Record<string, unknown>
+    expect(result.submissionAttempts).toBe(5)
+    expect(state.submitCalls).toHaveLength(1) // the 5th real attempt, then stop
+  })
+
+  test('a parked job resubmits ONCE when the window clears and completes — never a duplicate', async () => {
+    state.submitImpl = () => {
+      throw new Error('API request failed with status 429: Too many requests')
+    }
+    const job = makeJob()
+    await processVideoJob({ ...job })
+    const parked = await waitForStatus(job.id, ['retry_wait'])
     expect(state.submitCalls).toHaveLength(1)
-    // Second job: breaker open → fail fast, still exactly one network submit.
-    const job2 = makeJob()
-    await processVideoJob({ ...job2 })
-    const failed2 = await settle(job2.id)
-    expect(failed2.status).toBe('failed')
-    expect(failed2.errorCode).toBe('RATE_LIMITED')
-    expect(state.submitCalls).toHaveLength(1) // NO second network attempt
+    // The throttle window closes: breaker resets, schedule expires.
+    _resetUpstreamCooldownForTests()
+    parked.nextRunAt = new Date(Date.now() - 1_000)
+    let polls = 0
+    state.submitImpl = async () => ({ id: 'provider-task-retry-1', task_status: 'PROCESSING' })
+    state.queryImpl = async () => {
+      polls += 1
+      if (polls === 1) return { task_status: 'PROCESSING' }
+      return { task_status: 'SUCCESS', video_result: [{ url: 'https://cdn.test/after-retry.mp4' }] }
+    }
+    await processVideoJob({ ...parked })
+    const done = await settle(job.id)
+    expect(done.status).toBe('completed')
+    expect(state.submitCalls).toHaveLength(2) // exactly ONE resubmission
+    const result = JSON.parse(done.resultJson!) as Record<string, unknown>
+    expect(result.providerTaskId).toBe('provider-task-retry-1')
+    expect(result.submissionAttempts).toBe(2) // attempt history preserved
+    expect(result.throttle).toBeUndefined() // pending frame cleared
+    expect(done.errorCode).toBeNull()
+    rmSync(path.join(STORAGE_ROOT, job.userId), { recursive: true, force: true })
+  })
+
+  test('a retry_wait row with a future nextRunAt does not submit before it is due', async () => {
+    state.submitImpl = async () => ({ id: 'provider-task-due-1', task_status: 'PROCESSING' })
+    state.queryImpl = async () => ({ task_status: 'SUCCESS', video_result: [{ url: 'https://cdn.test/due.mp4' }] })
+    const job = makeJob({
+      status: 'retry_wait',
+      nextRunAt: new Date(Date.now() + 250),
+    })
+    const running = processVideoJob({ ...job })
+    await new Promise((r) => setTimeout(r, 60))
+    expect(state.submitCalls).toHaveLength(0) // schedule honored
+    await running
+    const done = await settle(job.id)
+    expect(done.status).toBe('completed')
+    expect(state.submitCalls).toHaveLength(1)
+    rmSync(path.join(STORAGE_ROOT, job.userId), { recursive: true, force: true })
+  })
+
+  test('a queued row presented WITH a persisted provider task id NEVER resubmits (duplicate guard)', async () => {
+    // Engine re-claims present the row as legacy 'queued' even when the
+    // provider already accepted the task — the taskId, not the status,
+    // decides submit-vs-resume (measured duplicate-submission defect).
+    let polls = 0
+    state.queryImpl = async (taskId: string) => {
+      expect(taskId).toBe('provider-task-guard')
+      polls += 1
+      if (polls === 1) return { task_status: 'PROCESSING' }
+      return { task_status: 'SUCCESS', video_result: [{ url: 'https://cdn.test/guard.mp4' }] }
+    }
+    const job = makeJob({
+      status: 'queued', // engine legacyRow presentation
+      resultJson: JSON.stringify({ providerTaskId: 'provider-task-guard', submissionAttempts: 1 }),
+    })
+    await processVideoJob({ ...job })
+    const done = await settle(job.id)
+    expect(done.status).toBe('completed')
+    expect(state.submitCalls).toHaveLength(0) // NO duplicate submission
+    rmSync(path.join(STORAGE_ROOT, job.userId), { recursive: true, force: true })
+  })
+
+  test('a throttled result DOWNLOAD is retried boundedly — the accepted job keeps its real video', async () => {
+    state.submitImpl = async () => ({ id: 'provider-task-dl', task_status: 'PROCESSING' })
+    state.queryImpl = async () => ({ task_status: 'SUCCESS', video_result: [{ url: 'https://cdn.test/dl.mp4' }] })
+    let downloads = 0
+    fetchState.impl = async () => {
+      downloads += 1
+      if (downloads <= 2) throw new Error('API request failed with status 429: Too many requests')
+      return new Response(MP4, { status: 200 })
+    }
+    const job = makeJob()
+    await processVideoJob({ ...job })
+    const done = await settle(job.id)
+    expect(done.status).toBe('completed')
+    expect(downloads).toBe(3)
+    rmSync(path.join(STORAGE_ROOT, job.userId), { recursive: true, force: true })
+  })
+
+  test('ensureVideoPoller never executes queued/retry_wait jobs while engine pools are active', async () => {
+    setVideoPoolsActiveProbe(() => true)
+    try {
+      state.submitImpl = async () => ({ id: 'provider-task-x', task_status: 'PROCESSING' })
+      const queued = makeJob({ status: 'queued' })
+      ensureVideoPoller({ ...queued })
+      const parked = makeJob({ status: 'retry_wait', nextRunAt: new Date(Date.now() + 60_000) })
+      ensureVideoPoller({ ...parked })
+      await new Promise((r) => setTimeout(r, 80))
+      // Pool-owned: no poller execution, no submission, row untouched.
+      expect(state.submitCalls).toHaveLength(0)
+      expect(jobStore.get(queued.id)!.status).toBe('queued')
+      expect(jobStore.get(parked.id)!.status).toBe('retry_wait')
+    } finally {
+      setVideoPoolsActiveProbe(() => false)
+    }
+    // Without pools (inline shape) the same queued job IS executed.
+    state.queryImpl = async () => ({ task_status: 'SUCCESS', video_result: [{ url: 'https://cdn.test/inline.mp4' }] })
+    const inline = makeJob({ status: 'queued' })
+    ensureVideoPoller({ ...inline })
+    const done = await settle(inline.id)
+    expect(done.status).toBe('completed')
+    expect(state.submitCalls).toHaveLength(1)
+    rmSync(path.join(STORAGE_ROOT, inline.userId), { recursive: true, force: true })
+  })
+
+  test('backoff math: Retry-After honored, breaker window respected, escalation bounded', async () => {
+    const { videoSubmitBackoffMs, VIDEO_MAX_SUBMIT_ATTEMPTS, VIDEO_SUBMIT_BACKOFF_MAX_MS } = await import(
+      '../../src/lib/jobs/video-worker'
+    )
+    // A provider Retry-After wins, clamped to [5s, 10min].
+    expect(videoSubmitBackoffMs(1, 0, 30_000)).toBe(30_000)
+    expect(videoSubmitBackoffMs(1, 0, 2_000)).toBe(5_000)
+    expect(videoSubmitBackoffMs(1, 0, 999_999)).toBe(VIDEO_SUBMIT_BACKOFF_MAX_MS)
+    // No Retry-After (measured: this gateway sends none): breaker remaining
+    // dominates while open; escalation doubles and caps at 10 minutes.
+    expect(videoSubmitBackoffMs(1, 120_000, null)).toBe(120_000)
+    expect(videoSubmitBackoffMs(1, 0, null)).toBe(60_000)
+    expect(videoSubmitBackoffMs(2, 0, null)).toBe(120_000)
+    expect(videoSubmitBackoffMs(3, 0, null)).toBe(240_000)
+    expect(videoSubmitBackoffMs(9, 0, null)).toBe(VIDEO_SUBMIT_BACKOFF_MAX_MS)
+    expect(VIDEO_MAX_SUBMIT_ATTEMPTS).toBe(5)
   })
 
   test('a throttled status poll backs off and keeps tracking — one 429 NEVER fails an accepted job', async () => {

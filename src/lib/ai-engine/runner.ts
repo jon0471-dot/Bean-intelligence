@@ -120,6 +120,11 @@ async function executeClaimed(
       select: { status: true },
     })
     if (!row || isTerminal(row.status)) return
+    // The handler delegated the row to another live executor in this process
+    // (e.g. the video poller registry already owns it) — settle NOTHING: a
+    // blind finishCompleted here measured clobbering a live render's row
+    // with an empty artifact (issues 1-2 repair, 2026-11-08).
+    if (outcome.noSettle) return
     if (outcome.retry) {
       await settleRetry(claimed, outcome)
       return
@@ -165,22 +170,40 @@ async function executeClaimed(
 }
 
 /**
- * Bound the handler + settle phase (defensive, measured 2026-11-07): a
- * pathological stall must never outlive the lease silently — the timeout
- * unwinds the await, the finally marks the signal, and lease expiry hands
- * the job to recovery. The DB work of settling is short by construction.
+ * Bound the handler + settle phase — LEASE-AWARE STALL WATCHDOG (issues 1-2
+ * repair, measured 2026-11-08): the PREVIOUS implementation raced the handler
+ * with a FIXED leaseMs+60s deadline, which FALSE-FAILED legitimately
+ * long-running handlers — a healthy 10s-quality video render (polling the
+ * provider for minutes while the runner's heartbeat kept renewing its lease)
+ * was marked INTERNAL_ERROR at +180s, re-claimed, and its row was settled
+ * "completed" with an empty result WHILE the real render was still running.
+ * The honest stall signal is not wall-clock — it is the LEASE: the runner
+ * heartbeats every heartbeatMs while a handler works, so a handler that
+ * stops renewing its lease is genuinely dead. This watchdog rejects only
+ * when the job's leaseUntil lapses (bounded by leaseMs after the last
+ * heartbeat); legacy inline rows without a lease are never raced. A crashed
+ * worker is still caught: its heartbeats stop, the lease lapses, recovery
+ * takes over.
  */
 function withSettleTimeout<T>(p: Promise<T>, jobId: string): Promise<T> {
-  const timeoutMs = engineConfig().leaseMs + 60_000
-  return Promise.race([
-    p,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => {
-        logger.error('engine.handler_overran_lease', { jobId, timeoutMs })
-        reject(new Error(`handler overran its lease window (${timeoutMs}ms)`))
-      }, timeoutMs).unref?.(),
-    ),
-  ])
+  let timer: ReturnType<typeof setInterval> | undefined
+  const watch = new Promise<never>((_, reject) => {
+    timer = setInterval(() => {
+      void (async () => {
+        const row = await db.generationJob
+          .findUnique({ where: { id: jobId }, select: { leaseUntil: true } })
+          .catch(() => null)
+        if (!row || !row.leaseUntil) return // inline/no-lease rows: no watchdog
+        if (row.leaseUntil.getTime() < Date.now()) {
+          clearInterval(timer)
+          logger.error('engine.handler_lease_lapsed', { jobId })
+          reject(new Error('handler lease lapsed without heartbeat (stall watchdog)'))
+        }
+      })()
+    }, 30_000)
+    timer.unref?.()
+  })
+  return Promise.race([p, watch]).finally(() => clearInterval(timer))
 }
 
 async function settleRetry(claimed: ClaimedJob, outcome: HandlerOutcome): Promise<void> {
