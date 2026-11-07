@@ -1,0 +1,349 @@
+{
+  "ok": true,
+  "service": "bean-intelligence",
+  "version": "1.0.0",
+  "live": true,
+  "time": "2026-11-07T03:46:23.455Z",
+  "probeCacheTtlMs": 20000,
+  "gateway": {
+    "breaker": {
+      "baseCooldownMs": 60000,
+      "maxCooldownMs": 600000,
+      "classes": [
+        {
+          "class": "chat",
+          "coolingDown": true,
+          "remainingMs": 177980,
+          "consecutive429s": 4,
+          "currentCooldownMs": 480000,
+          "last429At": "2026-11-07T03:41:21.435Z",
+          "skippedCalls": 34
+        },
+        {
+          "class": "functions",
+          "coolingDown": true,
+          "remainingMs": 65860,
+          "consecutive429s": 3,
+          "currentCooldownMs": 240000,
+          "last429At": "2026-11-07T03:43:29.315Z",
+          "skippedCalls": 16
+        },
+        {
+          "class": "images",
+          "coolingDown": false,
+          "remainingMs": 0,
+          "consecutive429s": 0,
+          "currentCooldownMs": 60000,
+          "last429At": null,
+          "skippedCalls": 0
+        },
+        {
+          "class": "video",
+          "coolingDown": false,
+          "remainingMs": 0,
+          "consecutive429s": 0,
+          "currentCooldownMs": 60000,
+          "last429At": null,
+          "skippedCalls": 0
+        },
+        {
+          "class": "audio",
+          "coolingDown": false,
+          "remainingMs": 0,
+          "consecutive429s": 0,
+          "currentCooldownMs": 60000,
+          "last429At": null,
+          "skippedCalls": 0
+        }
+      ]
+    }
+  },
+  "products": {
+    "riishe": {
+      "status": "rate-limited",
+      "available": false,
+      "probe": {
+        "healthy": false,
+        "checkedAt": "2026-11-07T03:46:23.198Z",
+        "latencyMs": null,
+        "httpStatus": 429,
+        "failureCategory": "rate-limited",
+        "detail": "Upstream gateway rate-limited (HTTP 429) — probe deferred while the cooldown breaker is open (no network call was made). chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
+        "cached": true
+      },
+      "lastHealthyAt": "2026-11-07T03:37:53.009Z",
+      "research": {
+        "available": false,
+        "probe": {
+          "healthy": false,
+          "checkedAt": "2026-11-07T03:46:23.128Z",
+          "latencyMs": null,
+          "httpStatus": null,
+          "failureCategory": "rate-limited",
+          "detail": "Research (web_search) deferred: the functions endpoint class is rate-limited upstream (HTTP 429 observed moments ago) and its cooldown breaker is open — no network call was made to avoid worsening the throttle. Recovery is verified by the next real probe.",
+          "cached": true
+        }
+      },
+      "capabilities": [
+        {
+          "id": "chat",
+          "label": "Conversational chat",
+          "core": true,
+          "state": "rate-limited",
+          "statusAffecting": true,
+          "evidence": {
+            "checkedAt": "2026-11-07T03:46:23.198Z",
+            "source": "probe",
+            "failureCategory": "rate-limited",
+            "httpStatus": 429,
+            "note": "probe deferred/failed on upstream throttling (HTTP 429)"
+          }
+        },
+        {
+          "id": "research",
+          "label": "Current-web research",
+          "core": false,
+          "state": "rate-limited",
+          "statusAffecting": false,
+          "evidence": {
+            "checkedAt": "2026-11-07T03:46:23.128Z",
+            "source": "probe",
+            "failureCategory": "rate-limited",
+            "httpStatus": null,
+            "note": "probe deferred/failed on upstream throttling (HTTP 429)"
+          }
+        }
+      ]
+    },
+    "laxii": {
+      "status": "degraded",
+      "available": true,
+      "probe": {
+        "healthy": true,
+        "checkedAt": "2026-11-07T03:46:23.198Z",
+        "latencyMs": 72,
+        "httpStatus": 404,
+        "failureCategory": null,
+        "detail": "Gateway reachable (HTTP 404 in 72ms) and client configured with 7 sizes. This health check does NOT run a generation; the full generation path was verified once at the deployment probe (scripts/stage0-report.json).",
+        "cached": true
+      },
+      "lastHealthyAt": "2026-11-07T03:46:23.198Z",
+      "generation": {
+        "available": false,
+        "failureCategory": "rate-limited",
+        "httpStatus": 429,
+        "checkedAt": "2026-11-07T03:43:29.315Z",
+        "note": "Shared-account throttle observed on other gateway endpoint classes; submissions would be rejected until the breaker clears."
+      },
+      "lastGenerationAttempt": null,
+      "deterministic": {
+        "available": true,
+        "probe": {
+          "healthy": true,
+          "checkedAt": "2026-11-07T03:46:23.162Z",
+          "latencyMs": 46,
+          "detail": "Sharp engine EXECUTED a real decode → resize → raw round-trip in 46ms (8x8 PNG in, 4x4 RGB verified). Deterministic enhancement is operational on this host. This probe runs NO generative model — generative editing is the separately probed Diffusers worker.",
+          "cached": true
+        }
+      },
+      "generative": {
+        "available": false,
+        "probe": {
+          "healthy": false,
+          "checkedAt": "2026-11-07T03:46:23.162Z",
+          "latencyMs": 17,
+          "detail": "Diffusers worker preflight NOT satisfied on this host: missing packages [torch, diffusers, transformers, accelerate, safetensors], CUDA unavailable, disk 6.63 GB free, checkpoints present 0/9. Registry-enabled: false. Generative editing is unavailable.",
+          "cached": true
+        }
+      },
+      "capabilities": [
+        {
+          "id": "text-to-image",
+          "label": "Text-to-image",
+          "core": true,
+          "state": "operational",
+          "statusAffecting": false,
+          "evidence": {
+            "checkedAt": "2026-11-07T02:48:14.358Z",
+            "source": "real-attempt",
+            "failureCategory": null,
+            "httpStatus": null,
+            "note": "the most recent real generation attempt succeeded",
+            "lastAttempt": {
+              "at": "2026-11-07T02:48:14.358Z",
+              "ok": true,
+              "failureCategory": null,
+              "httpStatus": null
+            }
+          }
+        },
+        {
+          "id": "conversational-editing",
+          "label": "Conversational editing",
+          "core": true,
+          "state": "blocked",
+          "statusAffecting": true,
+          "evidence": {
+            "checkedAt": "2026-11-07T03:38:10.227Z",
+            "source": "contract",
+            "failureCategory": "backend-error",
+            "httpStatus": 400,
+            "note": "Provider request contract for image editing is externally unresolved until a real edit succeeds. ROOT CAUSE FOUND AND FIXED (2026-11-07): the previous requests sent `images` (plural) — a field this codebase invented; every measured shape carrying it was rejected (HTTP 400 code 1210, 10 probes, 2026-11-04/05). The authorized SDK 0.0.18 (latest published) defines the canonical body as { prompt, image: <data URL>, size } — verified in its typings and its own CLI — and the edit route now sends exactly that. The one earlier canonical-shape probe reached only the rate-limit layer (HTTP 429, 2026-11-05), so the canonical contract itself has no 400 verdict against it. The capability stays BLOCKED until a real edit completes; a real success flips it operational (see editingCapability).",
+            "lastAttempt": {
+              "at": "2026-11-07T03:38:10.227Z",
+              "ok": false,
+              "failureCategory": "backend-error",
+              "httpStatus": 400
+            }
+          }
+        },
+        {
+          "id": "image-enhancement",
+          "label": "Deterministic enhancement",
+          "core": false,
+          "state": "operational",
+          "statusAffecting": false,
+          "evidence": {
+            "checkedAt": "2026-11-07T03:46:23.162Z",
+            "source": "probe",
+            "failureCategory": null,
+            "httpStatus": null,
+            "note": "local Sharp preservation engine (executed, not claimed)"
+          }
+        },
+        {
+          "id": "generative-worker",
+          "label": "Local Diffusers worker",
+          "core": false,
+          "state": "not-configured",
+          "statusAffecting": false,
+          "evidence": {
+            "checkedAt": "2026-11-07T03:46:23.162Z",
+            "source": "registry",
+            "note": "local Diffusers worker (registry-gated smart edit / object removal)"
+          }
+        }
+      ]
+    },
+    "jazmii": {
+      "status": "operational",
+      "available": true,
+      "probe": {
+        "healthy": true,
+        "checkedAt": "2026-11-07T03:46:23.205Z",
+        "latencyMs": 62,
+        "httpStatus": 404,
+        "failureCategory": null,
+        "detail": "Video gateway reachable and configured. This probe does NOT run a generation — completed real jobs are the capability evidence.",
+        "cached": true
+      },
+      "lastHealthyAt": "2026-11-07T03:46:23.205Z",
+      "generation": {
+        "available": false,
+        "failureCategory": "rate-limited",
+        "httpStatus": 429,
+        "checkedAt": "2026-11-07T03:43:29.315Z",
+        "note": "Shared-account throttle observed on other gateway endpoint classes; submissions would be rejected until the breaker clears."
+      },
+      "lastGenerationAttempt": null,
+      "capabilities": [
+        {
+          "id": "text-to-video",
+          "label": "Text-to-video",
+          "core": true,
+          "state": "operational",
+          "statusAffecting": false,
+          "evidence": {
+            "checkedAt": "2026-11-07T03:08:24.836Z",
+            "source": "real-attempt",
+            "failureCategory": null,
+            "httpStatus": null,
+            "note": "the most recent real generation attempt succeeded",
+            "lastAttempt": {
+              "at": "2026-11-07T03:08:24.836Z",
+              "ok": true,
+              "failureCategory": null,
+              "httpStatus": null
+            }
+          }
+        },
+        {
+          "id": "image-to-video",
+          "label": "Image-to-video",
+          "core": false,
+          "state": "operational",
+          "statusAffecting": false,
+          "evidence": {
+            "checkedAt": "2026-11-07T02:21:35.717Z",
+            "source": "real-attempt",
+            "failureCategory": null,
+            "httpStatus": null,
+            "note": "a real run completed successfully",
+            "lastAttempt": {
+              "at": "2026-11-07T02:21:35.717Z",
+              "ok": true,
+              "failureCategory": null,
+              "httpStatus": null
+            }
+          }
+        }
+      ]
+    },
+    "code-giftz": {
+      "status": "rate-limited",
+      "available": false,
+      "probe": {
+        "healthy": false,
+        "checkedAt": "2026-11-07T03:46:23.198Z",
+        "latencyMs": null,
+        "httpStatus": 429,
+        "failureCategory": "rate-limited",
+        "detail": "Upstream gateway rate-limited (HTTP 429) — probe deferred while the cooldown breaker is open (no network call was made). chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
+        "cached": true
+      },
+      "lastHealthyAt": "2026-11-07T03:36:30.733Z",
+      "sandbox": {
+        "available": true,
+        "probe": {
+          "healthy": true,
+          "checkedAt": "2026-11-07T03:46:23.128Z",
+          "latencyMs": 258,
+          "httpStatus": null,
+          "failureCategory": null,
+          "detail": "Sandbox runtime \"bun\" executed a trivial script successfully (258ms).",
+          "cached": true
+        }
+      },
+      "capabilities": [
+        {
+          "id": "coding-chat",
+          "label": "Coding chat",
+          "core": true,
+          "state": "rate-limited",
+          "statusAffecting": true,
+          "evidence": {
+            "checkedAt": "2026-11-07T03:46:23.198Z",
+            "source": "probe",
+            "failureCategory": "rate-limited",
+            "httpStatus": 429,
+            "note": "probe deferred/failed on upstream throttling (HTTP 429)"
+          }
+        },
+        {
+          "id": "sandbox-execution",
+          "label": "Sandbox execution",
+          "core": false,
+          "state": "operational",
+          "statusAffecting": false,
+          "evidence": {
+            "checkedAt": "2026-11-07T03:46:23.128Z",
+            "source": "probe",
+            "failureCategory": null,
+            "httpStatus": null,
+            "note": "local sandbox runtime"
+          }
+        }
+      ]
+    }
+  }
+}

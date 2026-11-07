@@ -20,18 +20,31 @@
  * States (capability-level):
  *  - 'operational'    -> measured evidence says the capability works now
  *                        (fresh real success, or probe-clean with no
- *                        contrary evidence);
+ *                        contrary evidence); rendered as AVAILABLE;
  *  - 'degraded'       -> the backend answers but THIS capability is failing
- *                        (fresh upstream failure, open class breaker, or the
- *                        LABELED shared-account throttle inference);
+ *                        (fresh non-429 upstream failure);
+ *  - 'rate-limited'   -> (FINAL CAPABILITY FIX, 2026-11-07) the ONLY problem
+ *                        is upstream throttling: an observed HTTP 429, an
+ *                        open endpoint-class breaker, or the LABELED
+ *                        shared-account throttle inference. Distinct from
+ *                        degraded: the capability itself is not failing —
+ *                        the provider is temporarily refusing volume, it
+ *                        usually clears within minutes, and the state must
+ *                        NOT read as a product defect;
  *  - 'blocked'        -> a MEASURED external blocker stands between the
  *                        product and the capability (provider contract
  *                        rejection, capability never completed a real run);
  *                        distinct from a runtime outage — retrying cannot
  *                        fix it until the blocker is resolved;
  *  - 'unavailable'    -> the capability's backend dependency failed its
- *                        probe;
+ *                        probe for a NON-throttle reason (network, auth,
+ *                        timeout, backend error);
  *  - 'not-configured' -> no backend/engine is deployed for it.
+ *
+ * The dashboard renders these as: Available / Degraded / Rate limited /
+ * Blocked / Unavailable / Not configured — the five states the capability
+ * truth fix requires, plus Unavailable for hard non-throttle failures
+ * (collapsing those into "Blocked" would hide their different remedy).
  *
  * `statusAffecting` separates display-honesty from badge aggregation: a row
  * can honestly show a degraded/last-failed state WITHOUT holding the product
@@ -44,7 +57,27 @@
 
 import type { HealthFailureCategory, HealthReport } from '../adapters/types'
 
-export type CapabilityState = 'operational' | 'degraded' | 'blocked' | 'unavailable' | 'not-configured'
+export type CapabilityState =
+  | 'operational'
+  | 'degraded'
+  | 'rate-limited'
+  | 'blocked'
+  | 'unavailable'
+  | 'not-configured'
+
+/**
+ * FINAL CAPABILITY FIX (2026-11-07): map one probe result to its honest
+ * capability state. A probe that failed BECAUSE of throttling (an observed
+ * 429, or a probe DEFERRED by the open class breaker — zero network traffic)
+ * is RATE-LIMITED evidence, not an outage: the previous model rendered every
+ * failed probe as 'unavailable', which read a provider 429 window as "the
+ * product is broken". Any other failure class is a real unavailability.
+ */
+function stateForProbe(p: HealthReport): Extract<CapabilityState, 'rate-limited' | 'unavailable' | 'operational'> {
+  if (p.healthy) return 'operational'
+  if (p.failureCategory === 'rate-limited' || p.httpStatus === 429) return 'rate-limited'
+  return 'unavailable'
+}
 
 export interface AttemptEvidence {
   at: string
@@ -109,13 +142,21 @@ export interface AttemptRecordLike {
  * succeeds (which flips it operational — see editingCapability).
  */
 export const LAXII_EDIT_CONTRACT_BLOCKER = {
-  measuredAt: '2026-11-05T03:15:00Z',
+  measuredAt: '2026-11-07T03:38:10Z',
   note:
-    'Provider request contract for image editing is externally unresolved: 10 measured request shapes ' +
-    'rejected (HTTP 400 code 1210, 2026-11-04/05); SDK 0.0.18 canonical shape (image=data URL) reached ' +
-    'only the rate-limit layer (HTTP 429, 2026-11-05) so no contract verdict is possible yet; public ' +
-    'provider docs describe no edit endpoint. No further blind shapes will be tried — awaiting the ' +
-    'documented contract from the provider.',
+    'Provider request contract for image editing is externally unresolved — the endpoint demands a field ' +
+    'named `images` but rejects every measured format of it. Matrix (11 shapes, verbatim records in ' +
+    'scripts/probe-image-edit-out/ and scripts/finalcap-out/): every `images` STRING form (public URL, raw ' +
+    'base64, data URL, provider CDN URL) and every FLAT STRING ARRAY (base64, data URL) rejected with ' +
+    'HTTP 400 code 1210 "image_to_image task must provide images" (2026-11-04/05); the SDK 0.0.18 ' +
+    'canonical body { prompt, image: <data URL>, size } — singular `image`, verified in the SDK typings ' +
+    'and its own CLI — is DEFINITIVELY rejected too (HTTP 400 1210, measured 2026-11-07T03:38Z through ' +
+    'the real job path); the remaining url-keyed-object form images:[{url}] reached only the account ' +
+    'throttle (HTTP 429, 2026-11-07T03:41Z) — no verdict. The plural `images` field the earlier code sent ' +
+    'was a codebase invention retained by a mis-verified pin; the fix aligned the route with the SDK ' +
+    'contract, which the gateway itself then rejected. The capability stays BLOCKED until the provider ' +
+    'documents the images.edit contract or an alternative authorized provider is approved — no further ' +
+    'blind shapes.',
 } as const
 
 /** Inputs for a generation capability (text-to-image / text-to-video). */
@@ -160,35 +201,42 @@ export function generationCapability(
     : null
 
   if (!probe.healthy) {
+    const probeState = stateForProbe(probe)
     return {
       id,
       label,
       core,
-      state: 'unavailable',
+      state: probeState,
       statusAffecting: true,
       evidence: {
         checkedAt: probe.checkedAt,
         source: 'probe',
         failureCategory: probe.failureCategory,
         httpStatus: probe.httpStatus,
-        note: 'backend dependency failed its probe',
+        note: probeState === 'rate-limited' ? 'backend probe deferred/failed on upstream throttling' : 'backend dependency failed its probe',
         lastAttempt: lastAttemptEvidence,
       },
     }
   }
   if (freshUpstreamFailure) {
+    // FINAL CAPABILITY FIX (2026-11-07): a fresh failure whose category is
+    // rate-limiting is Rate limited evidence, not Degraded — the capability
+    // is not malfunctioning, the provider is refusing volume right now.
+    const throttled = freshUpstreamFailure.failureCategory === 'rate-limited'
     return {
       id,
       label,
       core,
-      state: 'degraded',
+      state: throttled ? 'rate-limited' : 'degraded',
       statusAffecting: true,
       evidence: {
         checkedAt: freshUpstreamFailure.at,
         source: 'real-attempt',
         failureCategory: freshUpstreamFailure.failureCategory,
         httpStatus: freshUpstreamFailure.httpStatus,
-        note: 'the most recent real generation attempt failed upstream',
+        note: throttled
+          ? 'the most recent real generation attempt was rate-limited upstream (HTTP 429)'
+          : 'the most recent real generation attempt failed upstream',
         lastAttempt: lastAttemptEvidence,
       },
     }
@@ -198,7 +246,7 @@ export function generationCapability(
       id,
       label,
       core,
-      state: 'degraded',
+      state: 'rate-limited',
       statusAffecting: true,
       evidence: {
         checkedAt: ownBreaker.last429At,
@@ -232,7 +280,7 @@ export function generationCapability(
       id,
       label,
       core,
-      state: 'degraded',
+      state: 'rate-limited',
       statusAffecting: true,
       evidence: {
         checkedAt: sharedThrottle.last429At,
@@ -313,14 +361,14 @@ export function editingCapability(
       id,
       label,
       core,
-      state: 'unavailable',
+      state: stateForProbe(probe),
       statusAffecting: true,
       evidence: {
         checkedAt: probe.checkedAt,
         source: 'probe',
         failureCategory: probe.failureCategory,
         httpStatus: probe.httpStatus,
-        note: 'backend dependency failed its probe',
+        note: stateForProbe(probe) === 'rate-limited' ? 'backend probe deferred/failed on upstream throttling' : 'backend dependency failed its probe',
         lastAttempt: lastAttemptEvidence,
       },
     }
@@ -401,14 +449,14 @@ export function unverifiedCapability(
       id,
       label,
       core,
-      state: 'unavailable',
+      state: stateForProbe(probe),
       statusAffecting: true,
       evidence: {
         checkedAt: probe.checkedAt,
         source: 'probe',
         failureCategory: probe.failureCategory,
         httpStatus: probe.httpStatus,
-        note: 'backend dependency failed its probe',
+        note: stateForProbe(probe) === 'rate-limited' ? 'backend probe deferred/failed on upstream throttling' : 'backend dependency failed its probe',
         lastAttempt: lastAttemptEvidence,
       },
     }
@@ -477,18 +525,23 @@ export function probeCapability(
       },
     }
   }
+  const state = stateForProbe(probe)
   return {
     id,
     label,
     core,
-    state: probe.healthy ? 'operational' : 'unavailable',
+    state,
     statusAffecting: statusAffecting || core,
     evidence: {
       checkedAt: probe.checkedAt,
       source: 'probe',
       failureCategory: probe.healthy ? null : probe.failureCategory,
       httpStatus: probe.healthy ? null : probe.httpStatus,
-      note: probe.healthy ? (note ?? 'probe passed') : 'probe failed',
+      note: probe.healthy
+        ? (note ?? 'probe passed')
+        : state === 'rate-limited'
+          ? 'probe deferred/failed on upstream throttling (HTTP 429)'
+          : 'probe failed',
     },
   }
 }
