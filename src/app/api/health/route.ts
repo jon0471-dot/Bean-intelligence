@@ -8,6 +8,7 @@ import { lastHealthyAtFor, HEALTH_CACHE_TTL_MS } from '@/lib/adapters/health-cac
 import type { HealthReport } from '@/lib/adapters/types'
 import { safeProbe } from '@/lib/adapters/safe-probe'
 import { lastRealAttempt, recentUpstreamFailure, type AttemptTask } from '@/lib/adapters/last-attempts'
+import { persistedAttempt } from '@/lib/adapters/persisted-attempts'
 import { probeResearchHealth } from '@/lib/research/provider'
 import { probeSandboxHealth } from '@/lib/sandbox/runner'
 import { getBackendsForProduct } from '@/lib/registry/backends'
@@ -205,17 +206,39 @@ export async function GET() {
     // them (status-affecting non-operational rows degrade the product).
     const riisheCapabilities: CapabilityHealth[] = [
       probeCapability('chat', 'Conversational chat', true, { probe: riishe, note: 'core conversational completion' }),
-      probeCapability('research', 'Current-web research', false, { probe: research, note: 'functions endpoint class (web_search / page_reader)' }),
+      // FINAL CAPABILITY FIX (2026-11-07): research is an OPTIONAL capability
+      // on a SEPARATELY rate-limited endpoint class (functions). Its failure
+      // — throttling included — must never imply the core chat capability is
+      // unavailable, so the row is display-only: it renders in the
+      // per-capability list with its own measured state and never moves the
+      // product badge. "Research operational" still requires a REAL
+      // web_search probe to succeed (probeResearchHealth does exactly that).
+      probeCapability('research', 'Current-web research', false, {
+        probe: research,
+        statusAffecting: false,
+        note: 'functions endpoint class (web_search / page_reader)',
+      }),
     ]
     const giftzCapabilities: CapabilityHealth[] = [
       probeCapability('coding-chat', 'Coding chat', true, { probe: giftz, note: 'core coding completion' }),
-      probeCapability('sandbox-execution', 'Sandbox execution', false, { probe: sandbox, note: 'local sandbox runtime' }),
+      // FINAL CAPABILITY FIX (2026-11-07): sandbox execution is local and
+      // independent of the coding-chat backend — its failure must not imply
+      // the core chat capability is unavailable (display-only row).
+      probeCapability('sandbox-execution', 'Sandbox execution', false, {
+        probe: sandbox,
+        statusAffecting: false,
+        note: 'local sandbox runtime',
+      }),
     ]
     const laxiiCapabilities: CapabilityHealth[] = [
       generationCapability('text-to-image', 'Text-to-image', true, {
         probe: image,
         freshUpstreamFailure: recentUpstreamFailure('image-generation'),
-        lastAttempt: lastRealAttempt('image-generation'),
+        // FINAL CAPABILITY FIX (2026-11-07): when this process has no
+        // in-memory attempt record yet (restart), the PERSISTED completed
+        // job still proves the capability — the real T2I evidence survives
+        // a restart instead of downgrading to unverified.
+        lastAttempt: lastRealAttempt('image-generation') ?? (await persistedAttempt('image-generation')),
         ownBreaker: upstreamBreakerState('images'),
         sharedThrottle: sharedThrottleEvidence
           ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
@@ -223,7 +246,7 @@ export async function GET() {
       }),
       editingCapability('conversational-editing', 'Conversational editing', true, {
         probe: image,
-        lastAttempt: lastRealAttempt('image-editing'),
+        lastAttempt: lastRealAttempt('image-editing') ?? (await persistedAttempt('image-editing')),
         contractBlocker: LAXII_EDIT_CONTRACT_BLOCKER,
       }),
       probeCapability('image-enhancement', 'Deterministic enhancement', false, {
@@ -242,7 +265,9 @@ export async function GET() {
       generationCapability('text-to-video', 'Text-to-video', true, {
         probe: video,
         freshUpstreamFailure: recentUpstreamFailure('video-generation-t2v'),
-        lastAttempt: lastRealAttempt('video-generation-t2v'),
+        // FINAL CAPABILITY FIX (2026-11-07): persisted real completions
+        // (T2V and I2V alike) stay the capability evidence across restarts.
+        lastAttempt: lastRealAttempt('video-generation-t2v') ?? (await persistedAttempt('video-generation-t2v')),
         ownBreaker: upstreamBreakerState('video'),
         sharedThrottle: sharedThrottleEvidence
           ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
@@ -250,7 +275,7 @@ export async function GET() {
       }),
       unverifiedCapability('image-to-video', 'Image-to-video', false, {
         probe: video,
-        lastAttempt: lastRealAttempt('video-generation-i2v'),
+        lastAttempt: lastRealAttempt('video-generation-i2v') ?? (await persistedAttempt('video-generation-i2v')),
       }),
     ]
 

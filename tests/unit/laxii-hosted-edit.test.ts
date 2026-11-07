@@ -173,12 +173,15 @@ describe('hosted editImage adapter contract', () => {
     })
     expect(state.editCalls).toHaveLength(1)
     expect(state.editCalls[0].prompt).toContain('dusk skyline')
-    // MEASURED gateway contract (2026-11-05): the edit field is `images`
-    // (a string — arrays and the typings' singular `image` are rejected by
-    // name); the value is the self-describing data URL. See
-    // src/lib/adapters/hosted-image.ts for the full 10-shape evidence table.
-    expect(state.editCalls[0].image).toBeUndefined()
-    expect(state.editCalls[0].images).toBe(`data:image/jpeg;base64,${JPEG.toString('base64')}`)
+    // VERIFIED PROVIDER CONTRACT (2026-11-07 FIX): the SDK 0.0.18 canonical
+    // edit body is { prompt, image: <data URL>, size } — SINGULAR `image`,
+    // verified in the SDK's typings (CreateImageEditBody) and its own CLI
+    // (handleImageEdit). The previous body sent the plural `images` field
+    // (a codebase invention) which was measured to be rejected with HTTP 400
+    // code 1210 on all 10 probe shapes (scripts/probe-image-edit-out/).
+    expect(state.editCalls[0].images).toBeUndefined()
+    expect(state.editCalls[0].image).toBe(`data:image/jpeg;base64,${JPEG.toString('base64')}`)
+    expect(state.editCalls[0].size).toBe('1024x1024')
     expect(res.format).toBe('jpeg')
     expect(res.bytes[0]).toBe(0xff)
     expect(res.bytes[1]).toBe(0xd8)

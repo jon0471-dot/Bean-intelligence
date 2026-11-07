@@ -61,6 +61,10 @@ export interface VideoJobResult {
   durationMs?: number
   width?: number
   height?: number
+  /** Present while job tracking is being throttled upstream (honest UI
+   *  display — FINAL FIX 2026-11-07: a throttled status poll never fails an
+   *  accepted job, it backs off and keeps tracking). */
+  trackingRetry?: { consecutive: number; kind: string; at: string }
 }
 
 type JobRow = {
@@ -151,19 +155,61 @@ export async function processVideoJob(job: JobRow): Promise<void> {
     const deadline = Date.now() + MAX_POLL_MS
     let progress = 12
     let videoUrl: string | null = null
+    // FINAL FIX (2026-11-07) — tracking resilience (the "remaining job
+    // tracking 429"). Measured: the async-result query endpoint is throttled
+    // by the same account-wide 429 windows as every other endpoint class,
+    // and the PREVIOUS loop treated one throttled poll as a job failure —
+    // an APPLICATION DEFECT on top of the provider throttle: a job the
+    // provider had ACCEPTED was marked failed (and product health evidence
+    // poisoned) because a STATUS POLL was refused. Now: transient upstream
+    // failures on a poll back off (bounded doubling 5s→60s, hard deadline
+    // unchanged) and tracking continues; the failure streak is recorded in
+    // the job result for honest UI display and reset by the next good poll.
+    // Only the hard deadline, a provider FAIL verdict, an owner cancellation
+    // or an unretryable auth/billing rejection end the job.
+    let pollIntervalMs = POLL_INTERVAL_MS
+    let consecutiveTrackingFailures = 0
+    let lastTrackingFailure: { kind: string; at: string } | null = null
 
     while (Date.now() < deadline) {
       if (cancelRequested.has(job.id)) {
         await markCancelled(job.id)
         return
       }
-      await sleep(POLL_INTERVAL_MS)
+      await sleep(pollIntervalMs)
       if (cancelRequested.has(job.id)) {
         await markCancelled(job.id)
         return
       }
-      const status = await queryVideoJob(taskId)
-      result = { ...result, providerStatus: status.state }
+      let status
+      try {
+        status = await queryVideoJob(taskId)
+      } catch (e) {
+        const failure = classifyUpstreamError(e)
+        // Unretryable account/configuration rejections: honest immediate
+        // failure (retrying cannot fix credentials or billing).
+        if (failure.kind === 'auth' || failure.kind === 'billing') throw e
+        consecutiveTrackingFailures += 1
+        lastTrackingFailure = { kind: failure.kind, at: new Date().toISOString() }
+        pollIntervalMs = Math.min(pollIntervalMs * 2, 60_000)
+        logger.warn('jazmii.job_tracking_retry', {
+          jobId: job.id,
+          kind: failure.kind,
+          consecutive: consecutiveTrackingFailures,
+          backoffMs: pollIntervalMs,
+        })
+        result = {
+          ...result,
+          trackingRetry: { consecutive: consecutiveTrackingFailures, kind: failure.kind, at: lastTrackingFailure.at },
+        }
+        await updateJob(job.id, { resultJson: JSON.stringify(result) }).catch(() => undefined)
+        continue
+      }
+      // A good poll resets the backoff and the failure streak.
+      pollIntervalMs = POLL_INTERVAL_MS
+      consecutiveTrackingFailures = 0
+      lastTrackingFailure = null
+      result = { ...result, providerStatus: status.state, trackingRetry: undefined }
       if (status.state === 'processing') {
         // Progress is BEAN's tracking estimate, not a provider percentage.
         progress = Math.min(90, progress + 5)
@@ -179,8 +225,16 @@ export async function processVideoJob(job: JobRow): Promise<void> {
 
     if (!videoUrl) {
       // Bounded tracking window exhausted — honest timeout, never a hang and
-      // never a fabricated completion.
-      await failJob(job, backend.id, 'BACKEND_TIMEOUT', 'Video tracking exceeded its time limit before the provider reported completion. No video was produced.')
+      // never a fabricated completion. When tracking was throttled, the
+      // message says exactly that (provider throttling, not app death).
+      await failJob(
+        job,
+        backend.id,
+        'BACKEND_TIMEOUT',
+        lastTrackingFailure
+          ? `Video tracking exceeded its time limit — the provider's status endpoint kept failing (${lastTrackingFailure.kind}, last at ${lastTrackingFailure.at}) before reporting completion. No video was produced.`
+          : 'Video tracking exceeded its time limit before the provider reported completion. No video was produced.',
+      )
       return
     }
 
