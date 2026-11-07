@@ -1,23 +1,23 @@
 {
-  "at": "2026-11-07T06:54:32.253Z",
+  "at": "2026-11-07T07:02:47.269Z",
   "steps": [
     {
       "step": "auth.login",
       "ok": true,
       "status": 200,
       "detail": "registered + logged in",
-      "at": "2026-11-07T06:54:13.136Z"
+      "at": "2026-11-07T07:02:27.561Z"
     },
     {
       "step": "riishe.background_submit",
       "ok": true,
       "status": 202,
-      "detail": "job cmw61sjkw0027r901eevxi5fb accepted (persistent id returned)",
-      "at": "2026-11-07T06:54:13.289Z",
+      "detail": "job cmw6234zh000vr9gn4d2dqocw accepted (persistent id returned)",
+      "at": "2026-11-07T07:02:27.584Z",
       "evidence": {
         "ok": true,
         "job": {
-          "id": "cmw61sjkw0027r901eevxi5fb",
+          "id": "cmw6234zh000vr9gn4d2dqocw",
           "product": "riishe",
           "task": "chat",
           "status": "queued",
@@ -26,7 +26,7 @@
           "errorCode": null,
           "errorMessage": null,
           "result": null,
-          "queuedAt": "2026-11-07T06:54:13.280Z",
+          "queuedAt": "2026-11-07T07:02:27.581Z",
           "startedAt": null,
           "finishedAt": null
         }
@@ -36,10 +36,10 @@
       "step": "riishe.background_complete",
       "ok": null,
       "status": null,
-      "detail": "job ended failed: chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"} (engine made exactly ONE upstream attempt — 429 protocol respected, no retry loop)",
-      "at": "2026-11-07T06:54:15.898Z",
+      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle (engine made exactly ONE upstream attempt — 429 protocol respected, no retry loop)",
+      "at": "2026-11-07T07:02:30.647Z",
       "evidence": {
-        "id": "cmw61sjkw0027r901eevxi5fb",
+        "id": "cmw6234zh000vr9gn4d2dqocw",
         "product": "riishe",
         "task": "chat",
         "capability": "chat",
@@ -48,26 +48,26 @@
         "terminal": true,
         "progress": 0,
         "errorCode": "UPSTREAM_RATE_LIMITED",
-        "errorMessage": "chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}",
+        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
         "errorClass": "rate_limited",
         "cancelRequested": false,
         "result": null,
         "eventCount": 2,
-        "queuedAt": "2026-11-07T06:54:13.280Z",
-        "startedAt": "2026-11-07T06:54:14.406Z",
-        "finishedAt": "2026-11-07T06:54:14.466Z"
+        "queuedAt": "2026-11-07T07:02:27.581Z",
+        "startedAt": "2026-11-07T07:02:28.263Z",
+        "finishedAt": "2026-11-07T07:02:28.285Z"
       }
     },
     {
       "step": "giftz.background_submit",
       "ok": true,
       "status": 202,
-      "detail": "job cmw61slmk002ir90140ttuqcv accepted",
-      "at": "2026-11-07T06:54:15.937Z",
+      "detail": "job cmw6237d70016r9gnuuxpe8xx accepted",
+      "at": "2026-11-07T07:02:30.670Z",
       "evidence": {
         "ok": true,
         "job": {
-          "id": "cmw61slmk002ir90140ttuqcv",
+          "id": "cmw6237d70016r9gnuuxpe8xx",
           "product": "code-giftz",
           "task": "coding-task",
           "status": "queued",
@@ -76,7 +76,7 @@
           "errorCode": null,
           "errorMessage": null,
           "result": null,
-          "queuedAt": "2026-11-07T06:54:15.932Z",
+          "queuedAt": "2026-11-07T07:02:30.667Z",
           "startedAt": null,
           "finishedAt": null
         }
@@ -87,9 +87,9 @@
       "ok": null,
       "status": null,
       "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle (engine made exactly ONE upstream attempt — 429 protocol respected, no retry loop)",
-      "at": "2026-11-07T06:54:18.491Z",
+      "at": "2026-11-07T07:02:33.303Z",
       "evidence": {
-        "id": "cmw61slmk002ir90140ttuqcv",
+        "id": "cmw6237d70016r9gnuuxpe8xx",
         "product": "code-giftz",
         "task": "coding-task",
         "capability": "coding-task",
@@ -103,59 +103,59 @@
         "cancelRequested": false,
         "result": null,
         "eventCount": 2,
-        "queuedAt": "2026-11-07T06:54:15.932Z",
-        "startedAt": "2026-11-07T06:54:17.411Z",
-        "finishedAt": "2026-11-07T06:54:17.430Z"
+        "queuedAt": "2026-11-07T07:02:30.667Z",
+        "startedAt": "2026-11-07T07:02:31.276Z",
+        "finishedAt": "2026-11-07T07:02:31.301Z"
       }
     },
     {
       "step": "laxii.t2i_submit",
       "ok": true,
       "status": 202,
-      "detail": "job cmw61snqc002pr901tzbfzm0g accepted via product route (engine-claimed)",
-      "at": "2026-11-07T06:54:18.672Z"
+      "detail": "job cmw6239f0001dr9gnrit3gsmu accepted via product route (engine-claimed)",
+      "at": "2026-11-07T07:02:33.328Z"
     },
     {
       "step": "laxii.t2i_artifact",
-      "ok": false,
+      "ok": null,
       "status": null,
-      "detail": "job ended failed: The image backend could not complete this request. (single gated attempt)",
-      "at": "2026-11-07T06:54:21.801Z"
+      "detail": "job ended failed: The image gateway is rate-limited right now (HTTP 429). The request was not repeated. (single gated attempt)",
+      "at": "2026-11-07T07:02:36.430Z"
     },
     {
       "step": "jazmii.t2v_submit",
       "ok": true,
       "status": 202,
-      "detail": "job cmw61sq9a002ur901zd5vvpnm accepted",
-      "at": "2026-11-07T06:54:21.943Z"
+      "detail": "job cmw623btt001ir9gn0ku2k1mw accepted",
+      "at": "2026-11-07T07:02:36.452Z"
     },
     {
       "step": "jazmii.t2v_artifact",
       "ok": null,
       "status": null,
       "detail": "job ended failed: The video gateway is rate-limited right now (HTTP 429). Try again shortly. (single gated attempt)",
-      "at": "2026-11-07T06:54:32.028Z"
+      "at": "2026-11-07T07:02:46.522Z"
     },
     {
       "step": "engine.duplicate_guard",
       "ok": true,
       "status": 429,
       "detail": "first job queued; identical active submission → HTTP 429 (guard rejection expected)",
-      "at": "2026-11-07T06:54:32.137Z"
+      "at": "2026-11-07T07:02:46.600Z"
     },
     {
       "step": "engine.cancel",
       "ok": true,
       "status": 200,
       "detail": "cancel outcome: settled before start; final status cancelled",
-      "at": "2026-11-07T06:54:32.236Z"
+      "at": "2026-11-07T07:02:47.245Z"
     },
     {
       "step": "engine.history",
       "ok": true,
       "status": 200,
       "detail": "5 jobs retrievable in owner-scoped history",
-      "at": "2026-11-07T06:54:32.252Z"
+      "at": "2026-11-07T07:02:47.269Z"
     }
   ]
 }
