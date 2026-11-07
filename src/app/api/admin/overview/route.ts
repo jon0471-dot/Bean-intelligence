@@ -5,6 +5,8 @@ import { recordAudit } from '@/lib/observability/metering'
 import { BACKEND_REGISTRY } from '@/lib/registry/backends'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
+import { providerIdForBackend, resolveProviderCredentials } from '@/lib/providers/credentials'
+import { upstreamBreakerState } from '@/lib/upstream/gateway'
 
 /**
  * RESTRICTED — administrative diagnostics. Server-side role check; ordinary
@@ -58,6 +60,31 @@ export async function GET() {
 
     await recordAudit({ actorId: admin.id, action: 'admin.view_overview', target: null })
 
+    // PROVIDER RESILIENCE (Phase 1/6): per-backend credential state and the
+    // capability fallback chain. NAMES and STATUS only — no credential
+    // material, no endpoint URLs beyond the platform's own descriptors.
+    const providerRouting = await Promise.all(
+      BACKEND_REGISTRY.map(async (b) => {
+        const cred = await resolveProviderCredentials(providerIdForBackend(b.id))
+        return {
+          backendId: b.id,
+          productId: b.productId,
+          task: b.task,
+          provider: b.provider,
+          enabled: b.enabled,
+          unavailableReason: b.unavailableReason ?? null,
+          fallbacks: b.fallbacks,
+          credential: { status: cred.status, present: cred.present, source: cred.source, detail: cred.detail },
+          breaker:
+            b.id === 'bean-llm-openai-compatible'
+              ? upstreamBreakerState('chat-fallback')
+              : b.id === 'bean-llm-hosted-primary' || b.id === 'bean-code-llm-hosted-primary'
+                ? upstreamBreakerState('chat')
+                : null,
+        }
+      }),
+    )
+
     return ok({
       backends: BACKEND_REGISTRY.map((b) => ({
         id: b.id,
@@ -88,6 +115,7 @@ export async function GET() {
         totalDurationMs: usageAgg._sum.durationMs ?? 0,
         jobStatus: Object.fromEntries(jobStatus.map((s) => [s.status, s._count._all])),
       },
+      providerRouting,
       audit: recentAudit.map((a) => ({
         id: a.id,
         actorId: a.actorId,

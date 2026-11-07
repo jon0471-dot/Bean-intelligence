@@ -1,0 +1,28 @@
+{"at":"2026-11-07T04:35:21.207Z","step":"session","email":"actualwork-1794026121207@bean-test.local","groups":["laxii","giftz-sandbox"]}
+{"at":"2026-11-07T04:35:21.484Z","step":"auth","ok":true,"registerStatus":200,"classification":"deterministic"}
+{"at":"2026-11-07T04:35:21.834Z","step":"laxii-t2i-submit","classification":"real","state":"submitted","httpStatus":202,"jobId":"cmw5wtyzr000yr9zuqxml8deb"}
+{"at":"2026-11-07T04:35:27.906Z","step":"laxii-t2i","classification":"real","state":"failed","jobId":"cmw5wtyzr000yr9zuqxml8deb","errorCode":"BACKEND_FAILURE","errorMessage":"The image backend could not complete this request."}
+{"at":"2026-11-07T04:35:27.978Z","step":"giftz-sandbox-probe","classification":"deterministic","state":"failed","httpStatus":400,"stdout":""}
+{"at":"2026-11-07T04:35:27.978Z","step":"done","evidence":"scripts/actualwork-out/evidence.jsonl"}
+{"at":"2026-11-07T04:37:55.723Z","step":"session","email":"actualwork-1794026275723@bean-test.local","groups":["laxii"]}
+{"at":"2026-11-07T04:37:55.882Z","step":"auth","ok":true,"registerStatus":200,"classification":"deterministic"}
+{"at":"2026-11-07T04:37:56.150Z","step":"laxii-t2i-submit","classification":"real","state":"submitted","httpStatus":202,"jobId":"cmw5wxa2b001ar9zuj5l7il51"}
+{"at":"2026-11-07T04:38:02.195Z","step":"laxii-t2i","classification":"real","state":"failed","jobId":"cmw5wxa2b001ar9zuj5l7il51","errorCode":"BACKEND_FAILURE","errorMessage":"The image backend could not complete this request."}
+{"at":"2026-11-07T04:38:02.195Z","step":"done","evidence":"scripts/actualwork-out/evidence.jsonl"}
+{"at":"2026-11-07T04:38:49.719Z","step":"session","email":"actualwork-1794026329718@bean-test.local","groups":["jazmii"]}
+{"at":"2026-11-07T04:38:49.833Z","step":"auth","ok":true,"registerStatus":200,"classification":"deterministic"}
+{"at":"2026-11-07T04:38:49.966Z","step":"jazmii-submit","classification":"real","state":"submitted","httpStatus":202,"jobId":"cmw5wyfl6001mr9zukd2f98oi","message":""}
+{"at":"2026-11-07T04:39:00.066Z","step":"jazmii-t2v","classification":"real","state":"failed","jobId":"cmw5wyfl6001mr9zukd2f98oi","errorCode":"RATE_LIMITED","errorMessage":"The video gateway is rate-limited right now (HTTP 429). Try again shortly.","trackingRetry":null}
+{"at":"2026-11-07T04:39:00.066Z","step":"done","evidence":"scripts/actualwork-out/evidence.jsonl"}
+{"at":"2026-11-07T04:42:14.952Z","step":"session","email":"actualwork-1794026534951@bean-test.local","groups":["chat"]}
+{"at":"2026-11-07T04:42:15.062Z","step":"auth","ok":true,"registerStatus":200,"classification":"deterministic"}
+{"at":"2026-11-07T04:42:15.175Z","step":"riishe-chat","classification":"real","state":"blocked","reason":"chat-class breaker open (observed 429) — zero network, no retry"}
+{"at":"2026-11-07T04:42:15.206Z","step":"giftz-code","classification":"real","state":"blocked","reason":"chat-class breaker open (observed 429) — zero network, no retry"}
+{"at":"2026-11-07T04:42:15.206Z","step":"done","evidence":"scripts/actualwork-out/evidence.jsonl"}
+{"at":"2026-11-07T04:46:08.043Z","step":"session","email":"actualwork-1794026768043@bean-test.local","groups":["laxii","jazmii"]}
+{"at":"2026-11-07T04:46:08.150Z","step":"auth","ok":true,"registerStatus":200,"classification":"deterministic"}
+{"at":"2026-11-07T04:46:08.180Z","step":"laxii-t2i-submit","classification":"real","state":"submitted","httpStatus":202,"jobId":"cmw5x7tps0029r9zu2w8a1zi5"}
+{"at":"2026-11-07T04:46:14.229Z","step":"laxii-t2i","classification":"real","state":"failed","jobId":"cmw5x7tps0029r9zu2w8a1zi5","errorCode":"BACKEND_FAILURE","errorMessage":"The image backend could not complete this request."}
+{"at":"2026-11-07T04:46:14.255Z","step":"jazmii-submit","classification":"real","state":"submitted","httpStatus":202,"jobId":"cmw5x7yel002er9zuj92xzoyy","message":""}
+{"at":"2026-11-07T04:46:24.308Z","step":"jazmii-t2v","classification":"real","state":"failed","jobId":"cmw5x7yel002er9zuj92xzoyy","errorCode":"RATE_LIMITED","errorMessage":"The video gateway is rate-limited right now (HTTP 429). Try again shortly.","trackingRetry":null}
+{"at":"2026-11-07T04:46:24.309Z","step":"done","evidence":"scripts/actualwork-out/evidence.jsonl"}

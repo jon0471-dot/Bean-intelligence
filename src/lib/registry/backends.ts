@@ -16,6 +16,7 @@
  */
 
 import type { BeanProductId, BeanTask } from './products'
+import { resolveOpenAiCompatibleCredential } from '@/lib/providers/credentials'
 
 export type DeploymentMode = 'authorized-hosted' | 'self-hosted'
 
@@ -106,7 +107,10 @@ const HOSTED_LLM: BackendDescriptor = {
     'Prompts and completions are processed by the provider under its platform terms. BEAN does not log raw prompt content by default.',
   metering: { unit: 'request', costUnit: null },
   secrets: ['ZAI_GATEWAY_CREDENTIALS (managed by platform runtime)'],
-  fallbacks: [],
+  // PROVIDER RESILIENCE (2026-11-07): RIISHE chat falls back to the prepared
+  // OpenAI-compatible provider — attempted ONLY when the operator has set
+  // its credentials (BEAN_PROVIDER_OPENAI_*); dormant otherwise.
+  fallbacks: ['bean-llm-openai-compatible'],
   enabled: true,
   concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 16 },
   timeouts: { requestMs: 90_000, queueMs: 5_000 },
@@ -426,7 +430,9 @@ const HOSTED_CODE_LLM: BackendDescriptor = {
     'Code snippets submitted for generation are processed by the provider under its platform terms. Sandbox execution happens locally with ephemeral workspaces.',
   metering: { unit: 'request', costUnit: null },
   secrets: ['ZAI_GATEWAY_CREDENTIALS (managed by platform runtime)'],
-  fallbacks: [],
+  // PROVIDER RESILIENCE (2026-11-07): CODE GIFTZ coding chat shares the same
+  // credential-gated fallback chain as RIISHE chat.
+  fallbacks: ['bean-llm-openai-compatible'],
   enabled: true,
   concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 8 },
   timeouts: { requestMs: 120_000, queueMs: 5_000 },
@@ -434,9 +440,60 @@ const HOSTED_CODE_LLM: BackendDescriptor = {
   retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
+/**
+ * RIISHE + CODE GIFTZ — PREPARED OpenAI-compatible chat/coding fallback.
+ *
+ * The integration is REAL (adapter + routing + breaker + health probe) but
+ * the provider is DORMANT until the operator sets its credentials in the
+ * runtime environment: BEAN_PROVIDER_OPENAI_API_KEY (required),
+ * BEAN_PROVIDER_OPENAI_BASE_URL / BEAN_PROVIDER_OPENAI_MODEL (optional).
+ * No credential is invented, purchased or assumed. While dormant the
+ * registry reports it disabled with the exact activation requirement, and
+ * the fallback layer honestly reports the slot as 'not-configured'.
+ * `enabled` is evaluated at process start from the real environment, so the
+ * registry always states the truth about THIS runtime.
+ */
+const OPENAI_COMPATIBLE_LLM: BackendDescriptor = {
+  id: 'bean-llm-openai-compatible',
+  productId: 'riishe',
+  task: 'chat',
+  provider: 'Operator-configured OpenAI-compatible chat provider',
+  modelIdentity: "The operator's configured model (BEAN_PROVIDER_OPENAI_MODEL, default gpt-4o-mini)",
+  revision: null,
+  endpointType: 'http',
+  deploymentMode: 'authorized-hosted',
+  runtime: 'Any OpenAI-compatible chat-completions endpoint (OpenAI, Groq, Together, OpenRouter, DeepSeek, self-hosted vLLM, …)',
+  limits: {
+    maxPromptChars: 12000,
+    maxHistoryMessages: 24,
+    streaming: true,
+    note: 'Capability is verified by a real completion probe at health check — an endpoint that cannot complete chat is reported unhealthy, never assumed.',
+  },
+  license: {
+    name: 'Access governed by the operator\u2019s account with the configured provider',
+    commercialUse: 'authorized',
+    note:
+      'Activated only by the operator setting credentials for a provider they have authorized. BEAN never purchases or switches to an unapproved paid service on its own.',
+    sourceUrl: 'https://platform.openai.com/docs/api-reference/chat',
+    verifiedAt: '2026-11-07',
+  },
+  dataHandling:
+    'Prompts and completions are processed by the configured provider under the operator\u2019s account terms. Credentials stay server-side and are never exposed to the browser.',
+  metering: { unit: 'request', costUnit: null },
+  secrets: ['BEAN_PROVIDER_OPENAI_API_KEY'],
+  fallbacks: [],
+  enabled: resolveOpenAiCompatibleCredential().present,
+  unavailableReason:
+    'Not configured: this prepared fallback activates only when the operator sets BEAN_PROVIDER_OPENAI_API_KEY (+ optional BEAN_PROVIDER_OPENAI_BASE_URL / BEAN_PROVIDER_OPENAI_MODEL) in the runtime environment. No account is created or purchased automatically.',
+  concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 8 },
+  timeouts: { requestMs: 90_000, queueMs: 5_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
 /** Private registry — the only place product→backend mappings exist. */
 export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_LLM,
+  OPENAI_COMPATIBLE_LLM,
   HOSTED_IMAGE,
   HOSTED_IMAGE_EDIT,
   LOCAL_SHARP_ENGINE,

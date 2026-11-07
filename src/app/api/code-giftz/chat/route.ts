@@ -20,7 +20,8 @@ import { requireUser } from '@/lib/auth/session'
 import { preflight } from '@/lib/router/router'
 import { recordUsage, recordAudit } from '@/lib/observability/metering'
 import { logger } from '@/lib/observability/logger'
-import { hostedLlmAdapter, withTimeout } from '@/lib/adapters/hosted-llm'
+import { withTimeout } from '@/lib/adapters/hosted-llm'
+import type { TaskAdapter } from '@/lib/adapters/types'
 import { solveWithContinuation } from '@/lib/riishe/continuation'
 import { upstreamErrorCode, upstreamStreamErrorPayload, UpstreamRateLimitError, UpstreamAuthError, UpstreamBillingError } from '@/lib/upstream/gateway'
 import { assertSafeProjectPath, parseFiles, diffContent, type GiftzFile } from '@/lib/giftz/workspace'
@@ -177,6 +178,8 @@ async function* streamRevisionTurn(args: {
   backendRequestMs: number
   guard?: GenerationGuard
   onDelta: (delta: string) => void
+  /** The preflight-provided serving adapter (provider-fallback-wrapped). */
+  adapter: TaskAdapter
 }): AsyncGenerator<string, void, unknown> {
   const base = [
     ...args.buildTurnMessages(),
@@ -187,7 +190,7 @@ async function* streamRevisionTurn(args: {
   for (let pass = 0; ; pass += 1) {
     let passContent = ''
     try {
-      for await (const delta of hostedLlmAdapter.chatStream!({
+      for await (const delta of args.adapter.chatStream!({
         messages,
         maxPromptChars:
           pass === 0 ? args.maxPromptChars : Math.max(args.maxPromptChars, CONTINUATION_MAX_PROMPT_CHARS),
@@ -217,7 +220,7 @@ export async function POST(request: Request) {
   return handle(async () => {
     const user = await requireUser()
     const body = await parseBody(request, schema)
-    const { backend, release } = await preflight(user.id, 'code-giftz', 'coding-task')
+    const { backend, adapter, release, servedBy } = await preflight(user.id, 'code-giftz', 'coding-task')
 
     try {
       // Resolve or create the project (ownership enforced).
@@ -321,7 +324,7 @@ export async function POST(request: Request) {
           const outcome = await generateTurnWithContinuation({
             baseMessages: buildTurnMessages(),
             chatStream: (messages, pass) =>
-              hostedLlmAdapter.chatStream!({
+              adapter.chatStream!({
                 messages,
                 maxPromptChars:
                   pass === 0 ? maxPromptChars : Math.max(maxPromptChars, CONTINUATION_MAX_PROMPT_CHARS),
@@ -355,7 +358,7 @@ export async function POST(request: Request) {
               maxContinuations: MAX_SOLVE_CONTINUATIONS,
               solvePass: async (messages) => {
                 const pass = continuationCount // solvePass runs in order: 0, 1, …
-                const result = await hostedLlmAdapter.codeTask!({
+                const result = await adapter.codeTask!({
                   mode: 'generate',
                   messages,
                   maxPromptChars:
@@ -410,6 +413,7 @@ export async function POST(request: Request) {
                     backendRequestMs: backend.timeouts.requestMs,
                     guard,
                     onDelta: (delta) => onEvent({ delta }),
+                    adapter,
                   })
               : undefined,
             // JSON path: non-streaming corrective revision with continuation.
@@ -424,7 +428,7 @@ export async function POST(request: Request) {
                     ],
                     maxContinuations: MAX_SOLVE_CONTINUATIONS,
                     solvePass: async (messages) => {
-                      const result = await hostedLlmAdapter.codeTask!({
+                      const result = await adapter.codeTask!({
                         mode: 'generate',
                         messages,
                         maxPromptChars: Math.max(maxPromptChars, CONTINUATION_MAX_PROMPT_CHARS),
@@ -499,7 +503,7 @@ export async function POST(request: Request) {
           await recordUsage({
             userId: user.id,
             product: 'code-giftz',
-            backendId: backend.id,
+            backendId: servedBy.backendId,
             kind: 'coding-task',
             tokensIn: result.tokensInEst,
             tokensOut: result.tokensOutEst,
@@ -572,7 +576,7 @@ export async function POST(request: Request) {
           await recordUsage({
             userId: user.id,
             product: 'code-giftz',
-            backendId: backend.id,
+            backendId: servedBy.backendId,
             kind: 'coding-task',
             tokensIn: result.tokensInEst,
             tokensOut: result.tokensOutEst,
