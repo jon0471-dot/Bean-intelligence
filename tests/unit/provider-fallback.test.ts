@@ -141,10 +141,11 @@ describe('dormant fallback adapter (no credentials)', () => {
   test('chat refuses with a typed not-attempted error and ZERO fetches', async () => {
     let fetched = 0
     const realFetch = globalThis.fetch
-    globalThis.fetch = (async (..._a) => {
+    const noNetworkFetch = (async (..._a: unknown[]) => {
       fetched += 1
       throw new Error('network must not be touched while dormant')
-    }) as typeof fetch
+    }) as unknown as typeof fetch
+    globalThis.fetch = noNetworkFetch
     try {
       await expect(openAiCompatibleAdapter.chat!(chatReq())).rejects.toThrow(/not configured/)
       expect(fetched).toBe(0)
