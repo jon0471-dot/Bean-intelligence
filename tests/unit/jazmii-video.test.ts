@@ -140,7 +140,8 @@ mock.module('global.fetch', () => ({}))
 }
 
 import { detectVideoContainer } from '../../src/lib/adapters/hosted-video'
-import { _resetUpstreamCooldownForTests } from '../../src/lib/upstream/gateway'
+import { _resetUpstreamCooldownForTests, upstreamBreakerState } from '../../src/lib/upstream/gateway'
+import { lastRealAttempt } from '../../src/lib/adapters/last-attempts'
 
 // The worker reads POLL_INTERVAL_MS/MAX_POLL_MS at module load — import it
 // ONLY AFTER the env vars above are set (static imports would hoist past them).
@@ -264,6 +265,48 @@ describe('video job lifecycle', () => {
     expect(failed2.status).toBe('failed')
     expect(failed2.errorCode).toBe('RATE_LIMITED')
     expect(state.submitCalls).toHaveLength(1) // NO second network attempt
+  })
+
+  test('a throttled status poll backs off and keeps tracking — one 429 NEVER fails an accepted job', async () => {
+    // FINAL FIX (2026-11-07) pin: the previous loop treated one throttled
+    // poll (HTTP 429 on the async-result query endpoint) as a job failure,
+    // killing a job the provider had ACCEPTED and poisoning product health
+    // evidence. Now the loop backs off (bounded) and completes the job.
+    let polls = 0
+    state.submitImpl = async () => ({ id: 'provider-task-7', task_status: 'PROCESSING' })
+    state.queryImpl = async () => {
+      polls += 1
+      if (polls <= 2) throw new Error('API request failed with status 429: Too many requests')
+      if (polls === 3) return { task_status: 'PROCESSING' }
+      return { task_status: 'SUCCESS', video_result: [{ url: 'https://cdn.test/retry.mp4' }] }
+    }
+    const job = makeJob()
+    await processVideoJob({ ...job })
+    const done = await settle(job.id)
+    expect(done.status).toBe('completed')
+    expect(state.submitCalls).toHaveLength(1) // submission was NOT retried
+    expect(polls).toBeGreaterThanOrEqual(4) // tracking survived the 429s
+    expect(done.errorCode).toBeNull()
+    // The tracking 429s must NOT poison the video-class submission breaker
+    // (the poll rides the same account but a throttled STATUS query is not
+    // submission evidence).
+    expect(upstreamBreakerState('video').coolingDown).toBe(false)
+    // Honest success evidence recorded (no phantom upstream failure).
+    expect(lastRealAttempt('video-generation-t2v')?.ok).toBe(true)
+    rmSync(path.join(STORAGE_ROOT, job.userId), { recursive: true, force: true })
+  })
+
+  test('an unretryable auth rejection during tracking fails the job honestly (no pointless retries)', async () => {
+    state.submitImpl = async () => ({ id: 'provider-task-8', task_status: 'PROCESSING' })
+    state.queryImpl = async () => {
+      throw new Error('API request failed with status 401: invalid credentials')
+    }
+    const job = makeJob()
+    await processVideoJob({ ...job })
+    const done = await settle(job.id)
+    expect(done.status).toBe('failed')
+    expect(done.errorCode).toBe('BACKEND_FAILURE')
+    expect(state.queryCalls.length).toBe(1) // auth failures are never retried
   })
 
   test('poll-window exhaustion is an honest BACKEND_TIMEOUT (bounded, no hang)', async () => {

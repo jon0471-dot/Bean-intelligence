@@ -59,12 +59,14 @@ interface ProbeInfo {
 
 /** GO-LIVE FINALIZATION (2026-11-05): per-capability measured health row
  *  served by /api/health. The badge aggregates status-affecting rows; the
- *  card footer names the failing capabilities with their evidence age. */
+ *  card body renders EVERY capability row separately (FINAL CAPABILITY FIX,
+ *  2026-11-07) so one capability's state can never be mistaken for another
+ *  product-wide claim. */
 interface CapabilityRow {
   id?: string
   label?: string
   core?: boolean
-  state: 'operational' | 'degraded' | 'blocked' | 'unavailable' | 'not-configured'
+  state: 'operational' | 'degraded' | 'rate-limited' | 'blocked' | 'unavailable' | 'not-configured'
   statusAffecting: boolean
   evidence?: {
     checkedAt?: string | null
@@ -72,6 +74,40 @@ interface CapabilityRow {
     failureCategory?: string | null
     httpStatus?: number | null
     note?: string
+  }
+}
+
+/**
+ * FINAL CAPABILITY FIX (2026-11-07): the display label for each measured
+ * capability state — the five states the capability truth model requires
+ * (Available / Degraded / Rate limited / Blocked / Not configured) plus
+ * Unavailable for hard non-throttle failures (collapsing those into
+ * "Blocked" would hide their different remedy).
+ */
+const CAPABILITY_STATE_LABELS: Record<CapabilityRow['state'], string> = {
+  operational: 'Available',
+  degraded: 'Degraded',
+  'rate-limited': 'Rate limited',
+  blocked: 'Blocked',
+  unavailable: 'Unavailable',
+  'not-configured': 'Not configured',
+}
+
+/** Existing palette atoms only (GoldBadge/StatusDot tones) — a capability
+ *  dot is green when available, red when hard-down, gold for the transient
+ *  or partial states, and neutral gray when nothing is deployed. */
+function capabilityTone(state: CapabilityRow['state']): { dot: string; text: string } {
+  switch (state) {
+    case 'operational':
+      return { dot: 'bg-emerald-400', text: 'text-emerald-300/90' }
+    case 'rate-limited':
+    case 'degraded':
+      return { dot: 'bg-[#f0c75e]', text: 'text-[#f0c75e]' }
+    case 'blocked':
+    case 'unavailable':
+      return { dot: 'bg-red-400', text: 'text-red-300' }
+    case 'not-configured':
+      return { dot: 'bg-white/30', text: 'text-white/45' }
   }
 }
 
@@ -283,6 +319,12 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
                     <GoldBadge tone="gold">Status unknown</GoldBadge>
                   ) : status === 'operational' ? (
                     <GoldBadge tone="green"><span className="mr-1 inline-flex items-center gap-1.5"><StatusDot ok pulse={false} />Operational</span></GoldBadge>
+                  ) : status === 'rate-limited' ? (
+                    /* FINAL CAPABILITY FIX (2026-11-07): the only problem is
+                       upstream throttling (observed 429s / open class
+                       breaker). External and transient — its own badge, NOT
+                       red Unavailable and NOT Degraded. */
+                    <GoldBadge tone="gold">Rate limited</GoldBadge>
                   ) : status === 'degraded' ? (
                     /* Gold badge, deliberately without a status dot: the existing
                        StatusDot only encodes ok/not-ok (green/red), and a degraded
@@ -298,6 +340,31 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
                 </span>
               </div>
               <p className="mt-3 min-h-[40px] break-words text-[13px] leading-relaxed text-white/55">{p.description}</p>
+              {/* FINAL CAPABILITY FIX (2026-11-07): EVERY measured capability
+                  is shown separately with its own state — a failed optional
+                  capability can no longer imply the core is down, and one
+                  green row can no longer claim the whole product works. Each
+                  row keeps its evidence tooltip (state, source, timestamp). */}
+              {probe?.capabilities && probe.capabilities.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                  {probe.capabilities.map((c, ci) => {
+                    const tone = capabilityTone(c.state)
+                    const at = c.evidence?.checkedAt ? new Date(c.evidence.checkedAt).toLocaleString() : 'no timestamp'
+                    const note = c.evidence?.note ? ` — ${c.evidence.note}` : ''
+                    return (
+                      <span
+                        key={c.id ?? `${c.label}-${ci}`}
+                        className="inline-flex min-w-0 items-center gap-1.5 text-[11px]"
+                        title={`${capLabel(c)}: ${CAPABILITY_STATE_LABELS[c.state]} (via ${c.evidence?.source ?? 'probe'}, checked ${at})${note}`}
+                      >
+                        <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} />
+                        <span className="truncate text-white/45">{capLabel(c)}</span>
+                        <span className={`whitespace-nowrap font-medium ${tone.text}`}>{CAPABILITY_STATE_LABELS[c.state]}</span>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
               <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <span
                   className="min-w-0 break-words text-[11px] text-white/35"
