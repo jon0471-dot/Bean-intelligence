@@ -11,7 +11,7 @@
 import type { WorkerHandler } from './types'
 import { processImageJob } from '@/lib/jobs/image-worker'
 import { processEnhancementJob, processEditJob } from '@/lib/laxii/jobs'
-import { processVideoJob } from '@/lib/jobs/video-worker'
+import { isVideoPollerActive, processVideoJob } from '@/lib/jobs/video-worker'
 import { handleRiisheChatJob } from './riishe-chat-handler'
 import { handleGiftzCodingJob } from './giftz-coding-handler'
 
@@ -41,8 +41,16 @@ export const engineHandlers: Record<string, WorkerHandler> = {
     return { result: {} }
   },
   'video-generation': async (job) => {
+    // ISSUES 1-2 REPAIR (2026-11-08): a live in-process poller already owns
+    // this job (inline/recovery attach) — the engine settles nothing and
+    // never double-executes. Measured without this guard: a re-claim raced
+    // a live render and its finishCompleted clobbered the row with an
+    // empty artifact while the real video was still rendering.
+    if (isVideoPollerActive(job.id)) {
+      return { noSettle: true }
+    }
     await processVideoJob(legacyRow(job))
-    return { result: {} }
+    return { result: {} } // the legacy processor settles the row itself
   },
   chat: handleRiisheChatJob,
   'coding-task': handleGiftzCodingJob,

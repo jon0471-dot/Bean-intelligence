@@ -134,11 +134,19 @@ export function classifyUpstreamError(e: unknown): UpstreamFailure {
 export class UpstreamRateLimitError extends Error {
   readonly endpointClass: UpstreamEndpointClass
   readonly attempted: boolean
-  constructor(endpointClass: UpstreamEndpointClass, message: string, attempted = true) {
+  /** Retry-After in milliseconds when the provider actually surfaced one.
+   *  MEASURED (2026-11-08, issues 1-2 repair): the z-ai gateway sends no
+   *  Retry-After header and the SDK discards response headers entirely, so
+   *  every current adapter constructs this error with null — the field
+   *  exists so any future adapter that CAN read the header honors it
+   *  instead of guessing a backoff. */
+  readonly retryAfterMs: number | null
+  constructor(endpointClass: UpstreamEndpointClass, message: string, attempted = true, retryAfterMs: number | null = null) {
     super(message)
     this.name = 'UpstreamRateLimitError'
     this.endpointClass = endpointClass
     this.attempted = attempted
+    this.retryAfterMs = retryAfterMs
   }
 }
 
