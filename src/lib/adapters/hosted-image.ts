@@ -324,24 +324,32 @@ export const hostedImageAdapter: TaskAdapter = {
     }
     const t0 = Date.now()
     const zai = await ZAI.create()
-    // MEASURED CONTRACT (2026-11-05, 10 shape probes recorded in
-    // scripts/probe-image-edit-out/contract-probe*.json):
-    //  - `image` (SDK typings' singular field) is rejected BY NAME — the
-    //    server answers 1210 "image_to_image task must provide images".
-    //  - `images` as an ARRAY (URLs, data-URLs or base64 items) is rejected by
-    //    the same named check — the validator wants a non-array value.
-    //  - `images` as a STRING (URL — including a gateway-issued CDN URL
-    //    captured from a raw T2I response, raw base64, or data URL) passes
-    //    the named check and fails later with a generic 1210 that discloses
-    //    no expected format. Public Z.AI docs describe NO edit endpoint, so
-    //    the exact string format cannot be derived tenant-side.
-    // We therefore send the self-describing data URL (consistent with this
-    // gateway's vision-chat image convention, `image_url.url = data:...`),
-    // which reaches the deepest measured validation stage. The typed 400 is
-    // recorded verbatim on the job — the blocker is external, never faked.
+    // VERIFIED PROVIDER CONTRACT (2026-11-07 FIX — resolves the measured
+    // HTTP 400). Evidence chain:
+    //  - 10 measured request shapes (scripts/probe-image-edit-out/, 2026-11-04/05)
+    //    proved `images` — plural, in EVERY array and string form (public URL,
+    //    raw base64, data URL, provider CDN URL) — is rejected with HTTP 400
+    //    code 1210; the plural field was this codebase's invention, derived
+    //    from the singular-name 1210 error text, and never the provider's
+    //    contract.
+    //  - The authorized SDK (z-ai-web-dev-sdk 0.0.18, latest published)
+    //    DEFINES the contract in two places, both verified in this repo's
+    //    node_modules:
+    //      * typings: `interface CreateImageEditBody { model?; prompt; image?; size? }`
+    //        — SINGULAR `image`;
+    //      * its own CLI (dist/cli.js handleImageEdit): body = { prompt,
+    //        image: <data URL of the file>, size: '1024x1024' } sent to
+    //        POST {baseUrl}/images/generations/edit.
+    //  - A prior single probe of the canonical shape landed in the account's
+    //    429 throttle window (no contract verdict) — the 400s belonged to the
+    //    plural `images` field, which this fix removes.
+    // The body below is therefore EXACTLY the SDK's canonical shape: prompt +
+    // singular `image` as a self-describing data URL + literal size. A typed
+    // 400, if the provider still rejects it, is recorded verbatim on the job
+    // — the blocker stays external, never faked.
     const body: Record<string, unknown> = {
       prompt: req.prompt.slice(0, 4000),
-      images: `data:image/jpeg;base64,${req.imageBase64}`,
+      image: `data:image/jpeg;base64,${req.imageBase64}`,
       ...(req.size ? { size: req.size } : {}),
     }
     let res

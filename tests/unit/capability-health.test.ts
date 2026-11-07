@@ -62,7 +62,7 @@ describe('generationCapability: the evidence chain can never fake availability',
     expect(cap.evidence.checkedAt).toBe('2026-11-05T01:38:04.401Z')
   })
 
-  test('a FRESH upstream failure is status-affecting degraded evidence', () => {
+  test('a FRESH rate-limited upstream failure is RATE-LIMITED evidence (not Degraded)', () => {
     const at = new Date(Date.now() - 60_000).toISOString()
     const cap = generationCapability('text-to-image', 'Text-to-image', true, {
       probe: probe(),
@@ -71,12 +71,29 @@ describe('generationCapability: the evidence chain can never fake availability',
       ownBreaker: { coolingDown: false, last429At: null },
       sharedThrottle: null,
     })
-    expect(cap.state).toBe('degraded')
+    // FINAL CAPABILITY FIX (2026-11-07): throttling is its own state —
+    // the capability is not malfunctioning, the provider refuses volume.
+    expect(cap.state).toBe('rate-limited')
     expect(cap.statusAffecting).toBe(true)
     expect(cap.evidence.source).toBe('real-attempt')
+    expect(cap.evidence.note).toContain('rate-limited upstream')
   })
 
-  test('an open own-class breaker is degraded evidence with the 429 timestamp', () => {
+  test('a FRESH NON-throttle upstream failure stays Degraded evidence', () => {
+    const at = new Date(Date.now() - 60_000).toISOString()
+    const cap = generationCapability('text-to-image', 'Text-to-image', true, {
+      probe: probe(),
+      freshUpstreamFailure: attempt({ at, ok: false, failureCategory: 'backend-error', httpStatus: 500 }),
+      lastAttempt: attempt({ at, ok: false, failureCategory: 'backend-error', httpStatus: 500 }),
+      ownBreaker: { coolingDown: false, last429At: null },
+      sharedThrottle: null,
+    })
+    expect(cap.state).toBe('degraded')
+    expect(cap.statusAffecting).toBe(true)
+    expect(cap.evidence.note).toContain('failed upstream')
+  })
+
+  test('an open own-class breaker is RATE-LIMITED evidence with the 429 timestamp', () => {
     const cap = generationCapability('text-to-video', 'Text-to-video', true, {
       probe: probe(),
       freshUpstreamFailure: null,
@@ -84,7 +101,7 @@ describe('generationCapability: the evidence chain can never fake availability',
       ownBreaker: { coolingDown: true, last429At: '2026-11-05T03:08:04.000Z' },
       sharedThrottle: null,
     })
-    expect(cap.state).toBe('degraded')
+    expect(cap.state).toBe('rate-limited')
     expect(cap.statusAffecting).toBe(true)
     expect(cap.evidence.source).toBe('breaker')
     expect(cap.evidence.httpStatus).toBe(429)
@@ -112,7 +129,9 @@ describe('generationCapability: the evidence chain can never fake availability',
       ownBreaker: { coolingDown: false, last429At: null },
       sharedThrottle: { last429At: '2026-11-05T03:08:04.000Z', note: 'Shared-account throttle observed on other gateway endpoint classes.' },
     })
-    expect(cap.state).toBe('degraded')
+    // FINAL CAPABILITY FIX (2026-11-07): labeled cross-class throttling is
+    // Rate limited evidence — never Degraded, never Unavailable.
+    expect(cap.state).toBe('rate-limited')
     expect(cap.statusAffecting).toBe(true)
     expect(cap.evidence.source).toBe('shared-throttle')
     // own-class success outranks the cross-class inference (user's example:
@@ -137,6 +156,29 @@ describe('generationCapability: the evidence chain can never fake availability',
     })
     expect(cap.state).toBe('unavailable')
     expect(cap.statusAffecting).toBe(true)
+  })
+
+  test('a probe that failed ON throttling (observed 429) is Rate limited, not Unavailable', () => {
+    const cap = generationCapability('text-to-image', 'Text-to-image', true, {
+      probe: probe({ healthy: false, failureCategory: 'rate-limited', httpStatus: 429, detail: 'gateway throttling' }),
+      freshUpstreamFailure: null,
+      lastAttempt: null,
+      ownBreaker: { coolingDown: false, last429At: null },
+      sharedThrottle: null,
+    })
+    expect(cap.state).toBe('rate-limited')
+    expect(cap.statusAffecting).toBe(true)
+  })
+
+  test('a DEFERRED probe (open breaker, zero network) is Rate limited, not Unavailable', () => {
+    // probeResearchHealth / hosted-video health report exactly this shape
+    // when the class breaker is open: healthy:false, rate-limited, no status.
+    const cap = probeCapability('research', 'Current-web research', false, {
+      probe: probe({ healthy: false, latencyMs: null, failureCategory: 'rate-limited', httpStatus: null }),
+      statusAffecting: false,
+    })
+    expect(cap.state).toBe('rate-limited')
+    expect(cap.evidence.note).toContain('throttling')
   })
 
   test('never-attempted + clean probe stays probe-driven with the honest note', () => {
@@ -276,5 +318,74 @@ describe('probeCapability and product-badge aggregation', () => {
     expect(capabilitySecondaryFailures([{ state: 'blocked', statusAffecting: false } as never])).toBe(false)
     expect(capabilitySecondaryFailures([])).toBe(false)
     expect(capabilitySecondaryFailures(undefined)).toBe(false)
+  })
+
+  test('RIISHE truth fix: chat Available + research Rate limited (display-only) -> badge Operational', () => {
+    // FINAL CAPABILITY FIX (2026-11-07): research rides the separately
+    // throttled functions class; its failure must never imply the core
+    // conversational capability is unavailable.
+    const status = productStatus(true, {
+      available: true,
+      capabilities: [
+        { state: 'operational', statusAffecting: true }, // chat
+        { state: 'rate-limited', statusAffecting: false }, // research (429 window)
+      ],
+    })
+    expect(status).toBe('operational')
+  })
+
+  test('CODE GIFTZ truth fix: coding-chat Rate limited + sandbox Available -> badge Rate limited', () => {
+    // A chat probe that fails with HTTP 429 is throttling, NOT a red outage.
+    const status = productStatus(true, {
+      available: false,
+      probe: { failureCategory: 'rate-limited', httpStatus: 429 },
+      capabilities: [
+        { state: 'rate-limited', statusAffecting: true }, // coding-chat
+        { state: 'operational', statusAffecting: false }, // sandbox-execution
+      ],
+    })
+    expect(status).toBe('rate-limited')
+  })
+
+  test('CODE GIFTZ hard failure: coding-chat Unavailable (non-429) -> badge Unavailable', () => {
+    const status = productStatus(true, {
+      available: false,
+      probe: { failureCategory: 'network', httpStatus: null },
+      capabilities: [
+        { state: 'unavailable', statusAffecting: true },
+        { state: 'operational', statusAffecting: false },
+      ],
+    })
+    expect(status).toBe('unavailable')
+  })
+
+  test('JAZMII truth fix: t2v Available + i2v Available -> badge Operational (both real runs on record)', () => {
+    const status = productStatus(true, {
+      available: true,
+      capabilities: [
+        { state: 'operational', statusAffecting: false }, // t2v real success
+        { state: 'operational', statusAffecting: false }, // i2v real success
+      ],
+    })
+    expect(status).toBe('operational')
+  })
+
+  test('mixed severity: blocked + rate-limited -> badge Degraded (functional gap outranks throttle)', () => {
+    const status = productStatus(true, {
+      available: true,
+      capabilities: [
+        { state: 'rate-limited', statusAffecting: true }, // t2i throttled
+        { state: 'blocked', statusAffecting: true }, // editing contract
+      ],
+    })
+    expect(status).toBe('degraded')
+  })
+
+  test('legacy payload without capability rows: 429 probe failure -> Rate limited', () => {
+    const status = productStatus(true, {
+      available: false,
+      probe: { failureCategory: 'rate-limited', httpStatus: 429 },
+    })
+    expect(status).toBe('rate-limited')
   })
 })

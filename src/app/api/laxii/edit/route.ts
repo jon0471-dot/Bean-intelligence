@@ -10,6 +10,7 @@ import { loadAsset } from '@/lib/laxii/assets'
 import { resolveProvider } from '@/lib/laxii/provider'
 import { generativeWorkerStatus } from '@/lib/laxii/models'
 import { lastRealAttempt } from '@/lib/adapters/last-attempts'
+import { persistedAttempt } from '@/lib/adapters/persisted-attempts'
 import { LAXII_EDIT_CONTRACT_BLOCKER } from '@/lib/registry/capabilities'
 
 const rectSchema = z.object({
@@ -182,7 +183,9 @@ export async function GET() {
   return handle(async () => {
     await requireUser()
     const worker = generativeWorkerStatus()
-    const editAttempt = lastRealAttempt('image-editing')
+    // FINAL CAPABILITY FIX (2026-11-07): the persisted completed edit job is
+    // evidence too — a restart must not forget a real conversational edit.
+    const editAttempt = lastRealAttempt('image-editing') ?? (await persistedAttempt('image-editing'))
     const editAvailable = Boolean(editAttempt?.ok)
     return ok({
       capabilities: {
