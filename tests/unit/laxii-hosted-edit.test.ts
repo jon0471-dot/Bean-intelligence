@@ -173,14 +173,18 @@ describe('hosted editImage adapter contract', () => {
     })
     expect(state.editCalls).toHaveLength(1)
     expect(state.editCalls[0].prompt).toContain('dusk skyline')
-    // VERIFIED PROVIDER CONTRACT (2026-11-07 FIX): the SDK 0.0.18 canonical
-    // edit body is { prompt, image: <data URL>, size } — SINGULAR `image`,
-    // verified in the SDK's typings (CreateImageEditBody) and its own CLI
-    // (handleImageEdit). The previous body sent the plural `images` field
-    // (a codebase invention) which was measured to be rejected with HTTP 400
-    // code 1210 on all 10 probe shapes (scripts/probe-image-edit-out/).
-    expect(state.editCalls[0].images).toBeUndefined()
-    expect(state.editCalls[0].image).toBe(`data:image/jpeg;base64,${JPEG.toString('base64')}`)
+    // OFFICIAL PROVIDER CONTRACT (2026-11-07 FIX): the edit body is
+    // { prompt, images: [{ url: <data URL> }], size } — the shape published
+    // in the provider's OWN documentation ("The images parameter must be an
+    // array of objects with a url property, not a plain string"), matching
+    // the validator's measured error text ("image_to_image task must provide
+    // images"). The previously pinned SINGULAR `image` body (SDK 0.0.18
+    // typings/CLI) is the shape that was MEASURED to fail with HTTP 400/1210
+    // through the real job path.
+    expect(state.editCalls[0].image).toBeUndefined()
+    expect(state.editCalls[0].images).toEqual([
+      { url: `data:image/jpeg;base64,${JPEG.toString('base64')}` },
+    ])
     expect(state.editCalls[0].size).toBe('1024x1024')
     expect(res.format).toBe('jpeg')
     expect(res.bytes[0]).toBe(0xff)

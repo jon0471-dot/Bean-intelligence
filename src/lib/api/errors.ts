@@ -13,6 +13,7 @@ export type BeanErrorCode =
   | 'PAYLOAD_TOO_LARGE'
   | 'RATE_LIMITED'
   | 'QUOTA_EXCEEDED'
+  | 'COST_LIMIT'
   | 'PRODUCT_UNAVAILABLE'
   | 'PROVIDER_UNAVAILABLE'
   | 'NO_BACKEND'
@@ -33,6 +34,8 @@ const HTTP_STATUS: Record<BeanErrorCode, number> = {
   PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
   QUOTA_EXCEEDED: 429,
+  // Operator-set provider request budget exhausted (provider-spend guard).
+  COST_LIMIT: 429,
   PRODUCT_UNAVAILABLE: 503,
   PROVIDER_UNAVAILABLE: 503,
   NO_BACKEND: 503,

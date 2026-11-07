@@ -41,8 +41,14 @@ import type { HealthFailureCategory } from '../adapters/types'
  * AI-GATEWAY-RECOVERY): the SDK's capability surface also serves images,
  * video (async jobs) and audio on the same account — each gets its own class
  * so one class's throttle can never fail-fast another class's traffic.
+ *
+ * PROVIDER RESILIENCE (2026-11-07): 'chat-fallback' is the SAME capability
+ * class on a DIFFERENT authorized provider (the prepared OpenAI-compatible
+ * fallback). It must never share breaker state with 'chat' — a throttle on
+ * the primary gateway would otherwise fail-fast the fallback before it ever
+ * got a chance to serve, defeating provider independence.
  */
-export type UpstreamEndpointClass = 'functions' | 'chat' | 'images' | 'video' | 'audio'
+export type UpstreamEndpointClass = 'functions' | 'chat' | 'chat-fallback' | 'images' | 'video' | 'audio'
 
 /**
  * MEASURED CHANGE (2026-11-04 connectivity audit): map an upstream failure

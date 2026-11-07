@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     const tRequest = Date.now()
     const user = await requireUser()
     const body = await parseBody(request, schema)
-    const { backend, adapter, release } = await preflight(user.id, 'riishe', 'chat')
+    const { backend, adapter, release, servedBy } = await preflight(user.id, 'riishe', 'chat')
     // Request validation + orchestration pre-flight (auth, body parse, rate
     // limits, quotas, concurrency, capability resolution) — measured so
     // non-model overhead is never mistaken for model latency.
@@ -405,7 +405,7 @@ export async function POST(request: Request) {
         await recordUsage({
           userId: user.id,
           product: 'riishe',
-          backendId: backend.id,
+          backendId: servedBy.backendId,
           kind: 'chat',
           tokensIn: result.tokensInEst,
           tokensOut: result.tokensOutEst,
@@ -533,7 +533,7 @@ export async function POST(request: Request) {
           await recordUsage({
             userId: user.id,
             product: 'riishe',
-            backendId: backend.id,
+            backendId: servedBy.backendId,
             kind: 'chat',
             tokensIn: result.tokensInEst,
             tokensOut: succeeded ? result.tokensOutEst : null,
@@ -578,7 +578,7 @@ export async function POST(request: Request) {
           await recordUsage({
             userId: user.id,
             product: 'riishe',
-            backendId: backend.id,
+            backendId: servedBy.backendId,
             kind: 'chat',
             tokensIn: Math.ceil(body.message.length / 4),
             durationMs: Date.now() - t0,
