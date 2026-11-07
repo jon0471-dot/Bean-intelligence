@@ -105,7 +105,7 @@ export async function GET() {
         userId: j.userId,
         product: j.product,
         task: j.task,
-        status: j.status,
+        status: normalizeJobStatus(j.status),
         paramsJson: j.paramsJson,
         resultJson: j.resultJson,
       })
@@ -134,7 +134,7 @@ export async function GET() {
         const result = j.resultJson ? (JSON.parse(j.resultJson) as Record<string, unknown>) : null
         return {
           id: j.id,
-          status: j.status,
+          status: normalizeJobStatus(j.status),
           progress: j.progress,
           errorCode: j.errorCode,
           errorMessage: j.errorMessage,
@@ -147,4 +147,19 @@ export async function GET() {
       }),
     })
   })
+}
+
+/** Engine states → legacy vocabulary (product interfaces preserved). */
+function normalizeJobStatus(status: string): string {
+  switch (status) {
+    case 'starting':
+    case 'running':
+    case 'streaming':
+    case 'finalizing':
+      return 'running'
+    case 'retry_wait':
+      return 'queued'
+    default:
+      return status
+  }
 }

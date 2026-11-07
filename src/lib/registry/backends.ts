@@ -17,6 +17,7 @@
 
 import type { BeanProductId, BeanTask } from './products'
 import { resolveOpenAiCompatibleCredential } from '@/lib/providers/credentials'
+import { isLlamaCppConfigured } from '@/lib/providers/llamacpp'
 
 export type DeploymentMode = 'authorized-hosted' | 'self-hosted'
 
@@ -108,9 +109,10 @@ const HOSTED_LLM: BackendDescriptor = {
   metering: { unit: 'request', costUnit: null },
   secrets: ['ZAI_GATEWAY_CREDENTIALS (managed by platform runtime)'],
   // PROVIDER RESILIENCE (2026-11-07): RIISHE chat falls back to the prepared
-  // OpenAI-compatible provider — attempted ONLY when the operator has set
-  // its credentials (BEAN_PROVIDER_OPENAI_*); dormant otherwise.
-  fallbacks: ['bean-llm-openai-compatible'],
+  // OpenAI-compatible provider, then the FREE-LOCAL llama.cpp lane — each
+  // attempted ONLY when its own credentials/config exist (credential-gated,
+  // audit-logged; a dormant slot is skipped, never assumed).
+  fallbacks: ['bean-llm-openai-compatible', 'bean-chat-local-llamacpp'],
   enabled: true,
   concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 16 },
   timeouts: { requestMs: 90_000, queueMs: 5_000 },
@@ -432,7 +434,7 @@ const HOSTED_CODE_LLM: BackendDescriptor = {
   secrets: ['ZAI_GATEWAY_CREDENTIALS (managed by platform runtime)'],
   // PROVIDER RESILIENCE (2026-11-07): CODE GIFTZ coding chat shares the same
   // credential-gated fallback chain as RIISHE chat.
-  fallbacks: ['bean-llm-openai-compatible'],
+  fallbacks: ['bean-llm-openai-compatible', 'bean-chat-local-llamacpp'],
   enabled: true,
   concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 8 },
   timeouts: { requestMs: 120_000, queueMs: 5_000 },
@@ -490,10 +492,59 @@ const OPENAI_COMPATIBLE_LLM: BackendDescriptor = {
   retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
+/**
+ * RIISHE + CODE GIFTZ — FREE-LOCAL llama.cpp GGUF lane (Phase: free-first).
+ *
+ * A `llama-server` started on BEAN's own hardware (operator PC or this host)
+ * serves an OpenAI-compatible endpoint; models are open-weight GGUF files
+ * (e.g. Qwen3 quantized, Dolphin GGUF, Mistral-family) — no Ollama, per
+ * policy. Dormant until the operator wires BEAN_LLAMACPP_BASE_URL and opts
+ * into local provider endpoints (SSRF guard). Capability is verified by a
+ * REAL completion probe in the adapter's health check — a running server
+ * alone never proves the model serves chat.
+ */
+const LOCAL_LLAMACPP_LLM: BackendDescriptor = {
+  id: 'bean-chat-local-llamacpp',
+  productId: 'riishe',
+  task: 'chat',
+  provider: 'BEAN Intelligence (local llama.cpp GGUF server)',
+  modelIdentity: "Operator-loaded GGUF model (e.g. Qwen3 quantized / Dolphin GGUF); identity read live from the server's /v1/models",
+  revision: null,
+  endpointType: 'http',
+  deploymentMode: 'self-hosted',
+  runtime: 'llama.cpp llama-server (CPU inference; CUDA offload when a GPU is present) on the BEAN host',
+  limits: {
+    maxPromptChars: 12_000,
+    maxHistoryMessages: 24,
+    streaming: true,
+    note: 'Model quality/latency depend on the loaded GGUF; health verifies a real completion, never a config value.',
+  },
+  license: {
+    name: 'Per the loaded model\u2019s license (e.g. Apache-2.0 Qwen3; Dolphin JSON license shipped with weights)',
+    commercialUse: 'authorized',
+    note:
+      'Open-weight inference on BEAN-owned hardware. BEAN does not download weights without the operator\u2019s explicit license acceptance (llama.cpp model cards document each license).',
+    sourceUrl: 'https://github.com/ggml-org/llama.cpp',
+    verifiedAt: '2026-11-07',
+  },
+  dataHandling:
+    'Prompts and completions are processed by the local llama.cpp server on BEAN hardware; nothing leaves the host. Credentials (if any) stay server-side.',
+  metering: { unit: 'request', costUnit: null },
+  secrets: ['BEAN_LLAMACPP_API_KEY (optional; llama-server usually needs none)'],
+  fallbacks: [],
+  enabled: isLlamaCppConfigured(),
+  unavailableReason:
+    'Not configured: start llama-server with a GGUF model, then set BEAN_LLAMACPP_BASE_URL and BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS=1. The slot consumes nothing while dormant.',
+  concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 4 },
+  timeouts: { requestMs: 120_000, queueMs: 5_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
 /** Private registry — the only place product→backend mappings exist. */
 export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_LLM,
   OPENAI_COMPATIBLE_LLM,
+  LOCAL_LLAMACPP_LLM,
   HOSTED_IMAGE,
   HOSTED_IMAGE_EDIT,
   LOCAL_SHARP_ENGINE,

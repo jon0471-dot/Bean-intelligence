@@ -2,6 +2,10 @@ import { db } from '@/lib/db'
 import { handle, ok } from '@/lib/api/errors'
 import { requireAdmin } from '@/lib/auth/session'
 import { recordAudit } from '@/lib/observability/metering'
+import { engineQueueSnapshot } from '@/lib/ai-engine/runner'
+import { engineConfig } from '@/lib/ai-engine/config'
+import { detectHardware } from '@/lib/ai-engine/gpu'
+import { AI_MODEL_REGISTRY } from '@/lib/ai-engine/model-registry'
 import { BACKEND_REGISTRY } from '@/lib/registry/backends'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
@@ -108,6 +112,32 @@ export async function GET() {
         timeouts: b.timeouts,
         health: healthById[b.id] ?? { healthy: false, detail: 'No probe registered.', latencyMs: null },
       })),
+      engine: {
+        config: {
+          embeddedWorkers: engineConfig().embeddedWorkers,
+          leaseMs: engineConfig().leaseMs,
+          heartbeatMs: engineConfig().heartbeatMs,
+          maxAttempts: engineConfig().maxAttempts,
+          perUserActiveLimit: engineConfig().perUserActiveLimit,
+          concurrency: engineConfig().concurrency,
+        },
+        activeQueue: await engineQueueSnapshot(),
+        hardware: await detectHardware(),
+        modelRegistry: AI_MODEL_REGISTRY.map((m) => ({
+          backendId: m.backendId,
+          productId: m.productId,
+          task: m.task,
+          label: m.label,
+          capabilities: m.capabilities,
+          costClass: m.costClass,
+          costNote: m.costNote,
+          hardware: m.hardware,
+          enabled: m.enabled,
+          unavailableReason: m.unavailableReason ?? null,
+          sourceUrl: m.sourceUrl,
+          license: m.license,
+        })),
+      },
       stats: {
         users: userCount,
         jobs: jobCount,

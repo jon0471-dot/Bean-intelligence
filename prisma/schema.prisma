@@ -116,8 +116,54 @@ model GenerationJob {
   finishedAt   DateTime?
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // ---------------------------------------------------------------------
+  // BACKGROUND AI ENGINE (2026-11-07) — ADDITIVE durable-queue fields.
+  // Existing columns/values are untouched; product routes keep their wire
+  // contracts (extended states are normalized to the legacy vocabulary at
+  // those boundaries). These fields give every job: an owning worker with a
+  // time-limited claim (lease) that another worker can take over after a
+  // crash, bounded retry scheduling, a duplicate-submission guard, an
+  // honest error classification and a cooperative cancel flag.
+  // ---------------------------------------------------------------------
+  capability      String? // engine capability key (chat | text-to-image | image-editing | ...)
+  workerId        String? // claiming worker instance id
+  workerKind      String? // embedded (in-server) | standalone (worker process)
+  leaseUntil      DateTime? // claim expiry — a stale lease means the worker died
+  heartbeatAt     DateTime? // last worker liveness signal
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(2)
+  nextRunAt       DateTime? // RETRY_WAIT scheduling (null = immediately eligible)
+  errorClass      String? // rate_limited | auth | billing | timeout | network | worker_lost | permanent | cancelled | budget | none
+  dedupeKey       String? // hash of user+product+task+params while a job is active
+  cancelRequested Boolean   @default(false) // cooperative cancel for running jobs
+
+  events JobEvent[]
+
   @@index([userId, product])
   @@index([status])
+  @@index([product, status, nextRunAt])
+  @@index([dedupeKey])
+  @@index([leaseUntil])
+}
+
+/**
+ * BACKGROUND AI ENGINE (2026-11-07) — additive append-only event log per job.
+ * Workers stream partial text (chat/coding), progress, stages and research/
+ * tool notices here; the SSE job-events endpoint replays them from any
+ * cursor, so a client can disconnect and reattach (or never connect at all —
+ * results persist regardless of who is watching).
+ */
+model JobEvent {
+  id        String        @id @default(cuid())
+  jobId     String
+  seq       Int // per-job monotonic sequence
+  type      String // delta | stage | progress | research | tool | reset | notice | error | artifact
+  dataJson  String
+  createdAt DateTime      @default(now())
+  job       GenerationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, seq])
+  @@index([jobId, seq])
 }
 
 // LAXII preservation engine (2026-10-31): uploaded reference images,

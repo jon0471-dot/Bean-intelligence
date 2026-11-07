@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       {
         job: {
           id: job.id,
-          status: job.status,
+          status: normalizeJobStatus(job.status),
           progress: job.progress,
           size: body.size,
         },
@@ -80,7 +80,7 @@ export async function GET() {
         return {
           id: j.id,
           task: j.task,
-          status: j.status,
+          status: normalizeJobStatus(j.status),
           progress: j.progress,
           size: (params.size as string | undefined) ?? null,
           errorCode: j.errorCode,
@@ -101,4 +101,19 @@ export async function GET() {
       }),
     })
   })
+}
+
+/** Engine states → legacy vocabulary (product interfaces preserved). */
+function normalizeJobStatus(status: string): string {
+  switch (status) {
+    case 'starting':
+    case 'running':
+    case 'streaming':
+    case 'finalizing':
+      return 'running'
+    case 'retry_wait':
+      return 'queued'
+    default:
+      return status
+  }
 }

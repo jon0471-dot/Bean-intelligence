@@ -12,16 +12,9 @@ import { buildConversationDigest } from '@/lib/riishe/summarize'
 import type { AttachedDocument } from '@/lib/riishe/orchestrator'
 import type { ToolContext } from '@/lib/riishe/tools/types'
 import { metadataToJson, type MessageMetadata } from '@/lib/riishe/states'
-import {
-  detectMemoryCommand,
-  sensitiveMemoryReason,
-  saveConfirmation,
-  forgetConfirmation,
-  listConfirmation,
-  isDuplicateMemory,
-  MEMORY_LIMITS,
-} from '@/lib/riishe/memory'
-import { getMemoryDelegate, MEMORY_INITIALIZING_NOTE } from '@/lib/riishe/memory-db'
+import { MEMORY_LIMITS } from '@/lib/riishe/memory'
+import { getMemoryDelegate } from '@/lib/riishe/memory-db'
+import { performMemoryCommandIfPresent } from '@/lib/riishe/memory-actions'
 import { upstreamStreamErrorPayload, upstreamErrorCode } from '@/lib/upstream/gateway'
 import { createSseWriter } from '@/lib/riishe/sse'
 import type { ChatTurn } from '@/lib/adapters/types'
@@ -266,81 +259,12 @@ export async function POST(request: Request) {
     // ---- User-approved memory commands (Phase 6) ---------------------------
     // "remember …" / "forget …" / "what do you remember about me" are REAL
     // database actions with SYSTEM-authored receipts (metadata labels them),
-    // never model-simulated results. Everything else flows to the model with
-    // the user's own approved memories injected as bounded context.
-    const memoryCommand = detectMemoryCommand(body.message)
-    if (memoryCommand) {
-      // The memory store is unavailable on processes whose Prisma client
-      // predates the RiisheMemory model (needs a restart to load it): every
-      // command gets an explicit initializing receipt — never a fake success.
-      const memory = getMemoryDelegate()
-      let content: string
-      const meta: MessageMetadata = {
-        states: ['UNVERIFIED'],
-        sources: [],
-        verification: [],
-        stages: [],
-        degraded: [],
-      }
-      if (!memory) {
-        logger.warn('riishe.memory_unavailable', { conversationId })
-        content = MEMORY_INITIALIZING_NOTE
-        meta.memoryAction = { action: memoryCommand.action, refused: true }
-      } else if (memoryCommand.action === 'save') {
-        const sensitive = sensitiveMemoryReason(memoryCommand.content)
-        if (sensitive) {
-          content = saveConfirmation(memoryCommand.content, sensitive)
-          meta.memoryAction = { action: 'save', refused: true }
-        } else {
-          const existing = await memory.findMany({ where: { userId: user.id }, select: { content: true } })
-          if (isDuplicateMemory(memoryCommand.content, existing.map((r) => r.content))) {
-            content = `That is already in memory: “${memoryCommand.content}”. Nothing new was stored.`
-            meta.memoryAction = { action: 'save', count: 0 }
-          } else {
-            const count = await memory.count({ where: { userId: user.id } })
-            if (count >= MEMORY_LIMITS.maxPerUser) {
-              content = `Your memory is full (${MEMORY_LIMITS.maxPerUser} items). Say “forget everything” or remove a few items before adding more.`
-              meta.memoryAction = { action: 'save', count: 0, refused: true }
-            } else {
-              await memory.create({ data: { userId: user.id, content: memoryCommand.content } })
-              content = saveConfirmation(memoryCommand.content, null)
-              meta.memoryAction = { action: 'save', count: 1 }
-            }
-          }
-        }
-      } else if (memoryCommand.action === 'forget') {
-        if (memoryCommand.all) {
-          const removed = await memory.deleteMany({ where: { userId: user.id } })
-          content = forgetConfirmation(removed.count, '', true)
-          meta.memoryAction = { action: 'forget', count: removed.count }
-        } else {
-          const needle = memoryCommand.target.toLowerCase()
-          const rows = await memory.findMany({
-            where: { userId: user.id },
-            select: { id: true, content: true },
-          })
-          const matches = rows.filter((r) => r.content.toLowerCase().includes(needle))
-          if (matches.length > 0) {
-            await memory.deleteMany({
-              where: { userId: user.id, id: { in: matches.map((m) => m.id) } },
-            })
-          }
-          content = forgetConfirmation(matches.length, memoryCommand.target, false)
-          meta.memoryAction = { action: 'forget', count: matches.length }
-        }
-      } else {
-        const rows = await memory.findMany({
-          where: { userId: user.id },
-          orderBy: { createdAt: 'desc' },
-          select: { content: true },
-        })
-        content = listConfirmation(rows.map((r) => r.content))
-        meta.memoryAction = { action: 'list', count: rows.length }
-      }
-      await db.message.create({
-        data: { conversationId, role: 'assistant', content, metadata: metadataToJson(meta) },
-      })
-      logger.info('riishe.memory_action', { conversationId, action: meta.memoryAction?.action, count: meta.memoryAction?.count })
+    // never model-simulated results. The implementation is SHARED with the
+    // background chat worker (src/lib/riishe/memory-actions.ts) so both
+    // execution paths behave identically.
+    const memoryOutcome = await performMemoryCommandIfPresent(user.id, conversationId, body.message)
+    if (memoryOutcome) {
+      const { content, meta } = memoryOutcome
       release()
       if (!wantsStream) {
         return ok({ conversationId, content, durationMs: 0, metadata: meta })
