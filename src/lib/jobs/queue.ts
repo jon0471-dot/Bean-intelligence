@@ -22,9 +22,17 @@
 import { claimNextJob, finishFailed, heartbeatJob } from '@/lib/ai-engine/queue'
 import { engineHandlers } from '@/lib/ai-engine/handlers'
 import { kickProduct, poolsRunning } from '@/lib/ai-engine/runner'
+import { setVideoPoolsActiveProbe } from '@/lib/jobs/video-worker'
 import { logger } from '@/lib/observability/logger'
 
 const ENGINE_KIND = 'embedded'
+
+// ISSUES 1-2 REPAIR (2026-11-08): teach the video worker whether engine
+// pools are active so its poller re-attach path never executes queued /
+// retry_wait jobs outside the claim protocol. Wired here because this
+// module already imports the runner; the worker itself stays out of the
+// runner→handlers→video-worker import cycle.
+setVideoPoolsActiveProbe(poolsRunning)
 
 /** Execute one claimed job inline (fallback for pool-less deployments). */
 async function executeInline(jobId: string): Promise<void> {

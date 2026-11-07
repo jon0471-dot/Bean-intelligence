@@ -152,6 +152,12 @@ export interface HandlerOutcome {
   errorMessage?: string
   /** Present when the outcome is a bounded RETRY_WAIT instead of a terminal state. */
   retry?: { scheduledForMs: number; reason: string }
+  /** ISSUES 1-2 REPAIR: present when the handler delegated the row to
+   *  another live executor in this process (e.g. the video poller registry
+   *  already owns the job) — the runner settles NOTHING (no finishCompleted
+   *  with an empty result, no failure) because the row's fate belongs to the
+   *  live executor. */
+  noSettle?: boolean
 }
 
 /**
