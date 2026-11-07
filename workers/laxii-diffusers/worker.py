@@ -30,6 +30,7 @@ import base64
 import io
 import json
 import os
+import threading
 import shutil
 import sys
 import threading
@@ -373,6 +374,45 @@ class Engine:
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
         return {"unloaded": True}
+
+
+# Idle unload (Phase 5, configurable): a resident pipeline is released after
+# LAXII_WORKER_IDLE_UNLOAD_MS (default 10 min) without work, so VRAM is free
+# for other workloads. The busy lock makes this race-free: the main loop holds
+# it for the duration of every request; the reaper skips when it cannot be
+# acquired immediately (never unloads mid-generation).
+BUSY_LOCK = threading.Lock()
+_LAST_ACTIVITY = {"t": time.time()}
+
+
+def _touch_activity():
+    _LAST_ACTIVITY["t"] = time.time()
+
+
+def _idle_unload_reaper(engine):
+    try:
+        idle_ms = int(os.environ.get("LAXII_WORKER_IDLE_UNLOAD_MS", "600000") or "600000")
+    except ValueError:
+        idle_ms = 600000
+    idle_ms = max(30000, idle_ms)
+    while True:
+        time.sleep(15)
+        if engine.current_model is None:
+            continue
+        if time.time() - _LAST_ACTIVITY["t"] < idle_ms / 1000.0:
+            continue
+        got = BUSY_LOCK.acquire(blocking=False)
+        if not got:
+            continue  # a request is in flight; never unload mid-generation
+        try:
+            if engine.current_model is not None and time.time() - _LAST_ACTIVITY["t"] >= idle_ms / 1000.0:
+                engine.unload()
+                _touch_activity()
+                emit({"id": None, "type": "notice",
+                      "event": "idle_unload",
+                      "idleMs": idle_ms})
+        finally:
+            BUSY_LOCK.release()
 
 
 class _Cancelled(Exception):
@@ -783,6 +823,7 @@ def main():
     engine = Engine()
     emit({"id": None, "type": "ready", "workerVersion": WORKER_VERSION,
           "pid": os.getpid()})
+    threading.Thread(target=_idle_unload_reaper, args=(engine,), daemon=True).start()
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -795,6 +836,8 @@ def main():
         rid = req.get("id")
         method = req.get("method")
         params = req.get("params") or {}
+        BUSY_LOCK.acquire()
+        _touch_activity()
         try:
             if method == "preflight":
                 emit({"id": rid, "ok": True, "result": run_preflight(params)})
@@ -826,6 +869,10 @@ def main():
         except Exception as e:  # never crash the loop on a single failure
             log("error in %s: %r" % (method, e))
             fail(rid, "INTERNAL_ERROR", "%s: %s" % (type(e).__name__, e))
+        finally:
+            _touch_activity()
+            if BUSY_LOCK.locked():
+                BUSY_LOCK.release()
     log("stdin closed; exiting")
 
 

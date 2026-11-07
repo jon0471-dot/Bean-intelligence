@@ -10,6 +10,7 @@ import { BeanMark } from './landing'
 import { BeanUser } from './shared'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import { ProductTestSuite } from './product-test-suite'
+import { BackgroundJobs } from './background-jobs'
 import {
   LayoutDashboard,
   Image as ImageIcon,
@@ -156,6 +157,10 @@ export function Shell({
           BEAN Intelligence · products owned by BEAN · inference by authorized backends
         </footer>
       </div>
+
+      {/* Universal background execution surface (all products' jobs; submit +
+          watch + retrieve from any view; survives leaving the page). */}
+      <BackgroundJobs onNavigate={onNavigate} />
     </div>
   )
 }

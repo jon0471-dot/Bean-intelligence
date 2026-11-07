@@ -1,234 +1,81 @@
 /**
- * BEAN Intelligence — asynchronous job queue.
+ * BEAN Intelligence — asynchronous job queue → BACKGROUND AI ENGINE bridge.
  *
- * Long-running generation tasks (images today; video when a worker exists)
- * are persisted as GenerationJob rows and processed by this in-process
- * worker. Jobs are NEVER marked completed unless real work actually
- * produced a result; failures and cancellations are recorded truthfully.
+ * Since the background execution engine (2026-11-07) this module is a thin
+ * compatibility layer. The product routes' `enqueueJob` call keeps its name
+ * and signature (submit → job id immediately), but execution now happens
+ * ONLY in worker-pool task contexts:
  *
- * Scaling note (documented in docs/operations): this is a single-node
- * in-process queue. Multi-node deployments should swap this module for a
- * durable queue (e.g. database-backed or Redis) without changing the API.
+ *  - when pools are running (embedded by default, standalone optionally),
+ *    `enqueueJob` simply WAKES them — they claim the job through the same
+ *    durable CAS protocol and execute in their long-lived contexts.
+ *    (Measured 2026-11-07: executing inside the HTTP request's task context
+ *    can freeze mid-settle when Next.js tears the request down; pool
+ *    contexts never exhibited that stall.)
+ *  - when NO pool runs (BEAN_ENGINE_EMBEDDED=0 and no standalone worker),
+ *    the call falls back to inline execution so tests and minimal
+ *    deployments still process jobs.
+ *
+ * Jobs persist in GenerationJob rows; running work survives application
+ * restarts via lease expiry + recovery (see src/lib/ai-engine).
  */
-import { db } from '@/lib/db'
+import { claimNextJob, finishFailed, heartbeatJob } from '@/lib/ai-engine/queue'
+import { engineHandlers } from '@/lib/ai-engine/handlers'
+import { kickProduct, poolsRunning } from '@/lib/ai-engine/runner'
 import { logger } from '@/lib/observability/logger'
-import { recordUsage } from '@/lib/observability/metering'
-import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
-import { withTimeout } from '@/lib/adapters/hosted-llm'
-import {
-  noteRealAttempt,
-  UPSTREAM_FAILURE_CATEGORIES,
-  type RealAttemptRecord,
-} from '@/lib/adapters/last-attempts'
-import { classifyUpstreamError, healthFailureCategory } from '@/lib/upstream/gateway'
-import { getBackend } from '@/lib/registry/backends'
-import { processEnhancementJob, processEditJob } from '@/lib/laxii/jobs'
-import { processVideoJob } from '@/lib/jobs/video-worker'
-import { storeResultAsset } from '@/lib/laxii/assets'
-import fs from 'fs'
-import path from 'path'
 
-const STORAGE_ROOT = path.join(process.cwd(), 'storage', 'laxii')
+const ENGINE_KIND = 'embedded'
 
-type JobRow = {
-  id: string
-  userId: string
-  product: string
-  task: string
-  status: string
-  paramsJson: string
-  resultJson: string | null
-}
-
-async function updateJob(id: string, data: Record<string, unknown>) {
-  await db.generationJob.update({ where: { id }, data })
-}
-
-async function processImageJob(job: JobRow): Promise<void> {
-  const params = JSON.parse(job.paramsJson) as { prompt: string; size: string }
-  const backend = getBackend('bean-image-hosted-primary')!
-  const startedAt = new Date()
-
-  await updateJob(job.id, { status: 'running', startedAt, progress: 15 })
-
+/** Execute one claimed job inline (fallback for pool-less deployments). */
+async function executeInline(jobId: string): Promise<void> {
+  const claimed = await claimNextJob({
+    jobId,
+    workerId: `wk_kick_${process.pid.toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    workerKind: ENGINE_KIND,
+  })
+  if (!claimed) return // cancelled/rejected/claimed elsewhere while queued
+  const handler = engineHandlers[claimed.task]
+  if (!handler) {
+    await finishFailed(claimed.id, claimed.workerId, {
+      errorClass: 'permanent',
+      errorCode: 'NO_BACKEND',
+      errorMessage: 'No worker is available for this task type.',
+    })
+    return
+  }
+  const heartbeat = setInterval(() => {
+    void heartbeatJob(claimed.id, claimed.workerId)
+  }, 30_000)
   try {
-    const result = await withTimeout(
-      hostedImageAdapter.generateImage!({
-        prompt: params.prompt,
-        size: params.size,
-        timeoutMs: backend.timeouts.requestMs,
-      }),
-      backend.timeouts.requestMs,
-      'Image generation',
-    )
-
-    // Persist artifact under BEAN storage; access is authorized per-user.
-    const dir = path.join(STORAGE_ROOT, job.userId)
-    fs.mkdirSync(dir, { recursive: true })
-    const ext = result.format === 'png' ? 'png' : 'jpg'
-    const filename = `${job.id}.${ext}`
-    fs.writeFileSync(path.join(dir, filename), result.bytes)
-
-    // 2026-11-04 go-live: the generation result is ALSO registered as a
-    // real ImageAsset so it can seed follow-up work (conversational edits,
-    // variations) with full ownership checks — the UI's "Use as source"
-    // chains from any completed generation.
-    let assetUrl: string | null = null
-    let assetId: string | null = null
-    try {
-      const asset = await storeResultAsset(job.userId, 'result', result.bytes, result.width, result.height, {
-        jobId: job.id,
-        artifact: 'generation',
-        mime: 'image/jpeg',
-      })
-      assetUrl = asset.url
-      assetId = asset.id
-    } catch (e) {
-      logger.warn('laxii.generation_asset_failed', {
-        jobId: job.id,
-        message: e instanceof Error ? e.message : String(e),
-      })
-    }
-
-    await updateJob(job.id, {
-      status: 'completed',
-      progress: 100,
-      finishedAt: new Date(),
-      backendId: backend.id,
-      resultJson: JSON.stringify({
-        imageUrl: `/api/laxii/images/${job.id}`,
-        ...(assetUrl ? { assetUrl, assetId } : {}),
-        width: result.width,
-        height: result.height,
-        format: result.format,
-        bytes: result.bytes.length,
-        durationMs: result.durationMs,
-      }),
-    })
-    await recordUsage({
-      userId: job.userId,
-      product: 'laxii',
-      backendId: backend.id,
-      kind: 'image-generation',
-      imageCount: 1,
-      durationMs: result.durationMs,
-      success: true,
-    })
-    logger.info('laxii.job_completed', { jobId: job.id, durationMs: result.durationMs })
-    // REAL-attempt evidence (2026-11-04 connectivity audit): a genuine
-    // success overrides any previous upstream-failure evidence.
-    noteRealAttempt('image-generation', {
-      at: new Date().toISOString(),
-      ok: true,
-      backendId: backend.id,
-      failureCategory: null,
-      httpStatus: null,
-      upstream: false,
-    })
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    const timedOut = message.includes('timed out')
-    // Classify the failure honestly: only UPSTREAM-class failures (throttle,
-    // auth, network...) count as product-health evidence; a content-policy
-    // or user-error rejection is request-specific, not a product state.
-    const failure = classifyUpstreamError(e)
-    const category = timedOut && failure.kind === 'other' ? 'timeout' : healthFailureCategory(failure.kind)
-    const isUpstream = UPSTREAM_FAILURE_CATEGORIES.has(category)
-    const record: RealAttemptRecord = {
-      at: new Date().toISOString(),
-      ok: false,
-      backendId: backend.id,
-      failureCategory: category,
-      httpStatus: failure.status,
-      upstream: isUpstream,
-    }
-    noteRealAttempt('image-generation', record)
-    await updateJob(job.id, {
-      status: 'failed',
-      finishedAt: new Date(),
-      backendId: backend.id,
-      errorCode: timedOut ? 'BACKEND_TIMEOUT' : 'BACKEND_FAILURE',
-      errorMessage: timedOut
-        ? 'Generation exceeded the time limit and was stopped.'
-        : 'The image backend could not complete this request.',
-    })
-    await recordUsage({
-      userId: job.userId,
-      product: 'laxii',
-      backendId: backend.id,
-      kind: 'image-generation',
-      success: false,
-      errorCode: timedOut ? 'BACKEND_TIMEOUT' : 'BACKEND_FAILURE',
-      durationMs: Date.now() - startedAt.getTime(),
-    })
-    logger.warn('laxii.job_failed', { jobId: job.id, message })
+    await handler(claimed, { signal: { aborted: false } })
+  } finally {
+    clearInterval(heartbeat)
   }
 }
 
-/** Fire-and-forget enqueue used by API routes after the row is persisted. */
+/** Hand a freshly persisted job to the engine (pool wake; inline fallback). */
 export function enqueueJob(jobId: string): void {
+  if (poolsRunning()) {
+    // Wake every product pool: the first idle slot to claim wins; the other
+    // wakes find an empty queue and sleep again (four cheap queries).
+    for (const p of ['riishe', 'laxii', 'jazmii', 'code-giftz']) kickProduct(p)
+    return
+  }
   void (async () => {
     try {
-      const job = (await db.generationJob.findUnique({
-        where: { id: jobId },
-      })) as JobRow | null
-      if (!job) return
-      if (job.status !== 'queued') return // cancelled/rejected while queued
-
-      if (job.task === 'image-generation') {
-        await processImageJob(job)
-      } else if (job.task === 'image-enhancement') {
-        await processEnhancementJob(job)
-      } else if (job.task === 'image-editing') {
-        await processEditJob(job)
-      } else if (job.task === 'video-generation') {
-        // JAZMII — real asynchronous lifecycle: submit → bounded polling →
-        // server-side download + validation → storage → completed. Never a
-        // simulated job; failures surface through the honest failure path.
-        await processVideoJob(job)
-      } else {
-        await updateJob(job.id, {
-          status: 'failed',
-          finishedAt: new Date(),
-          errorCode: 'NO_BACKEND',
-          errorMessage: 'No worker is available for this task type.',
-        })
-      }
+      await executeInline(jobId)
     } catch (e) {
       logger.error('jobs.enqueue_failed', {
         jobId,
         message: e instanceof Error ? e.message : String(e),
       })
-      await db.generationJob
-        .update({
-          where: { id: jobId },
-          data: {
-            status: 'failed',
-            finishedAt: new Date(),
-            errorCode: 'INTERNAL_ERROR',
-            errorMessage: 'The job could not be processed.',
-          },
-        })
-        .catch(() => undefined)
+      await finishFailed(jobId, '__kick__', {
+        errorClass: 'unknown',
+        errorCode: 'INTERNAL_ERROR',
+        errorMessage: 'The job could not be processed.',
+      }).catch(() => undefined)
     }
   })()
 }
 
-/** Cancel a queued/running job. Running jobs are marked cancelled-at-best-effort:
- *  the adapter call itself cannot be interrupted mid-flight in-process, so the
- *  job row is marked `failed` with CANCELLED semantics only while still queued. */
-export async function cancelQueuedJob(jobId: string, userId: string): Promise<boolean> {
-  const job = await db.generationJob.findUnique({ where: { id: jobId } })
-  if (!job || job.userId !== userId) return false
-  if (job.status !== 'queued') return false
-  await db.generationJob.update({
-    where: { id: jobId },
-    data: {
-      status: 'failed',
-      finishedAt: new Date(),
-      errorCode: 'CANCELLED',
-      errorMessage: 'Cancelled before processing started.',
-    },
-  })
-  return true
-}
+export { recoverStaleJobs } from '@/lib/ai-engine/queue'

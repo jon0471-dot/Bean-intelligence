@@ -7,6 +7,7 @@
  * entry:  sandbox entry-point detection for honest run attempts.
  */
 import { diffLines } from 'diff'
+import { db } from '@/lib/db'
 
 export interface GiftzFile {
   path: string
@@ -86,4 +87,33 @@ export function pickEntryFile(paths: string[]): string | null {
   }
   const runnable = paths.find((p) => /\.(js|ts|py)$/.test(p))
   return runnable ?? null
+}
+
+/**
+ * Apply extracted files to a project; returns the honest change list
+ * (added/modified with REAL diffs; an identical file is a no-op that is
+ * reported as nothing). Shared by the live SSE route and the background
+ * coding worker. (Moved here 2026-11-07 from the chat route.)
+ */
+export async function applyFiles(
+  projectId: string,
+  extracted: GiftzFile[],
+): Promise<Array<{ path: string; change: 'added' | 'modified'; diff: ReturnType<typeof diffContent> }>> {
+  const changes: Array<{ path: string; change: 'added' | 'modified'; diff: ReturnType<typeof diffContent> }> = []
+  for (const f of extracted) {
+    assertSafeProjectPath(f.path)
+    const existing = await db.codeFile.findUnique({
+      where: { projectId_path: { projectId, path: f.path } },
+    })
+    if (existing && existing.content === f.content) continue // no change — say nothing
+    const diff = diffContent(existing?.content ?? null, f.content)
+    if (existing) {
+      await db.codeFile.update({ where: { id: existing.id }, data: { content: f.content, origin: 'modified' } })
+      changes.push({ path: f.path, change: 'modified', diff })
+    } else {
+      await db.codeFile.create({ data: { projectId, path: f.path, content: f.content, origin: 'generated' } })
+      changes.push({ path: f.path, change: 'added', diff })
+    }
+  }
+  return changes
 }

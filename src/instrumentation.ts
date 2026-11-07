@@ -1,0 +1,24 @@
+/**
+ * BEAN Intelligence — Next.js instrumentation hook.
+ *
+ * Starts the EMBEDDED background AI engine (worker pools for RIISHE, LAXII,
+ * JAZMII and CODE GIFTZ) when the server process boots, so background jobs
+ * execute independently of any browser session with zero ops setup. The
+ * pools are idempotent (globalThis guard) and CAS-based claims make them
+ * safe to combine with standalone worker processes
+ * (scripts/ai-workers/worker.ts) — first claim wins, leases recover crashes.
+ *
+ * Disable with BEAN_ENGINE_EMBEDDED=0 (e.g. when running dedicated workers).
+ */
+export async function register(): Promise<void> {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return
+  try {
+    const { startEmbeddedEngine } = await import('@/lib/ai-engine/runner')
+    startEmbeddedEngine()
+  } catch (e) {
+    console.error(
+      '[bean-engine] embedded engine failed to start:',
+      e instanceof Error ? e.message : String(e),
+    )
+  }
+}
