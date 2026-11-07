@@ -357,7 +357,7 @@ async function handleVideoFailure(job: JobRow, backendId: string, e: unknown, st
         : failure.kind === 'auth' || failure.kind === 'billing'
           ? 'The video gateway rejected the request for account/configuration reasons. This needs an operator — retrying will not change it.'
           : message.slice(0, 240)
-  await failJob(job, backendId, code, display)
+  await failJob(job, backendId, code, display, failure.kind)
   await recordUsage({
     userId: job.userId,
     product: 'jazmii',
@@ -370,13 +370,20 @@ async function handleVideoFailure(job: JobRow, backendId: string, e: unknown, st
   logger.warn('jazmii.job_failed', { jobId: job.id, kind: failure.kind, message: message.slice(0, 200) })
 }
 
-async function failJob(job: JobRow, backendId: string, code: string, display: string): Promise<void> {
+async function failJob(
+  job: JobRow,
+  backendId: string,
+  code: string,
+  display: string,
+  errorClass?: string,
+): Promise<void> {
   await updateJob(job.id, {
     status: 'failed',
     finishedAt: new Date(),
     backendId,
     errorCode: code,
     errorMessage: display,
+    ...(errorClass ? { errorClass } : {}),
   })
 }
 
@@ -412,7 +419,9 @@ export function ensureVideoPoller(job: {
   resultJson: string | null
 }): void {
   if (job.product !== 'jazmii' || job.task !== 'video-generation') return
-  if (job.status !== 'queued' && job.status !== 'running') return
+  // Engine states: finalizing/streaming/starting are running; retry_wait is queued.
+  const queuedOrRunning = ['queued', 'running', 'starting', 'streaming', 'finalizing', 'retry_wait'].includes(job.status)
+  if (!queuedOrRunning) return
   if (activePollers.has(job.id)) return
   if (cancelRequested.has(job.id)) return
   void processVideoJob(job)
@@ -426,7 +435,8 @@ export function ensureVideoPoller(job: {
 export async function requestVideoCancel(jobId: string): Promise<boolean> {
   const job = await db.generationJob.findUnique({ where: { id: jobId } })
   if (!job || job.product !== 'jazmii' || job.task !== 'video-generation') return false
-  if (job.status !== 'queued' && job.status !== 'running') return false
+  const queuedOrRunning = ['queued', 'running', 'starting', 'streaming', 'finalizing', 'retry_wait'].includes(job.status)
+  if (!queuedOrRunning) return false
   if (activePollers.has(jobId)) {
     cancelRequested.add(jobId)
     return true

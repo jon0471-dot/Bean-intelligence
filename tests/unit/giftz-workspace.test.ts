@@ -6,7 +6,7 @@
 import { describe, test, expect } from 'bun:test'
 import { parseCodeResponse, visibleChatPrefix, langFromPath } from '../../src/lib/giftz/parse'
 import { diffLines, compactDiff } from '../../src/lib/giftz/diff'
-import { buildProjectContext } from '../../src/app/api/code-giftz/chat/route'
+import { buildProjectContext } from '../../src/lib/giftz/prompts'
 import { extractFiles } from '../../src/lib/sandbox/runner'
 
 describe('parseCodeResponse', () => {

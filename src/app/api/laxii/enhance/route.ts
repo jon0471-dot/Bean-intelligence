@@ -92,9 +92,24 @@ export async function POST(request: Request) {
     enqueueJob(job.id)
     return ok(
       {
-        job: { id: job.id, status: job.status, progress: job.progress, engine: 'deterministic-sharp' },
+        job: { id: job.id, status: normalizeJobStatus(job.status), progress: job.progress, engine: 'deterministic-sharp' },
       },
       { status: 202 },
     )
   })
+}
+
+/** Engine states → legacy vocabulary (product interfaces preserved). */
+function normalizeJobStatus(status: string): string {
+  switch (status) {
+    case 'starting':
+    case 'running':
+    case 'streaming':
+    case 'finalizing':
+      return 'running'
+    case 'retry_wait':
+      return 'queued'
+    default:
+      return status
+  }
 }

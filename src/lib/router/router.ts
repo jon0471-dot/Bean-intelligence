@@ -24,6 +24,7 @@ import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
 import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
 import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import { openAiCompatibleAdapter } from '@/lib/providers/openai-compatible'
+import { llamaCppAdapter } from '@/lib/providers/llamacpp'
 import { wrapWithProviderFallback } from '@/lib/providers/routing'
 import { assertProviderBudget } from '@/lib/providers/cost-guard'
 import type {
@@ -44,6 +45,8 @@ const ADAPTERS: Record<string, TaskAdapter> = {
   // credential gate + registry `enabled` keep it unroutable until the
   // operator sets BEAN_PROVIDER_OPENAI_*).
   'bean-llm-openai-compatible': openAiCompatibleAdapter,
+  // FREE-FIRST (2026-11-07): the local llama.cpp GGUF lane for chat/coding.
+  'bean-chat-local-llamacpp': llamaCppAdapter,
   'bean-image-hosted-primary': hostedImageAdapter,
   // LAXII preservation engine (2026-10-31): deterministic local engine +
   // the (currently disabled) local Diffusers worker adapter.
@@ -193,6 +196,50 @@ export function assertChatRequest(backend: BackendDescriptor, messages: ChatRequ
     maxPromptChars,
     maxHistoryMessages: Number(backend.limits.maxHistoryMessages ?? 24),
   }
+}
+
+/**
+ * Background-worker adapter resolution (engine path).
+ *
+ * Identical routing rules as `preflight` EXCEPT the HTTP-facing gates that
+ * the SUBMIT path already enforced (per-minute rate limit, daily quota,
+ * concurrency slots): a worker executing an accepted job must not be
+ * double-charged or rejected by per-request throttles. What REMAINS active:
+ * product availability, the operator's provider request budget, and the
+ * credential-verified fallback chain (never a silent incompatible switch).
+ */
+export async function resolveBackgroundAdapter(
+  userId: string,
+  productId: BeanProductId,
+  task?: BeanTask,
+): Promise<PreflightOk> {
+  const product = getProduct(productId)
+  if (!product) throw new BeanApiError('NOT_FOUND', 'Unknown BEAN product.')
+  const expectedTask = task ?? product.task
+  const enabled = getBackendsForProduct(productId).filter(
+    (b) => b.task === expectedTask && b.enabled,
+  )
+  if (enabled.length === 0) {
+    const candidates = getBackendsForProduct(productId).filter((b) => b.task === expectedTask)
+    throw new BeanApiError(
+      candidates.length > 0 ? 'PRODUCT_UNAVAILABLE' : 'NO_BACKEND',
+      candidates.length > 0
+        ? `${product.name} is not operational yet. ${candidates[0].unavailableReason ?? ''}`.trim()
+        : `No backend is configured for ${product.name}.`,
+    )
+  }
+  // Operator spend guard stays active for worker executions.
+  await assertProviderBudget(userId, productId, product.name)
+
+  const backend = enabled[0]
+  const adapter = ADAPTERS[backend.id]
+  if (!adapter) throw new BeanApiError('NO_BACKEND', 'The configured backend has no executable adapter.')
+  const servedBy = { backendId: backend.id }
+  return wrapWithProviderFallback(
+    { backend, adapter, release: () => undefined, servedBy },
+    ADAPTERS,
+    { productId, task: expectedTask },
+  )
 }
 
 export type { ChatRequest, ChatResult, ImageRequest, ImageResult }

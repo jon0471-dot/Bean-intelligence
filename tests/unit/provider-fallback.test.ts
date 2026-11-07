@@ -98,7 +98,13 @@ describe('provider registry — fallback wiring', () => {
       'bean-llm-hosted-primary': fakeAdapter('bean-llm-hosted-primary', {}),
       'bean-llm-openai-compatible': openAiCompatibleAdapter,
     })
-    expect(chain.map((c) => c.backend.id)).toEqual(['bean-llm-hosted-primary', 'bean-llm-openai-compatible'])
+    // 2026-11-07 free-first engine: the chain gained the credential-gated
+    // local llama.cpp lane AFTER the OpenAI-compatible fallback.
+    expect(chain.map((c) => c.backend.id)).toEqual([
+      'bean-llm-hosted-primary',
+      'bean-llm-openai-compatible',
+      'bean-chat-local-llamacpp',
+    ])
   })
 })
 
