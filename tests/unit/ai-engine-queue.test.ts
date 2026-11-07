@@ -145,7 +145,7 @@ const fakeDb = {
       return null
     },
     findMany: async ({ where, take }: { where: Record<string, unknown>; take?: number }) => {
-      const rows = []
+      const rows: FakeJob[] = []
       for (const job of jobStore.values()) {
         if (matchesWhere(job, where)) rows.push(job)
         if (take && rows.length >= take) break
