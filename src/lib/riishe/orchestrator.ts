@@ -29,6 +29,7 @@ import { withTimeout, UpstreamTruncatedError } from '@/lib/adapters/hosted-llm'
 import { streamConfig } from './stream-config'
 import { solveWithContinuation } from './continuation'
 import { shouldSearch, isDocumentLike, isNewsEventQuery, type SearchDecision } from '@/lib/research/policy'
+import { detectLanguage, LANGUAGE_NAMES } from '@/lib/intel/language'
 import { runResearch, formatEvidenceBlock, type EvidencePack } from '@/lib/research/pipeline'
 import { detectSensitiveCase } from '@/lib/research/sensitive'
 import { classifyTask, assertCapability, CHAT_BACKEND_CAPABILITIES, type TaskProfile } from './classify'
@@ -431,6 +432,10 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const liveBufferNeeded = echo !== null || finalToolsActive || input.nonStreaming
 
   // ---- Solve ----------------------------------------------------------------
+  // Multilingual answer protocol: detect the prompt language (deterministic,
+  // microseconds) so non-English turns get the same-language answering rules
+  // even when all retrieved evidence is English.
+  const langProfile = detectLanguage(userMessage)
   const systemPrompt =
     buildSystemPrompt(
       {
@@ -443,6 +448,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         researchShape: decision.risk === 'high' && isNewsEventQuery(userMessage) ? 'news' : null,
         sensitiveCase,
         hasImages: documents.some((d) => d.kind === 'image'),
+        userLanguage: LANGUAGE_NAMES[langProfile.primary],
         toolNames: finalToolsActive ? finalToolNames : undefined,
       },
       finalToolsActive ? describeTools(finalToolNames) : undefined,

@@ -36,6 +36,9 @@ export interface PromptContext {
   /** At least one attached document is an IMAGE — adds the image-analysis
    *  protocol (observations vs interpretations, no invented details). */
   hasImages?: boolean
+  /** Detected prompt language display name ("Tamil", "English", …) — when
+   *  non-English, adds the multilingual answer protocol. */
+  userLanguage?: string
 }
 
 /** Application name for persona lines — sourced from the identity profile. */
@@ -150,6 +153,14 @@ Image analysis protocol:
 - Communicate uncertainty plainly: low resolution, glare, cropping or ambiguity limit what can be read; say so rather than guessing.
 - For mathematical or diagrammatic content: transcribe the equations/labels first, flag any symbol you cannot read clearly, show the intermediate steps, and verify the final answer against the transcription before presenting it.`
 
+const MULTILINGUAL_PROTOCOL = `
+Multilingual answer protocol:
+- Answer in the SAME LANGUAGE the user wrote in, unless they explicitly ask for a different language — even when the retrieved evidence is entirely in English.
+- Keep proper nouns, place names, technical terms and measurements EXACTLY as they appear in the user's wording and in the sources.
+- When an evidence claim is expressed in the user's language, never alter its numbers, dates or names.
+- If a technical term has no natural equivalent in the user's language, keep the original term and briefly explain it.
+- Communicate uncertainty and source conflicts in the user's language too — never silently fall back to English.`
+
 const TOOL_PROTOCOL = `
 Tool protocol (server-side execution):
 - You may request REAL tool executions. End a pass with one or more lines, each exactly:
@@ -179,6 +190,7 @@ export function buildSystemPrompt(ctx: PromptContext, toolCatalog?: string): str
   if (ctx.evidenceBlock && ctx.researchShape === 'news') prompt += RESEARCH_SHAPE_PROTOCOL
   if (ctx.sensitiveCase) prompt += SENSITIVE_CASE_PROTOCOL
   if (ctx.hasImages) prompt += IMAGE_PROTOCOL
+  if (ctx.userLanguage && ctx.userLanguage !== 'English') prompt += MULTILINGUAL_PROTOCOL
   if (ctx.toolNames && ctx.toolNames.length > 0) {
     prompt += buildToolSection(ctx.toolNames, toolCatalog ?? '')
   }

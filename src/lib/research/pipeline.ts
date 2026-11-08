@@ -36,6 +36,7 @@ import { coreTopic, detectSensitiveCase } from './sensitive'
 import { isPrimaryHost } from './rank'
 import { extractDatelineFromText } from './provider'
 import { UpstreamRateLimitError } from '@/lib/upstream/gateway'
+import { expandQueriesForLanguage } from '@/lib/intel/crosslingual'
 
 const queriesSchema = z.object({
   queries: z.array(z.string().min(3).max(300)).min(1).max(3),
@@ -81,7 +82,7 @@ export interface EvidencePack {
 const QUERY_SYSTEM =
   'You generate concise web search queries for a fact-checking pipeline. ' +
   'Given a user question, output 1-3 search queries that would surface authoritative, current sources. ' +
-  'Prefer the exact entities, names, versions or dates involved. No explanations.'
+  'Prefer the exact entities, names, versions or dates involved. When the question is not in English, include at least one query in English (keeping proper nouns exactly as written). No explanations.'
 
 /** Current date line for query generation: the model has no clock, and
  *  without it it anchors years from stale training data (measured Q11 failure:
@@ -625,6 +626,18 @@ export async function runResearch(
     degraded.push(`added targeted query "${q.slice(0, 60)}"`)
   }
   const queries = dedupeQueries(rawQueries)
+
+  // Cross-language retrieval (BEAN Intelligence multilingual layer): for a
+  // non-English prompt, ONE bounded English query variant is added so broad
+  // English indexing is covered in addition to the original language. The
+  // original queries always stay first; expansion failure degrades honestly
+  // (original-language-only search, recorded in `degraded`).
+  const langSet = await expandQueriesForLanguage(message, queries)
+  queries.push(...langSet.added)
+  if (langSet.note) degraded.push(langSet.note)
+  for (const q of langSet.added) {
+    degraded.push(`added cross-language query "${q.slice(0, 60)}"`)
+  }
 
   // --- retrieval (parallel, bounded, cache-aware) ---------------------------
   let searchCalls = 0

@@ -30,6 +30,7 @@ import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
 import { verificationConfig } from '@/lib/verification/config'
 import { publicVerificationSummary, type VerificationOutcome } from '@/lib/verification/pipeline'
 import { filterConversationsByTitle } from '@/lib/riishe/conversation-view'
+import { buildTechDocsContext } from '@/lib/intel/techdocs'
 
 const MAX_HISTORY = 12
 const MAX_FILE_CONTEXT_CHARS = 24_000
@@ -119,9 +120,20 @@ export async function POST(request: Request) {
       const files = await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } })
       const attachmentBlock = await loadAttachments(user.id, body.fileIds)
 
+      // BEAN Intelligence: live official-documentation retrieval for the
+      // libraries/frameworks this request touches. Bounded; any failure
+      // degrades to null and the turn proceeds on model knowledge with NO
+      // source claimed (never a fabricated citation). The block is untrusted
+      // REFERENCE DATA for the coding model — never executable instructions.
+      const techDocs = await buildTechDocsContext(body.message)
+      if (techDocs?.degraded.length) {
+        logger.info('giftz.techdocs_degraded', { projectId, degraded: techDocs.degraded })
+      }
+
       const userContent = [
         attachmentBlock,
         buildProjectContext(files),
+        techDocs?.block ?? '',
         body.message,
       ].filter((s) => s.length > 0).join('\n\n')
 
