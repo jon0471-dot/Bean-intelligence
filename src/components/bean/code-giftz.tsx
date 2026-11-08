@@ -760,9 +760,9 @@ export function CodeGiftz() {
           ) : null}
           <button
             onClick={() => void runInSandbox()}
-            disabled={running || !files.some((f) => /\.(js|ts)$/.test(f.path))}
+            disabled={running || !files.some((f) => /\.(js|ts|py)$/.test(f.path))}
             className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 px-2 py-1 text-[11px] text-emerald-300 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
-            title="Run the project's JS/TS in the restricted sandbox (real execution, real output)"
+            title="Run the project's JS/TS/Python in the restricted sandbox (real execution, real output)"
           >
             {running ? <Spinner className="h-3 w-3" /> : <TerminalIcon className="h-3 w-3" />} Run
           </button>

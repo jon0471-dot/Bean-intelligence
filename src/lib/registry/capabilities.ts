@@ -118,9 +118,17 @@ export interface AttemptRecordLike {
 }
 
 /**
- * MEASURED contract blocker — LAXII hosted conversational editing.
+ * MEASURED contract history — LAXII hosted conversational editing.
  *
- * Evidence (scripts/probe-image-edit-out/, docs/reports/LAXII-LIVE-ACCEPTANCE.md §3):
+ * RESOLVED 2026-11-08: the officially documented url-keyed-object form
+ * images:[{url}] — the one shape that had never reached a contract verdict
+ * (its 2026-11-07 probe only hit the account 429 throttle) — was measured
+ * live through the real job path and COMPLETED: the provider returned a real
+ * edited image and the evidence-driven gate flipped conversational-edit
+ * operational automatically (see LAXII_EDIT_CONTRACT_BLOCKER below for the
+ * full measured history).
+ *
+ * Historical evidence (scripts/probe-image-edit-out/, docs/reports/LAXII-LIVE-ACCEPTANCE.md §3):
  *  - 10 request shapes measured 2026-11-04/05 against the real endpoint:
  *    every array form and every string form (public URL, raw base64, data
  *    URL, even a provider-issued CDN URL captured from a raw T2I response)
@@ -133,30 +141,25 @@ export interface AttemptRecordLike {
  *    shape the 10-probe matrix had not covered;
  *  - that canonical shape was measured 2026-11-05T03:15Z during the account
  *    throttle window and received HTTP 429 — a rate-limit verdict, NOT a
- *    contract verdict, so the contract question remains externally
- *    unresolved until the provider lets a request through validation;
+ *    contract verdict;
  *  - public provider documentation describes NO edit endpoint for this
  *    account/endpoint; metadata doc routes (/openapi.json, /docs) do not
  *    exist on the gateway.
- * The capability stays BLOCKED with this evidence until a real edit
- * succeeds (which flips it operational — see editingCapability).
+ * The capability is available today; it degrades back to blocked with this
+ * evidence whenever the most recent real edit attempt fails again.
  */
 export const LAXII_EDIT_CONTRACT_BLOCKER = {
   measuredAt: '2026-11-07T03:38:10Z',
   note:
-    'Provider request contract for image editing is externally unresolved — the endpoint demands a field ' +
-    'named `images` but rejects every measured format of it. Matrix (11 shapes, verbatim records in ' +
-    'scripts/probe-image-edit-out/ and scripts/finalcap-out/): every `images` STRING form (public URL, raw ' +
-    'base64, data URL, provider CDN URL) and every FLAT STRING ARRAY (base64, data URL) rejected with ' +
-    'HTTP 400 code 1210 "image_to_image task must provide images" (2026-11-04/05); the SDK 0.0.18 ' +
-    'canonical body { prompt, image: <data URL>, size } — singular `image`, verified in the SDK typings ' +
-    'and its own CLI — is DEFINITIVELY rejected too (HTTP 400 1210, measured 2026-11-07T03:38Z through ' +
-    'the real job path); the remaining url-keyed-object form images:[{url}] reached only the account ' +
-    'throttle (HTTP 429, 2026-11-07T03:41Z) — no verdict. The plural `images` field the earlier code sent ' +
-    'was a codebase invention retained by a mis-verified pin; the fix aligned the route with the SDK ' +
-    'contract, which the gateway itself then rejected. The capability stays BLOCKED until the provider ' +
-    'documents the images.edit contract or an alternative authorized provider is approved — no further ' +
-    'blind shapes.',
+    'The historic 400/1210 contract blocker was RESOLVED 2026-11-08: the officially documented ' +
+    'url-keyed-object form images:[{url}] — the one shape that had never reached a verdict (its ' +
+    '2026-11-07 probe only hit the account 429 throttle) — was measured live through the real job path ' +
+    'and COMPLETED (real edited image returned). If this row is being surfaced as blocked, the most ' +
+    'recent real edit attempt failed again — see lastAttempt for the fresh failure. Measured history ' +
+    '(11 shapes, scripts/probe-image-edit-out/ + scripts/finalcap-out/): every `images` STRING form and ' +
+    'FLAT STRING ARRAY rejected with HTTP 400 code 1210; the SDK 0.0.18 singular `image` body likewise ' +
+    'rejected 400/1210 (2026-11-07T03:38Z, real job path); images:[{url}] only ever hit the 429 ' +
+    'throttle (2026-11-07T03:41Z) before its successful 2026-11-08 verdict.',
 } as const
 
 /** Inputs for a generation capability (text-to-image / text-to-video). */

@@ -195,7 +195,7 @@ describe('generationCapability: the evidence chain can never fake availability',
 })
 
 describe('editingCapability: the measured contract blocker holds until a real success', () => {
-  test('the 400/1210 contract blocker renders BLOCKED (status-affecting)', () => {
+  test('a fresh 400 failure with the blocker record renders BLOCKED (status-affecting)', () => {
     const cap = editingCapability('conversational-editing', 'Conversational editing', true, {
       probe: probe(),
       lastAttempt: attempt({ at: '2026-11-04T16:19:23.352Z', ok: false, failureCategory: 'backend-error', httpStatus: 400 }),
@@ -205,7 +205,11 @@ describe('editingCapability: the measured contract blocker holds until a real su
     expect(cap.statusAffecting).toBe(true)
     expect(cap.evidence.source).toBe('contract')
     expect(cap.evidence.checkedAt).toBe('2026-11-04T16:19:23.352Z')
-    expect(cap.evidence.note).toContain('externally unresolved')
+    // The surfaced note is the RESOLVED-blocker record: it names the fresh
+    // failure path and carries the full measured history (the blocker itself
+    // was lifted 2026-11-08 by a real completed edit — see the next test).
+    expect(cap.evidence.note).toContain('most recent real edit attempt failed again')
+    expect(cap.evidence.note).toContain('RESOLVED 2026-11-08')
   })
 
   test('a real successful edit flips the capability to operational', () => {
@@ -218,9 +222,11 @@ describe('editingCapability: the measured contract blocker holds until a real su
     expect(cap.evidence.note).toContain('blocker is lifted')
   })
 
-  test('the blocker record carries the measured SDK canonical-shape evidence', () => {
+  test('the blocker record carries the measured contract-resolution evidence', () => {
     expect(LAXII_EDIT_CONTRACT_BLOCKER.note).toContain('SDK 0.0.18')
-    expect(LAXII_EDIT_CONTRACT_BLOCKER.note).toContain('HTTP 429')
+    expect(LAXII_EDIT_CONTRACT_BLOCKER.note).toContain('images:[{url}]')
+    expect(LAXII_EDIT_CONTRACT_BLOCKER.note).toContain('RESOLVED 2026-11-08')
+    expect(LAXII_EDIT_CONTRACT_BLOCKER.note).toContain('code 1210')
   })
 })
 
