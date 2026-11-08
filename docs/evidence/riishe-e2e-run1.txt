@@ -1,0 +1,50 @@
+[e2e] logged in as ui-clean-verify@bean.test
+
+=== Who is the current Chief Minister of Tamil Nadu?
+  verdict: PASS | answerOk=true sources=1 sourcesOk=true
+  stages: researching -> verifying
+  research queries: (none)
+  firstTokenMs=null totalMs=11871 (turn 11750ms) resets=0 retrievedAt=2026-11-08T17:23:52.847Z
+  ANSWER: C. Joseph Vijay is the current Chief Minister of Tamil Nadu [5]. He was sworn in on May 10, 2026, ending a period of political uncertainty [5].
+  SOURCE: https://www.bbc.com/news/articles/ce8p2d97482o (dated May 10, 2026)
+
+=== Who is the current Prime Minister of India?
+  verdict: PASS | answerOk=true sources=1 sourcesOk=true
+  stages: researching -> tools -> verifying
+  research queries: (none)
+  firstTokenMs=null totalMs=12635 (turn 12604ms) resets=0 retrievedAt=2026-11-08T17:24:05.484Z
+  degraded: page read for google.com returned an error or blocked page; grounded on the search snippet
+  ANSWER: Based on the retrieved evidence, Narendra Modi is the current Prime Minister of India [1].
+  SOURCE: https://www.pmindia.gov.in/en/ 
+
+=== What is the latest stable Node.js version?
+  verdict: PASS | answerOk=true sources=1 sourcesOk=true
+  stages: researching -> verifying
+  research queries: (none)
+  firstTokenMs=null totalMs=7573 (turn 7539ms) resets=0 retrievedAt=2026-11-08T17:24:13.057Z
+  degraded: added targeted query "Node.js official release notes changelog" | added targeted query "Node.js GitHub releases latest version" | unsupported claims repaired against the retrieved evidence before answering
+  ANSWER:  The latest stable Node.js version is v26.13.0, from the "Lithium" LTS line [1].
+  SOURCE: https://nodejs.org/dist/index.json (dated 2026-10-28)
+
+=== What is the latest major announcement on the Tamil Nadu government website?
+  verdict: FAIL | answerOk=true sources=1 sourcesOk=false
+  stages: researching -> verifying
+  research queries: (none)
+  firstTokenMs=null totalMs=21542 (turn 21508ms) resets=0 retrievedAt=2026-11-08T17:24:34.600Z
+  degraded: page read failed: direct fetch of www.tn.gov.in failed after 6001ms: The operation was aborted due to timeout | page read for google.com returned an error or blocked page; grounded on the search snippet | unsupported claims repaired against the retrieved evidence before answering
+  ANSWER:  Based on the retrieved evidence, the latest major announcement on the Tamil Nadu government website is about the allocation of ₹2000 crore for the Vetri laptop scheme [6]. This announcement was about launching India's largest-ever laptop tender to distribute free laptops to 10 lakh college students [6].
+  SOURCE: https://www.facebook.com/61563326012513/posts/-tamilnadu-government-allocates-2000-crore-for-the-vetri-%E0%AE%AE%E0%AE%9F%E0%AE%BF%E0%AE%95%E0%AF%8D%E0%AE%95%E0%AE%A3%E0%AE%BF%E0%AE%A9%E0%AE%BF%E0%AE%A4%E0%AF%8D-%E0%AE%A4%E0%AE%BF%E0%AE%9F%E0%AF%8D%E0%AE%9F%E0%AE%AE%E0%AF%8Dgo-/122230426538444200 
+  FULL ANSWER: 
+Based on the retrieved evidence, the latest major announcement on the Tamil Nadu government website is about the allocation of ₹2000 crore for the Vetri laptop scheme [6]. This announcement was about launching India's largest-ever laptop tender to distribute free laptops to 10 lakh college students [6].
+
+=== Who is the current President of the United States?
+  verdict: PASS | answerOk=true sources=2 sourcesOk=true
+  stages: researching -> verifying
+  research queries: (none)
+  firstTokenMs=null totalMs=9538 (turn 9509ms) resets=0 retrievedAt=2026-11-08T17:24:44.137Z
+  degraded: unsupported claims repaired against the retrieved evidence before answering
+  ANSWER:  The current President of the United States is Donald John Trump [2, 6]. He is serving his second term as the 47th president of the United States [2, 6].
+  SOURCE: https://en.wikipedia.org/wiki/List_of_presidents_of_the_United_States 
+  SOURCE: https://www.usa.gov/presidents (dated Mar 2, 2026)
+
+[e2e] 4/5 PASS — full evidence written to docs/evidence/riishe-live-research-e2e.json
