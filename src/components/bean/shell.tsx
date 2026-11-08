@@ -9,8 +9,6 @@ import { cn } from '@/lib/utils'
 import { BeanMark } from './landing'
 import { BeanUser } from './shared'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
-import { ProductTestSuite } from './product-test-suite'
-import { BackgroundJobs } from './background-jobs'
 import {
   LayoutDashboard,
   Image as ImageIcon,
@@ -43,9 +41,6 @@ const NAV: Array<{ id: ViewId; label: string; icon: React.ElementType; group: st
   { id: 'usage', label: 'Usage & quotas', icon: BarChart3, group: 'Account' },
   { id: 'settings', label: 'Settings', icon: Settings, group: 'Account' },
 ]
-
-/** Product workspaces that expose the built-in functional test suite. */
-const SUITE_VIEWS = new Set<ViewId>(['riishe', 'laxii', 'jazmii', 'code-giftz'])
 
 export function Shell({
   user,
@@ -147,20 +142,11 @@ export function Shell({
         </header>
         <main className="min-w-0 flex-1">
           {children}
-          {SUITE_VIEWS.has(view) ? (
-            <div className="-mt-4">
-              <ProductTestSuite key={view} product={view} />
-            </div>
-          ) : null}
         </main>
         <footer className="mt-auto border-t border-[rgba(212,175,55,0.08)] px-6 py-3 text-center text-[10px] text-white/25">
           BEAN Intelligence · products owned by BEAN · inference by authorized backends
         </footer>
       </div>
-
-      {/* Universal background execution surface (all products' jobs; submit +
-          watch + retrieve from any view; survives leaving the page). */}
-      <BackgroundJobs onNavigate={onNavigate} />
     </div>
   )
 }
