@@ -85,6 +85,18 @@ function pickRuntime(): string {
   return process.env.BEAN_SANDBOX_RUNTIME ?? 'bun'
 }
 
+function pickPython(): string {
+  // System CPython for .py entries. Override with BEAN_SANDBOX_PYTHON when a
+  // deployment wants a different interpreter. No server, no download — the
+  // interpreter is already present on the host.
+  return process.env.BEAN_SANDBOX_PYTHON ?? 'python3'
+}
+
+/** True when the entry file must be executed by the Python interpreter. */
+export function isPythonEntry(entryPath: string): boolean {
+  return entryPath.endsWith('.py')
+}
+
 export async function runInSandbox(files: SandboxFile[]): Promise<SandboxRunResult> {
   if (files.length === 0) throw new Error('No executable files were provided.')
   if (files.length > 10) throw new Error('Too many files for a single sandbox run (max 10).')
@@ -102,12 +114,19 @@ export async function runInSandbox(files: SandboxFile[]): Promise<SandboxRunResu
   const entry =
     files.find((f) => f.path === 'main.ts') ??
     files.find((f) => f.path === 'main.js') ??
+    files.find((f) => f.path === 'main.py') ??
     files.find((f) => /\.(ts|js)$/.test(f.path)) ??
+    files.find((f) => f.path.endsWith('.py')) ??
     files[0]
 
   const t0 = Date.now()
   const result = await new Promise<Omit<SandboxRunResult, 'runId' | 'files'>>((resolve) => {
-    const child = spawn(pickRuntime(), ['run', entry.path], {
+    // Python entries run under the system CPython; everything else keeps the
+    // existing JS/TS runtime. Same workspace, same minimal env, same timeout.
+    const python = isPythonEntry(entry.path)
+    const command = python ? pickPython() : pickRuntime()
+    const args = python ? [entry.path] : ['run', entry.path]
+    const child = spawn(command, args, {
       cwd: workspace,
       env: {
         PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
@@ -169,15 +188,21 @@ export async function runInSandbox(files: SandboxFile[]): Promise<SandboxRunResu
  */
 export async function probeSandboxHealth(): Promise<HealthReport> {
   const t0 = Date.now()
-  const runtime = pickRuntime()
   const checkedAt = new Date().toISOString()
   const PROBE_TIMEOUT_MS = 5_000
   const marker = 'sandbox-ok'
 
-  const outcome = await new Promise<{ ok: boolean; detail: string }>((resolve) => {
+  /** Trivial spawn probe of ONE interpreter using the same minimal-env
+   *  contract runInSandbox uses (no files written, no user code involved). */
+  const probeOneRuntime = (
+    label: string,
+    command: string,
+    args: string[],
+  ): Promise<{ ok: boolean; detail: string }> =>
+    new Promise((resolve) => {
     let child: ReturnType<typeof spawn>
     try {
-      child = spawn(runtime, ['-e', `process.stdout.write('${marker}')`], {
+      child = spawn(command, args, {
         cwd: os.tmpdir(),
         env: {
           PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
@@ -187,7 +212,7 @@ export async function probeSandboxHealth(): Promise<HealthReport> {
         stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'],
       })
     } catch (e) {
-      resolve({ ok: false, detail: `Sandbox runtime "${runtime}" could not be spawned: ${e instanceof Error ? e.message : String(e)}` })
+      resolve({ ok: false, detail: `Sandbox runtime "${label}" could not be spawned: ${e instanceof Error ? e.message : String(e)}` })
       return
     }
 
@@ -209,7 +234,7 @@ export async function probeSandboxHealth(): Promise<HealthReport> {
     // stdio is explicitly ['ignore','pipe','pipe'], but the ChildProcess
     // typings make the streams nullable — guard honestly instead of asserting.
     if (!child.stdout || !child.stderr) {
-      finish(false, `Sandbox runtime "${runtime}" produced no capturable output streams.`)
+      finish(false, `Sandbox runtime "${label}" produced no capturable output streams.`)
       return
     }
 
@@ -220,7 +245,7 @@ export async function probeSandboxHealth(): Promise<HealthReport> {
       if (stderr.length < MAX_OUTPUT_BYTES) stderr += d.toString('utf8')
     })
     child.on('error', (err) => {
-      finish(false, `Sandbox runtime "${runtime}" is not usable: ${err.message}`)
+      finish(false, `Sandbox runtime "${label}" is not usable: ${err.message}`)
     })
     child.on('close', (code) => {
       if (timedOut) {
@@ -228,16 +253,33 @@ export async function probeSandboxHealth(): Promise<HealthReport> {
         return
       }
       if (code !== 0) {
-        finish(false, `Sandbox runtime "${runtime}" exited with code ${code}. ${stderr.slice(0, 200)}`.trim())
+        finish(false, `Sandbox runtime "${label}" exited with code ${code}. ${stderr.slice(0, 200)}`.trim())
         return
       }
       if (!stdout.includes(marker)) {
-        finish(false, `Sandbox runtime "${runtime}" ran but produced no marker output (stdout: ${JSON.stringify(stdout.slice(0, 100))}).`)
+        finish(false, `Sandbox runtime "${label}" ran but produced no marker output (stdout: ${JSON.stringify(stdout.slice(0, 100))}).`)
         return
       }
-      finish(true, `Sandbox runtime "${runtime}" executed a trivial script successfully (${Date.now() - t0}ms).`)
+      finish(true, `Sandbox runtime "${label}" executed a trivial script successfully (${Date.now() - t0}ms).`)
     })
   })
+
+  // Both advertised sandbox languages are probed with the REAL interpreters:
+  // JS/TS via the JS runtime, Python via the system CPython dispatch.
+  const jsOutcome = await probeOneRuntime(
+    pickRuntime(),
+    pickRuntime(),
+    ['-e', `process.stdout.write('${marker}')`],
+  )
+  const pyOutcome = await probeOneRuntime(pickPython(), pickPython(), [
+    '-c',
+    `print('${marker}')`,
+  ])
+  const outcome = jsOutcome.ok && pyOutcome.ok
+    ? { ok: true, detail: `${jsOutcome.detail} Python: ${pyOutcome.detail}` }
+    : !jsOutcome.ok
+      ? jsOutcome
+      : pyOutcome
 
   return {
     healthy: outcome.ok,
