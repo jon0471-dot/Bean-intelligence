@@ -49,6 +49,19 @@ const scriptedZai = {
 
 mock.module('z-ai-web-dev-sdk', () => ({ default: { create: async () => scriptedZai } }))
 
+mock.module('../../src/lib/research/direct', () => ({
+  // The independent lane is a REAL network path (Wikipedia API, official
+  // sources). These tests exercise gateway retry/repair semantics, so the
+  // lane is neutralized at its module boundary; its live behavior is covered
+  // by scripts/riishe-gateway-down-acceptance.test.ts (real network).
+  runDirectRetrieval: async () => ({ results: [], pages: [], notes: [] }),
+  directFetchPage: async () => {
+    throw new Error('direct fetch disabled in this test')
+  },
+  isUsablePageText: (text: string) => text.trim().length >= 200,
+  PAGE_MIN_USEFUL_CHARS: 200,
+}))
+
 const { orchestrateTurn } = await import('../../src/lib/riishe/orchestrator')
 const { runSharedSearch } = await import('../../src/lib/research/pipeline')
 

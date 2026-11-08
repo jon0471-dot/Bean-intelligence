@@ -75,6 +75,22 @@ mock.module('z-ai-web-dev-sdk', () => ({
   },
 }))
 
+mock.module('../../src/lib/research/direct', () => ({
+  // The premise of these tests is TOTAL retrieval failure (the measured 429
+  // window). The independent lane is a real network path, so it is mocked to
+  // fail too — the honest-degradation assertions below then hold for the
+  // both-lanes-down scenario. The lane's live rescue behavior is covered by
+  // scripts/riishe-gateway-down-acceptance.test.ts.
+  runDirectRetrieval: async () => {
+    throw new Error('simulated total retrieval outage: independent lane also down')
+  },
+  directFetchPage: async () => {
+    throw new Error('simulated total retrieval outage: independent lane also down')
+  },
+  isUsablePageText: (text: string) => text.trim().length >= 200,
+  PAGE_MIN_USEFUL_CHARS: 200,
+}))
+
 // Import AFTER the mock registers so the modules bind to the fake SDK.
 const {
   classifyUpstreamError,
