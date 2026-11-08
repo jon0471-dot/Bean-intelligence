@@ -37,6 +37,19 @@ import { isPrimaryHost } from './rank'
 import { extractDatelineFromText } from './provider'
 import { UpstreamRateLimitError } from '@/lib/upstream/gateway'
 import { expandQueriesForLanguage } from '@/lib/intel/crosslingual'
+import {
+  runDirectRetrieval,
+  directFetchPage,
+  resolveRedirectUrl,
+  isRedirectWrapperUrl,
+  isUsablePageText,
+  PAGE_MIN_USEFUL_CHARS,
+  type DirectOutcome,
+} from './direct'
+
+// Page-content validation has a single home in ./direct (it validates both
+// gateway reads and direct fetches); re-exported here for existing callers.
+export { isUsablePageText, PAGE_MIN_USEFUL_CHARS } from './direct'
 
 const queriesSchema = z.object({
   queries: z.array(z.string().min(3).max(300)).min(1).max(3),
@@ -77,6 +90,14 @@ export interface EvidencePack {
   cacheHits: number
   /** ISO time of the ORIGINAL fetch backing this pack (cache-aware). */
   fetchedAt: string
+  /** Honest provenance of the INDEPENDENT retrieval lane (no gateway):
+   *  what was fetched directly (Wikipedia API / official sources), and what
+   *  failed. Set by runResearch; empty when the lane never ran or
+   *  contributed nothing. Optional so hand-built test packs stay valid. */
+  independent?: string[]
+  /** Wall time spent in the independent lane (runs parallel to the gateway
+   *  search volley; 0/unset when it did not run). */
+  independentMs?: number
 }
 
 const QUERY_SYSTEM =
@@ -419,45 +440,15 @@ export const SEARCH_RETRY_BACKOFF_MS = 1_200
  * latency for multi-source research (pageReadMs 19.9s of a 23.6s turn).
  * A read that exceeds the budget is discarded HONESTLY: it surfaces as a
  * degraded note and the answer is grounded on the snippets we already have.
+ * When the gateway reader itself fails, a bounded DIRECT fetch of the same
+ * URL (no gateway involved) is attempted before the source is given up on.
  */
 export const PAGE_READ_BUDGET_MS = 10_000
 
-/**
- * Page-read content validation. Measured failure (work order evidence): the
- * page reader returned Chrome's ERR_BLOCKED_BY_CLIENT interstitial for a
- * news site and a literal "404 Not Found" body for a YouTube playlist — both
- * were recorded as successful reads and their garbage text entered the
- * grounding context as "verified article content". A read whose extracted
- * text is an error/wall page (or too short to be an article) is treated as a
- * FAILED read: the source falls back to its search snippet and the failure
- * degrades honestly. No fabricated content verification.
- */
-const PAGE_ERROR_SIGNATURES: RegExp[] = [
-  /err[_-]blocked[_-]by[_-]client/i,
-  /this page has been blocked/i,
-  /\b404\b\s*(not found)?\b/i,
-  /page not found/i,
-  /access (denied|forbidden)/i,
-  /enable javascript/i,
-  /sign in to confirm/i,
-  /just a moment\.{3,}/i,
-  /checking your browser/i,
-  /attention required/i,
-  /unusual traffic from your computer/i,
-  /are you a robot/i,
-  /consent\.youtube\.com/i,
-]
-/** Minimum extracted text for a read to count as real article content. */
-export const PAGE_MIN_USEFUL_CHARS = 200
-
-export function isUsablePageText(text: string): boolean {
-  const trimmed = text.trim()
-  if (trimmed.length < PAGE_MIN_USEFUL_CHARS) return false
-  // A single error signature near the START of the text means the body we
-  // captured IS the error page, not an article that merely mentions one.
-  const head = trimmed.slice(0, 400)
-  return !PAGE_ERROR_SIGNATURES.some((re) => re.test(head))
-}
+// Page-read content validation (PAGE_ERROR_SIGNATURES / PAGE_MIN_USEFUL_CHARS
+// / isUsablePageText) now lives in ./direct and is re-exported at the top of
+// this file — single source of truth shared by gateway reads and direct
+// fetches.
 
 /**
  * In-flight dedup: identical concurrent retrieval work (same normalized
@@ -639,11 +630,36 @@ export async function runResearch(
     degraded.push(`added cross-language query "${q.slice(0, 60)}"`)
   }
 
-  // --- retrieval (parallel, bounded, cache-aware) ---------------------------
+  // --- retrieval (parallel, bounded, cache-aware) -------------------------
+  // INDEPENDENT LANE (no gateway): current-fact (high-risk) turns run it IN
+  // PARALLEL with the gateway volley — evidence from key-free, permitted
+  // sources (Wikipedia MediaWiki API, official government pages, official
+  // release feeds) cross-checks the gateway results and keeps the turn
+  // answerable when the gateway's separate rate-limit window opens (measured:
+  // 429s lasting minutes). Other turns only pay for the lane when the
+  // gateway actually fails — the promise is created lazily, at most once.
+  let directLane: Promise<DirectOutcome> | null = null
+  let directLaneMs = 0
+  const startDirectLane = (): Promise<DirectOutcome> => {
+    if (!directLane) {
+      const tDirect = Date.now()
+      directLane = runDirectRetrieval(message).finally(() => {
+        directLaneMs = Date.now() - tDirect
+      })
+      // The fire-and-forget start below must not surface an unhandled
+      // rejection before the merge point awaits this promise; the awaiter
+      // owns the error handling (its catch records the honest note).
+      directLane.catch(() => {})
+    }
+    return directLane
+  }
+  if (decision.risk === 'high') void startDirectLane()
+
   let searchCalls = 0
   let searchRetries = 0
   let cacheHits = 0
   let oldestFetchAt: number | null = null
+  let hadGatewayFailure = false
   const tSearchStart = Date.now()
   const settled = await mapWithConcurrency(queries, SEARCH_CONCURRENCY, async (q): Promise<BoundedSearchOutcome> => {
     const cached = getSearchCache<WebSearchResult>(q, decision.recencyDays, decision.risk === 'none' ? 'moderate' : decision.risk)
@@ -670,11 +686,15 @@ export async function runResearch(
       searchCalls += s.value.attempts
       if (s.value.retried) searchRetries += 1
       if (s.value.error !== null) {
+        hadGatewayFailure = true
         degraded.push(`search "${queries[i].slice(0, 60)}" failed: ${s.value.error}`)
+      } else if (s.value.results.length === 0) {
+        hadGatewayFailure = true // empty result set — the lane gets one attempt
       } else {
         rawResults.push(...s.value.results)
       }
     } else {
+      hadGatewayFailure = true
       degraded.push(
         `search "${queries[i].slice(0, 60)}" failed: ${
           s.reason instanceof ResearchToolError ? s.reason.message : 'unavailable'
@@ -683,6 +703,24 @@ export async function runResearch(
     }
   })
   void searchRetries
+
+  // Merge the independent lane: for high-risk turns it already ran in
+  // parallel; otherwise it starts now, once, on gateway failure. Its results
+  // enter the SAME ranking as gateway results — provenance is recorded in
+  // `independent`, never hidden, never fabricated.
+  const independent: string[] = []
+  let directOut: DirectOutcome | null = null
+  if (directLane || hadGatewayFailure) {
+    try {
+      directOut = await startDirectLane()
+    } catch (e) {
+      independent.push(`independent retrieval failed: ${e instanceof Error ? e.message : 'unavailable'}`)
+    }
+    if (directOut) {
+      independent.push(...directOut.notes)
+      rawResults.push(...directOut.results)
+    }
+  }
   const searchMs = Date.now() - tSearchStart
 
   if (rawResults.length === 0) {
@@ -699,6 +737,8 @@ export async function runResearch(
       pageReadCalls: 0,
       cacheHits,
       fetchedAt: new Date(oldestFetchAt ?? Date.now()).toISOString(),
+      independent,
+      independentMs: directLaneMs,
     }
   }
 
@@ -747,15 +787,56 @@ export async function runResearch(
     }
   }
 
+  // --- citation URL hygiene: resolve aggregator redirect wrappers ----------
+  // Gateway news results sometimes arrive as opaque redirect wrappers
+  // (google.com/goto?...) whose REAL destination is the actual article —
+  // measured live: an opaque /goto link 302s to the OFFICIAL
+  // tn.gov.in/minister_list.php. Following the chain once (bounded,
+  // parallel, body-less) turns opaque citations into real, clickable source
+  // URLs. Failures/timeouts keep the original URL — never guessed.
+  const wrappers = ranked.filter((s) => isRedirectWrapperUrl(s.url))
+  if (wrappers.length > 0) {
+    const resolved = await Promise.all(
+      wrappers.map(async (s) => ({ s, url: await resolveRedirectUrl(s.url) })),
+    )
+    for (const { s, url } of resolved) {
+      if (url !== s.url) {
+        s.url = url
+        try {
+          s.hostName = new URL(url).hostname
+        } catch {
+          /* hostname update is cosmetic — the URL itself is already valid */
+        }
+        independent.push(`redirect wrapper resolved to real source: ${s.hostName}`)
+      }
+    }
+  }
+
   // --- full-page reading, only where snippets are insufficient --------------
+  // Independent-lane pages are ALREADY real fetched page content (Wikipedia
+  // extracts, official pages, release feeds) — attach them as page reads
+  // before any gateway read so their content is never confused with snippets
+  // and never re-fetched through the throttled reader.
   const sources: EvidenceSource[] = ranked.map((r) => ({ ...r, pageRead: false, excerpt: null }))
+  if (directOut && directOut.pages.length > 0) {
+    for (const page of directOut.pages) {
+      const match = sources.find((s) => samePage(s.url, page.url))
+      if (match && !match.pageRead && isUsablePageText(page.text)) {
+        match.pageRead = true
+        match.excerpt = page.text
+        if (page.publishedTime && !match.date) match.date = page.publishedTime
+      }
+    }
+  }
   const ongoingCase = isOngoingCaseQuery(queries[0])
   const readCount = decidePageReads(ranked, decision, opts, ongoingCase)
   let pageReadCalls = 0
   let pageReadMs = 0
   if (readCount > 0) {
     const tPageStart = Date.now()
-    const toRead = officialFirstReads(sources, readCount)
+    // Sources already grounded on independent-lane page content need no read.
+    const unread = sources.filter((s) => !s.pageRead)
+    const toRead = officialFirstReads(unread, readCount)
     const readResults = await mapWithConcurrency(toRead, PAGE_READ_CONCURRENCY, (s) => {
       const cached = getPageCache<{ url: string; text: string; publishedTime: string | null }>(s.url)
       if (cached.hit) {
@@ -765,12 +846,20 @@ export async function runResearch(
         return Promise.resolve(cached.value)
       }
       pageReadCalls += 1
-      return runSharedPageRead(s.url).then((page) => {
-        const value = { url: page.url, text: page.text.slice(0, 6_000), publishedTime: page.publishedTime }
-        cached.put(value)
-        oldestFetchAt = oldestFetchAt === null ? Date.now() : Math.min(oldestFetchAt, Date.now())
-        return value
-      })
+      // Gateway reader first; on ANY failure ONE bounded DIRECT fetch of the
+      // same URL (no gateway involved) before the source is given up on.
+      return runSharedPageRead(s.url)
+        .catch(async (gatewayError) => {
+          const direct = await directFetchPage(s.url)
+          independent.push(`page read via direct fetch after gateway reader failure: ${s.hostName.replace(/^www\./, '')} (${gatewayError instanceof Error ? gatewayError.message.slice(0, 120) : 'error'})`)
+          return direct
+        })
+        .then((page) => {
+          const value = { url: page.url, text: page.text.slice(0, 6_000), publishedTime: page.publishedTime }
+          cached.put(value)
+          oldestFetchAt = oldestFetchAt === null ? Date.now() : Math.min(oldestFetchAt, Date.now())
+          return value
+        })
     })
     readResults.forEach((res) => {
       if (res.status === 'fulfilled') {
@@ -823,6 +912,8 @@ export async function runResearch(
     pageReadCalls,
     cacheHits,
     fetchedAt: new Date(oldestFetchAt ?? Date.now()).toISOString(),
+    independent,
+    independentMs: directLaneMs,
   }
 }
 

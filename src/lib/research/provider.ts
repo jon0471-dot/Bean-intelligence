@@ -55,8 +55,9 @@ export interface PageContent {
 }
 
 export class ResearchToolError extends Error {
-  readonly tool: 'web_search' | 'page_reader'
-  constructor(tool: 'web_search' | 'page_reader', message: string) {
+  /** 'direct_fetch' = the gateway-free independent lane (see ./direct). */
+  readonly tool: 'web_search' | 'page_reader' | 'direct_fetch'
+  constructor(tool: 'web_search' | 'page_reader' | 'direct_fetch', message: string) {
     super(message)
     this.name = 'ResearchToolError'
     this.tool = tool
