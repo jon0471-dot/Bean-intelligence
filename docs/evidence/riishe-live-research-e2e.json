@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-11-08T17:26:19.119Z",
+  "base": "http://localhost:3000",
+  "cases": [
+    {
+      "query": "Who is the current Chief Minister of Tamil Nadu?",
+      "verdict": "PASS",
+      "answer": "\nThe current Chief Minister of Tamil Nadu is C. Joseph Vijay [1, 2, 3, 4]. He shifted to a new official residence at Chennai's Greenways Road on November 6, 2026 [1]. Vijay, a former Tamil film star, was sworn in as Chief Minister on May 10, 2026 [4, 6].",
+      "sources": [
+        {
+          "url": "https://www.hindustantimes.com/india-news/tamil-nadu-cm-vijay-shifts-to-new-official-residence-at-chennai-greenways-road-101793940297169.html",
+          "title": "Tamil Nadu CM Vijay shifts to new official residence at",
+          "date": "2026-11-06T11:17:08+05:30"
+        },
+        {
+          "url": "https://www.tn.gov.in/minister_list.php",
+          "title": "Government of Tamil Nadu",
+          "date": null
+        },
+        {
+          "url": "https://en.wikipedia.org/wiki/Chief_Minister_of_Tamil_Nadu",
+          "title": "Chief Minister of Tamil Nadu",
+          "date": null
+        },
+        {
+          "url": "https://en.wikipedia.org/wiki/C._Joseph_Vijay",
+          "title": "C. Joseph Vijay",
+          "date": null
+        },
+        {
+          "url": "https://www.google.com/goto?url=CAESawHEIkXXBni2bCFr_HPKQ5seC8tsb8xROSt_7Ad3DeOzhLDiDfefFigUIcdnFIS0rdM_M-ZWkM1dNAMyBeH7bwqX4N1DUa9jLb_vh2Jt0igkJTuc8JjS_Q3Dq6EdMS0LWVpyWThicfbwFW3S&gsessionid=ZAEC8gxKWJ-vevkkKwP8sKwR6HHKqcISfXYLedIigq9m-of_nk5gDg",
+          "title": "Tamil film star Vijay is Indian state chief minister after days",
+          "date": "May 10, 2026"
+        }
+      ],
+      "researchQueries": [],
+      "firstTokenMs": null,
+      "durationMs": 12782,
+      "wallMs": 12911
+    },
+    {
+      "query": "Who is the current Prime Minister of India?",
+      "verdict": "PASS",
+      "answer": "Based on the evidence provided, Narendra Modi is the current Prime Minister of India. He has been serving in this position since May 26, 2014 [5].",
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Narendra_Modi",
+          "title": "Narendra Modi",
+          "date": null
+        }
+      ],
+      "researchQueries": [],
+      "firstTokenMs": null,
+      "durationMs": 6513,
+      "wallMs": 6545
+    },
+    {
+      "query": "What is the latest stable Node.js version?",
+      "error": "chat failed: HTTP 429 {\"ok\":false,\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\\\"error\\\":\\\"Too many requests, please try again later\\\"}\"}}"
+    },
+    {
+      "query": "What is the latest major announcement on the Tamil Nadu government website?",
+      "error": "chat failed: HTTP 429 {\"ok\":false,\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle\"}}"
+    },
+    {
+      "query": "Who is the current President of the United States?",
+      "error": "chat failed: HTTP 429 {\"ok\":false,\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle\"}}"
+    }
+  ]
+}
