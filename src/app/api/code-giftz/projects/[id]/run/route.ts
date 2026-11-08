@@ -35,12 +35,12 @@ export async function POST(
 
     const rows = await db.codeFile.findMany({ where: { projectId: id }, orderBy: { path: 'asc' } })
     const files: SandboxFile[] = rows
-      .filter((r) => /\.(js|ts)$/.test(r.path))
+      .filter((r) => /\.(js|ts|py)$/.test(r.path))
       .map((r) => ({ path: r.path, content: r.content }))
     if (files.length === 0) {
       throw new BeanApiError(
         'VALIDATION_ERROR',
-        'This project has no JavaScript/TypeScript files to execute. HTML/CSS-only projects can be opened in the Preview panel instead.',
+        'This project has no JavaScript/TypeScript/Python files to execute. HTML/CSS-only projects can be opened in the Preview panel instead.',
       )
     }
     if (body.entry && !files.some((f) => f.path === body.entry)) {
