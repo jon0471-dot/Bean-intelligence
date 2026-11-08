@@ -29,6 +29,7 @@ import { isCancelRequested } from './queue'
 import { appendJobEventSafe } from './events'
 import { transitionJob } from './queue'
 import { classifyJobFailure } from './classify'
+import { buildTechDocsContext } from '@/lib/intel/techdocs'
 import type { ClaimedJob, HandlerOutcome } from './types'
 
 const MAX_HISTORY = 12
@@ -81,7 +82,15 @@ export async function handleGiftzCodingJob(
   })
   const attachmentBlock = await loadGiftzAttachments(job.userId, params.fileIds)
 
-  const userContent = [attachmentBlock, buildProjectContext(files), params.message]
+  // BEAN Intelligence: live official-docs retrieval (identical to the live
+  // route's behavior). Bounded; failure degrades honestly to model knowledge
+  // with no source claimed. Reference data only — never executed.
+  const techDocs = await buildTechDocsContext(params.message)
+  if (techDocs?.degraded.length) {
+    logger.warn('engine.giftz_techdocs_degraded', { jobId: job.id, degraded: techDocs.degraded })
+  }
+
+  const userContent = [attachmentBlock, buildProjectContext(files), techDocs?.block ?? '', params.message]
     .filter((s) => s.length > 0)
     .join('\n\n')
 

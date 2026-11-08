@@ -20,6 +20,8 @@ import {
 import { classifyUpstreamError, healthFailureCategory } from '@/lib/upstream/gateway'
 import { getBackend } from '@/lib/registry/backends'
 import { storeResultAsset } from '@/lib/laxii/assets'
+import { prepareImageIntelligence } from '@/lib/intel/grounding'
+import { verifyGeneratedImage, imageBufferToDataUrl } from '@/lib/intel/continuity'
 import fs from 'fs'
 import path from 'path'
 
@@ -46,10 +48,40 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
 
   await updateJob(job.id, { status: 'running', startedAt, progress: 15 })
 
+  // ---- BEAN Intelligence: world-knowledge grounding (invisible to users) ---
+  // The user's prompt is preserved VERBATIM and FIRST; the intelligence layer
+  // appends compact structured conditioning (physical-reality reference,
+  // camera/light directives, retrieved fidelity notes) around it. Every
+  // failure degrades honestly to the raw prompt — grounding can delay a
+  // generation by at most one bounded search, never break it.
+  let conditionedPrompt = params.prompt
+  let intelMeta: Record<string, unknown> | null = null
+  try {
+    const intel = await prepareImageIntelligence(params.prompt)
+    conditionedPrompt = intel.conditionedPrompt
+    intelMeta = {
+      layer: 'bean-intel/1',
+      mode: intel.mode,
+      promptLanguage: intel.promptLanguage,
+      knowledgeComponents: intel.knowledgeKeys,
+      evidenceHosts: intel.evidence.map((e) => e.host),
+      evidenceUrls: intel.evidence.map((e) => e.url),
+      degraded: intel.degraded,
+      conditioningChars: intel.conditioning.length,
+      timingMs: intel.timing,
+    }
+    if (intel.degraded.length > 0) {
+      logger.info('laxii.intel_degraded', { jobId: job.id, degraded: intel.degraded })
+    }
+  } catch (e) {
+    // Absolute guard: intelligence must never fail a generation.
+    logger.warn('laxii.intel_failed', { jobId: job.id, message: e instanceof Error ? e.message : String(e) })
+  }
+
   try {
     const result = await withTimeout(
       hostedImageAdapter.generateImage!({
-        prompt: params.prompt,
+        prompt: conditionedPrompt,
         size: params.size,
         timeoutMs: backend.timeouts.requestMs,
       }),
@@ -85,6 +117,30 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       })
     }
 
+    // ---- BEAN Intelligence: post-generation verification (non-fatal) -------
+    // One bounded vision check against the defect checklist. A skipped or
+    // failed check is reported as exactly that — never claimed as passed.
+    let verification: Record<string, unknown> | null = null
+    try {
+      const dataUrl = await imageBufferToDataUrl(result.bytes, result.format === 'png' ? 'image/png' : 'image/jpeg')
+      const report = await verifyGeneratedImage(dataUrl, params.prompt)
+      verification = {
+        checked: report.checked,
+        method: report.method,
+        defects: report.defects,
+        observation: report.observation,
+        checkedAt: report.checkedAt,
+        durationMs: report.durationMs,
+        ...(report.reason ? { reason: report.reason } : {}),
+      }
+      if (report.checked && report.defects.length > 0) {
+        logger.info('laxii.intel_defects_reported', { jobId: job.id, defects: report.defects })
+      }
+    } catch (e) {
+      verification = { checked: false, method: 'unavailable', reason: `verification errored: ${e instanceof Error ? e.message.slice(0, 160) : 'unknown'}` }
+      logger.warn('laxii.intel_verification_failed', { jobId: job.id, message: e instanceof Error ? e.message : String(e) })
+    }
+
     await updateJob(job.id, {
       status: 'completed',
       progress: 100,
@@ -98,6 +154,8 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
         format: result.format,
         bytes: result.bytes.length,
         durationMs: result.durationMs,
+        ...(intelMeta ? { intel: intelMeta } : {}),
+        ...(verification ? { verification } : {}),
       }),
     })
     await recordUsage({

@@ -39,6 +39,9 @@ import {
 } from '@/lib/upstream/gateway'
 import { appendJobEventSafe } from '@/lib/ai-engine/events'
 import { getBackend } from '@/lib/registry/backends'
+import { prepareVideoIntelligence } from '@/lib/intel/grounding'
+import { extractSceneState, verifyVideoContinuity, type SceneState } from '@/lib/intel/continuity'
+import { imageReferenceToDataUrl } from '@/lib/intel/vision'
 import fs from 'fs'
 import path from 'path'
 
@@ -216,6 +219,9 @@ export async function processVideoJob(job: JobRow): Promise<void> {
   const startedAt = new Date()
   const params = JSON.parse(job.paramsJson) as VideoJobParams
   let result = parseResult(job)
+  // BEAN Intelligence state (persisted into resultJson when available):
+  let intelMeta: Record<string, unknown> | null = null
+  let referenceState: SceneState | null = null
 
   try {
     // Cancellation is honored FIRST — including the enqueue/cancel race where
@@ -245,12 +251,52 @@ export async function processVideoJob(job: JobRow): Promise<void> {
         return
       }
       await updateJob(job.id, { status: 'running', startedAt, progress: 5 })
+      // ---- BEAN Intelligence: world-knowledge grounding (invisible) ----------
+      // For I2V, the reference image's scene state is vision-analyzed (bounded,
+      // non-fatal) and compiled into continuity directives; the prompt is then
+      // conditioned with physical-reality constraints, a motion timeline and
+      // camera/light directives. The user's prompt stays VERBATIM and FIRST.
+      // Every failure degrades honestly to the raw prompt — grounding can
+      // never fail or meaningfully delay a submission beyond its bounds.
+      let conditionedPrompt = params.prompt
+      try {
+        let referenceContinuity: string | undefined
+        if (params.imageUrl) {
+          const refDataUrl = await imageReferenceToDataUrl(params.imageUrl)
+          if (refDataUrl) {
+            referenceState = await extractSceneState(refDataUrl)
+            if (referenceState.continuityDirectives) referenceContinuity = referenceState.continuityDirectives
+          } else {
+            logger.info('jazmii.intel_reference_unreadable', { jobId: job.id })
+          }
+        }
+        const intel = await prepareVideoIntelligence(params.prompt, { referenceContinuity })
+        conditionedPrompt = intel.conditionedPrompt
+        intelMeta = {
+          layer: 'bean-intel/1',
+          mode: intel.mode,
+          promptLanguage: intel.promptLanguage,
+          knowledgeComponents: intel.knowledgeKeys,
+          evidenceHosts: intel.evidence.map((e) => e.host),
+          evidenceUrls: intel.evidence.map((e) => e.url),
+          referenceSceneAnalyzed: referenceState?.method === 'vision-analysis',
+          degraded: intel.degraded,
+          conditioningChars: intel.conditioning.length,
+          timingMs: intel.timing,
+        }
+        if (intel.degraded.length > 0) {
+          logger.info('jazmii.intel_degraded', { jobId: job.id, degraded: intel.degraded })
+        }
+      } catch (e) {
+        // Absolute guard: intelligence must never fail a submission.
+        logger.warn('jazmii.intel_failed', { jobId: job.id, message: e instanceof Error ? e.message : String(e) })
+      }
       // REAL submission — upstream-class failures propagate to the honest
       // failure path; a THROTTLE parks the job for a bounded retry instead
       // of destroying an accepted job (issues 1-2 repair).
       try {
         const handle = await submitVideoJob({
-          prompt: params.prompt,
+          prompt: conditionedPrompt,
           ...(params.imageUrl ? { imageUrl: params.imageUrl } : {}),
           ...(params.quality ? { quality: params.quality } : {}),
           ...(params.withAudio !== undefined ? { withAudio: params.withAudio } : {}),
@@ -262,6 +308,7 @@ export async function processVideoJob(job: JobRow): Promise<void> {
           ...result,
           providerTaskId: handle.taskId,
           providerStatus: handle.providerStatus,
+          ...(intelMeta ? { intel: intelMeta } : {}),
           // The successful submission was ALSO a real attempt — the counter
           // always equals the total real submissions made for this job.
           submissionAttempts: (result.submissionAttempts ?? 0) + 1,
@@ -403,12 +450,42 @@ export async function processVideoJob(job: JobRow): Promise<void> {
     const filename = `${job.id}.${dl.format}`
     fs.writeFileSync(path.join(dir, filename), dl.bytes)
 
+    // ---- BEAN Intelligence: continuity verification (non-fatal) -------------
+    // Bounded vision check of the video's final frame against the defect
+    // checklist (limbs, identity, clothing, lighting/camera continuity…).
+    // A skipped or failed check reports exactly that — never claimed passed.
+    // Frame-level analysis cannot prove temporal smoothness; the report says
+    // so and defects are REPORTED, not silently corrected.
+    let continuity: Record<string, unknown> | null = null
+    try {
+      const report = await verifyVideoContinuity(path.join(dir, filename), {
+        requestSummary: params.prompt,
+        referenceState,
+      })
+      continuity = {
+        checked: report.checked,
+        method: report.method,
+        defects: report.defects,
+        observation: report.observation,
+        checkedAt: report.checkedAt,
+        durationMs: report.durationMs,
+        ...(report.reason ? { reason: report.reason } : {}),
+      }
+      if (report.checked && report.defects.length > 0) {
+        logger.info('jazmii.intel_continuity_defects', { jobId: job.id, defects: report.defects })
+      }
+    } catch (e) {
+      continuity = { checked: false, method: 'unavailable', defects: [], reason: `continuity verification errored: ${e instanceof Error ? e.message.slice(0, 160) : 'unknown'}` }
+      logger.warn('jazmii.intel_continuity_failed', { jobId: job.id, message: e instanceof Error ? e.message : String(e) })
+    }
+
     result = {
       ...result,
       videoUrl: `/api/jazmii/jobs/${job.id}/media`,
       format: dl.format,
       bytes: dl.bytesLength,
       durationMs: dl.durationMs,
+      ...(continuity ? { continuity } : {}),
     }
     await updateJob(job.id, {
       status: 'completed',
