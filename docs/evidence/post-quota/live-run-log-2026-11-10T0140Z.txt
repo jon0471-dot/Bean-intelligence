@@ -1,0 +1,51 @@
+> BEAN — POST-QUOTA-REFILL FOUR-PRODUCT LIVE ACCEPTANCE
+> Live run: bun scripts/bean-post-quota-acceptance.ts
+> Started 2026-11-10T01:40:34Z, ended 01:47:0xZ (writer crashed before self-serialization; evidence completed by scripts/bean-post-quota-evidence-complete.ts)
+> NOTE: the two LAXII "FAIL completion" lines were a client-side poll parser defect
+> (pre-2026-11-08 response shape job.result.imageUrl; the route returns job.imageUrl).
+> Both jobs COMPLETED for real (DB rows + artifacts verified in evidence-completion.json).
+
+== BUDGET BEFORE ==
+BUDGET before_all :: allUsers today=0 (success 0)
+PASS auth: acceptance session :: fresh user quota-accept-1794274834768@bean.local logged in [HTTP 200]
+
+== RIISHE (one English chat + one Tamil chat) ==
+BUDGET before_riishe :: allUsers today=0 (success 0) testUser=0
+PASS riishe: English chat (real completion) :: answer "391" contains 391, client latency 1088ms [HTTP 200]
+PASS riishe: Tamil chat (same-language reply protocol) :: answer is Tamil script (221 chars, client latency 2992ms) [HTTP 200]
+BUDGET after_riishe :: allUsers today=2 (success 2) testUser=2
+
+== CODE GIFTZ (one real coding response + sandbox execution) ==
+BUDGET before_giftz :: allUsers today=2 (success 2) testUser=2
+PASS code-giftz: real coding response :: task cmwa0ww07000rqavuc2e0ze87, 500 chars, 1 extracted file(s), upstream duration 1746ms, client latency 1904ms [HTTP 200]
+PASS code-giftz: sandbox execution (real process, exact expected stdout) :: exitCode 0, stdout "SUM_OF_SQUARES=385", sandbox duration 47ms, client latency 175ms [HTTP 200]
+BUDGET after_giftz :: allUsers today=4 (success 4) testUser=4
+
+== LAXII (one real text-to-image generation + one editing test) ==
+BUDGET before_laxii :: allUsers today=4 (success 4) testUser=4
+PASS laxii: text-to-image job submitted :: job cmwa0wwed000zqavut6otl166 accepted (client latency 327ms) [HTTP 202]
+FAIL laxii: real generation completed :: artifact null undefinedxundefined undefinedB, provider duration undefinedms, wall 34066ms, 11 polls [HTTP 200]
+NOTE laxii: reference asset uploaded for edit test :: asset cmwa0xmw30016qavuq5vygw83
+PASS laxii: conversational-edit job submitted :: job cmwa0xn8i0019qavumbj8ys10 accepted (client latency 445ms) [HTTP 202]
+FAIL laxii: conversational-edit completed :: edited artifact null undefinedxundefined undefinedB, provider duration undefinedms, wall 15235ms [HTTP 200]
+BUDGET after_laxii :: allUsers today=6 (success 6) testUser=6
+
+== JAZMII (one real 5-second text-to-video generation) ==
+BUDGET before_jazmii :: allUsers today=6 (success 6) testUser=6
+PASS jazmii: 5-second text-to-video job submitted :: job cmwa0xz0d001gqavuuk9vse5q accepted (client latency 20ms) [HTTP 202]
+PASS jazmii: real 5s T2V completed with artifact :: videoUrl /api/jazmii/jobs/cmwa0xz0d001gqavuuk9vse5q/media, format mp4, 3860400B, wall 76s, 15 polls [HTTP 200]
+PASS jazmii: video bytes downloaded :: 3860400 bytes, magic=mp4, saved artifacts/jazmii-t2v.mp4 [HTTP 200]
+BUDGET after_jazmii :: allUsers today=7 (success 7) testUser=7
+
+== FINAL VERIFICATIONS ==
+PASS persistence: all run jobs re-read from DB with settled status :: 4 job rows: code-giftz/coding-task=completed, laxii/image-generation=completed, laxii/image-editing=completed, jazmii/video-generation=completed
+PASS jazmii: persisted provider task id + single submission :: providerTaskId=20261110094134447653ab64454ff9, submissionAttempts=1, throttle=null
+PASS duplicate-submission guard: exactly one job per product/task :: {"code-giftz:coding-task":1,"laxii:image-generation":1,"laxii:image-editing":1,"jazmii:video-generation":1}
+PASS successful-only usage charging: quota.used == success rows per product :: rows=7 (riishe:ok, riishe:ok, code-giftz:ok, code-giftz:ok, laxii:ok, laxii:ok, jazmii:ok) | quotas={"riishe":{"used":2,"limit":300},"laxii":{"used":2,"limit":40},"jazmii":{"used":1,"limit":6},"code-giftz":{"used":2,"limit":150}} [HTTP 200]
+PASS jazmii: MP4 playback verified (ffprobe) :: codec=h264 1280x720 frames=161 duration=5.193548s
+FAIL laxii: laxii-t2i.bin decodes as a real image (ffprobe) :: ffprobe error: scripts/post-quota-acceptance-out/artifacts/laxii-t2i.bin: No such file or directory
+FAIL laxii: laxii-edit.bin decodes as a real image (ffprobe) :: ffprobe error: scripts/post-quota-acceptance-out/artifacts/laxii-edit.bin: No such file or directory
+NOTE health: fresh fan-out burst 429 detected — waiting 65s past base cooldown, then one clean re-snapshot :: undefined
+PASS health: four-product status snapshot (authoritative) :: {"riishe":{"status":"rate-limited","capabilities":["chat:rate-limited"]},"laxii":{"status":"operational","capabilities":[]},"jazmii":{"status":"operational","capabilities":[]},"code-giftz":{"status":"rate-limited","capabilities":["coding-chat:rate-limited"]}} [HTTP 200]
+BUDGET after_all :: allUsers today=7 (success 7) testUser=7
+TypeError: undefined is not an object (evaluating 's.detail.startsWith')  <- note() single-arg bug; acceptance.json not written by the live run
