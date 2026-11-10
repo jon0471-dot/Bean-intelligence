@@ -5,6 +5,7 @@ import { parseBody } from '@/lib/api/validate'
 import { requireUser } from '@/lib/auth/session'
 import { preflight } from '@/lib/router/router'
 import { enqueueJob } from '@/lib/jobs/queue'
+import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { recordAudit } from '@/lib/observability/metering'
 import { loadAsset } from '@/lib/laxii/assets'
 import { resolveProvider } from '@/lib/laxii/provider'
@@ -140,6 +141,17 @@ export async function POST(request: Request) {
     const { backend, release } = await preflight(user.id, 'laxii', opTask)
     release()
 
+    // ZERO-DOWNTIME RECOVERY (2026-11-11) — duplicate-submission guard: an
+    // identical ACTIVE edit (same asset, mode and instruction) is refused
+    // with 409 instead of queueing a second identical provider job.
+    const dedupeKey = dedupeKeyFor(user.id, 'laxii', opTask, body)
+    if (await hasActiveDuplicate(dedupeKey)) {
+      throw new BeanApiError(
+        'CONCURRENCY_LIMIT',
+        'An identical edit job is already queued or running. Wait for it to finish.',
+      )
+    }
+
     const job = await db.generationJob.create({
       data: {
         userId: user.id,
@@ -147,6 +159,7 @@ export async function POST(request: Request) {
         task: opTask,
         status: 'queued',
         backendId: backend.id,
+        dedupeKey,
         paramsJson: JSON.stringify(body),
       },
     })

@@ -16,7 +16,7 @@
 import { randomUUID } from 'crypto'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/observability/logger'
-import { engineConfig } from './config'
+import { engineConfig, jitteredRetryBackoffMs } from './config'
 import { appendJobEventSafe, pruneOldJobEvents } from './events'
 import {
   claimNextJob,
@@ -207,7 +207,11 @@ function withSettleTimeout<T>(p: Promise<T>, jobId: string): Promise<T> {
 }
 
 async function settleRetry(claimed: ClaimedJob, outcome: HandlerOutcome): Promise<void> {
-  const scheduledForMs = outcome.retry?.scheduledForMs ?? 15_000
+  const backoffBase = outcome.retry?.scheduledForMs ?? 15_000
+  // ZERO-DOWNTIME RECOVERY (2026-11-11): bounded ±20% jitter — same
+  // retry-storm rationale as queue.ts finishFailed (a synchronized cohort
+  // of failing jobs must not re-hit the provider at the same instant).
+  const scheduledForMs = jitteredRetryBackoffMs(backoffBase)
   await db.generationJob
     .updateMany({
       where: { id: claimed.id, workerId: claimed.workerId, status: { in: ['starting', 'running', 'streaming', 'finalizing'] } },

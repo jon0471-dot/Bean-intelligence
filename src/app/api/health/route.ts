@@ -5,6 +5,7 @@ import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
 import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
 import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import { lastHealthyAtFor, HEALTH_CACHE_TTL_MS } from '@/lib/adapters/health-cache'
+import { staggeredRemoteProbes } from '@/lib/adapters/probe-stagger'
 import type { HealthReport } from '@/lib/adapters/types'
 import { safeProbe } from '@/lib/adapters/safe-probe'
 import { lastRealAttempt, recentUpstreamFailure, type AttemptTask } from '@/lib/adapters/last-attempts'
@@ -99,7 +100,18 @@ import {
  * against the 300/day account budget — health monitoring was sustaining
  * the "chat rate-limited" state it reported (docs/reports/
  * RIISHE-CHAT-RECOVERY.md). With zero metered calls in this fan-out, the
- * burst concern is structurally gone; the parallel Promise.all stays.
+ * quota burn is gone.
+ *
+ * STAGGERED REMOTE PROBES (ZERO-DOWNTIME RECOVERY, 2026-11-11): the FIVE
+ * network probes (RIISHE chat, CODE GIFTZ chat, research, LAXII image,
+ * JAZMII video reachability) all target the SAME gateway host. Even though
+ * they burn ZERO metered requests now, a parallel burst of five same-host
+ * requests is still the exact pattern that measurably tripped the
+ * provider's authoritative 2-QPS limit before (F1, BEAN-POST-QUOTA-
+ * ACCEPTANCE.md) — so the remote probes now run SERIALLY with a 250ms gap
+ * (probe-stagger.ts): at most one remote request in flight. The parallel
+ * Promise.all stays for the LOCAL probes (sandbox, Sharp engine, Diffusers
+ * preflight — no network, no provider visibility).
  */
 
 /** Registry truth: does the product have ANY enabled backend right now? */
@@ -163,15 +175,8 @@ function generationSlot(
 
 export async function GET() {
   return handle(async () => {
-    const [riishe, giftz, image, research, sandbox, laxiiLocal, laxiiWorker, video] = await Promise.all([
-      safeProbe('llm-hosted-primary', () => hostedLlmAdapter.health()),
-      // CODE GIFTZ probes its own backend descriptor independently (the
-      // registry separates bean-llm-hosted-primary from
-      // bean-code-llm-hosted-primary); the measured evidence is no longer
-      // one shared result rendered twice.
-      safeProbe('code-giftz-chat-primary', () => hostedLlmAdapter.health()),
-      safeProbe('image-hosted-primary', () => hostedImageAdapter.health()),
-      safeProbe('research-functions-primary', () => probeResearchHealth()),
+    // LOCAL probes (no network — provider invisible): parallel as before.
+    const [sandbox, laxiiLocal, laxiiWorker] = await Promise.all([
       safeProbe('sandbox-runtime-primary', () => probeSandboxHealth()),
       // LAXII preservation engine sub-states (2026-10-31):
       //  deterministic -> real local Sharp capability (executed, not claimed)
@@ -179,9 +184,26 @@ export async function GET() {
       //                   host; registry-gated for traffic)
       safeProbe('laxii-local-sharp', () => localLaxiiAdapter.health()),
       safeProbe('laxii-diffusers-worker', () => diffusersWorkerAdapter.health()),
+    ])
+
+    // REMOTE probes (network — same gateway host): SERIALIZED with a 250ms
+    // gap (probe-stagger.ts) instead of one parallel burst. Each probe is
+    // cached for 20s (health-cache.ts), so this ordering only costs latency
+    // on a fresh poll; while a class breaker is open the LLM/research
+    // probes make NO network call at all (deferred honestly), keeping the
+    // "never probe repeatedly while a breaker is open" guarantee.
+    const [riishe, giftz, research, image, video] = await staggeredRemoteProbes([
+      () => safeProbe('llm-hosted-primary', () => hostedLlmAdapter.health()),
+      // CODE GIFTZ probes its own backend descriptor independently (the
+      // registry separates bean-llm-hosted-primary from
+      // bean-code-llm-hosted-primary); the measured evidence is no longer
+      // one shared result rendered twice.
+      () => safeProbe('code-giftz-chat-primary', () => hostedLlmAdapter.health()),
+      () => safeProbe('research-functions-primary', () => probeResearchHealth()),
+      () => safeProbe('image-hosted-primary', () => hostedImageAdapter.health()),
       // JAZMII (2026-11-04): real reachability probe of the hosted video
       // backend + video-class breaker state — NEVER a synthetic generation.
-      safeProbe('video-hosted-primary', () => hostedVideoAdapter.health()),
+      () => safeProbe('video-hosted-primary', () => hostedVideoAdapter.health()),
     ])
 
     const videoBackend = getBackendsForProduct('jazmii')[0]

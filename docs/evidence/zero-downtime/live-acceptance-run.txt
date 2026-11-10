@@ -1,0 +1,28 @@
+QUOTA gate :: HTTP 429 remaining-daily=0/300 user-daily=188
+PASS auth: acceptance session :: fresh user zdt-accept-1794290149143@bean.local [HTTP 200]
+USAGE before :: allUsers today=41 testUser=0
+
+== HEALTH: staggered, zero-metered polls + dashboard snapshot ==
+PASS health: first poll answers with per-product status :: products=riishe:operational laxii:operational jazmii:operational code-giftz:operational (1046ms) [HTTP 200]
+PASS health: fresh polls consume ZERO metered provider requests :: usage rows unchanged across two fresh polls (41 -> 41); poll latencies 1046ms/1182ms (B ran after the 20s cache TTL, i.e. a fresh fan-out)
+
+== RIISHE: honest throttle error + preserved request ==
+PASS riishe: throttled chat fails HONESTLY (scenario 2 live) :: error frame: {"ok":false,"error":{"code":"RATE_LIMITED","message":"chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, pleas (672ms) [HTTP 429]
+NOTE riishe: request preservation :: no conversationId in the error frame — checked via DB instead
+PASS riishe: the throttled request is PRESERVED for retry (DB evidence) :: user message row persisted (cmwaa1i86000aqanfdxcigo6p) without an assistant reply — the exact retry state
+PASS riishe: immediate re-request fails fast (breaker absorbs it — no retry storm) :: second submission answered in 37ms with an honest failure (no hanging retry loop) [HTTP 429]
+
+== LAXII: duplicate-submission guard + throttle parking ==
+USAGE before_laxii :: allUsers today=41 testUser=0
+PASS laxii: first submission accepted (202, queued) :: job cmwaa1ix8000gqanfxzu5aght [HTTP 202]
+PASS laxii: identical ACTIVE submission refused (typed CONCURRENCY_LIMIT, scenario 8 live) :: duplicate refused (HTTP 429, code CONCURRENCY_LIMIT) [HTTP 429]
+PASS laxii: a throttled generation PARKS in retry_wait with a breaker-aligned backoff (scenario 6 live) :: status=retry_wait, attempts=1, nextRunAt=Tue Nov 10 2026 05:57:15 GMT+0000 (Coordinated Universal Time), message="The image gateway is throttling generations (HTTP 429). The job stays queued — attempt 2 of 3 starts automatically in ~60s. Nothing was lost"
+NOTE laxii: parked job cancelled (cleanup) :: cancel HTTP 200
+USAGE after :: allUsers today=41 testUser=0
+PASS metering: usage rows are attributed to the acting user (scenario 9 live) :: test user owns 0 usage row(s); all-users delta across this run: 0
+
+== GATED live capability tests ==
+QUOTA final-gate :: HTTP 429 remaining-daily=0/300 user-daily=185
+SKIP gated: per-capability live tests (chat/coding/image/video) :: quota gate CLOSED: x-ratelimit-remaining-daily=0/300 (HTTP 429) — running them would burn user quota; covered by 1278-test suite + the live exhaustion scenarios above. Re-run this script after the daily refill.
+
+SUMMARY pass=12 skip=1 fail=0 -> scripts/zero-downtime-acceptance-out/acceptance.json

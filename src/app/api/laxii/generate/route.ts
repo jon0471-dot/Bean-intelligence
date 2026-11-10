@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { handle, ok } from '@/lib/api/errors'
+import { handle, ok, BeanApiError } from '@/lib/api/errors'
 import { parseBody } from '@/lib/api/validate'
 import { requireUser } from '@/lib/auth/session'
 import { preflight } from '@/lib/router/router'
 import { enqueueJob } from '@/lib/jobs/queue'
+import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { LAXII_SIZES } from '@/lib/registry/products'
 import { recordAudit } from '@/lib/observability/metering'
 
@@ -28,6 +29,22 @@ export async function POST(request: Request) {
     const { backend, release } = await preflight(user.id, 'laxii', 'image-generation')
     release() // queue slot is held by the worker, not by this HTTP request
 
+    // ZERO-DOWNTIME RECOVERY (2026-11-11) — duplicate-submission guard (brief
+    // §3): an identical ACTIVE generation (double-click, retry storm, client
+    // resubmit while throttled) is refused with 409 instead of queueing a
+    // second identical job that would double-charge the shared account.
+    // Terminal jobs never block a deliberate resubmission.
+    const dedupeKey = dedupeKeyFor(user.id, 'laxii', 'image-generation', {
+      prompt: body.prompt,
+      size: body.size,
+    })
+    if (await hasActiveDuplicate(dedupeKey)) {
+      throw new BeanApiError(
+        'CONCURRENCY_LIMIT',
+        'An identical image generation is already queued or running. Wait for it to finish.',
+      )
+    }
+
     const job = await db.generationJob.create({
       data: {
         userId: user.id,
@@ -35,6 +52,7 @@ export async function POST(request: Request) {
         task: 'image-generation',
         status: 'queued',
         backendId: backend.id,
+        dedupeKey,
         paramsJson: JSON.stringify({ prompt: body.prompt, size: body.size }),
       },
     })

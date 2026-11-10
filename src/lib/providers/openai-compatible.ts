@@ -38,6 +38,7 @@ import {
   noteUpstream429,
   noteUpstreamSkip,
   noteUpstreamSuccess,
+  parseRetryAfterHeaders,
   upstreamCoolingDown,
   UpstreamRateLimitError,
 } from '@/lib/upstream/gateway'
@@ -154,8 +155,19 @@ async function execute(
     const errBody = await res.text().catch(() => '')
     const message = redact(`status ${res.status}: ${errBody.slice(0, 200)}`)
     if (res.status === 429) {
-      noteUpstream429('chat-fallback')
-      throw new UpstreamRateLimitError('chat-fallback', `fallback chat completion is rate-limited upstream (HTTP 429): ${message}`)
+      // ZERO-DOWNTIME RECOVERY (2026-11-11): this lane does a DIRECT fetch, so
+      // the response headers are actually readable — honor the provider's own
+      // retry hint (Retry-After / x-ratelimit-reset) when one is present,
+      // instead of BEAN's conservative guess. The typed error carries the
+      // value so downstream parking (queue retries, video backoff) uses it too.
+      const hint = parseRetryAfterHeaders(res.headers)
+      noteUpstream429('chat-fallback', Date.now(), hint)
+      throw new UpstreamRateLimitError(
+        'chat-fallback',
+        `fallback chat completion is rate-limited upstream (HTTP 429): ${message}`,
+        true,
+        hint,
+      )
     }
     const failure = classifyUpstreamError(new Error(message))
     if (failure.kind === 'auth') throw new Error(`fallback provider rejected credentials (HTTP ${res.status}). Check the configured credential — retrying will not change this.`)
@@ -192,7 +204,8 @@ export const openAiCompatibleAdapter: TaskAdapter = {
         const errBody = await res.text().catch(() => '')
         const message = redact(`status ${res.status}: ${errBody.slice(0, 160)}`)
         if (res.status === 429) {
-          noteUpstream429('chat-fallback')
+          const hint = parseRetryAfterHeaders(res.headers)
+          noteUpstream429('chat-fallback', Date.now(), hint)
           return {
             healthy: false,
             checkedAt: new Date().toISOString(),

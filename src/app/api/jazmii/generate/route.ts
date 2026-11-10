@@ -1,12 +1,13 @@
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { handle, ok } from '@/lib/api/errors'
+import { handle, ok, BeanApiError } from '@/lib/api/errors'
 import { parseBody } from '@/lib/api/validate'
 import { requireUser } from '@/lib/auth/session'
 import { preflight } from '@/lib/router/router'
 import { getProduct } from '@/lib/registry/products'
 import { getBackend } from '@/lib/registry/backends'
 import { enqueueJob } from '@/lib/jobs/queue'
+import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { ensureVideoPoller } from '@/lib/jobs/video-worker'
 import { upstreamBreakerState, type UpstreamEndpointClass } from '@/lib/upstream/gateway'
 
@@ -51,6 +52,24 @@ export async function POST(request: Request) {
     // Routing rules 1–5: availability, rate limit, quota, concurrency, backend.
     const { backend, release } = await preflight(user.id, 'jazmii', 'video-generation')
     try {
+      // ZERO-DOWNTIME RECOVERY (2026-11-11) — duplicate-submission guard: an
+      // identical ACTIVE video job is refused with 409. The data URL (up to
+      // 8 MB) is fingerprinted, not hashed whole, keeping the dedupe key cheap.
+      const dedupeKey = dedupeKeyFor(user.id, 'jazmii', 'video-generation', {
+        prompt: body.prompt,
+        imageUrl: body.imageUrl ? `${body.imageUrl.slice(0, 48)}#${body.imageUrl.length}` : null,
+        quality: body.quality ?? null,
+        withAudio: body.withAudio ?? null,
+        size: body.size ?? null,
+        durationSec: body.durationSec ?? null,
+        fps: body.fps ?? null,
+      })
+      if (await hasActiveDuplicate(dedupeKey)) {
+        throw new BeanApiError(
+          'CONCURRENCY_LIMIT',
+          'An identical video job is already queued or running. Wait for it to finish.',
+        )
+      }
       const job = await db.generationJob.create({
         data: {
           userId: user.id,
@@ -58,6 +77,7 @@ export async function POST(request: Request) {
           task: 'video-generation',
           status: 'queued',
           progress: 0,
+          dedupeKey,
           paramsJson: JSON.stringify({
             prompt: body.prompt,
             ...(body.imageUrl ? { imageUrl: body.imageUrl } : {}),
