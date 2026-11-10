@@ -40,6 +40,16 @@ export type AttemptTask =
   | 'video-generation-t2v'
   | 'video-generation-i2v'
   | 'audio-generation'
+  // CHAT-RECOVERY (2026-11-10): chat-class and functions-class REAL attempts
+  // are recorded at their shared choke points (createWithGatewayGuard for
+  // every guarded chat completion; webSearch for every real search). This is
+  // the evidence the QUOTA-FREE health probes derive product status from —
+  // the health path itself never fires an inference request (measured
+  // self-inflicted 429 loop: the old per-poll completion probes tripped the
+  // provider's 2-QPS limit every dashboard refresh and re-opened the chat
+  // breaker; see docs/reports/RIISHE-CHAT-RECOVERY.md).
+  | 'chat-completion'
+  | 'research-search'
 
 /** Failure categories that indicate the BACKEND/UPSTREAM is failing —
  *  as opposed to a request-specific rejection (content policy, user error). */

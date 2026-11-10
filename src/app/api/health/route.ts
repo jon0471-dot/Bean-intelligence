@@ -86,6 +86,20 @@ import {
  * latencyMs: null with the real cause — the health endpoint itself never
  * fails because of the breaker, and never misrepresents a skipped probe as
  * a measured one. Breaker expiry is verified by the next real probe call.
+ *
+ * QUOTA-FREE PROBES (CHAT-RECOVERY, 2026-11-10): the LLM and research
+ * probes no longer fire any metered upstream request — the LLM health is a
+ * free reachability GET + breaker state + REAL-attempt evidence (recorded
+ * by actual traffic, in-memory + persisted), and the research probe is the
+ * same pattern for the functions class. Measured defect this closes: the
+ * previous fan-out (2 completions + 1 web_search per fresh poll, one
+ * Promise.all every 45s from the dashboard) tripped the provider's
+ * authoritative 2-QPS limit on refresh, 429'd its own probes, re-opened
+ * the chat breaker every poll, and burned ~240 inference requests/hour
+ * against the 300/day account budget — health monitoring was sustaining
+ * the "chat rate-limited" state it reported (docs/reports/
+ * RIISHE-CHAT-RECOVERY.md). With zero metered calls in this fan-out, the
+ * burst concern is structurally gone; the parallel Promise.all stays.
  */
 
 /** Registry truth: does the product have ANY enabled backend right now? */

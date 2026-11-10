@@ -23,6 +23,7 @@
  *    null and the capability stays honestly unverified.
  */
 import { db } from '@/lib/db'
+import type { HealthFailureCategory } from './types'
 import type { AttemptRecordLike } from '@/lib/registry/capabilities'
 
 export type PersistedAttemptTask =
@@ -30,6 +31,31 @@ export type PersistedAttemptTask =
   | 'image-editing'
   | 'video-generation-t2v'
   | 'video-generation-i2v'
+  // CHAT-RECOVERY (2026-11-10): the quota-free chat health probe reads the
+  // persisted chat UsageRecord rows as its restart-surviving evidence — the
+  // in-memory attempt tracker (last-attempts.ts) empties on restart, and a
+  // recent upstream-class chat failure must keep the status honest until a
+  // real success follows (never a fabricated recovery from an empty store).
+  | 'chat-completion'
+
+/** Map a persisted chat errorCode to its honest health failure category. */
+function chatErrorCodeCategory(errorCode: string | null): HealthFailureCategory | null {
+  switch (errorCode) {
+    case 'UPSTREAM_RATE_LIMITED':
+    case 'RATE_LIMITED':
+      return 'rate-limited'
+    case 'UPSTREAM_AUTH':
+      return 'auth'
+    case 'UPSTREAM_BILLING':
+      return 'billing'
+    case 'UPSTREAM_TIMEOUT':
+      return 'timeout'
+    case 'UPSTREAM_NETWORK':
+      return 'network'
+    default:
+      return 'backend-error'
+  }
+}
 
 function recordFrom(finishedAt: Date | null): AttemptRecordLike | null {
   if (!finishedAt) return null
@@ -47,6 +73,28 @@ function recordFrom(finishedAt: Date | null): AttemptRecordLike | null {
  */
 export async function persistedAttempt(task: PersistedAttemptTask): Promise<AttemptRecordLike | null> {
   try {
+    if (task === 'chat-completion') {
+      // Chat evidence lives in UsageRecord (every real chat turn writes one,
+      // success or failure — recordUsage). The MOST RECENT row of either
+      // chat product is the newest truth; a success proves the class served,
+      // a failure carries its honest category. httpStatus is not persisted
+      // on usage rows, so it stays null (never guessed).
+      const row = await db.usageRecord.findFirst({
+        where: { kind: 'chat', product: { in: ['riishe', 'code-giftz'] } },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true, success: true, errorCode: true },
+      })
+      if (!row) return null
+      if (row.success) {
+        return { at: row.createdAt.toISOString(), ok: true, failureCategory: null, httpStatus: null }
+      }
+      return {
+        at: row.createdAt.toISOString(),
+        ok: false,
+        failureCategory: chatErrorCodeCategory(row.errorCode),
+        httpStatus: null,
+      }
+    }
     if (task === 'image-generation') {
       const row = await db.generationJob.findFirst({
         where: { product: 'laxii', task: 'image-generation', status: 'completed', backendId: 'bean-image-hosted-primary' },

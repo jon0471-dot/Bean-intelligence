@@ -24,8 +24,8 @@
  * response). Failures degrade honestly (reported in `degraded`) — the
  * pipeline never invents or retries indefinitely.
  */
-import ZAI from 'z-ai-web-dev-sdk'
 import { z } from 'zod'
+import { guardedChatCompletion } from '@/lib/adapters/hosted-llm'
 import { webSearch, readPage, WebSearchResult, PageContent, ResearchToolError } from './provider'
 import { rankSources, stalenessWarning, RankedSource, parseSourceDate } from './rank'
 import type { SearchDecision } from './policy'
@@ -139,9 +139,15 @@ export function isStraightforwardQuestion(message: string): boolean {
 export async function generateQueries(message: string, risk: SearchDecision): Promise<{ queries: string[]; usedFallback: boolean }> {
   const fallback = { queries: [truncateQuery(message)], usedFallback: true }
   try {
-    const zai = await ZAI.create()
-    const completion = await Promise.race([
-      zai.chat.completions.create({
+    // CHAT-RECOVERY (2026-11-10): this was a RAW zai.chat.completions.create
+    // call — one of four research-path completions that bypassed the
+    // chat-class 429 breaker entirely, firing real completions into an
+    // actively throttling gateway (uncounted quota + throttle deepening).
+    // The guarded wrapper fail-fasts while the breaker is open (the catch
+    // below then falls back to the raw-question search — the SAME honest
+    // degrade as a timeout) and records observed 429s into the breaker.
+    const completion = (await Promise.race([
+      guardedChatCompletion({
         messages: [
           { role: 'assistant', content: QUERY_SYSTEM },
           {
@@ -156,8 +162,8 @@ export async function generateQueries(message: string, risk: SearchDecision): Pr
         thinking: { type: 'disabled' },
       }),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('query-gen timeout')), 6_000)),
-    ])
-    const content = (completion as QueryGenCompletion).choices?.[0]?.message?.content ?? ''
+    ])) as QueryGenCompletion
+    const content = completion.choices?.[0]?.message?.content ?? ''
     const jsonMatch = content.match(/\{[\s\S]*\}/)
     if (!jsonMatch) return fallback
     const parsed = queriesSchema.safeParse(JSON.parse(jsonMatch[0]))
