@@ -46,6 +46,12 @@ mock.module('../../src/lib/research/direct', () => ({
   },
   isUsablePageText: (text: string) => text.trim().length >= 200,
   PAGE_MIN_USEFUL_CHARS: 200,
+  // MEASURED FIX (2026-11-10): pipeline.ts statically binds these two
+  // helpers; a partial mock record fails ESM linking ("Export named
+  // 'resolveRedirectUrl' not found"). Under these tests' premise they are
+  // never reached, so honest pure stubs suffice.
+  isRedirectWrapperUrl: (url: string) => /google\.[^/]+\/goto|news\.google\.com/i.test(url ?? ''),
+  resolveRedirectUrl: async (url: string) => url,
 }))
 
 // Import AFTER the mock registers so the pipeline binds to the failing SDK.

@@ -59,6 +59,20 @@ export interface PromptUnderstanding {
   places: string[]
   /** Conservative ambiguity flags with reasons. */
   ambiguous: string[]
+  // ---- LAXII IMAGE-QUALITY (2026-11-10): structured scene-specification
+  // signals. Deterministic extraction only — a field is null/empty when the
+  // prompt does not state it; defaults are compiled by scene-spec.ts, never
+  // silently guessed here.
+  /** Main subjects named by the prompt (people, creatures, key objects). */
+  subjects: string[]
+  /** Stated subject count from number words/digits; null when unstated. */
+  subjectCount: number | null
+  /** Explicit spatial-layer cues (foreground / middle ground / background). */
+  spatialLayers: string[]
+  /** Explicit lighting-direction cue (backlit, sunset, window light…). */
+  lightingDirection: string | null
+  /** Environmental condition cue (indoor/outdoor, night, rain, wind…). */
+  environment: string | null
   /** Microsecond-level classification duration (for latency accounting). */
   durationMs: number
 }
@@ -113,6 +127,45 @@ const PHYSICS_ACTION_WORDS: RegExp =
 
 const PLACE_RE: RegExp =
   /\b((?:Mount|Lake|River|Fort|Beach|Bay|Isle|Island|Cape)\s+[A-Z][\p{L}]+|[A-Z][\p{L}]{3,}(?:\s+(?:City|Beach|Falls|Desert|Forest|National Park|Temple|Cathedral|Bridge|Tower))?)\b/gu
+
+// ---- LAXII IMAGE-QUALITY (2026-11-10): scene-specification signal tables ---
+
+/** People/subject nouns a portrait or scene centers on (species live in CREATURE_WORDS). */
+const SUBJECT_WORDS: RegExp =
+  /\b(man|men|woman|women|person|people|child|children|boy|girl|babies?|couple|portrait|soldier|worker|dancer|athlete|musician|chef|doctor|student|teacher|farmer|pilot|astronaut|knight|warrior|monk|vehicle|car|truck|motorcycle|bicycle|train|airplane|boat|ship|building|house|temple|tower|bridge|statue|still life|food|fruit|flower arrangement)\b/gi
+
+const NUMBER_WORDS: Array<{ n: number; re: RegExp }> = [
+  { n: 1, re: /\b(one|a single|single|solo|lone|alone)\b/i },
+  { n: 2, re: /\b(two|pair of|both|duo|twin\w*)\b/i },
+  { n: 3, re: /\b(three|trio|triplet\w*)\b/i },
+  { n: 4, re: /\b(four|quartet)\b/i },
+  { n: 5, re: /\b(five|quintet)\b/i },
+  { n: 6, re: /\b(six|half a dozen)\b/i },
+  { n: 12, re: /\b(dozen|twelve)\b/i },
+]
+
+const SPATIAL_LAYER_WORDS: RegExp =
+  /\b(foreground|middle.?ground|midground|background|behind (?:him|her|them|it|the)|in front of|nearby|far away|distance)\b/gi
+
+const LIGHT_DIRECTION_WORDS: Array<{ phrase: string; re: RegExp }> = [
+  { phrase: 'backlight behind the subject (rim/separation light, subject may silhouette)', re: /\b(back.?lit|backlight|rim.?lit|against the light|silhouette)\b/i },
+  { phrase: 'low warm light from the horizon (sunrise/sunset: long soft shadows away from the sun)', re: /\b(sunrise|sunset|golden hour|dusk|dawn)\b/i },
+  { phrase: 'overhead light (short shadows directly under objects; harsh at noon)', re: /\b(noon|overhead (?:sun|light)|directly above|top.?down light)\b/i },
+  { phrase: 'side light from a window (soft directional falloff, long gentle shadows)', re: /\b(window light|side.?lit|light from the (?:left|right))\b/i },
+  { phrase: 'front light from the camera side (flat, minimal visible shadows)', re: /\b(front.?lit|on.?camera (?:flash|light))\b/i },
+  { phrase: 'moonlight (cool dim directional key, deep ambient shadows)', re: /\b(moonlit|moonlight|under the moon)\b/i },
+  { phrase: 'firelight from below/one side (warm flicker, dancing shadows)', re: /\b(fire ?light|campfire light|candle ?light|torch ?light)\b/i },
+]
+
+const ENVIRONMENT_WORDS: Array<{ phrase: string; re: RegExp }> = [
+  { phrase: 'indoor scene (interior surfaces and practical light sources bound reflections)', re: /\b(indoor|inside|interior|room|kitchen|office|hall|studio|cabin|temple interior)\b/i },
+  { phrase: 'outdoor scene (sky as the dominant light source, distance haze)', re: /\b(outdoor|outdoors|outside|street|beach|forest|field|mountain|desert|garden|park|rooftop)\b/i },
+  { phrase: 'night scene (artificial sources dominate, deep ambient shadows)', re: /\b(night|midnight|after dark|nighttime)\b/i },
+  { phrase: 'wet weather (reflective surfaces, droplets, softened distant detail)', re: /\b(rain\w*|wet weather|monsoon|downpour|drizzle)\b/i },
+  { phrase: 'windy conditions (flexible elements lean in one direction)', re: /\b(wind\w*|gale|breeze|storm\w*)\b/i },
+  { phrase: 'fog or haze (atmospheric perspective compresses distant contrast)', re: /\b(fog\w*|mist\w*|haze|foggy)\b/i },
+  { phrase: 'underwater scene (light falloff, suspended particles, blue-green cast)', re: /\b(underwater|submerged|beneath the (?:sea|waves|surface))\b/i },
+]
 
 // ---------------------------------------------------------------------------
 // Intent detection
@@ -215,9 +268,40 @@ export function understandPrompt(rawPrompt: string, lane: ProductLane): PromptUn
     materials: collect(MATERIAL_WORDS, normalized, 6),
     physicsActions: collect(PHYSICS_ACTION_WORDS, normalized, 8),
     places: (normalized.match(PLACE_RE) ?? []).slice(0, 4),
+    // Scene-specification signals (see interface docs). Deterministic,
+    // conservative: unstated fields stay null/empty.
+    subjects: collect(SUBJECT_WORDS, normalized, 4),
+    subjectCount: extractSubjectCount(normalized),
+    spatialLayers: collect(SPATIAL_LAYER_WORDS, normalized, 4),
+    lightingDirection: (LIGHT_DIRECTION_WORDS.find((l) => l.re.test(normalized))?.phrase ?? null),
+    // Environment can carry MULTIPLE real conditions ("rain at night") —
+    // both matter for rendering, so matched cues are collected (bounded 2).
+    environment: (ENVIRONMENT_WORDS.filter((e) => e.re.test(normalized)).slice(0, 2).map((e) => e.phrase).join('; ') || null),
     ambiguous: ambiguityFlags(normalized, intent, terms),
     durationMs: 0,
   }
   understanding.durationMs = Math.max(0, Math.round((performance.now() - t0) * 100) / 100)
   return understanding
+}
+
+/**
+ * Stated subject count from number words/digits next to a subject word.
+ * "3 birds" and "two women" yield 3/2; "a tiger" yields 1; digits next to
+ * sizes/years ("1024x1024", "2026") do NOT count as subjects. Null when
+ * unstated. Exported pure for unit testing.
+ */
+export function extractSubjectCount(text: string): number | null {
+  // Multi-subject counts are unambiguous — checked first.
+  for (const { n, re } of NUMBER_WORDS.filter((e) => e.n >= 2)) {
+    if (re.test(text)) return n
+  }
+  // Bare digit 2..9 directly before a known subject/creature word
+  // (one digit avoids eating resolutions and years).
+  const m = /\b([2-9])\s+(?:\w+\s+){0,2}?(?:woman|women|man|men|person|people|child|children|bird\w*|cat\w*|dog\w*|tiger\w*|lion\w*|horse\w*|elephant\w*|flower\w*|car\w*|tree\w*|apple\w*)\b/i.exec(text)
+  if (m) return Number(m[1])
+  // Explicit singular markers.
+  if (/\b(one|a single|single|solo|lone)\b/i.test(text)) return 1
+  // A bare article before a subject word reads as exactly one subject.
+  if (/\b(a|an)\s+(?:\w+\s+){0,3}?(?:woman|women|man|men|person|portrait|child|children|boy|girl|bird\w*|cat\w*|dog\w*|tiger\w*|lion\w*|horse\w*|elephant\w*|eagle\w*|car\w*|tree\w*|temple\w*|building\w*|statue\w*|flower\w*|glass\w*)\b/i.test(text)) return 1
+  return null
 }

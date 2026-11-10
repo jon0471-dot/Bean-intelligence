@@ -21,11 +21,15 @@ import {
   noteUpstream429,
   noteUpstreamSkip,
   noteUpstreamSuccess,
+  upstreamBreakerState,
   upstreamCoolingDown,
   UpstreamAuthError,
   UpstreamBillingError,
   UpstreamRateLimitError,
 } from '@/lib/upstream/gateway'
+import { lastRealAttempt, noteRealAttempt, recentUpstreamFailure, UPSTREAM_FAILURE_CATEGORIES } from './last-attempts'
+import { persistedAttempt } from './persisted-attempts'
+import { gatewayConfig, probeGatewayReachability } from './gateway-reachability'
 import { streamConfig } from '@/lib/riishe/stream-config'
 
 /**
@@ -256,6 +260,27 @@ function outputTokenFields(): { max_tokens?: number } {
 }
 
 /**
+ * CHAT-RECOVERY (2026-11-10): record every REAL chat-class attempt (success
+ * and upstream failure alike — never breaker skips, which make no network
+ * call) as health evidence. The quota-free health probe reads this instead
+ * of firing its own completion; the record's freshness rules (15 min for
+ * failures) live in last-attempts.ts. Truncation (finish_reason "length")
+ * records as ok:true from this boundary's vantage: the gateway answered and
+ * tokens flowed; the output cap is application-level continuation work.
+ */
+function recordChatAttempt(ok: boolean, failure: ReturnType<typeof classifyUpstreamError> | null): void {
+  const category = ok || !failure ? null : healthFailureCategory(failure.kind)
+  noteRealAttempt('chat-completion', {
+    at: new Date().toISOString(),
+    ok,
+    backendId: BACKEND_ID,
+    failureCategory: category,
+    httpStatus: ok || !failure ? null : failure.status,
+    upstream: ok || !failure ? false : category !== null && UPSTREAM_FAILURE_CATEGORIES.has(category),
+  })
+}
+
+/**
  * Upstream-boundary guard for chat completions.
  *
  * MEASURED CHANGE (2026-10-29 root-cause work): the previous wrapper retried
@@ -292,79 +317,208 @@ async function createWithGatewayGuard(
     // PHASE 1 bounded backoff: a real success resets the consecutive-429
     // streak so the next throttle starts from the base window again.
     noteUpstreamSuccess('chat')
+    recordChatAttempt(true, null)
     return result
   } catch (e) {
     const failure = classifyUpstreamError(e)
     const raw = e instanceof Error ? e.message : String(e)
     if (failure.kind === 'rate_limited') {
       noteUpstream429('chat')
+      recordChatAttempt(false, failure)
       throw new UpstreamRateLimitError('chat', `chat completion is rate-limited upstream (HTTP 429): ${raw.slice(0, 200)}`)
     }
     if (failure.kind === 'auth') {
+      recordChatAttempt(false, failure)
       throw new UpstreamAuthError(`chat completion failed: gateway rejected credentials (HTTP ${failure.status}): ${raw.slice(0, 200)}`, failure.status ?? 401)
     }
     if (failure.kind === 'billing') {
+      recordChatAttempt(false, failure)
       throw new UpstreamBillingError(`chat completion failed: gateway refused for account reasons (HTTP ${failure.status}): ${raw.slice(0, 200)}`, failure.status ?? 402)
     }
+    recordChatAttempt(false, failure)
     throw e
   }
+}
+
+/**
+ * CHAT-RECOVERY (2026-11-10): the ONE guarded entry point for chat-class
+ * completions outside this adapter. RIISHE's research/verify pipeline had
+ * FOUR raw zai.chat.completions.create call sites (search-query generation,
+ * semantic freshness routing, claims verification, cross-lingual query
+ * expansion) that bypassed the chat-class 429 breaker entirely — each one
+ * kept firing real completions into an actively throttling gateway, deepening
+ * the throttle and burning uncounted quota. This wrapper gives those callers
+ * the SAME contract as every other chat-class call: fail fast (typed, no
+ * network) while the breaker is open, record observed 429s into the breaker,
+ * and record real-attempt evidence for the health payload. Every caller
+ * already owns an honest fallback for a thrown error (raw-question search,
+ * deterministic routing, degraded claims audit, dropped variant), so a
+ * breaker skip degrades the specific sub-step — it never fakes success.
+ */
+export async function guardedChatCompletion(body: unknown): Promise<unknown> {
+  const zai = await ZAI.create()
+  return createWithGatewayGuard(zai, body)
 }
 
 export const hostedLlmAdapter: TaskAdapter = {
   backendId: BACKEND_ID,
 
+  /**
+   * QUOTA-FREE health probe (CHAT-RECOVERY, 2026-11-10).
+   *
+   * The previous probe fired a REAL chat completion ("Reply with exactly:
+   * OK") per fresh poll. Measured consequences (docs/reports/
+   * RIISHE-CHAT-RECOVERY.md): the dashboard's 45s health refresh fired
+   * 2 completions + 1 web_search concurrently against the provider's
+   * authoritative 2-QPS limit, tripped it, and the resulting 429 re-opened
+   * the chat breaker every refresh — chat rendered "rate-limited" for hours
+   * while the account itself was serving (single spaced requests: HTTP 200,
+   * 134/300 daily remaining measured 02:19Z). Health monitoring was BOTH
+   * burning customer inference quota AND sustaining the outage it reported.
+   *
+   * The probe now fires ZERO metered requests. Its evidence, in order:
+   *  1. CONFIG — the gateway client resolves with baseUrl/apiKey present;
+   *  2. REACHABILITY — a free GET on the gateway's /models metadata path
+   *     (measured: HTTP 404 from the gateway's router, NO rate-limit
+   *     headers = not metered) proves the configured host answers;
+   *  3. BREAKER — an open chat-class breaker (a real 429 was observed) is
+   *     reported as rate-limited; recovery stays verified call-by-call by
+   *     REAL traffic, never assumed;
+   *  4. REAL-ATTEMPT EVIDENCE — the most recent actual chat completion
+   *     (recorded by createWithGatewayGuard, in-memory + persisted
+   *     UsageRecord so the evidence survives a restart). A fresh upstream
+   *     failure keeps the status honest; a real success backs "healthy";
+   *     with no evidence yet, the report says exactly what its status is
+   *     based on. Nothing is ever presented as a completion probe.
+   */
   async health(): Promise<HealthReport> {
-    const t0 = Date.now()
+    const checkedAt = new Date().toISOString()
+    // 1. CONFIG (no network) — the gateway client must resolve with real
+    // coordinates, mirroring the image/video adapters' config gate.
+    let zai: unknown
     try {
-      const zai = await ZAI.create()
-      const completion = (await createWithGatewayGuard(zai, {
-        messages: [{ role: 'user', content: 'Reply with exactly: OK' }],
-        thinking: { type: 'disabled' },
-      })) as {
-        choices?: Array<{ message?: { content?: string } }>
-      }
-      const content = completion.choices?.[0]?.message?.content ?? ''
-      const healthy = content.trim().length > 0
-      return {
-        healthy,
-        checkedAt: new Date().toISOString(),
-        latencyMs: Date.now() - t0,
-        // The managed SDK does not expose the HTTP status of a successful
-        // completion; recording a guessed status would violate the honesty
-        // contract, so it stays null on success.
-        httpStatus: null,
-        failureCategory: healthy ? null : 'backend-error',
-        detail: healthy ? 'Gateway responded to a live completion probe.' : 'Empty probe response.',
-      }
+      zai = await ZAI.create()
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e)
-      // Honest failure classification: rate-limited / auth / billing are
-      // DIFFERENT states from an application error or timeout — named as
-      // such so operators and the UI never conflate them.
-      const failure = classifyUpstreamError(e)
-      const deferred = e instanceof UpstreamRateLimitError && !e.attempted
-      const detail =
-        failure.kind === 'rate_limited'
-          ? `Upstream gateway rate-limited (HTTP 429) — probe ${deferred ? 'deferred while the cooldown breaker is open (no network call was made)' : 'rejected'}. ${message}`
-          : failure.kind === 'auth'
-            ? `Upstream gateway rejected credentials (HTTP ${failure.status}). ${message}`
-            : failure.kind === 'billing'
-              ? `Upstream gateway reports an account/billing restriction (HTTP ${failure.status}). ${message}`
-              : `Probe failed: ${message}`
       return {
         healthy: false,
-        checkedAt: new Date().toISOString(),
-        // A deferred probe NEVER ran — a fail-fast wall-clock delta (~2ms)
-        // is not a probe latency and would misrepresent a skipped check as
-        // a measured one. null means "no latency was measured".
-        latencyMs: deferred ? null : Date.now() - t0,
-        // Structured failure class + observed HTTP status (when the error
-        // carried one): the dashboard renders WHY the product is down from
-        // these fields instead of parsing the free-text detail.
-        httpStatus: failure.status,
-        failureCategory: healthFailureCategory(failure.kind),
-        detail,
+        checkedAt,
+        latencyMs: null,
+        httpStatus: null,
+        failureCategory: 'misconfigured',
+        detail: `Misconfigured: the gateway client failed to initialize (${e instanceof Error ? e.message : String(e)}). No probe request was made.`,
       }
+    }
+    const cfg = gatewayConfig(zai)
+    if (!cfg.baseUrl || !cfg.apiKey) {
+      return {
+        healthy: false,
+        checkedAt,
+        latencyMs: null,
+        httpStatus: null,
+        failureCategory: 'misconfigured',
+        detail:
+          'Misconfigured: gateway client initialized but its config is missing baseUrl/apiKey, so the chat endpoint cannot be reached. No probe request was made.',
+      }
+    }
+    // 2. REACHABILITY — free, unmetered (router-layer 404, no rate-limit
+    // headers). The measured latency IS a real network measurement.
+    const reach = await probeGatewayReachability(cfg.baseUrl, cfg.apiKey)
+    if (!reach.reachable) {
+      return {
+        healthy: false,
+        checkedAt,
+        latencyMs: reach.latencyMs,
+        httpStatus: null,
+        failureCategory: reach.error?.startsWith('no response within') ? 'timeout' : 'unreachable',
+        detail: `Chat backend UNREACHABLE: the configured gateway host answered no request (${reach.error}). Client config is present, so this is a network/upstream problem, not a configuration gap. No completion was fired (health never consumes inference quota).`,
+      }
+    }
+    if (reach.redirected) {
+      return {
+        healthy: false,
+        checkedAt,
+        latencyMs: reach.latencyMs,
+        httpStatus: reach.status,
+        failureCategory: 'network',
+        detail: `Gateway host redirected the health request (HTTP ${reach.status}); the answer did not come from the configured gateway's own surface. No completion was fired.`,
+      }
+    }
+    // 3. BREAKER — a real 429 was observed recently; every chat-class call
+    // (including any health-driven work) would fail fast right now.
+    const breaker = upstreamBreakerState('chat')
+    if (breaker.coolingDown && breaker.last429At) {
+      return {
+        healthy: false,
+        checkedAt,
+        latencyMs: reach.latencyMs,
+        httpStatus: 429,
+        failureCategory: 'rate-limited',
+        detail: `Upstream gateway rate-limited (HTTP 429 observed ${breaker.last429At}; chat-class breaker open for ${Math.round(breaker.remainingMs / 1000)}s, ${breaker.skippedCalls} call(s) skipped so far). No completion was fired — recovery is verified by the next REAL chat call, never by a probe request.`,
+      }
+    }
+    // 4. REAL-ATTEMPT EVIDENCE from actual traffic (this process first — a
+    // fresh failure here is the newest truth — then the persisted chat rows).
+    const freshFailure = recentUpstreamFailure('chat-completion')
+    if (freshFailure) {
+      return {
+        healthy: false,
+        checkedAt,
+        latencyMs: reach.latencyMs,
+        httpStatus: freshFailure.httpStatus,
+        failureCategory: freshFailure.failureCategory,
+        detail: `The most recent REAL chat completion failed upstream (${freshFailure.failureCategory}, at ${freshFailure.at}). Gateway host reachable. No completion was fired by this probe.`,
+      }
+    }
+    const inMem = lastRealAttempt('chat-completion')
+    if (inMem?.ok) {
+      return {
+        healthy: true,
+        checkedAt,
+        latencyMs: reach.latencyMs,
+        httpStatus: null,
+        failureCategory: null,
+        detail: `Gateway host reachable (free liveness check, HTTP ${reach.status}); the most recent REAL chat completion succeeded at ${inMem.at}. No completion was fired by this probe (health never consumes inference quota).`,
+      }
+    }
+    const persisted = await persistedAttempt('chat-completion')
+    if (persisted) {
+      if (persisted.ok) {
+        return {
+          healthy: true,
+          checkedAt,
+          latencyMs: reach.latencyMs,
+          httpStatus: null,
+          failureCategory: null,
+          detail: `Gateway host reachable (free liveness check, HTTP ${reach.status}); persisted chat evidence: a REAL completion succeeded at ${persisted.at}. No completion was fired by this probe (health never consumes inference quota).`,
+        }
+      }
+      // Persisted FAILURE (upstream-class only — the mapping in
+      // persisted-attempts.ts) still fresh enough to matter.
+      if (
+        persisted.failureCategory &&
+        UPSTREAM_FAILURE_CATEGORIES.has(persisted.failureCategory) &&
+        Date.now() - Date.parse(persisted.at) <= 15 * 60_000
+      ) {
+        return {
+          healthy: false,
+          checkedAt,
+          latencyMs: reach.latencyMs,
+          httpStatus: persisted.httpStatus,
+          failureCategory: persisted.failureCategory,
+          detail: `Persisted chat evidence: the most recent REAL completion failed upstream (${persisted.failureCategory}, at ${persisted.at}). Gateway host reachable. No completion was fired by this probe.`,
+        }
+      }
+    }
+    // 5. No attempt evidence yet (fresh process, quiet traffic). The status
+    // says exactly what backs it: reachability + config. Honest, no probe
+    // completion is invented to fill the gap.
+    return {
+      healthy: true,
+      checkedAt,
+      latencyMs: reach.latencyMs,
+      httpStatus: null,
+      failureCategory: null,
+      detail: `Gateway host reachable (free liveness check, HTTP ${reach.status}) and configuration valid; no real chat attempt evidence yet in this process. Status is from reachability + config ONLY — no completion was fired (health never consumes inference quota).`,
     }
   },
 

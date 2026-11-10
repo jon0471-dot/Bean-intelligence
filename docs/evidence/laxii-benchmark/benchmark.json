@@ -1,0 +1,481 @@
+{
+  "runAt": "2026-11-10T03:24:30.980Z",
+  "email": "laxii-benchmark-1794280689635@bean.local",
+  "cases": [
+    {
+      "id": "A",
+      "label": "Photorealistic human portrait and hands",
+      "prompt": "Photorealistic close-up portrait of a craftsman, his hands clearly visible holding a chisel over a workbench, natural window light, sharp focus on fingers",
+      "jobId": "cmwa4e97o000aqan1gg4d0all",
+      "status": "completed",
+      "submitMs": 361,
+      "genMs": 43579,
+      "pollCount": 14,
+      "width": 864,
+      "height": 1152,
+      "format": "jpeg",
+      "bytes": 98248,
+      "ffprobe": "mjpeg,864,1152",
+      "intel": {
+        "mode": "facts",
+        "knowledgeComponents": [
+          "human-proportions",
+          "human-hands-face",
+          "transparency-optics",
+          "wind-vegetation",
+          "glass-brittle",
+          "optics-light"
+        ],
+        "sceneSpec": {
+          "subjects": [
+            "portrait"
+          ],
+          "subjectCount": null,
+          "spatialLayers": [],
+          "camera": {
+            "shot": "close-up",
+            "lens": null,
+            "angle": null
+          },
+          "lightingDirection": "side light from a window (soft directional falloff, long gentle shadows)",
+          "colorCues": [],
+          "materials": [],
+          "environment": "windy conditions (flexible elements lean in one direction)",
+          "contactPoints": [
+            "hands CLOSE around what they hold — fingers wrap, surfaces deform slightly at contact"
+          ],
+          "scope": "prompt-conditioning guidance, not a physics simulation"
+        },
+        "degraded": [],
+        "conditioningChars": 1623
+      },
+      "verification": {
+        "checked": true,
+        "method": "vision-analysis",
+        "defects": [],
+        "observation": "A photorealistic close-up portrait of a craftsman looking down at his work, both hands resting on a wooden workpiece amid wood shavings, lit by soft natural window light, though no chisel is clearly visible.",
+        "checkedAt": "2026-11-10T03:18:50.460Z",
+        "durationMs": 4769
+      },
+      "defectCount": 0,
+      "correction": null,
+      "sha256": "45605b2513088b7b5db8f030fb3171f9245b52ed0c0ad3b7c35e470bd556d2d7",
+      "error": null
+    },
+    {
+      "id": "B",
+      "label": "Bengal tiger anatomy, natural wildlife photography",
+      "prompt": "A Bengal tiger walking through tall grass, natural wildlife photography, morning light",
+      "jobId": "cmwa4f74r000tqan172vsx6h5",
+      "status": "completed",
+      "submitMs": 21,
+      "genMs": 73102,
+      "pollCount": 24,
+      "width": 1344,
+      "height": 768,
+      "format": "jpeg",
+      "bytes": 186080,
+      "ffprobe": "mjpeg,1344,768",
+      "intel": {
+        "mode": "facts",
+        "knowledgeComponents": [
+          "human-walk-run",
+          "big-cat-tiger",
+          "wind-vegetation",
+          "optics-light"
+        ],
+        "sceneSpec": {
+          "subjects": [
+            "tiger"
+          ],
+          "subjectCount": 1,
+          "spatialLayers": [],
+          "camera": {
+            "shot": null,
+            "lens": null,
+            "angle": null
+          },
+          "lightingDirection": null,
+          "colorCues": [],
+          "materials": [],
+          "environment": null,
+          "contactPoints": [],
+          "scope": "prompt-conditioning guidance, not a physics simulation"
+        },
+        "degraded": [],
+        "conditioningChars": 1415
+      },
+      "verification": {
+        "checked": true,
+        "method": "vision-analysis",
+        "defects": [],
+        "observation": "A Bengal tiger with normal anatomy walks through tall grass in soft morning light, with no visible defects.",
+        "checkedAt": "2026-11-10T03:20:06.711Z",
+        "durationMs": 6374
+      },
+      "defectCount": 0,
+      "correction": null,
+      "sha256": "56df90e7c195691ea9a767562b009ae6e4827decb4b20b9495e91df7e852dbfe",
+      "error": null
+    },
+    {
+      "id": "C",
+      "label": "Eagle in mid-flight with anatomically correct wings",
+      "prompt": "A bald eagle in mid-flight, wings fully spread with separated flight feathers, talons tucked, sky background",
+      "jobId": "cmwa4grrt001eqan1ovvyufjw",
+      "status": "failed",
+      "submitMs": 22,
+      "genMs": 3065,
+      "pollCount": 1,
+      "width": null,
+      "height": null,
+      "format": null,
+      "bytes": null,
+      "ffprobe": null,
+      "intel": null,
+      "verification": null,
+      "defectCount": 0,
+      "correction": null,
+      "sha256": null,
+      "error": "The image backend could not complete this request."
+    },
+    {
+      "id": "D",
+      "label": "Glass falling and making contact with a hard surface",
+      "prompt": "A wine glass falling and shattering as it hits a concrete floor, shards scattering, frozen at the moment of impact",
+      "jobId": "cmwa4gu4v001jqan1kt9lrwyk",
+      "status": "completed",
+      "submitMs": 19,
+      "genMs": 45708,
+      "pollCount": 15,
+      "width": 1024,
+      "height": 1024,
+      "format": "jpeg",
+      "bytes": 140443,
+      "ffprobe": "mjpeg,1024,1024",
+      "intel": {
+        "mode": "facts",
+        "knowledgeComponents": [
+          "human-jump-fall",
+          "transparency-optics",
+          "glass-brittle",
+          "liquid-pour",
+          "collision-vehicle",
+          "gravity-momentum"
+        ],
+        "sceneSpec": {
+          "subjects": [],
+          "subjectCount": 1,
+          "spatialLayers": [],
+          "camera": {
+            "shot": null,
+            "lens": null,
+            "angle": null
+          },
+          "lightingDirection": null,
+          "colorCues": [],
+          "materials": [
+            "glass",
+            "concrete"
+          ],
+          "environment": null,
+          "contactPoints": [
+            "falling/broken pieces obey gravity and meet the surface ONCE, at the contact zone, with debris scattering from it"
+          ],
+          "scope": "prompt-conditioning guidance, not a physics simulation"
+        },
+        "degraded": [],
+        "conditioningChars": 972
+      },
+      "verification": {
+        "checked": true,
+        "method": "vision-analysis",
+        "defects": [
+          "object persistence error: the wine glass bowl appears fully intact and unsupported/floating, yet shards are already scattered and wine is spilling out, contradicting the moment of impact",
+          "the wine stream pours from an unbroken glass rim, which is physically inconsistent with the shattered state shown"
+        ],
+        "observation": "A tilted, still-intact wine glass floats above a speckled floor with red wine spilling out of its rim into a pool, surrounded by scattered glass shards and the stem lying behind it.",
+        "checkedAt": "2026-11-10T03:20:55.601Z",
+        "durationMs": 9329
+      },
+      "defectCount": 2,
+      "correction": null,
+      "sha256": "35db1ed6d7120a79bf54ab38acd4b6f53fefbfc05ec4b3c3728f507c4c52c927",
+      "error": null
+    },
+    {
+      "id": "E",
+      "label": "Water pouring into a transparent glass",
+      "prompt": "Water pouring from a steel jug into a transparent glass on a marble counter, splash at the surface, bright kitchen light",
+      "jobId": "cmwa4htla001wqan1d1w7nyor",
+      "status": "failed",
+      "submitMs": 26,
+      "genMs": 9164,
+      "pollCount": 3,
+      "width": null,
+      "height": null,
+      "format": null,
+      "bytes": null,
+      "ffprobe": null,
+      "intel": null,
+      "verification": null,
+      "defectCount": 0,
+      "correction": null,
+      "sha256": null,
+      "error": "The image backend could not complete this request."
+    },
+    {
+      "id": "F",
+      "label": "Cloth blowing in strong wind",
+      "prompt": "Long red silk cloth blowing in strong wind on a coastal cliff, fabric stretched and rippling, dramatic sky",
+      "jobId": "cmwa4i0nz0021qan12xg6mg10",
+      "status": "completed",
+      "submitMs": 27,
+      "genMs": 60904,
+      "pollCount": 20,
+      "width": 1344,
+      "height": 768,
+      "format": "jpeg",
+      "bytes": 165777,
+      "ffprobe": "mjpeg,1344,768",
+      "intel": {
+        "mode": "facts",
+        "knowledgeComponents": [
+          "human-clothing",
+          "wind-vegetation",
+          "rubber-cloth-elastic"
+        ],
+        "sceneSpec": {
+          "spatialLayers": [],
+          "camera": {
+            "shot": null,
+            "lens": null,
+            "angle": null
+          },
+          "lightingDirection": null,
+          "colorCues": [],
+          "materials": [
+            "silk",
+            "cloth",
+            "fabric"
+          ],
+          "environment": "windy conditions (flexible elements lean in one direction)",
+          "contactPoints": [],
+          "scope": "prompt-conditioning guidance, not a physics simulation"
+        },
+        "degraded": [],
+        "conditioningChars": 2006
+      },
+      "verification": {
+        "checked": true,
+        "method": "vision-analysis",
+        "defects": [
+          "object persistence error: the red cloth floats in mid-air with no visible attachment, support, or anchor point on the cliff or anywhere in the scene"
+        ],
+        "observation": "A long red silk cloth billows horizontally across the sky above a rocky coastal cliff and ocean under a dramatic cloudy sky, but it is suspended in mid-air with no visible support.",
+        "checkedAt": "2026-11-10T03:22:04.830Z",
+        "durationMs": 3542
+      },
+      "defectCount": 1,
+      "correction": null,
+      "sha256": "be676e72e1179eb947769917dd14393b1e6efa92360719023302ae08288fcde1",
+      "error": null
+    },
+    {
+      "id": "G",
+      "label": "Realistic car collision scene",
+      "prompt": "Two cars in a low-speed parking collision, crumpled front bumpers in contact, small debris on the asphalt, daylight street",
+      "jobId": "cmwa4jbu7002cqan10mjp35l5",
+      "status": "completed",
+      "submitMs": 25,
+      "genMs": 48728,
+      "pollCount": 16,
+      "width": 1344,
+      "height": 768,
+      "format": "jpeg",
+      "bytes": 153255,
+      "ffprobe": "mjpeg,1344,768",
+      "intel": {
+        "mode": "none",
+        "knowledgeComponents": [
+          "collision-vehicle"
+        ],
+        "sceneSpec": {
+          "subjects": [],
+          "subjectCount": 2,
+          "spatialLayers": [],
+          "camera": {
+            "shot": null,
+            "lens": null,
+            "angle": null
+          },
+          "lightingDirection": null,
+          "colorCues": [],
+          "materials": [],
+          "environment": "outdoor scene (sky as the dominant light source, distance haze)",
+          "contactPoints": [],
+          "scope": "prompt-conditioning guidance, not a physics simulation"
+        },
+        "degraded": [],
+        "conditioningChars": 1362
+      },
+      "verification": {
+        "checked": true,
+        "method": "vision-analysis",
+        "defects": [],
+        "observation": "Two cars with crumpled front-end damage are in contact on daylight asphalt, with debris on the ground and consistent shadows.",
+        "checkedAt": "2026-11-10T03:22:54.651Z",
+        "durationMs": 2646
+      },
+      "defectCount": 0,
+      "correction": null,
+      "sha256": "18980db7c8b9ca26b8371d9744dd6583a5b33970fe078b2ac2211ad0e65c3f64",
+      "error": null
+    },
+    {
+      "id": "H",
+      "label": "Human walking through rain at night",
+      "prompt": "A woman walking through heavy rain at night on a city street, umbrella, neon reflections on the wet asphalt",
+      "jobId": "cmwa4kdok002jqan1485ems46",
+      "status": "completed",
+      "submitMs": 57,
+      "genMs": 36563,
+      "pollCount": 12,
+      "width": 864,
+      "height": 1152,
+      "format": "jpeg",
+      "bytes": 104293,
+      "ffprobe": "mjpeg,864,1152",
+      "intel": {
+        "mode": "none",
+        "knowledgeComponents": [
+          "human-proportions",
+          "human-walk-run",
+          "rain-clouds-storm",
+          "gravity-momentum",
+          "optics-light"
+        ],
+        "sceneSpec": {
+          "subjects": [
+            "woman"
+          ],
+          "subjectCount": 1,
+          "spatialLayers": [],
+          "camera": {
+            "shot": null,
+            "lens": null,
+            "angle": null
+          },
+          "lightingDirection": null,
+          "colorCues": [],
+          "materials": [],
+          "environment": "outdoor scene (sky as the dominant light source, distance haze); night scene (artificial sources dominate, deep ambient shadows)",
+          "contactPoints": [],
+          "scope": "prompt-conditioning guidance, not a physics simulation"
+        },
+        "degraded": [],
+        "conditioningChars": 854
+      },
+      "verification": {
+        "checked": true,
+        "method": "vision-analysis",
+        "defects": [],
+        "observation": "A woman stands under a black umbrella at night on a rainy city street with neon reflections on the wet asphalt, her anatomy, umbrella, and lighting appearing consistent.",
+        "checkedAt": "2026-11-10T03:23:31.586Z",
+        "durationMs": 2798
+      },
+      "defectCount": 0,
+      "correction": null,
+      "sha256": "a699f975e8203c563971678e62ce93d92a4e786022c26a20c4b2806c452323d1",
+      "error": null
+    },
+    {
+      "id": "I",
+      "label": "Complex architectural interior with accurate perspective",
+      "prompt": "Grand museum interior with marble columns and a glass ceiling, one-point perspective down the central hall, accurate vanishing lines, daylight",
+      "jobId": "cmwa4l63h002qqan1wnbhf39m",
+      "status": "completed",
+      "submitMs": 22,
+      "genMs": 51765,
+      "pollCount": 17,
+      "width": 864,
+      "height": 1152,
+      "format": "jpeg",
+      "bytes": 163149,
+      "ffprobe": "mjpeg,864,1152",
+      "intel": {
+        "mode": "facts",
+        "knowledgeComponents": [
+          "transparency-optics",
+          "glass-brittle"
+        ],
+        "sceneSpec": {
+          "subjects": [],
+          "subjectCount": 1,
+          "spatialLayers": [],
+          "camera": {
+            "shot": null,
+            "lens": null,
+            "angle": null
+          },
+          "lightingDirection": null,
+          "colorCues": [],
+          "materials": [
+            "marble",
+            "glass"
+          ],
+          "environment": "indoor scene (interior surfaces and practical light sources bound reflections)",
+          "contactPoints": [],
+          "scope": "prompt-conditioning guidance, not a physics simulation"
+        },
+        "degraded": [],
+        "conditioningChars": 2186
+      },
+      "verification": {
+        "checked": true,
+        "method": "vision-analysis",
+        "defects": [],
+        "observation": "A grand museum hall with marble columns on both sides, a barrel-vaulted glass ceiling, and a checkered stone floor rendered in clean one-point perspective with no visible defects.",
+        "checkedAt": "2026-11-10T03:24:21.507Z",
+        "durationMs": 2848
+      },
+      "defectCount": 0,
+      "correction": null,
+      "sha256": "46e1eccca8e46075bf76c784af1f2f66d3a856530a4c29d3b348ab610038a73e",
+      "error": null
+    },
+    {
+      "id": "J",
+      "label": "Macro photograph of a transparent object with realistic refraction",
+      "prompt": "Macro photograph of a solid glass sphere on a wooden table, realistic refraction of the background through the sphere, caustic light spot, shallow depth of field",
+      "jobId": "cmwa4mab4002xqan19ug0jh3b",
+      "status": "failed",
+      "submitMs": 35,
+      "genMs": 6130,
+      "pollCount": 2,
+      "width": null,
+      "height": null,
+      "format": null,
+      "bytes": null,
+      "ffprobe": null,
+      "intel": null,
+      "verification": null,
+      "defectCount": 0,
+      "correction": null,
+      "sha256": null,
+      "error": "The image gateway is rate-limited right now (HTTP 429). The request was not repeated."
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "completed": 7,
+    "failed": 3,
+    "visionChecked": 7,
+    "visionUnavailable": 0,
+    "withDefects": 2,
+    "correctionsAttempted": 0,
+    "correctionsApplied": 0,
+    "sceneSpecAttached": 7,
+    "totalGenMs": 360349
+  }
+}

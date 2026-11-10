@@ -21,12 +21,15 @@ import {
   noteUpstream429,
   noteUpstreamSkip,
   noteUpstreamSuccess,
+  upstreamBreakerState,
   upstreamCoolingDown,
   UpstreamAuthError,
   UpstreamBillingError,
   UpstreamRateLimitError,
   type UpstreamEndpointClass,
 } from '@/lib/upstream/gateway'
+import { lastRealAttempt, noteRealAttempt, recentUpstreamFailure, UPSTREAM_FAILURE_CATEGORIES } from '@/lib/adapters/last-attempts'
+import { gatewayConfig, probeGatewayReachability } from '@/lib/adapters/gateway-reachability'
 
 export interface WebSearchResult {
   url: string
@@ -120,6 +123,30 @@ function withTimeout<T>(promise: Promise<T>, ms: number, tool: 'web_search' | 'p
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
 
+/**
+ * CHAT-RECOVERY (2026-11-10): record every REAL functions-class attempt
+ * (success and upstream failure alike — never breaker skips) as health
+ * evidence. The quota-free research health probe reads this instead of
+ * firing its own "ping" search.
+ */
+function recordSearchAttempt(ok: boolean, failure: { kind: string; status: number | null } | null, rawMessage: string | null): void {
+  let category: ReturnType<typeof healthFailureCategory> | 'backend-error' | null = null
+  if (!ok && failure) category = healthFailureCategory(failure.kind as never)
+  if (!ok && !failure && rawMessage) {
+    // Local failure (timeout guard / malformed response): classify from the
+    // message so a real gateway timeout still counts as timeout evidence.
+    category = /timed out/i.test(rawMessage) ? 'timeout' : 'backend-error'
+  }
+  noteRealAttempt('research-search', {
+    at: new Date().toISOString(),
+    ok,
+    backendId: 'research-functions-primary',
+    failureCategory: category,
+    httpStatus: ok ? null : (failure?.status ?? null),
+    upstream: ok ? false : category !== null && UPSTREAM_FAILURE_CATEGORIES.has(category),
+  })
+}
+
 /** Run a real web search through the authorized gateway. */
 export async function webSearch(query: string, opts: WebSearchOptions = {}): Promise<WebSearchResult[]> {
   const trimmed = query.trim()
@@ -141,12 +168,19 @@ export async function webSearch(query: string, opts: WebSearchOptions = {}): Pro
   } catch (e) {
     // Normalize EVERY failure (raw SDK/network errors included) into the typed
     // error so degraded reports carry the real reason, not a bare "unavailable".
-    throw normalizeUpstreamError('functions', 'web_search', e)
+    const normalized = normalizeUpstreamError('functions', 'web_search', e)
+    const failure = classifyUpstreamError(normalized)
+    recordSearchAttempt(false, failure.kind === 'other' ? null : failure, normalized.message)
+    throw normalized
   }
   // PHASE 1 bounded backoff: a real success resets the consecutive-429 streak.
   noteUpstreamSuccess('functions')
 
-  if (!Array.isArray(raw)) throw new ResearchToolError('web_search', 'Malformed search response.')
+  if (!Array.isArray(raw)) {
+    recordSearchAttempt(false, null, 'Malformed search response.')
+    throw new ResearchToolError('web_search', 'Malformed search response.')
+  }
+  recordSearchAttempt(true, null, null)
   return raw
     .filter((r) => typeof r?.url === 'string' && typeof r?.name === 'string')
     .map((r, i) => ({
@@ -162,64 +196,100 @@ export async function webSearch(query: string, opts: WebSearchOptions = {}): Pro
 /**
  * RIISHE research-availability probe (functions endpoint class).
  *
- * MEASURED CHANGE (2026-10-29 product-availability audit): /api/health used
- * to probe ONLY the chat endpoint class, so RIISHE could be reported fully
- * "Operational" while every current-web research call was being rejected
- * with HTTP 429 — the two endpoint classes are rate-limited SEPARATELY by
- * the gateway. This probe measures the functions class with ONE real,
- * minimal web_search call:
- *   - breaker open   -> honest "deferred" report, ZERO network traffic
- *     (the same fail-fast contract as research turns and chat probes);
- *   - breaker closed -> exactly one search; a 429 opens the breaker
- *     (recovery is verified by the next real probe, never assumed);
- *   - success        -> measured healthy with result count + latency.
- * The query is fixed and trivial; results are NOT used as research evidence.
+ * QUOTA-FREE (CHAT-RECOVERY, 2026-11-10). The previous probe ran ONE real
+ * `web_search('ping')` per fresh poll — every dashboard refresh burned a
+ * functions-class request against the shared account budget, and the
+ * health fan-out's concurrent burst (2 chat completions + this search)
+ * measurably tripped the provider's authoritative 2-QPS limit. The probe
+ * now fires ZERO metered requests; its evidence, in order:
+ *   1. CONFIG — the gateway client resolves with baseUrl/apiKey present;
+ *   2. REACHABILITY — the free, unmetered /models liveness GET (see
+ *      gateway-reachability.ts) proves the configured host answers;
+ *   3. BREAKER — an open functions-class breaker (a real 429 was observed)
+ *      is reported rate-limited; recovery stays verified by the next REAL
+ *      research call, never assumed;
+ *   4. REAL-ATTEMPT EVIDENCE — the most recent actual web_search performed
+ *      by customer research turns (recorded by webSearch itself). Research
+ *      attempts are not persisted, so after a quiet restart the report says
+ *      exactly what its status is based on (reachability + config).
  */
 export async function probeResearchHealth(): Promise<HealthReport> {
   const checkedAt = new Date().toISOString()
-  if (upstreamCoolingDown('functions')) {
-    noteUpstreamSkip('functions')
+  let zai: unknown
+  try {
+    zai = await ZAI.create()
+  } catch (e) {
     return {
       healthy: false,
       checkedAt,
-      // Deferred = no network call was made, so no latency was measured.
       latencyMs: null,
       httpStatus: null,
-      failureCategory: 'rate-limited',
-      detail:
-        'Research (web_search) deferred: the functions endpoint class is rate-limited upstream (HTTP 429 observed moments ago) and its cooldown breaker is open — no network call was made to avoid worsening the throttle. Recovery is verified by the next real probe.',
+      failureCategory: 'misconfigured',
+      detail: `Misconfigured: the gateway client failed to initialize (${e instanceof Error ? e.message : String(e)}). No search request was made.`,
     }
   }
-  const t0 = Date.now()
-  try {
-    const results = await webSearch('ping', { num: 1, timeoutMs: 10_000 })
+  const cfg = gatewayConfig(zai)
+  if (!cfg.baseUrl || !cfg.apiKey) {
+    return {
+      healthy: false,
+      checkedAt,
+      latencyMs: null,
+      httpStatus: null,
+      failureCategory: 'misconfigured',
+      detail:
+        'Misconfigured: gateway client initialized but its config is missing baseUrl/apiKey, so the functions endpoint cannot be reached. No search request was made.',
+    }
+  }
+  const reach = await probeGatewayReachability(cfg.baseUrl, cfg.apiKey)
+  if (!reach.reachable) {
+    return {
+      healthy: false,
+      checkedAt,
+      latencyMs: reach.latencyMs,
+      httpStatus: null,
+      failureCategory: reach.error?.startsWith('no response within') ? 'timeout' : 'unreachable',
+      detail: `Research backend UNREACHABLE: the configured gateway host answered no request (${reach.error}). No search was fired (health never consumes provider quota).`,
+    }
+  }
+  const breaker = upstreamBreakerState('functions')
+  if (breaker.coolingDown && breaker.last429At) {
+    return {
+      healthy: false,
+      checkedAt,
+      latencyMs: reach.latencyMs,
+      httpStatus: 429,
+      failureCategory: 'rate-limited',
+      detail: `Research (web_search) deferred: the functions endpoint class is rate-limited upstream (HTTP 429 observed ${breaker.last429At}; breaker open for ${Math.round(breaker.remainingMs / 1000)}s, ${breaker.skippedCalls} call(s) skipped so far). No search was fired — recovery is verified by the next REAL research call.`,
+    }
+  }
+  const freshFailure = recentUpstreamFailure('research-search')
+  if (freshFailure) {
+    return {
+      healthy: false,
+      checkedAt,
+      latencyMs: reach.latencyMs,
+      httpStatus: freshFailure.httpStatus,
+      failureCategory: freshFailure.failureCategory,
+      detail: `The most recent REAL web_search failed upstream (${freshFailure.failureCategory ?? 'unknown'}, at ${freshFailure.at}). Gateway host reachable. No search was fired by this probe.`,
+    }
+  }
+  if (lastRealAttempt('research-search')?.ok) {
     return {
       healthy: true,
       checkedAt,
-      latencyMs: Date.now() - t0,
+      latencyMs: reach.latencyMs,
       httpStatus: null,
       failureCategory: null,
-      detail: `Research gateway responded to a live web_search probe (${Array.isArray(results) ? results.length : 0} result(s) in ${Date.now() - t0}ms).`,
+      detail: `Gateway host reachable (free liveness check, HTTP ${reach.status}); the most recent REAL web_search succeeded at ${lastRealAttempt('research-search')!.at}. No search was fired by this probe (health never consumes provider quota).`,
     }
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    const failure = classifyUpstreamError(e)
-    const detail =
-      failure.kind === 'rate_limited'
-        ? `Research gateway rate-limited (HTTP 429): ${message}`
-        : failure.kind === 'auth'
-          ? `Research gateway rejected credentials (HTTP ${failure.status}): ${message}`
-          : failure.kind === 'billing'
-            ? `Research gateway reports an account/billing restriction (HTTP ${failure.status}): ${message}`
-            : `Research probe failed: ${message}`
-    return {
-      healthy: false,
-      checkedAt,
-      latencyMs: Date.now() - t0,
-      httpStatus: failure.status,
-      failureCategory: healthFailureCategory(failure.kind),
-      detail,
-    }
+  }
+  return {
+    healthy: true,
+    checkedAt,
+    latencyMs: reach.latencyMs,
+    httpStatus: null,
+    failureCategory: null,
+    detail: `Gateway host reachable (free liveness check, HTTP ${reach.status}) and configuration valid; no real research attempt evidence yet in this process. Status is from reachability + config ONLY — no search was fired (health never consumes provider quota).`,
   }
 }
 
