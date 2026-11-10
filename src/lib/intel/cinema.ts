@@ -101,6 +101,12 @@ const COLOR: VocabEntry[] = [
   { phrase: 'vibrant saturated palette', re: /\b(vibrant|saturated\s+colou?rs?|rich\s+colou?rs?)\b/i },
   { phrase: 'warm white balance', re: /\b(warm\s+white\s+balance|warm\s+tone\w*)\b/i },
   { phrase: 'cool white balance', re: /\b(cool\s+white\s+balance|cool\s+tone\w*)\b/i },
+  // LAXII IMAGE QUALITY (2026-11-10, Part B §4): exposure/grading vocabulary.
+  { phrase: 'documentary available-light grade (natural contrast, subtle film grain)', re: /\b(documentary\s+(?:look|grade|style)|available.?light\s+(?:look|grade)|photojournalis\w+)\b/i },
+  { phrase: 'long-exposure light trails (moving lights streak, statics stay sharp)', re: /\b(long.?exposure|light.?trail\w*)\b/i },
+  { phrase: 'moody underexposed grade (deep shadows, low ambient fill)', re: /\b(underexposed|moody\s+(?:grade|look)|dark\s+and\s+moody)\b/i },
+  { phrase: 'bright airy overexposed grade (lifted shadows, gentle highlight rolloff)', re: /\b(overexposed|bright\s+and\s+airy|ethereal\s+(?:look|grade))\b/i },
+  { phrase: 'vintage film grade (faded blacks, halation, period color cast)', re: /\b(vintage\s+(?:film|look|grade)|retro\s+(?:film|grade)|70s|80s\s+film\s+look)\b/i },
 ]
 
 const COMPOSITION: VocabEntry[] = [

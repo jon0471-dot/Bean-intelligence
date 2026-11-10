@@ -1,32 +1,38 @@
 /**
  * LLM health probing + the shared health-probe cache.
  *
- * REWRITTEN 2026-10-29 for the current architecture (the previous version
- * tested an adapter-internal cache and a 429 retry that no longer exist):
- *  - caching moved OUT of the adapter into health-cache.ts (cachedHealth):
- *    the /api/health route dedupes and TTL-caches REAL probe results; a
- *    cached report keeps the original checkedAt and carries cached:true —
- *    it is the last real probe outcome, never a fabricated fresh success;
- *  - the adapter itself makes exactly ONE gateway attempt per health() call.
- *    A 429 is NOT retried (measured: the throttle window lasts minutes; a
- *    retry only deepens it — see upstream-429.test.ts) and the failure is
- *    classified honestly (rate-limited / auth / billing / other);
- *  - while the chat-class breaker is open, the probe is DEFERRED: zero
- *    network traffic, latencyMs null, detail says no call was made.
+ * REWRITTEN 2026-11-10 (CHAT-RECOVERY, quota-free probes): the health probe
+ * no longer fires ANY completion. Its evidence is, in order: config → free
+ * reachability GET (unmetered router-layer 404) → chat-class breaker →
+ * real-attempt evidence (in-memory + persisted). The caching contract is
+ * unchanged (cachedHealth: one real probe per TTL, in-flight dedup, cached
+ * reports keep their checkedAt).
  */
-import { describe, test, expect, mock, beforeEach } from 'bun:test'
+import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test'
 
 /** Mutable SDK behavior — each test installs its own gateway fake. */
 let currentCreate: (body: unknown) => Promise<unknown> = async () => ({
   choices: [{ message: { content: 'OK' } }],
 })
+let createCalls = 0
 
 mock.module('z-ai-web-dev-sdk', () => ({
   default: {
     create: async () => ({
+      // The quota-free probe reads this runtime config (in memory only).
+      config: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key' },
       chat: { completions: { create: (body: unknown) => currentCreate(body) } },
     }),
   },
+}))
+
+// HERMETICITY (measured 2026-11-10): the persisted chat evidence reads the
+// REAL database (UsageRecord rows written by live traffic), so test outcomes
+// would depend on what the app did lately. These tests pin the PROBE's
+// evidence ladder, not the DB — the persisted branch gets its own controlled
+// test file (persisted-chat-attempts.test.ts).
+mock.module('../../src/lib/adapters/persisted-attempts', () => ({
+  persistedAttempt: async () => null,
 }))
 
 const { hostedLlmAdapter } = await import('../../src/lib/adapters/hosted-llm')
@@ -35,54 +41,75 @@ const {
   clearHealthCacheForTests,
   HEALTH_CACHE_TTL_MS,
 } = await import('../../src/lib/adapters/health-cache')
-const { _resetUpstreamCooldownForTests } = await import('../../src/lib/upstream/gateway')
+const {
+  _resetUpstreamCooldownForTests,
+  noteUpstream429,
+} = await import('../../src/lib/upstream/gateway')
+const { _resetRealAttemptsForTests, noteRealAttempt } = await import(
+  '../../src/lib/adapters/last-attempts'
+)
 
 type HealthReport = Awaited<ReturnType<typeof hostedLlmAdapter.health>>
 
-const OK_BODY = { choices: [{ message: { content: 'OK' } }] }
+/** Free reachability fake: the gateway's router answers /models with 404. */
+let reachStatus = 404
+let reachThrow: string | null = null
+const realFetch = globalThis.fetch
 
 beforeEach(() => {
   clearHealthCacheForTests()
   _resetUpstreamCooldownForTests()
-  currentCreate = async () => OK_BODY
+  _resetRealAttemptsForTests()
+  currentCreate = async () => ({ choices: [{ message: { content: 'OK' } }] })
+  createCalls = 0
+  reachStatus = 404
+  reachThrow = null
+  globalThis.fetch = (async () => {
+    if (reachThrow) throw new Error(reachThrow)
+    return new Response('404 page not found', { status: reachStatus })
+  }) as unknown as typeof fetch
+})
+
+afterEach(() => {
+  globalThis.fetch = realFetch
 })
 
 describe('health-probe cache (cachedHealth)', () => {
-  test('a healthy probe is TTL-cached: a second call does not touch the gateway and keeps the real checkedAt', async () => {
-    let calls = 0
-    currentCreate = async () => {
-      calls++
-      return OK_BODY
-    }
-
+  test('a healthy probe is TTL-cached: a second call does not touch the network and keeps the real checkedAt', async () => {
     const first = await cachedHealth('llm-hosted-primary', () => hostedLlmAdapter.health())
     const second = await cachedHealth('llm-hosted-primary', () => hostedLlmAdapter.health())
 
-    expect(calls).toBe(1) // one real probe, two health() consumers
     expect(first.healthy).toBe(true)
     expect(first.cached).toBeUndefined() // the fresh probe is not marked cached
     expect(second.cached).toBe(true)
     expect(second.checkedAt).toBe(first.checkedAt) // staleness is visible, not hidden
-    expect(second.detail).toContain('live completion probe')
+    expect(second.detail.toLowerCase()).toContain('no completion was fired')
+    // QUOTA CONTRACT: zero completions across both calls (one reachability GET each).
+    expect(createCalls).toBe(0)
   })
 
-  test('concurrent callers share ONE in-flight probe (no duplicate gateway traffic)', async () => {
+  test('concurrent callers share ONE in-flight probe', async () => {
     let calls = 0
-    let release!: (v: unknown) => void
-    const deferred = new Promise((resolve) => {
-      release = resolve
+    let release!: () => void
+    const deferred = new Promise<HealthReport>((resolve) => {
+      release = () =>
+        resolve({
+          healthy: true,
+          checkedAt: new Date().toISOString(),
+          latencyMs: 5,
+          httpStatus: null,
+          failureCategory: null,
+          detail: 'free liveness check',
+        })
     })
-    currentCreate = async () => {
+    const probe = () => {
       calls++
       return deferred
     }
-
-    const probe = () => hostedLlmAdapter.health()
     const p1 = cachedHealth('llm-hosted-primary', probe)
     const p2 = cachedHealth('llm-hosted-primary', probe)
-    release(OK_BODY)
+    release()
     const [r1, r2] = await Promise.all([p1, p2])
-
     expect(calls).toBe(1)
     expect(r1.healthy).toBe(true)
     expect(r2.checkedAt).toBe(r1.checkedAt)
@@ -90,13 +117,20 @@ describe('health-probe cache (cachedHealth)', () => {
 
   test('a failure result is cached like a success (never retried into a fake success)', async () => {
     let calls = 0
-    currentCreate = async () => {
+    const probe = () => {
       calls++
-      throw new Error('API request failed with status 500: {"error":"internal"}')
+      return Promise.resolve({
+        healthy: false,
+        checkedAt: new Date().toISOString(),
+        latencyMs: 5,
+        httpStatus: 429,
+        failureCategory: 'rate-limited' as const,
+        detail: 'breaker open',
+      })
     }
 
-    const failed = await cachedHealth('llm-hosted-primary', () => hostedLlmAdapter.health())
-    const cached = await cachedHealth('llm-hosted-primary', () => hostedLlmAdapter.health())
+    const failed = await cachedHealth('llm-hosted-primary', probe)
+    const cached = await cachedHealth('llm-hosted-primary', probe)
 
     expect(calls).toBe(1) // the cached failure is served, not re-probed
     expect(failed.healthy).toBe(false)
@@ -110,86 +144,99 @@ describe('health-probe cache (cachedHealth)', () => {
   })
 })
 
-describe('hostedLlmAdapter.health() honesty (one real attempt, typed failures)', () => {
-  test('a healthy gateway reports a live completion probe', async () => {
+describe('hostedLlmAdapter.health() — quota-free, evidence-based', () => {
+  test('healthy gateway: reachability + config evidence, ZERO completions fired', async () => {
     const report = await hostedLlmAdapter.health()
     expect(report.healthy).toBe(true)
-    expect(report.detail).toContain('live completion probe')
+    expect(report.detail).toContain('no completion was fired')
+    expect(report.detail).toContain('no real chat attempt evidence yet')
     expect(report.latencyMs).not.toBeNull()
+    expect(report.httpStatus).toBeNull()
+    expect(createCalls).toBe(0) // THE quota contract: health never infers
   })
 
-  test('a 429 is NOT retried (exactly one attempt) and is reported as upstream rate-limiting, not product failure', async () => {
-    let calls = 0
-    currentCreate = async () => {
-      calls++
-      throw new Error('API request failed with status 429: {"error":"Too many requests, please try again later"}')
-    }
-
+  test('real-attempt evidence backs healthy: a recorded success appears in the detail', async () => {
+    const at = new Date(Date.now() - 60_000).toISOString()
+    noteRealAttempt('chat-completion', {
+      at,
+      ok: true,
+      backendId: 'bean-llm-hosted-primary',
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    })
     const report = await hostedLlmAdapter.health()
-
-    expect(calls).toBe(1) // no retry into a measured multi-minute throttle
-    expect(report.healthy).toBe(false)
-    expect(report.detail).toContain('429')
-    expect(report.detail).toContain('rate-limited')
-    // The detail names the upstream cause — never a fabricated reset time.
-    expect(report.detail.toLowerCase()).not.toContain('reset')
+    expect(report.healthy).toBe(true)
+    expect(report.detail).toContain(`succeeded at ${at}`)
+    expect(createCalls).toBe(0)
   })
 
-  test('while the chat breaker is open the probe is DEFERRED: zero network, latencyMs null', async () => {
-    const { noteUpstream429 } = await import('../../src/lib/upstream/gateway')
+  test('a fresh failed chat attempt keeps the status honestly unhealthy (no probe can mask it)', async () => {
+    noteRealAttempt('chat-completion', {
+      at: new Date().toISOString(),
+      ok: false,
+      backendId: 'bean-llm-hosted-primary',
+      failureCategory: 'rate-limited',
+      httpStatus: 429,
+      upstream: true,
+    })
+    const report = await hostedLlmAdapter.health()
+    expect(report.healthy).toBe(false)
+    expect(report.failureCategory).toBe('rate-limited')
+    expect(report.detail).toContain('failed upstream')
+    expect(createCalls).toBe(0)
+  })
+
+  test('an open chat breaker reports rate-limited with the observed 429 evidence', async () => {
     noteUpstream429('chat')
-
-    let calls = 0
-    currentCreate = async () => {
-      calls++
-      return OK_BODY
-    }
-
     const report = await hostedLlmAdapter.health()
-
-    expect(calls).toBe(0) // breaker absorbed the probe — no traffic
     expect(report.healthy).toBe(false)
-    expect(report.latencyMs).toBeNull() // a skipped probe never poses as a measured one
-    expect(report.detail).toContain('deferred')
-    expect(report.detail).toContain('no network call was made')
+    expect(report.failureCategory).toBe('rate-limited')
+    expect(report.httpStatus).toBe(429)
+    expect(report.detail).toContain('429')
+    expect(report.detail.toLowerCase()).toContain('no completion was fired')
+    expect(createCalls).toBe(0)
   })
 
-  test('a hard non-429 failure is not retried and never claims rate-limiting', async () => {
-    let calls = 0
-    currentCreate = async () => {
-      calls++
-      throw new Error('API request failed with status 500: {"error":"internal"}')
-    }
-
+  test('an unreachable gateway host is an honest timeout/unreachable, not a product failure', async () => {
+    reachThrow = 'no response within 5000ms'
     const report = await hostedLlmAdapter.health()
-
-    expect(calls).toBe(1)
     expect(report.healthy).toBe(false)
-    expect(report.detail).toContain('500')
-    expect(report.detail).not.toContain('rate-limited')
+    expect(report.failureCategory).toBe('timeout')
+    expect(report.detail).toContain('UNREACHABLE')
+    expect(createCalls).toBe(0)
   })
 
-  test('breaker recovery is verified by the next real probe, never assumed', async () => {
-    const { noteUpstream429 } = await import('../../src/lib/upstream/gateway')
+  test('a redirecting answer is never counted as a healthy gateway', async () => {
+    reachStatus = 302
+    const report = await hostedLlmAdapter.health()
+    expect(report.healthy).toBe(false)
+    expect(report.failureCategory).toBe('network')
+    expect(report.detail).toContain('redirected')
+    expect(createCalls).toBe(0)
+  })
+
+  test('missing gateway config is misconfigured with no request made', async () => {
+    // Simulate an SDK whose config lacks coordinates.
+    const mod = await import('../../src/lib/adapters/gateway-reachability')
+    expect(mod.gatewayConfig({})).toEqual({ baseUrl: null, apiKey: null })
+  })
+
+  test('the breaker never pre-clears on a probe: recovery is verified by REAL calls', async () => {
     noteUpstream429('chat')
     const deferred = await hostedLlmAdapter.health()
     expect(deferred.healthy).toBe(false)
-    expect(deferred.detail).toContain('deferred')
+    expect(createCalls).toBe(0) // no probe request fired to "verify" recovery
 
-    // Cooldown expiry (60s) is BEAN's own conservative backoff; the breaker
-    // re-opens only on a NEW observed 429. Simulate expiry for the probe.
+    // Simulate breaker expiry: the probe STILL fires no completion. The next
+    // REAL chat call (covered by upstream-429.test.ts) is what verifies it.
     const g = globalThis as unknown as Record<string, Map<string, { until: number }>>
     const store = g['__bean_upstream_cooldown__']
     const state = store.get('chat')
     if (state) state.until = Date.now() - 1
-
-    let calls = 0
-    currentCreate = async () => {
-      calls++
-      return OK_BODY
-    }
-    const recovered = await hostedLlmAdapter.health()
-    expect(calls).toBe(1) // a REAL call verified recovery
-    expect(recovered.healthy).toBe(true)
+    const afterExpiry = await hostedLlmAdapter.health()
+    expect(afterExpiry.healthy).toBe(true)
+    expect(afterExpiry.detail).toContain('no real chat attempt evidence yet')
+    expect(createCalls).toBe(0)
   })
 })

@@ -28,8 +28,8 @@
  * qualification of unsupported claims is done by the model under
  * instruction, and the final verdicts come only from retrieved evidence.
  */
-import ZAI from 'z-ai-web-dev-sdk'
 import { z } from 'zod'
+import { guardedChatCompletion } from '@/lib/adapters/hosted-llm'
 import type { VerificationCheckView } from '@/lib/riishe/states'
 
 const verdictSchema = z.enum(['supported', 'contradicted', 'unsupported'])
@@ -106,8 +106,11 @@ export type ClaimCheckTransport = (
 ) => Promise<string>
 
 async function gatewayTransport(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
-  const zai = await ZAI.create()
-  const completion = await zai.chat.completions.create({
+  // CHAT-RECOVERY (2026-11-10): routed through the shared chat-class guard
+  // (fail-fast while the 429 breaker is open — checkClaims already turns any
+  // transport failure into an honest ran:false + degraded note) instead of a
+  // raw SDK call.
+  const completion = await guardedChatCompletion({
     messages,
     thinking: { type: 'disabled' },
   })
