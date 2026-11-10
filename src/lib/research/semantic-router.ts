@@ -12,8 +12,8 @@
  * to the deterministic decision, and its reason is recorded so the choice is
  * auditable. Results are cached per process keyed by the exact message.
  */
-import ZAI from 'z-ai-web-dev-sdk'
 import { z } from 'zod'
+import { guardedChatCompletion } from '@/lib/adapters/hosted-llm'
 import type { SearchDecision } from './policy'
 
 const routingSchema = z.object({
@@ -45,8 +45,11 @@ const ROUTER_SYSTEM =
 export type RoutingTransport = (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string>
 
 async function gatewayTransport(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
-  const zai = await ZAI.create()
-  const completion = await zai.chat.completions.create({
+  // CHAT-RECOVERY (2026-11-10): routed through the shared chat-class guard
+  // (fail-fast while the 429 breaker is open — semanticFreshnessCheck
+  // already returns null on any transport error and the caller falls back
+  // to the deterministic freshness decision) instead of a raw SDK call.
+  const completion = await guardedChatCompletion({
     messages,
     thinking: { type: 'disabled' },
   })

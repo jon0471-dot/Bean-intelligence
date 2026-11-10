@@ -13,7 +13,7 @@
  * records that. No silent translation of the user's intent is ever forced.
  */
 
-import ZAI from 'z-ai-web-dev-sdk'
+import { guardedChatCompletion } from '@/lib/adapters/hosted-llm'
 import { detectLanguage, LANGUAGE_NAMES } from './language'
 
 const EXPANSION_TIMEOUT_MS = Number(process.env.BEAN_INTEL_CROSSLINGUAL_TIMEOUT_MS ?? 6_000)
@@ -55,8 +55,10 @@ export async function englishQueryVariant(message: string, transport?: (m: strin
     const run = transport
       ? transport(trimmed.slice(0, 1200))
       : (async () => {
-          const zai = await ZAI.create()
-          const completion = await zai.chat.completions.create({
+          // CHAT-RECOVERY (2026-11-10): routed through the shared chat-class
+          // guard (fail-fast while the 429 breaker is open — the catch below
+          // already drops the variant honestly) instead of a raw SDK call.
+          const completion = await guardedChatCompletion({
             messages: [
               { role: 'assistant', content: EXPANSION_SYSTEM },
               {

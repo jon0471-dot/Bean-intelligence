@@ -28,6 +28,7 @@
 import { understandPrompt, type PromptUnderstanding } from './understanding'
 import { assembleWorldKnowledge, renderWorldKnowledgeBlock, type WorldComponent } from './world'
 import { extractCinematography, renderCinematographyBlock, type CinematographyDirectives } from './cinema'
+import { compileSceneSpecification } from './scene-spec'
 import { searchWithBoundedRetry, runSharedSearch } from '@/lib/research/pipeline'
 import type { WebSearchResult } from '@/lib/research/provider'
 import { getSearchCache } from '@/lib/research/cache'
@@ -55,6 +56,8 @@ export interface GenerationGrounding {
   /** Curated world components assembled for this prompt. */
   knowledgeKeys: string[]
   cinematography: CinematographyDirectives
+  /** Structured scene specification (Part B §1) — persisted for audit. */
+  sceneSpec: Record<string, unknown>
   /** Honest degradation notes (retrieval unavailable, timeouts…). */
   degraded: string[]
   timing: { understandMs: number; retrieveMs: number; compileMs: number; totalMs: number }
@@ -173,8 +176,11 @@ function digestResults(results: WebSearchResult[]): GroundingEvidence[] {
 // Conditioning compilation
 // ---------------------------------------------------------------------------
 
-/** Character budget for the APPENDED conditioning block (per product). */
-const CONDITIONING_BUDGET: Record<'laxii' | 'jazmii', number> = { laxii: 2200, jazmii: 2600 }
+/** Character budget for the APPENDED conditioning block (per product).
+ *  LAXII IMAGE QUALITY (2026-11-10): raised 2200→2600 so the §1 scene
+ *  specification AND the world-knowledge facts coexist (measured: the tiger
+ *  conditioning needed both; the user prompt itself is never truncated). */
+const CONDITIONING_BUDGET: Record<'laxii' | 'jazmii', number> = { laxii: 2600, jazmii: 2600 }
 
 function fidelityNotes(evidence: GroundingEvidence[]): string {
   if (evidence.length === 0) return ''
@@ -222,11 +228,21 @@ export function compileConditioning(
   const cinema = extractCinematography(u.normalized)
   const sections: Array<{ priority: number; text: string }> = []
 
+  // LAXII IMAGE QUALITY (2026-11-10, Part B §1): the structured scene
+  // specification is the §1 core deliverable — subjects/count, spatial
+  // layers, light direction, materials and contact points — so it takes
+  // budget precedence over the (longer) world-knowledge facts, which fill
+  // the remaining budget. The user's prompt itself is NEVER truncated.
+  if (product === 'laxii') {
+    const spec = compileSceneSpecification(u, cinema)
+    if (spec.block) sections.push({ priority: 1, text: spec.block })
+  }
+
   const worldBlock = renderWorldKnowledgeBlock(worldComponents)
-  if (worldBlock) sections.push({ priority: 1, text: worldBlock })
+  if (worldBlock) sections.push({ priority: 2, text: worldBlock })
 
   if (product === 'jazmii') {
-    sections.push({ priority: 2, text: buildMotionTimeline(u.normalized, u) })
+    sections.push({ priority: 1, text: buildMotionTimeline(u.normalized, u) })
   }
   sections.push({ priority: 3, text: renderCinematographyBlock(cinema, product) })
 
@@ -296,6 +312,8 @@ async function prepareGenerationIntelligence(
 
   const tC = performance.now()
   const worldComponents = assembleWorldKnowledge(u)
+  const cinemaDirectives = extractCinematography(u.normalized)
+  const sceneSpec = compileSceneSpecification(u, cinemaDirectives)
   const conditioning = compileConditioning(u, worldComponents, evidence, product, opts)
   const compileMs = performance.now() - tC
 
@@ -315,7 +333,8 @@ async function prepareGenerationIntelligence(
     conditionedPrompt,
     evidence,
     knowledgeKeys: worldComponents.map((w) => w.key),
-    cinematography: extractCinematography(u.normalized),
+    cinematography: cinemaDirectives,
+    sceneSpec: sceneSpec.fields,
     degraded,
     timing: {
       understandMs: round2(understandMs),

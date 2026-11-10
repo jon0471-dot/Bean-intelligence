@@ -25,7 +25,7 @@
  * No fake search RESULTS are produced for failure scenarios: mocked calls
  * only ever FAIL until the recovery tests explicitly allow success.
  */
-import { describe, test, expect, mock, beforeEach } from 'bun:test'
+import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test'
 
 // ---- controllable fake SDK (the ONLY mocked boundary) ----------------------
 const state = {
@@ -51,6 +51,9 @@ function resetFake() {
 mock.module('z-ai-web-dev-sdk', () => ({
   default: {
     create: async () => ({
+      // The quota-free health probe reads this runtime config (in memory
+      // only); the reachability GET is stubbed per-test below.
+      config: { baseUrl: 'https://gateway.test/v1', apiKey: 'test-key' },
       functions: {
         invoke: async (fn: string, args: unknown) => {
           state.invokeCalls += 1
@@ -75,6 +78,15 @@ mock.module('z-ai-web-dev-sdk', () => ({
   },
 }))
 
+/** Free reachability fake: the gateway's router answers /models with 404. */
+const realFetch = globalThis.fetch
+beforeEach(() => {
+  globalThis.fetch = (async () => new Response('404 page not found', { status: 404 })) as unknown as typeof fetch
+})
+afterEach(() => {
+  globalThis.fetch = realFetch
+})
+
 mock.module('../../src/lib/research/direct', () => ({
   // The premise of these tests is TOTAL retrieval failure (the measured 429
   // window). The independent lane is a real network path, so it is mocked to
@@ -89,6 +101,13 @@ mock.module('../../src/lib/research/direct', () => ({
   },
   isUsablePageText: (text: string) => text.trim().length >= 200,
   PAGE_MIN_USEFUL_CHARS: 200,
+  // MEASURED FIX (2026-11-10): pipeline.ts statically binds these two
+  // helpers, and a partial mock record fails ESM linking ("Export named
+  // 'resolveRedirectUrl' not found") — the whole file errored before any
+  // test ran. Under the outage premise these are never reached (no search
+  // results exist to wrap), so honest pure stubs suffice.
+  isRedirectWrapperUrl: (url: string) => /google\.[^/]+\/goto|news\.google\.com/i.test(url ?? ''),
+  resolveRedirectUrl: async (url: string) => url,
 }))
 
 // Import AFTER the mock registers so the modules bind to the fake SDK.
@@ -390,11 +409,12 @@ describe('hostedLlmAdapter under throttling', () => {
     expect(result.content).toBe('Recovered answer')
   })
 
-  test('health reports the rate-limited state honestly during an open breaker', async () => {
+  test('health reports the rate-limited state honestly during an open breaker — and fires NO completion itself', async () => {
     noteUpstream429('chat')
     const health = await hostedLlmAdapter.health()
     expect(health.healthy).toBe(false)
     expect(health.detail).toContain('429')
+    expect(state.createCalls).toBe(0) // QUOTA CONTRACT: no probe completion
   })
 })
 
