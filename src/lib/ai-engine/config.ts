@@ -79,3 +79,22 @@ export function engineConfig(): EngineConfig {
 export function resetEngineConfigCache(): void {
   cached = null
 }
+
+/**
+ * ZERO-DOWNTIME RECOVERY (2026-11-11): the RETRY_WAIT schedule gains a
+ * bounded ±20% jitter. Why: fixed backoffs align every concurrently
+ * failing job to the SAME retry instant — a retry storm in miniature that
+ * re-hits a recovering provider in a synchronized burst (the exact
+ * "retry storms" pattern the recovery brief forbids). Jitter spreads the
+ * retries around the scheduled instant while keeping the schedule's bounds:
+ * output is always within [0.8 × base, 1.2 × base] and never below 1s.
+ * Pure (rand injected) so tests pin the bounds deterministically.
+ */
+export const RETRY_JITTER_FRACTION = 0.2
+
+export function jitteredRetryBackoffMs(baseMs: number, rand: () => number = Math.random): number {
+  const base = Math.max(0, baseMs)
+  const spread = base * RETRY_JITTER_FRACTION
+  const jittered = base - spread + rand() * spread * 2
+  return Math.max(1_000, Math.round(jittered))
+}

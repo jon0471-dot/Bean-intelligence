@@ -22,6 +22,7 @@
 import ZAI from 'z-ai-web-dev-sdk'
 import { withTimeout } from '@/lib/adapters/hosted-llm'
 import { classifyUpstreamError, noteUpstream429, noteUpstreamSuccess, upstreamCoolingDown } from '@/lib/upstream/gateway'
+import { automatedQuotaState, automatedSkipReason } from '@/lib/providers/account-quota'
 
 /** Upstream vision model id (server-only constant; matches files/media.ts). */
 const VISION_MODEL = 'glm-4.5v'
@@ -45,6 +46,16 @@ export async function analyzeImageOnce(dataUrl: string, instruction: string, tim
   const t0 = Date.now()
   if (upstreamCoolingDown('chat')) {
     return { text: null, reason: 'vision check skipped: the chat endpoint class is cooling down after a measured rate limit; no network call was made', durationMs: 0, skipped: true }
+  }
+  // ZERO-DOWNTIME RECOVERY (2026-11-11): vision analysis is AUTOMATED
+  // consumption of the shared provider account (every call is a real
+  // metered completion on the chat lane). When the operator's user reserve
+  // is consumed, automated checks stand down HONESTLY so the remaining
+  // quota serves real user requests. No budget configured -> no change.
+  const quota = await automatedQuotaState()
+  const reserveReason = automatedSkipReason(quota)
+  if (reserveReason) {
+    return { text: null, reason: `vision check skipped: ${reserveReason}; no network call was made`, durationMs: 0, skipped: true }
   }
   try {
     const zai = await ZAI.create()

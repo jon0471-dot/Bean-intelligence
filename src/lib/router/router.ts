@@ -27,6 +27,7 @@ import { openAiCompatibleAdapter } from '@/lib/providers/openai-compatible'
 import { llamaCppAdapter } from '@/lib/providers/llamacpp'
 import { wrapWithProviderFallback } from '@/lib/providers/routing'
 import { assertProviderBudget } from '@/lib/providers/cost-guard'
+import { assertAccountQuotaForUserRequest } from '@/lib/providers/account-quota'
 import type {
   ChatRequest,
   ChatResult,
@@ -156,8 +157,17 @@ export async function preflight(
     )
   }
 
-  // 3.5 provider request budget (operator-set spend guard, Phase 6).
+  // 3.5 provider request budgets (operator-set spend guards):
+  //  a. the PER-PRODUCT budget (Phase 6, cost-guard.ts), then
+  //  b. the SHARED ACCOUNT budget (zero-downtime recovery, 2026-11-11):
+  //     all four products ride ONE provider account whose real daily
+  //     ceiling is enforced by the provider at the account level — this
+  //     gate counts every product's usage together and refuses new work
+  //     only when the WHOLE account budget is gone (real user requests
+  //     may use the full budget; the user reserve only constrains
+  //     automated enhancement consumption — see account-quota.ts).
   await assertProviderBudget(userId, productId, product.name)
+  await assertAccountQuotaForUserRequest(userId, productId, product.name)
 
   // 4. concurrency (per-user and total, in-flight)
   acquireSlot(enabled[0], userId)
@@ -228,8 +238,11 @@ export async function resolveBackgroundAdapter(
         : `No backend is configured for ${product.name}.`,
     )
   }
-  // Operator spend guard stays active for worker executions.
+  // Operator spend guards stay active for worker executions (per-product
+  // budget + the shared account budget — a worker executing an accepted
+  // job must not push the account past its real ceiling either).
   await assertProviderBudget(userId, productId, product.name)
+  await assertAccountQuotaForUserRequest(userId, productId, product.name)
 
   const backend = enabled[0]
   const adapter = ADAPTERS[backend.id]

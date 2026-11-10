@@ -193,6 +193,63 @@ export function escalated429CooldownMs(streak: number): number {
   return Math.min(UPSTREAM_429_COOLDOWN_MS * 2 ** (n - 1), UPSTREAM_429_COOLDOWN_MAX_MS)
 }
 
+/**
+ * Bounds for a PROVIDER-SUPPLIED retry hint (Retry-After / x-ratelimit-reset).
+ * ZERO-DOWNTIME RECOVERY (2026-11-11): when an adapter CAN read response
+ * headers (the direct-fetch fallback lane) and the provider actually sends a
+ * hint, BEAN respects it instead of guessing — clamped to these bounds so an
+ * absurd or malicious value can neither spam the provider (too short) nor
+ * wedge a product for hours (too long). The z-ai gateway sends no Retry-After
+ * and the managed SDK discards headers entirely (measured), so today only the
+ * OpenAI-compatible fallback lane can supply this.
+ */
+export const PROVIDER_RETRY_AFTER_MIN_MS = 5_000
+export const PROVIDER_RETRY_AFTER_MAX_MS = UPSTREAM_429_COOLDOWN_MAX_MS
+
+export function clampProviderRetryAfterMs(ms: number | null): number | null {
+  if (ms === null || !Number.isFinite(ms)) return null
+  if (ms <= 0) return null
+  return Math.min(Math.max(Math.round(ms), PROVIDER_RETRY_AFTER_MIN_MS), PROVIDER_RETRY_AFTER_MAX_MS)
+}
+
+/**
+ * Parse a provider's retry hint from response headers (pure — header object
+ * only, no network). Honors, in precedence order:
+ *  1. `retry-after`  — delta-seconds OR an HTTP-date;
+ *  2. `x-ratelimit-reset` — epoch SECONDS or MILLISECONDS (whichever parses
+ *     into a sane timestamp).
+ * Returns the hint in milliseconds from `now`, or null when absent or
+ * unparseable. NEVER invented: absent headers return null and the caller
+ * keeps BEAN's own conservative backoff.
+ */
+export function parseRetryAfterHeaders(
+  headers: { get(name: string): string | null },
+  now = Date.now(),
+): number | null {
+  const ra = headers.get('retry-after')
+  if (ra) {
+    const trimmed = ra.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const seconds = Number(trimmed)
+      if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1_000
+    } else {
+      const at = Date.parse(trimmed)
+      if (Number.isFinite(at)) return Math.max(0, at - now)
+    }
+  }
+  const reset = headers.get('x-ratelimit-reset')
+  if (reset) {
+    const trimmed = reset.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const n = Number(trimmed)
+      // Epoch seconds stay < 1e12 until the year ~33k; epoch ms is >= 1e12.
+      const epochMs = n >= 1e12 ? n : n * 1_000
+      if (Number.isFinite(epochMs)) return Math.max(0, epochMs - now)
+    }
+  }
+  return null
+}
+
 interface CooldownState {
   until: number
   /** How many calls were skipped (failed fast) while the breaker was open. */
@@ -222,11 +279,21 @@ function stateFor(cls: UpstreamEndpointClass): CooldownState {
 }
 
 /** Register an observed upstream 429: (re)open the cooldown window with the
- *  escalated duration for the current consecutive-429 streak. */
-export function noteUpstream429(cls: UpstreamEndpointClass, now = Date.now()): void {
+ *  escalated duration for the current consecutive-429 streak. ZERO-DOWNTIME
+ *  RECOVERY (2026-11-11): when the provider actually surfaced a retry hint
+ *  (parsed from headers by parseRetryAfterHeaders — only the direct-fetch
+ *  fallback lane can see headers today; the managed SDK discards them), the
+ *  clamped hint RESPECTS the provider's own window instead of BEAN's guess. */
+export function noteUpstream429(
+  cls: UpstreamEndpointClass,
+  now = Date.now(),
+  providerRetryAfterMs: number | null = null,
+): void {
   const s = stateFor(cls)
   s.streak += 1
   s.lastCooldownMs = escalated429CooldownMs(s.streak)
+  const hinted = clampProviderRetryAfterMs(providerRetryAfterMs)
+  if (hinted !== null) s.lastCooldownMs = hinted
   s.until = now + s.lastCooldownMs
   s.last429At = now
 }

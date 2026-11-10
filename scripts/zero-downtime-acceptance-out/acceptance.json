@@ -1,0 +1,556 @@
+{
+  "generatedAt": "2026-11-10T05:56:17.845Z",
+  "quotaGate": {
+    "label": "gate",
+    "at": "2026-11-10T05:55:49.142Z",
+    "status": 429,
+    "limitDaily": "300",
+    "remainingDaily": "0",
+    "userDailyRemaining": "188",
+    "limitQps": "2",
+    "reset": "1794290150",
+    "retryAfter": null
+  },
+  "quotaFinal": {
+    "label": "final-gate",
+    "at": "2026-11-10T05:56:17.845Z",
+    "status": 429,
+    "limitDaily": "300",
+    "remainingDaily": "0",
+    "userDailyRemaining": "185",
+    "limitQps": "2",
+    "reset": "1794290178",
+    "retryAfter": null
+  },
+  "quotaPermits": false,
+  "usageSnaps": {
+    "before": {
+      "label": "before",
+      "at": "2026-11-10T05:55:49.600Z",
+      "allUsersToday": 41,
+      "testUserToday": 0
+    },
+    "before_laxii": {
+      "label": "before_laxii",
+      "at": "2026-11-10T05:56:13.544Z",
+      "allUsersToday": 41,
+      "testUserToday": 0
+    },
+    "after": {
+      "label": "after",
+      "at": "2026-11-10T05:56:17.815Z",
+      "allUsersToday": 41,
+      "testUserToday": 0
+    }
+  },
+  "steps": [
+    {
+      "step": "auth: acceptance session",
+      "ok": true,
+      "httpStatus": 200,
+      "detail": "fresh user zdt-accept-1794290149143@bean.local",
+      "at": "2026-11-10T05:55:49.538Z"
+    },
+    {
+      "step": "health: first poll answers with per-product status",
+      "ok": true,
+      "httpStatus": 200,
+      "detail": "products=riishe:operational laxii:operational jazmii:operational code-giftz:operational (1046ms)",
+      "at": "2026-11-10T05:55:50.648Z",
+      "evidence": {
+        "products": {
+          "riishe": {
+            "status": "operational",
+            "available": true,
+            "probe": {
+              "healthy": true,
+              "checkedAt": "2026-11-10T05:55:47.461Z",
+              "latencyMs": 28,
+              "httpStatus": null,
+              "failureCategory": null,
+              "detail": "Gateway host reachable (free liveness check, HTTP 404) and configuration valid; no real chat attempt evidence yet in this process. Status is from reachability + config ONLY — no completion was fired (health never consumes inference quota).",
+              "cached": true
+            },
+            "lastHealthyAt": "2026-11-10T05:55:47.461Z",
+            "research": {
+              "available": true,
+              "probe": {
+                "healthy": true,
+                "checkedAt": "2026-11-10T05:55:48.012Z",
+                "latencyMs": 7,
+                "httpStatus": null,
+                "failureCategory": null,
+                "detail": "Gateway host reachable (free liveness check, HTTP 404) and configuration valid; no real research attempt evidence yet in this process. Status is from reachability + config ONLY — no search was fired (health never consumes provider quota).",
+                "cached": true
+              }
+            },
+            "capabilities": [
+              {
+                "id": "chat",
+                "label": "Conversational chat",
+                "core": true,
+                "state": "operational",
+                "statusAffecting": true,
+                "evidence": {
+                  "checkedAt": "2026-11-10T05:55:47.461Z",
+                  "source": "probe",
+                  "failureCategory": null,
+                  "httpStatus": null,
+                  "note": "core conversational completion"
+                }
+              },
+              {
+                "id": "research",
+                "label": "Current-web research",
+                "core": false,
+                "state": "operational",
+                "statusAffecting": false,
+                "evidence": {
+                  "checkedAt": "2026-11-10T05:55:48.012Z",
+                  "source": "probe",
+                  "failureCategory": null,
+                  "httpStatus": null,
+                  "note": "functions endpoint class (web_search / page_reader)"
+                }
+              }
+            ]
+          },
+          "laxii": {
+            "status": "operational",
+            "available": true,
+            "probe": {
+              "healthy": true,
+              "checkedAt": "2026-11-10T05:55:48.282Z",
+              "latencyMs": 10,
+              "httpStatus": 404,
+              "failureCategory": null,
+              "detail": "Gateway reachable (HTTP 404 in 10ms) and client configured with 7 sizes. This health check does NOT run a generation; the full generation path was verified once at the deployment probe (scripts/stage0-report.json).",
+              "cached": true
+            },
+            "lastHealthyAt": "2026-11-10T05:55:48.282Z",
+            "deterministic": {
+              "available": true,
+              "probe": {
+                "healthy": true,
+                "checkedAt": "2026-11-10T05:55:47.068Z",
+                "latencyMs": 92,
+                "detail": "Sharp engine EXECUTED a real decode → resize → raw round-trip in 92ms (8x8 PNG in, 4x4 RGB verified). Deterministic enhancement is operational on this host. This probe runs NO generative model — generative editing is the separately probed Diffusers worker.",
+                "cached": true
+              }
+            },
+            "generative": {
+              "available": false,
+              "probe": {
+                "healthy": false,
+                "checkedAt": "2026-11-10T05:55:47.069Z",
+                "latencyMs": 391,
+                "detail": "Diffusers worker preflight NOT satisfied on this host: missing packages [torch, diffusers, transformers, accelerate, safetensors], CUDA unavailable, disk 5.89 GB free, checkpoints present 0/9. Registry-enabled: false. Generative editing is unavailable.",
+                "cached": true
+              }
+            },
+            "capabilities": [
+              {
+                "id": "text-to-image",
+                "label": "Text-to-image",
+                "core": true,
+                "state": "operational",
+                "statusAffecting": false,
+                "evidence": {
+                  "checkedAt": "2026-11-10T03:24:21.510Z",
+                  "source": "real-attempt",
+                  "failureCategory": null,
+                  "httpStatus": null,
+                  "note": "the most recent real generation attempt succeeded",
+                  "lastAttempt": {
+                    "at": "2026-11-10T03:24:21.510Z",
+                    "ok": true,
+                    "failureCategory": null,
+                    "httpStatus": null
+                  }
+                }
+              },
+              {
+                "id": "conversational-editing",
+                "label": "Conversational editing",
+                "core": true,
+                "state": "operational",
+                "statusAffecting": false,
+                "evidence": {
+                  "checkedAt": "2026-11-10T01:41:30.374Z",
+                  "source": "real-attempt",
+                  "failureCategory": null,
+                  "httpStatus": null,
+                  "note": "a real edit completed successfully — the recorded blocker is lifted",
+                  "lastAttempt": {
+                    "at": "2026-11-10T01:41:30.374Z",
+                    "ok": true,
+                    "failureCategory": null,
+                    "httpStatus": null
+                  }
+                }
+              },
+              {
+                "id": "image-enhancement",
+                "label": "Deterministic enhancement",
+                "core": false,
+                "state": "operational",
+                "statusAffecting": false,
+                "evidence": {
+                  "checkedAt": "2026-11-10T05:55:47.068Z",
+                  "source": "probe",
+                  "failureCategory": null,
+                  "httpStatus": null,
+                  "note": "local Sharp preservation engine (executed, not claimed)"
+                }
+              },
+              {
+                "id": "generative-worker",
+                "label": "Local Diffusers worker",
+                "core": false,
+                "state": "not-configured",
+                "statusAffecting": false,
+                "evidence": {
+                  "checkedAt": "2026-11-10T05:55:47.069Z",
+                  "source": "registry",
+                  "note": "local Diffusers worker (registry-gated smart edit / object removal)"
+                }
+              }
+            ]
+          },
+          "jazmii": {
+            "status": "operational",
+            "available": true,
+            "probe": {
+              "healthy": true,
+              "checkedAt": "2026-11-10T05:55:48.996Z",
+              "latencyMs": 6,
+              "httpStatus": 404,
+              "failureCategory": null,
+              "detail": "Video gateway reachable and configured. This probe does NOT run a generation — completed real jobs are the capability evidence.",
+              "cached": true
+            },
+            "lastHealthyAt": "2026-11-10T05:55:48.996Z",
+            "capabilities": [
+              {
+                "id": "text-to-video",
+                "label": "Text-to-video",
+                "core": true,
+                "state": "operational",
+                "statusAffecting": false,
+                "evidence": {
+                  "checkedAt": "2026-11-10T01:42:44.263Z",
+                  "source": "real-attempt",
+                  "failureCategory": null,
+                  "httpStatus": null,
+                  "note": "the most recent real generation attempt succeeded",
+                  "lastAttempt": {
+                    "at": "2026-11-10T01:42:44.263Z",
+                    "ok": true,
+                    "failureCategory": null,
+                    "httpStatus": null
+                  }
+                }
+              },
+              {
+                "id": "image-to-video",
+                "label": "Image-to-video",
+                "core": false,
+                "state": "operational",
+                "statusAffecting": false,
+                "evidence": {
+                  "checkedAt": "2026-11-07T02:21:35.717Z",
+                  "source": "real-attempt",
+                  "failureCategory": null,
+                  "httpStatus": null,
+                  "note": "a real run completed successfully",
+                  "lastAttempt": {
+                    "at": "2026-11-07T02:21:35.717Z",
+                    "ok": true,
+                    "failureCategory": null,
+                    "httpStatus": null
+                  }
+                }
+              }
+            ]
+          },
+          "code-giftz": {
+            "status": "operational",
+            "available": true,
+            "probe": {
+              "healthy": true,
+              "checkedAt": "2026-11-10T05:55:47.751Z",
+              "latencyMs": 7,
+              "httpStatus": null,
+              "failureCategory": null,
+              "detail": "Gateway host reachable (free liveness check, HTTP 404) and configuration valid; no real chat attempt evidence yet in this process. Status is from reachability + config ONLY — no completion was fired (health never consumes inference quota).",
+              "cached": true
+            },
+            "lastHealthyAt": "2026-11-10T05:55:47.751Z",
+            "sandbox": {
+              "available": true,
+              "probe": {
+                "healthy": true,
+                "checkedAt": "2026-11-10T05:55:47.003Z",
+                "latencyMs": 172,
+                "httpStatus": null,
+                "failureCategory": null,
+                "detail": "Sandbox runtime \"bun\" executed a trivial script successfully (127ms). Python: Sandbox runtime \"python3\" executed a trivial script successfully (172ms).",
+                "cached": true
+              }
+            },
+            "capabilities": [
+              {
+                "id": "coding-chat",
+                "label": "Coding chat",
+                "core": true,
+                "state": "operational",
+                "statusAffecting": true,
+                "evidence": {
+                  "checkedAt": "2026-11-10T05:55:47.751Z",
+                  "source": "probe",
+                  "failureCategory": null,
+                  "httpStatus": null,
+                  "note": "core coding completion"
+                }
+              },
+              {
+                "id": "sandbox-execution",
+                "label": "Sandbox execution",
+                "core": false,
+                "state": "operational",
+                "statusAffecting": false,
+                "evidence": {
+                  "checkedAt": "2026-11-10T05:55:47.003Z",
+                  "source": "probe",
+                  "failureCategory": null,
+                  "httpStatus": null,
+                  "note": "local sandbox runtime"
+                }
+              }
+            ]
+          }
+        },
+        "breakers": [
+          {
+            "class": "chat",
+            "coolingDown": false,
+            "remainingMs": 0,
+            "consecutive429s": 0,
+            "currentCooldownMs": 60000,
+            "last429At": null,
+            "skippedCalls": 0
+          },
+          {
+            "class": "functions",
+            "coolingDown": false,
+            "remainingMs": 0,
+            "consecutive429s": 0,
+            "currentCooldownMs": 60000,
+            "last429At": null,
+            "skippedCalls": 0
+          },
+          {
+            "class": "images",
+            "coolingDown": false,
+            "remainingMs": 0,
+            "consecutive429s": 0,
+            "currentCooldownMs": 60000,
+            "last429At": null,
+            "skippedCalls": 0
+          },
+          {
+            "class": "video",
+            "coolingDown": false,
+            "remainingMs": 0,
+            "consecutive429s": 0,
+            "currentCooldownMs": 60000,
+            "last429At": null,
+            "skippedCalls": 0
+          },
+          {
+            "class": "audio",
+            "coolingDown": false,
+            "remainingMs": 0,
+            "consecutive429s": 0,
+            "currentCooldownMs": 60000,
+            "last429At": null,
+            "skippedCalls": 0
+          }
+        ]
+      }
+    },
+    {
+      "step": "health: fresh polls consume ZERO metered provider requests",
+      "ok": true,
+      "httpStatus": null,
+      "detail": "usage rows unchanged across two fresh polls (41 -> 41); poll latencies 1046ms/1182ms (B ran after the 20s cache TTL, i.e. a fresh fan-out)",
+      "at": "2026-11-10T05:56:12.831Z",
+      "evidence": {
+        "before": 41,
+        "after": 41,
+        "healthAMs": 1046,
+        "healthBMs": 1182
+      }
+    },
+    {
+      "step": "riishe: throttled chat fails HONESTLY (scenario 2 live)",
+      "ok": true,
+      "httpStatus": 429,
+      "detail": "error frame: {\"ok\":false,\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\\\"error\\\":\\\"Too many requests, pleas (672ms)",
+      "at": "2026-11-10T05:56:13.503Z",
+      "evidence": {
+        "latencyMs": 672,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "RATE_LIMITED",
+            "message": "chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\"error\":\"Too many requests, please try again later\"}"
+          }
+        },
+        "conversationId": null
+      }
+    },
+    {
+      "step": "riishe: request preservation",
+      "ok": true,
+      "httpStatus": null,
+      "detail": "no conversationId in the error frame — checked via DB instead",
+      "at": "2026-11-10T05:56:13.503Z"
+    },
+    {
+      "step": "riishe: the throttled request is PRESERVED for retry (DB evidence)",
+      "ok": true,
+      "httpStatus": null,
+      "detail": "user message row persisted (cmwaa1i86000aqanfdxcigo6p) without an assistant reply — the exact retry state",
+      "at": "2026-11-10T05:56:13.506Z",
+      "evidence": {
+        "messageId": "cmwaa1i86000aqanfdxcigo6p"
+      }
+    },
+    {
+      "step": "riishe: immediate re-request fails fast (breaker absorbs it — no retry storm)",
+      "ok": true,
+      "httpStatus": 429,
+      "detail": "second submission answered in 37ms with an honest failure (no hanging retry loop)",
+      "at": "2026-11-10T05:56:13.543Z",
+      "evidence": {
+        "latencyMs": 37
+      }
+    },
+    {
+      "step": "laxii: first submission accepted (202, queued)",
+      "ok": true,
+      "httpStatus": 202,
+      "detail": "job cmwaa1ix8000gqanfxzu5aght",
+      "at": "2026-11-10T05:56:13.975Z"
+    },
+    {
+      "step": "laxii: identical ACTIVE submission refused (typed CONCURRENCY_LIMIT, scenario 8 live)",
+      "ok": true,
+      "httpStatus": 429,
+      "detail": "duplicate refused (HTTP 429, code CONCURRENCY_LIMIT)",
+      "at": "2026-11-10T05:56:14.018Z"
+    },
+    {
+      "step": "laxii: a throttled generation PARKS in retry_wait with a breaker-aligned backoff (scenario 6 live)",
+      "ok": true,
+      "httpStatus": null,
+      "detail": "status=retry_wait, attempts=1, nextRunAt=Tue Nov 10 2026 05:57:15 GMT+0000 (Coordinated Universal Time), message=\"The image gateway is throttling generations (HTTP 429). The job stays queued — attempt 2 of 3 starts automatically in ~60s. Nothing was lost\"",
+      "at": "2026-11-10T05:56:17.022Z",
+      "evidence": {
+        "job": {
+          "id": "cmwaa1ix8000gqanfxzu5aght",
+          "userId": "cmwaa0zy20000qanfjlsj4p3j",
+          "product": "laxii",
+          "task": "image-generation",
+          "status": "retry_wait",
+          "progress": 15,
+          "paramsJson": "{\"prompt\":\"zero-downtime duplicate guard probe 1794290149143\",\"size\":\"1024x1024\"}",
+          "resultJson": "{\"submissionAttempts\":1,\"throttleWaitMs\":60000,\"throttle\":{\"attempt\":1,\"backoffMs\":60000,\"retryAfterMs\":null,\"attempted\":true,\"at\":\"2026-11-10T05:56:15.090Z\"}}",
+          "errorCode": "RATE_LIMITED",
+          "errorMessage": "The image gateway is throttling generations (HTTP 429). The job stays queued — attempt 2 of 3 starts automatically in ~60s. Nothing was lost; no duplicate was created.",
+          "backendId": "bean-image-hosted-primary",
+          "queuedAt": "2026-11-10T05:56:13.965Z",
+          "startedAt": "2026-11-10T05:56:15.019Z",
+          "finishedAt": null,
+          "capability": null,
+          "workerId": "wk_embedded_laxii_bnf_mwaa0tw7_6f3806d5",
+          "workerKind": "embedded",
+          "leaseUntil": "2026-11-10T05:58:15.013Z",
+          "heartbeatAt": "2026-11-10T05:56:15.013Z",
+          "attempts": 1,
+          "maxAttempts": 2,
+          "nextRunAt": "2026-11-10T05:57:15.090Z",
+          "errorClass": "rate_limited",
+          "dedupeKey": "cmwaa0zy20000qanfjlsj4p3j:laxii:image-generation:15b4a65758868ea41114fe438859405c",
+          "cancelRequested": false
+        }
+      }
+    },
+    {
+      "step": "laxii: parked job cancelled (cleanup)",
+      "ok": true,
+      "httpStatus": null,
+      "detail": "cancel HTTP 200",
+      "at": "2026-11-10T05:56:17.813Z"
+    },
+    {
+      "step": "metering: usage rows are attributed to the acting user (scenario 9 live)",
+      "ok": true,
+      "httpStatus": null,
+      "detail": "test user owns 0 usage row(s); all-users delta across this run: 0",
+      "at": "2026-11-10T05:56:17.818Z",
+      "evidence": {
+        "before": {
+          "label": "before",
+          "at": "2026-11-10T05:55:49.600Z",
+          "allUsersToday": 41,
+          "testUserToday": 0
+        },
+        "after": {
+          "label": "after",
+          "at": "2026-11-10T05:56:17.815Z",
+          "allUsersToday": 41,
+          "testUserToday": 0
+        }
+      }
+    },
+    {
+      "step": "gated: per-capability live tests (chat/coding/image/video)",
+      "ok": true,
+      "skipped": true,
+      "httpStatus": null,
+      "detail": "quota gate CLOSED: x-ratelimit-remaining-daily=0/300 (HTTP 429) — running them would burn user quota; covered by 1278-test suite + the live exhaustion scenarios above. Re-run this script after the daily refill.",
+      "at": "2026-11-10T05:56:17.845Z",
+      "evidence": {
+        "gate": {
+          "label": "gate",
+          "at": "2026-11-10T05:55:49.142Z",
+          "status": 429,
+          "limitDaily": "300",
+          "remainingDaily": "0",
+          "userDailyRemaining": "188",
+          "limitQps": "2",
+          "reset": "1794290150",
+          "retryAfter": null
+        },
+        "final": {
+          "label": "final-gate",
+          "at": "2026-11-10T05:56:17.845Z",
+          "status": 429,
+          "limitDaily": "300",
+          "remainingDaily": "0",
+          "userDailyRemaining": "185",
+          "limitQps": "2",
+          "reset": "1794290178",
+          "retryAfter": null
+        }
+      }
+    }
+  ],
+  "summary": {
+    "pass": 12,
+    "skip": 1,
+    "fail": 0
+  }
+}

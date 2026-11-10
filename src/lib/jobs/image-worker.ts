@@ -17,11 +17,13 @@ import {
   UPSTREAM_FAILURE_CATEGORIES,
   type RealAttemptRecord,
 } from '@/lib/adapters/last-attempts'
-import { classifyUpstreamError, healthFailureCategory } from '@/lib/upstream/gateway'
+import { classifyUpstreamError, healthFailureCategory, upstreamCooldownRemainingMs, UpstreamRateLimitError } from '@/lib/upstream/gateway'
+import { appendJobEventSafe } from '@/lib/ai-engine/events'
 import { getBackend } from '@/lib/registry/backends'
 import { storeResultAsset } from '@/lib/laxii/assets'
 import { prepareImageIntelligence } from '@/lib/intel/grounding'
 import { verifyGeneratedImage, imageBufferToDataUrl } from '@/lib/intel/continuity'
+import { automatedQuotaState, automatedSkipReason } from '@/lib/providers/account-quota'
 import fs from 'fs'
 import path from 'path'
 
@@ -35,6 +37,79 @@ export type ImageJobRow = {
   status: string
   paramsJson: string
   resultJson: string | null
+}
+
+// ---- ZERO-DOWNTIME RECOVERY (2026-11-11): throttle-resilient generation ---
+//
+// The PREVIOUS worker treated a generation-time 429 as a TERMINAL job
+// failure — a provider throttle window destroyed a job BEAN had already
+// accepted (and the user's request with it). The video worker has parked
+// throttled submissions in RETRY_WAIT since 2026-11-08 (measured: throttle
+// windows last MINUTES; retrying into an open window only deepens the
+// throttle). LAXII image generation now gets the same recovery: a throttled
+// generation PARKS the job with a bounded, breaker-aligned backoff, and the
+// retry budget is persisted in resultJson so it survives restarts. Bounded
+// BOTH ways (real attempts AND cumulative wait) so a stuck account can
+// never hold a job forever, and a breaker skip (zero network I/O) is never
+// counted as an attempt — at most one probe per cooldown window, never a
+// retry storm.
+
+/** Max REAL generation attempts per image job (across restarts). */
+export const IMAGE_MAX_GENERATION_ATTEMPTS = 3
+/** Max cumulative time a job may spend parked in throttle retry_wait. */
+export const IMAGE_MAX_CUMULATIVE_THROTTLE_MS = 30 * 60_000
+/** Backoff floor after a real generation 429 (matches the breaker base). */
+export const IMAGE_GENERATION_BACKOFF_FLOOR_MS = 60_000
+/** Backoff cap — never probe a minutes-long throttle window faster than this. */
+export const IMAGE_GENERATION_BACKOFF_MAX_MS = 600_000
+
+/**
+ * Bounded, throttle-aware backoff for the next generation attempt.
+ * Priority: an actual provider Retry-After (clamped 5s..10min) → the images
+ * breaker's remaining window (never generate into an open cooldown) →
+ * BEAN's escalating schedule 60s·2^(n-1). Capped at 10 minutes. Pure;
+ * exported for unit tests.
+ */
+export function imageGenerationBackoffMs(
+  attempt: number,
+  breakerRemainingMs: number,
+  retryAfterMs: number | null,
+): number {
+  if (retryAfterMs !== null) {
+    return Math.min(Math.max(Math.round(retryAfterMs), 5_000), IMAGE_GENERATION_BACKOFF_MAX_MS)
+  }
+  const escalated = IMAGE_GENERATION_BACKOFF_FLOOR_MS * 2 ** Math.max(0, Math.min(Math.max(1, attempt), 6) - 1)
+  return Math.min(Math.max(breakerRemainingMs, escalated), IMAGE_GENERATION_BACKOFF_MAX_MS)
+}
+
+/** True when the error is an upstream throttle (real 429 or breaker skip). */
+function isGenerationThrottle(e: unknown): boolean {
+  return e instanceof UpstreamRateLimitError || classifyUpstreamError(e).kind === 'rate_limited'
+}
+
+/** Retry-After hint in ms when an adapter ever surfaces one (else null). */
+function retryAfterMsOf(e: unknown): number | null {
+  const raw = (e as { retryAfterMs?: unknown } | null)?.retryAfterMs
+  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : null
+}
+
+/** Persisted throttle state (survives restarts — same design as video). */
+export interface ImageThrottleState {
+  submissionAttempts: number
+  throttleWaitMs: number
+}
+
+function parseThrottleState(resultJson: string | null): ImageThrottleState {
+  if (!resultJson) return { submissionAttempts: 0, throttleWaitMs: 0 }
+  try {
+    const parsed = JSON.parse(resultJson) as { submissionAttempts?: unknown; throttleWaitMs?: unknown }
+    return {
+      submissionAttempts: typeof parsed.submissionAttempts === 'number' ? parsed.submissionAttempts : 0,
+      throttleWaitMs: typeof parsed.throttleWaitMs === 'number' ? parsed.throttleWaitMs : 0,
+    }
+  } catch {
+    return { submissionAttempts: 0, throttleWaitMs: 0 }
+  }
 }
 
 /**
@@ -73,6 +148,9 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
   const params = JSON.parse(job.paramsJson) as { prompt: string; size: string }
   const backend = getBackend('bean-image-hosted-primary')!
   const startedAt = new Date()
+  // Persisted throttle budget (survives restarts — parked jobs re-claim with
+  // the SAME row, so the attempt/wait history rides in resultJson).
+  const throttle0 = parseThrottleState(job.resultJson)
 
   await updateJob(job.id, { status: 'running', startedAt, progress: 15 })
 
@@ -150,6 +228,15 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       if (serious.length > 0) {
         const tCorr = Date.now()
         try {
+          // ZERO-DOWNTIME RECOVERY (2026-11-11): the targeted correction is
+          // AUTOMATED consumption of the shared provider account — when the
+          // account's user reserve is consumed, the correction stands down
+          // HONESTLY and the original (already-produced) image stays the
+          // result. The user's primary request is never withheld by the
+          // reserve; only this optional enhancement layer is.
+          const quotaState = await automatedQuotaState()
+          const reserveReason = automatedSkipReason(quotaState)
+          if (reserveReason) throw new Error(`correction not attempted: ${reserveReason}`)
           const corr = await hostedImageAdapter.editImage!({
             prompt: buildCorrectionPrompt(serious),
             imageBase64: result.bytes.toString('base64'),
@@ -281,6 +368,11 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
         durationMs: result.durationMs,
         ...(intelMeta ? { intel: intelMeta } : {}),
         ...(verification ? { verification } : {}),
+        // Honest recovery history: when this job was parked on a throttle
+        // window before succeeding, the parked attempts remain visible.
+        ...(throttle0.submissionAttempts > 0 || throttle0.throttleWaitMs > 0
+          ? { submissionAttempts: throttle0.submissionAttempts + 1, throttleWaitMs: throttle0.throttleWaitMs }
+          : {}),
       }),
     })
     await recordUsage({
@@ -304,6 +396,14 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       upstream: false,
     })
   } catch (e) {
+    // ZERO-DOWNTIME RECOVERY (2026-11-11): a throttle-class failure (real 429
+    // or a breaker skip) PARKS the job instead of destroying it — bounded,
+    // breaker-aligned retry_wait exactly like the video worker. Everything
+    // else fails terminally with its honest class, as before.
+    if (isGenerationThrottle(e)) {
+      await settleThrottledGeneration(job, e, backend.id, startedAt, throttle0)
+      return
+    }
     const message = e instanceof Error ? e.message : String(e)
     const timedOut = message.includes('timed out')
     // Classify the failure honestly: only UPSTREAM-class failures (throttle,
@@ -329,9 +429,7 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       errorCode: timedOut ? 'BACKEND_TIMEOUT' : 'BACKEND_FAILURE',
       errorMessage: timedOut
         ? 'Generation exceeded the time limit and was stopped.'
-        : failure.kind === 'rate_limited'
-          ? 'The image gateway is rate-limited right now (HTTP 429). The request was not repeated.'
-          : 'The image backend could not complete this request.',
+        : 'The image backend could not complete this request.',
     })
     await recordUsage({
       userId: job.userId,
@@ -344,4 +442,111 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
     })
     logger.warn('laxii.job_failed', { jobId: job.id, message })
   }
+}
+
+/**
+ * ZERO-DOWNTIME RECOVERY (2026-11-11): park a throttled image generation in
+ * RETRY_WAIT with a bounded, breaker-aligned backoff — the exact recovery
+ * the video worker has run since 2026-11-08 (measured: throttle windows
+ * last minutes; a real 429 must never be retried INTO the window). Bounded
+ * both ways (IMAGE_MAX_GENERATION_ATTEMPTS real attempts;
+ * IMAGE_MAX_CUMULATIVE_THROTTLE_MS total parked wait) so exhaustion ends in
+ * an honest terminal failure that states exactly what happened. A breaker
+ * SKIP made no network request — it counts no attempt and only extends the
+ * scheduled wait. No duplicate submission is possible: with no provider
+ * artifact, the retry IS the first accepted generation.
+ */
+async function settleThrottledGeneration(
+  job: ImageJobRow,
+  e: unknown,
+  backendId: string,
+  startedAt: Date,
+  throttle0: ImageThrottleState,
+): Promise<void> {
+  const attempted = !(e instanceof UpstreamRateLimitError && !e.attempted)
+  // Product-health evidence: a real 429 is genuine upstream evidence; a
+  // breaker skip is an application-side deferral (no request left the host).
+  noteRealAttempt('image-generation', {
+    at: new Date().toISOString(),
+    ok: false,
+    backendId,
+    failureCategory: 'rate-limited',
+    httpStatus: attempted ? 429 : null,
+    upstream: attempted,
+  })
+  const attempt = attempted ? throttle0.submissionAttempts + 1 : throttle0.submissionAttempts
+  const breakerRemainingMs = upstreamCooldownRemainingMs('images')
+  const retryAfterMs = retryAfterMsOf(e)
+  const backoffMs = imageGenerationBackoffMs(Math.max(1, attempt), breakerRemainingMs, retryAfterMs)
+  const cumulativeWaitMs = throttle0.throttleWaitMs + backoffMs
+  const exhausted =
+    (attempted && attempt >= IMAGE_MAX_GENERATION_ATTEMPTS) ||
+    cumulativeWaitMs > IMAGE_MAX_CUMULATIVE_THROTTLE_MS
+  const throttle = {
+    attempt: Math.max(1, attempt),
+    backoffMs,
+    retryAfterMs,
+    attempted,
+    at: new Date().toISOString(),
+  }
+  if (exhausted) {
+    const message =
+      `The image gateway kept throttling this generation (HTTP 429): ${Math.max(1, attempt)} authorized attempt(s) ` +
+      `over ~${Math.round(cumulativeWaitMs / 60_000)} minutes all landed inside the same account-wide throttle window, ` +
+      `so no image was produced. The job keeps its full attempt history. Resubmitting the same prompt is the way to try again — ` +
+      `it will succeed once the provider's throttle window closes.`
+    await updateJob(job.id, {
+      status: 'failed',
+      finishedAt: new Date(),
+      backendId,
+      errorClass: 'rate_limited',
+      errorCode: 'RATE_LIMITED',
+      errorMessage: message,
+      resultJson: JSON.stringify({ submissionAttempts: attempt, throttleWaitMs: cumulativeWaitMs, throttle }),
+    })
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId,
+      kind: 'image-generation',
+      success: false,
+      errorCode: 'RATE_LIMITED',
+      durationMs: Date.now() - startedAt.getTime(),
+    })
+    logger.warn('laxii.job_generation_throttle_exhausted', {
+      jobId: job.id,
+      attempt,
+      cumulativeWaitMs,
+    })
+    return
+  }
+  const message = attempted
+    ? `The image gateway is throttling generations (HTTP 429). The job stays queued — attempt ` +
+      `${attempt + 1} of ${IMAGE_MAX_GENERATION_ATTEMPTS} starts automatically in ~${Math.round(backoffMs / 1000)}s. ` +
+      `Nothing was lost; no duplicate was created.`
+    : `The image gateway is inside its 429 cooldown window, so no generation was attempted (generating into ` +
+      `an open throttle only deepens it). The job stays queued and will run when the window clears ` +
+      `(~${Math.round(backoffMs / 1000)}s).`
+  await updateJob(job.id, {
+    status: 'retry_wait',
+    nextRunAt: new Date(Date.now() + backoffMs),
+    backendId,
+    errorClass: 'rate_limited',
+    errorCode: 'RATE_LIMITED',
+    errorMessage: message,
+    resultJson: JSON.stringify({ submissionAttempts: attempt, throttleWaitMs: cumulativeWaitMs, throttle }),
+  })
+  await appendJobEventSafe(job.id, 'notice', {
+    generation_throttled: true,
+    attempt: Math.max(1, attempt),
+    backoffMs,
+    retryAfterMs,
+    attempted,
+  })
+  logger.warn('laxii.job_generation_throttled', {
+    jobId: job.id,
+    attempt: Math.max(1, attempt),
+    backoffMs,
+    attempted,
+  })
 }

@@ -28,7 +28,7 @@
 import { createHash } from 'crypto'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/observability/logger'
-import { engineConfig } from './config'
+import { engineConfig, jitteredRetryBackoffMs } from './config'
 import { appendJobEventSafe } from './events'
 import {
   ACTIVE_STATES,
@@ -275,9 +275,13 @@ export async function finishFailed(
   }
   const retryable = RETRYABLE_CLASSES.has(failure.errorClass) && job.attempts < job.maxAttempts
   if (retryable) {
-    const backoff = engineConfig().retryBackoffMs[
+    const backoffBase = engineConfig().retryBackoffMs[
       Math.min(job.attempts - 1, engineConfig().retryBackoffMs.length - 1)
     ]
+    // ZERO-DOWNTIME RECOVERY (2026-11-11): bounded ±20% jitter so
+    // concurrently failing jobs never re-hit a recovering provider in a
+    // synchronized burst (retry-storm prevention).
+    const backoff = jitteredRetryBackoffMs(backoffBase)
     const nextRunAt = new Date(Date.now() + backoff)
     await db.generationJob.updateMany({
       where: { id: jobId, status: { in: ['starting', 'running', 'streaming', 'finalizing'] } },
