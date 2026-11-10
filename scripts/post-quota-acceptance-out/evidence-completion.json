@@ -1,0 +1,245 @@
+{
+  "at": "2026-11-10T01:48:12.445Z",
+  "email": "quota-accept-1794274834768@bean.local",
+  "steps": [
+    {
+      "step": "recovery: session re-established (same acceptance user, no provider calls)",
+      "ok": true,
+      "detail": "HTTP 200",
+      "at": "2026-11-10T01:48:10.238Z"
+    },
+    {
+      "step": "recovery: LAXII job rows confirmed completed in DB",
+      "ok": true,
+      "detail": "t2i=completed edit=completed",
+      "at": "2026-11-10T01:48:10.244Z",
+      "evidence": {
+        "t2i": "{\"imageUrl\":\"/api/laxii/images/cmwa0wwed000zqavut6otl166\",\"assetUrl\":\"/api/laxii/assets/cmwa0xmi70012qavukc45x583\",\"assetId\":\"cmwa0xmi70012qavukc45x583\",\"width\":1024,\"height\":1024,\"format\":\"jpeg\",\"bytes\":118850,\"durationMs\":33149,\"intel\":{\"layer\":\"bean-intel/1\",\"mode\":\"none\",\"promptLanguage\":\"en\",\"knowledgeComponents\":[\"wind-vegetation\",\"liquid-pour\",\"optics-light\"],\"evidenceHosts\":[],\"evidenceUrls\":[],\"degraded\":[],\"conditioningChars\":1867,\"timingMs\":{\"understandMs\":6.23,\"retrieveMs\":0,\"compileMs\":6.81,\"totalMs\":14.51}},\"verification\":{\"checked\":false,\"method\":\"unavailable\",\"defects\":[],\"observation\":null,\"checkedAt\":\"2026-11-10T01:41:15.441Z\",\"durationMs\":0,\"reason\":\"vision check skipped: the chat endpoint class is cooling down after a measured rate limit; no network call was made\"}}",
+        "edit": "{\"imageUrl\":\"/api/laxii/assets/cmwa0xy11001cqavu1kx5muue\",\"originalUrl\":\"/api/laxii/assets/cmwa0xmw30016qavuq5vygw83\",\"width\":1024,\"height\":1024,\"format\":\"png\",\"bytes\":150042,\"durationMs\":13503,\"provenance\":{\"engine\":\"hosted-edit\",\"pipeline\":\"managed-images-edit\",\"mode\":\"conversational-edit\",\"inputPreparedMaxSidePx\":1024}}"
+      }
+    },
+    {
+      "step": "laxii: text-to-image artifact downloaded + decoded (completes the live run step)",
+      "ok": true,
+      "detail": "118850B magic=jpeg ffprobe=mjpeg 1024x1024 (job row: 1024x1024 118850B durationMs=33149)",
+      "at": "2026-11-10T01:48:10.932Z",
+      "evidence": {
+        "url": "/api/laxii/images/cmwa0wwed000zqavut6otl166",
+        "download": {
+          "bytes": 118850,
+          "kind": "jpeg"
+        },
+        "ffprobe": {
+          "formatName": "jpeg_pipe",
+          "durationSec": null,
+          "sizeBytes": 118850,
+          "video": {
+            "codec": "mjpeg",
+            "width": 1024,
+            "height": 1024,
+            "frames": null,
+            "durationSec": null
+          }
+        }
+      }
+    },
+    {
+      "step": "laxii: conversational-edit artifact downloaded + decoded (completes the live run step)",
+      "ok": true,
+      "detail": "150042B magic=png ffprobe=png 1024x1024 (job row: 1024x1024 150042B durationMs=13503)",
+      "at": "2026-11-10T01:48:11.781Z",
+      "evidence": {
+        "url": "/api/laxii/assets/cmwa0xy11001cqavu1kx5muue",
+        "download": {
+          "bytes": 150042,
+          "kind": "png"
+        },
+        "ffprobe": {
+          "formatName": "png_pipe",
+          "durationSec": null,
+          "sizeBytes": 150042,
+          "video": {
+            "codec": "png",
+            "width": 1024,
+            "height": 1024,
+            "frames": null,
+            "durationSec": null
+          }
+        }
+      }
+    },
+    {
+      "step": "health: snapshot captured",
+      "ok": true,
+      "detail": "no fresh burst 429 in snapshot",
+      "at": "2026-11-10T01:48:12.439Z",
+      "evidence": {
+        "statuses": {
+          "riishe": "operational",
+          "laxii": "operational",
+          "jazmii": "operational",
+          "code-giftz": "operational"
+        }
+      }
+    },
+    {
+      "step": "db evidence pack",
+      "ok": true,
+      "detail": "4 jobs, 7 usage rows (all success=true), 8 audit rows",
+      "at": "2026-11-10T01:48:12.444Z",
+      "evidence": {
+        "jobs": [
+          {
+            "id": "cmwa0ww07000rqavuc2e0ze87",
+            "product": "code-giftz",
+            "task": "coding-task",
+            "status": "completed",
+            "queuedAt": "2026-11-10T01:40:41.094Z",
+            "finishedAt": "2026-11-10T01:40:41.094Z",
+            "backendId": "bean-code-llm-hosted-primary"
+          },
+          {
+            "id": "cmwa0wwed000zqavut6otl166",
+            "product": "laxii",
+            "task": "image-generation",
+            "status": "completed",
+            "queuedAt": "2026-11-10T01:40:41.605Z",
+            "finishedAt": "2026-11-10T01:41:15.441Z",
+            "backendId": "bean-image-hosted-primary"
+          },
+          {
+            "id": "cmwa0xn8i0019qavumbj8ys10",
+            "product": "laxii",
+            "task": "image-editing",
+            "status": "completed",
+            "queuedAt": "2026-11-10T01:41:16.386Z",
+            "finishedAt": "2026-11-10T01:41:30.374Z",
+            "backendId": "bean-image-hosted-edit"
+          },
+          {
+            "id": "cmwa0xz0d001gqavuuk9vse5q",
+            "product": "jazmii",
+            "task": "video-generation",
+            "status": "completed",
+            "queuedAt": "2026-11-10T01:41:31.645Z",
+            "finishedAt": "2026-11-10T01:42:44.263Z",
+            "backendId": "bean-video-hosted-primary"
+          }
+        ],
+        "usage": [
+          {
+            "product": "riishe",
+            "kind": "chat",
+            "success": true,
+            "durationMs": 878,
+            "imageCount": null,
+            "errorCode": null
+          },
+          {
+            "product": "riishe",
+            "kind": "chat",
+            "success": true,
+            "durationMs": 2963,
+            "imageCount": null,
+            "errorCode": null
+          },
+          {
+            "product": "code-giftz",
+            "kind": "coding-task",
+            "success": true,
+            "durationMs": 1746,
+            "imageCount": null,
+            "errorCode": null
+          },
+          {
+            "product": "code-giftz",
+            "kind": "coding-task",
+            "success": true,
+            "durationMs": 47,
+            "imageCount": null,
+            "errorCode": null
+          },
+          {
+            "product": "laxii",
+            "kind": "image-generation",
+            "success": true,
+            "durationMs": 33149,
+            "imageCount": 1,
+            "errorCode": null
+          },
+          {
+            "product": "laxii",
+            "kind": "image-editing",
+            "success": true,
+            "durationMs": 13504,
+            "imageCount": 1,
+            "errorCode": null
+          },
+          {
+            "product": "jazmii",
+            "kind": "video-generation",
+            "success": true,
+            "durationMs": 72404,
+            "imageCount": null,
+            "errorCode": null
+          }
+        ],
+        "auditActions": [
+          {
+            "action": "auth.register",
+            "target": "cmwa0wrc40003qavuccp24gzb",
+            "at": "2026-11-10T01:40:35.050Z"
+          },
+          {
+            "action": "auth.login",
+            "target": "cmwa0wrc40003qavuccp24gzb",
+            "at": "2026-11-10T01:40:35.097Z"
+          },
+          {
+            "action": "code-giftz.task",
+            "target": "cmwa0ww07000rqavuc2e0ze87",
+            "at": "2026-11-10T01:40:41.099Z"
+          },
+          {
+            "action": "code-giftz.sandbox_run",
+            "target": "cmwa0ww07000rqavuc2e0ze87",
+            "at": "2026-11-10T01:40:41.273Z"
+          },
+          {
+            "action": "laxii.submit",
+            "target": "cmwa0wwed000zqavut6otl166",
+            "at": "2026-11-10T01:40:41.607Z"
+          },
+          {
+            "action": "laxii.asset_upload",
+            "target": "cmwa0xmw30016qavuq5vygw83",
+            "at": "2026-11-10T01:41:15.943Z"
+          },
+          {
+            "action": "laxii.edit_submit",
+            "target": "cmwa0xn8i0019qavumbj8ys10",
+            "at": "2026-11-10T01:41:16.388Z"
+          },
+          {
+            "action": "auth.login",
+            "target": "cmwa0wrc40003qavuccp24gzb",
+            "at": "2026-11-10T01:48:10.236Z"
+          }
+        ],
+        "jazmiiProviderTaskId": "20261110094134447653ab64454ff9",
+        "jazmiiSubmissionAttempts": 1,
+        "jazmiiResultKeys": [
+          "providerTaskId",
+          "providerStatus",
+          "intel",
+          "submissionAttempts",
+          "videoUrl",
+          "format",
+          "bytes",
+          "durationMs",
+          "continuity"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+BEAN post-quota acceptance — pre-test observation (2026-11-10)
+
+01:25:38Z  scripts/quota-once.ts (authoritative response headers, 1 minimal request):
+  HTTP 200, x-ratelimit-limit-daily: 300, x-ratelimit-remaining-daily: 272,
+  x-ratelimit-user-daily-remaining: 472, x-ratelimit-limit-qps: 2, retry-after: null
+  => daily quota DID refill at midnight UTC; account serving.
+
+01:36:43Z  a GET /api/health (readiness curl) fired the health fan-out
+  (2 chat completion probes + 1 web_search probe + image/video reachability
+  in ONE Promise.all). Authoritative limit-qps is 2 requests/second; the
+  3-call parallel burst tripped it: one chat probe got HTTP 429
+  (breaker opened 60s), the TWIN chat probe succeeded (payload showed
+  consecutive429s reset to 0 by noteUpstreamSuccess while coolingDown stayed
+  true until 01:37:43, skippedCalls 4).
+
+Conclusion: quota is refilled and available; the observed 429 is a QPS burst
+trip of the parallel health fan-out, NOT daily-quota exhaustion. The
+acceptance run therefore: (a) performs NO /api/health calls until the final
+four-product status step, (b) keeps all product tests strictly sequential.
