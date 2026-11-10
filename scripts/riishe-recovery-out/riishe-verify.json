@@ -1,0 +1,144 @@
+{
+  "runAt": "2026-11-10T02:58:40.711Z",
+  "email": "riishe-recovery-1794279483490@bean.local",
+  "quota": {
+    "before": {
+      "remaining": 80,
+      "status": 200
+    },
+    "after": {
+      "remaining": 71,
+      "status": 200
+    },
+    "delta": 9
+  },
+  "steps": [
+    {
+      "step": "quota probe before tests",
+      "ok": true,
+      "status": 200,
+      "detail": "x-ratelimit-remaining-daily=80"
+    },
+    {
+      "step": "auth: fresh user registered+logged in",
+      "ok": true,
+      "status": 200,
+      "detail": "riishe-recovery-1794279483490@bean.local"
+    },
+    {
+      "step": "auth: session resolved",
+      "ok": true,
+      "status": 200,
+      "detail": "userId=cmwa3oehn0"
+    },
+    {
+      "step": "health quota-proof: 2 fresh polls consumed ZERO usage rows",
+      "ok": true,
+      "status": 200,
+      "detail": "rows 16→16; riishe status=operational; chat probe detail=\"Gateway host reachable (free liveness check, HTTP 404); the most recent REAL chat completion succeeded at 2026\""
+    },
+    {
+      "step": "health probes report quota-free evidence basis",
+      "ok": true,
+      "status": 200,
+      "detail": "chat detail=\"Gateway host reachable (free liveness check, HTTP 404); the most recent REAL chat completion succeeded at 2026-11-10T02:57:20.103Z\""
+    },
+    {
+      "step": "research probe is quota-free",
+      "ok": true,
+      "status": 200,
+      "detail": "research detail=\"Gateway host reachable (free liveness check, HTTP 404); the most recent REAL web_search succeeded at 2026-11-10T02:57:01.946Z. No \""
+    },
+    {
+      "step": "health latency measured",
+      "ok": true,
+      "status": 200,
+      "detail": "poll1=14ms poll2=118ms"
+    },
+    {
+      "step": "English chat (streamed; short single-token answers legitimately arrive in one frame)",
+      "ok": true,
+      "status": 200,
+      "detail": "deltas=1 firstDelta=455ms total=459ms content=\"391\""
+    },
+    {
+      "step": "English turn metered once",
+      "ok": true,
+      "status": null,
+      "detail": "riishe rows 8→9"
+    },
+    {
+      "step": "Tamil chat (streamed, same-language reply)",
+      "ok": true,
+      "status": 200,
+      "detail": "deltas=6 total=637ms tamilScript=true content=\"\nசென்னை\""
+    },
+    {
+      "step": "Tamil turn metered once",
+      "ok": true,
+      "status": null,
+      "detail": "riishe rows 9→10"
+    },
+    {
+      "step": "Context recall across history (17*23=391 answered 2 turns earlier)",
+      "ok": true,
+      "status": 200,
+      "detail": "content=\"\nTwo turns ago, you asked me to compute \"17 * 23\", and the answer was 391.\" total=691ms"
+    },
+    {
+      "step": "Recall turn metered once",
+      "ok": true,
+      "status": null,
+      "detail": "riishe rows 10→11"
+    },
+    {
+      "step": "Multilingual chat (Hindi, same-language reply)",
+      "ok": true,
+      "status": 200,
+      "detail": "deltas=22 devanagari=true content=\"भारत की राजधानी नई दिल्ली है।\""
+    },
+    {
+      "step": "Hindi turn metered once",
+      "ok": true,
+      "status": null,
+      "detail": "riishe rows 11→12"
+    },
+    {
+      "step": "Web research with citations",
+      "ok": true,
+      "status": 200,
+      "detail": "sources=3 citations=true queries=[] total=12457ms"
+    },
+    {
+      "step": "Research answers the question",
+      "ok": true,
+      "status": 200,
+      "detail": "answer=\"The current Chief Minister of Tamil Nadu is C. Joseph Vijay, who is serving as the 9th chief minister of Tamil Nadu since 10 May 2026 [6]. He is the president o\""
+    },
+    {
+      "step": "Conversation persistence (English + Tamil rows re-readable)",
+      "ok": true,
+      "status": 200,
+      "detail": "messages=6 user=3 assistant=3"
+    },
+    {
+      "step": "quota probe after tests",
+      "ok": true,
+      "status": 200,
+      "detail": "x-ratelimit-remaining-daily=71"
+    },
+    {
+      "step": "FINAL: health monitoring consumed zero quota (authoritative headers)",
+      "ok": true,
+      "status": 200,
+      "detail": "health polls consumed 0 usage rows; account delta over whole run=9 (tests + probes only)"
+    },
+    {
+      "step": "FINAL: total run rows",
+      "ok": true,
+      "status": null,
+      "detail": "all-usage rows today 16→21; riishe=13"
+    }
+  ],
+  "failedCount": 0
+}
