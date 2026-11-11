@@ -106,9 +106,20 @@ function canvasToPngFile(canvas: HTMLCanvasElement): Promise<File> {
 export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
   const [mode, setMode] = useState<Mode>('create')
 
-  // ---- Create (unchanged behavior) ----
+  // ---- Create ----
   const [prompt, setPrompt] = useState('')
   const [size, setSize] = useState(sizes[0]?.value ?? '1024x1024')
+  // ---- CUSTOM IMAGE DIMENSIONS (2026-11-11): additive state only — the
+  // preset flow and its behavior are untouched. Bounds mirror the server's
+  // authoritative validation so malformed requests are caught client-side
+  // first, then enforced again server-side.
+  const CUSTOM_MIN_PX = 256
+  const CUSTOM_MAX_PX = 4096
+  const [customMode, setCustomMode] = useState(false)
+  const [customW, setCustomW] = useState('1920')
+  const [customH, setCustomH] = useState('1080')
+  const [lockAspect, setLockAspect] = useState(false)
+  const [lockRatio, setLockRatio] = useState<number | null>(null)
 
   // ---- Enhance / Edit shared ----
   const [asset, setAsset] = useState<Asset | null>(null)
@@ -197,6 +208,42 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
     }
   }
 
+  // ---- custom-dimension helpers ----
+  function parseCustomDim(raw: string, axis: 'width' | 'height'): number {
+    const trimmed = raw.trim()
+    if (!/^\d+$/.test(trimmed)) throw new Error(`Custom ${axis} must be a whole number of pixels (no decimals).`)
+    const v = Number(trimmed)
+    if (v <= 0) throw new Error(`Custom ${axis} must be a positive pixel value.`)
+    if (v < CUSTOM_MIN_PX) throw new Error(`Custom ${axis} must be at least ${CUSTOM_MIN_PX}px — smaller images fall apart.`)
+    if (v > CUSTOM_MAX_PX) throw new Error(`Custom ${axis} exceeds the ${CUSTOM_MAX_PX}px maximum for image generation.`)
+    return v
+  }
+
+  function onCustomWChange(raw: string) {
+    setCustomW(raw)
+    if (lockAspect && lockRatio) {
+      const w = Number(raw)
+      if (Number.isFinite(w) && w > 0) setCustomH(String(Math.max(1, Math.round(w / lockRatio))))
+    }
+  }
+
+  function onCustomHChange(raw: string) {
+    setCustomH(raw)
+    if (lockAspect && lockRatio) {
+      const h = Number(raw)
+      if (Number.isFinite(h) && h > 0) setCustomW(String(Math.max(1, Math.round(h * lockRatio))))
+    }
+  }
+
+  function toggleLock() {
+    if (!lockAspect) {
+      const w = Number(customW)
+      const h = Number(customH)
+      setLockRatio(Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 ? w / h : 16 / 9)
+    }
+    setLockAspect(!lockAspect)
+  }
+
   // ---- submit paths ----
   async function submitCreate() {
     const p = prompt.trim()
@@ -205,7 +252,13 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
     setError(null)
     setNotice(null)
     try {
-      await beanFetch('/api/laxii/generate', { method: 'POST', json: { prompt: p, size } })
+      if (customMode) {
+        const width = parseCustomDim(customW, 'width')
+        const height = parseCustomDim(customH, 'height')
+        await beanFetch('/api/laxii/generate', { method: 'POST', json: { prompt: p, width, height } })
+      } else {
+        await beanFetch('/api/laxii/generate', { method: 'POST', json: { prompt: p, size } })
+      }
       setNotice('Job queued. Generation typically takes about a minute — status below updates live.')
       await loadJobs()
     } catch (e) {
@@ -392,10 +445,10 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
                 {sizes.map((s) => (
                   <button
                     key={s.value}
-                    onClick={() => setSize(s.value)}
+                    onClick={() => { setSize(s.value); setCustomMode(false) }}
                     className={cn(
                       'rounded-lg border px-2.5 py-2 text-left text-[11px] transition-colors',
-                      size === s.value
+                      !customMode && size === s.value
                         ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.12)] text-[#f0c75e]'
                         : 'border-white/10 text-white/55 hover:border-[rgba(212,175,55,0.3)]',
                     )}
@@ -404,7 +457,54 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
                     <div className="text-white/35">{s.value}</div>
                   </button>
                 ))}
+                <button
+                  onClick={() => setCustomMode(true)}
+                  className={cn(
+                    'rounded-lg border px-2.5 py-2 text-left text-[11px] transition-colors',
+                    customMode
+                      ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.12)] text-[#f0c75e]'
+                      : 'border-white/10 text-white/55 hover:border-[rgba(212,175,55,0.3)]',
+                  )}
+                >
+                  <div className="font-medium">Custom size</div>
+                  <div className="text-white/35">{customW || '?'} × {customH || '?'} px</div>
+                </button>
               </div>
+              {customMode && (
+                <div className="mt-2 rounded-lg border border-white/10 bg-black/30 p-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="mb-1 block text-[10px] uppercase tracking-wide text-white/45">Width (px)</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={customW}
+                        onChange={(e) => onCustomWChange(e.target.value)}
+                        className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-white/90 outline-none focus:border-[rgba(212,175,55,0.5)]"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-[10px] uppercase tracking-wide text-white/45">Height (px)</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={customH}
+                        onChange={(e) => onCustomHChange(e.target.value)}
+                        className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-white/90 outline-none focus:border-[rgba(212,175,55,0.5)]"
+                      />
+                    </label>
+                  </div>
+                  <label className="mt-2.5 flex cursor-pointer items-center gap-2 text-[11px] text-white/55">
+                    <input
+                      type="checkbox"
+                      checked={lockAspect}
+                      onChange={toggleLock}
+                      className="h-3.5 w-3.5 accent-[#d4af37]"
+                    />
+                    Lock aspect ratio {lockAspect && lockRatio ? `(${lockRatio >= 1 ? `${lockRatio.toFixed(3).replace(/\.?0+$/, '')} : 1` : `1 : ${(1 / lockRatio).toFixed(3).replace(/\.?0+$/, '')}`})` : ''}
+                  </label>
+                </div>
+              )}
             </div>
 
             <Button

@@ -1,0 +1,24 @@
+== LAXII CUSTOM DIMENSIONS + POSTER HOTFIX — evidence 2026-11-11T05:29:16Z ==
+
+-- POSTER ROOT CAUSE (measured, from audit trail + dev.log):
+   provider returns HTTP 200 {"error":{"message":"Handler dispatch failed; nested exception is java.lang.StackOverflowError"}}
+   for the exact BEAN INTELLIGENCE poster prompt (2/2 attempts) — SDK crashed on its unguarded result.data.map,
+   job died as generic BACKEND_FAILURE with zero diagnostics. Fixed: direct defensive fetch + typed ImageProviderResponseError,
+   transient-bounded retry, sanitized diagnostics retained (audit + job + logs), hybrid typography recovery.
+
+-- CUSTOM DIMENSIONS live matrix (decoded bytes measured, not metadata):
+   1920x1080 cover-crop 1344x768 -> decoded EXACT 1920x1080
+   1080x1920 cover-crop 768x1344 -> decoded EXACT 1080x1920
+   2048x2048 resize 1024x1024    -> decoded EXACT 2048x2048
+   1500x1000 cover-crop 1152x864 -> decoded EXACT 1500x1000
+   1024x1024 native              -> decoded EXACT 1024x1024
+
+-- Validation rejections (live, 0 cost): zero/negative/decimal/excessive/sub-minimum/both-modes/missing-field all 400 with specific messages
+
+-- Worker integration (mocked provider fault, REAL composite + REAL tesseract):
+   tests/unit/laxii-poster-hybrid.test.ts — attempt1 parks UPSTREAM_RESPONSE_INVALID; attempt2 hybrid completes with
+   strategy hybrid-typography, OCR confirms both exact text segments on the artifact.
+
+-- Full suite: 1341 pass / 0 fail.
+-- QUOTA NOTE: account daily ceiling reached during the live suite (x-ratelimit-remaining-daily hit 0 ~05:12Z; resets 00:00 UTC).
+   Remaining live items (poster-through-hybrid end-to-end, Chennai aerial, bg-removal, conversational edit re-run) scheduled for the post-reset run.

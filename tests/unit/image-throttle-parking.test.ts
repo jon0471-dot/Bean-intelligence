@@ -59,6 +59,19 @@ mock.module('@/lib/ai-engine/events', () => ({
 const generateScript: Array<(req: unknown) => Promise<unknown>> = []
 let generateCalls = 0
 mock.module('@/lib/adapters/hosted-image', () => ({
+  // The typed malformed-response error must stay real: the worker's
+  // POSTER-HOTFIX catch branches use instanceof on it.
+  ImageProviderResponseError: class ImageProviderResponseError extends Error {
+    providerDetail: string
+    bodyKeys: string[]
+    httpStatus: number
+    constructor(httpStatus: number, providerDetail: string, bodyKeys: string[]) {
+      super(`image provider returned HTTP ${httpStatus} without a usable image payload`)
+      this.httpStatus = httpStatus
+      this.providerDetail = providerDetail
+      this.bodyKeys = bodyKeys
+    }
+  },
   hostedImageAdapter: {
     backendId: 'bean-image-hosted-primary',
     health: async () => ({ healthy: true, checkedAt: '', latencyMs: 1, detail: 'ok' }),

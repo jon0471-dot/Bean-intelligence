@@ -27,6 +27,9 @@ const SUPPORTED_SIZES = [
   '720x1440',
 ] as const
 type SupportedSize = (typeof SUPPORTED_SIZES)[number]
+// The literal union remains the adapter's contract for native generation;
+// custom targets never reach the provider raw (the worker plans them).
+void (null as unknown as SupportedSize | null)
 const SUPPORTED_SIZE_SET = new Set<string>(SUPPORTED_SIZES)
 
 /**
@@ -114,9 +117,54 @@ async function probeGatewayReachability(
   }
 }
 
+/**
+ * HOTFIX (LAXII poster BACKEND_FAILURE, 2026-11-11): typed error for a 2xx
+ * provider response whose body is not a usable image payload. Measured root
+ * cause of the poster failure: the SDK's `createImageGeneration` executes
+ * `result.data.map(...)` UNGUARDED, so any 2xx body without a `data` array
+ * crashed as "Cannot read properties of undefined (reading 'map')" — the
+ * provider's actual answer was discarded, the exception reached the worker
+ * unclassifiable (kind 'other') and the job was genericized to
+ * BACKEND_FAILURE with zero diagnostics. This error carries the provider's
+ * own message and body SHAPE (keys only — never values, never credentials)
+ * so the failure is diagnosable without exposing anything sensitive.
+ */
+export class ImageProviderResponseError extends Error {
+  readonly providerDetail: string
+  readonly bodyKeys: string[]
+  readonly httpStatus: number
+  constructor(httpStatus: number, providerDetail: string, bodyKeys: string[]) {
+    const detail = providerDetail ? `: ${providerDetail.slice(0, 200)}` : ''
+    super(
+      `image provider returned HTTP ${httpStatus} without a usable image payload` +
+        `(body keys: ${bodyKeys.join(', ') || 'none'})${detail}`,
+    )
+    this.name = 'ImageProviderResponseError'
+    this.httpStatus = httpStatus
+    this.providerDetail = providerDetail
+    this.bodyKeys = bodyKeys
+  }
+}
+
+/** Defensive extraction of one image item from the provider response. */
+async function imageBytesFromResponseItem(item: unknown): Promise<Buffer> {
+  if (!item || typeof item !== 'object') throw new Error('image response item is not an object')
+  const rec = item as { base64?: unknown; b64_json?: unknown; url?: unknown }
+  if (typeof rec.base64 === 'string' && rec.base64.length > 0) return Buffer.from(rec.base64, 'base64')
+  if (typeof rec.b64_json === 'string' && rec.b64_json.length > 0) return Buffer.from(rec.b64_json, 'base64')
+  if (typeof rec.url === 'string' && rec.url.length > 0) {
+    // Same contract as the SDK's downloadImageAsBase64 (plain GET), but with
+    // an explicit guard: a failed artifact download is an honest, specific
+    // error, never a silent crash.
+    const res = await fetch(rec.url)
+    if (!res.ok) throw new Error(`image download from the provider CDN failed (HTTP ${res.status})`)
+    return Buffer.from(await res.arrayBuffer())
+  }
+  throw new Error('image response item carried neither base64/b64_json nor url')
+}
+
 export const hostedImageAdapter: TaskAdapter = {
   backendId: BACKEND_ID,
-
   async health(): Promise<HealthReport> {
     // Two measured facts, kept strictly separate in the report:
     //  1. CONFIGURED  — a gateway client can be constructed from real config
@@ -256,36 +304,87 @@ export const hostedImageAdapter: TaskAdapter = {
         false,
       )
     }
-    // Runtime-validated above; the cast only mirrors the SDK's literal union.
-    const size = req.size as SupportedSize
     const t0 = Date.now()
+    const size = req.size // native provider size — custom targets are planned by the worker
     const zai = await ZAI.create()
-    let res
-    try {
-      res = await zai.images.generations.create({
-        prompt: req.prompt.slice(0, 4000),
-        size,
-      })
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e)
-      if (/\bstatus\s+429\b|\bHTTP\s+429\b/.test(message)) {
-        noteUpstream429('images')
-        throw new UpstreamRateLimitError(
-          'images',
-          `image generation is rate-limited upstream (HTTP 429): ${message.slice(0, 200)}`,
-        )
-      }
-      throw e
+    // HOTFIX (2026-11-11): the provider call no longer goes through the SDK's
+    // `createImageGeneration`, whose unguarded `result.data.map(...)` crashed
+    // on any 2xx response without a `data` array and DISCARDED the provider's
+    // actual answer (measured: the BEAN INTELLIGENCE poster job failed in
+    // 188ms as an unclassifiable TypeError → generic BACKEND_FAILURE). The
+    // wire contract below is byte-identical to the SDK's documented request
+ //    (dist/index.js:237-293): same URL, headers and body — but every
+    // response shape is handled explicitly and the raw provider message is
+    // preserved (sanitized) on failure. The success path is unchanged:
+    // base64/b64_json decode or CDN-url download, then magic-byte validation.
+    const cfg = (zai as unknown as { config?: { baseUrl?: string; apiKey?: string; chatId?: string; userId?: string; token?: string } }).config
+    if (!cfg?.baseUrl || !cfg.apiKey) {
+      throw new Error('image gateway is not configured (missing baseUrl/apiKey)')
     }
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${cfg.apiKey}`,
+      'X-Z-AI-From': 'Z',
+    }
+    if (cfg.chatId) headers['X-Chat-Id'] = cfg.chatId
+    if (cfg.userId) headers['X-User-Id'] = cfg.userId
+    if (cfg.token) headers['X-Token'] = cfg.token
+
+    const res = await fetch(`${cfg.baseUrl.replace(/\/+$/, '')}/images/generations`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt: req.prompt.slice(0, 4000), size }),
+    })
+
+    if (!res.ok) {
+      // Same message phrasing the SDK produced — classifyUpstreamError's
+      // status parsing (rate-limited / auth / billing) keeps working on it.
+      const bodyText = (await res.text().catch(() => '')).slice(0, 300)
+      if (res.status === 429) {
+        noteUpstream429('images')
+        throw new UpstreamRateLimitError('images', `image generation is rate-limited upstream (HTTP 429): ${bodyText.slice(0, 200)}`)
+      }
+      throw new Error(`API request failed with status ${res.status}: ${bodyText}`)
+    }
+
+    let json: unknown
+    try {
+      json = await res.json()
+    } catch {
+      throw new ImageProviderResponseError(res.status, 'response body was not valid JSON', [])
+    }
+    const data = (json as { data?: unknown } | null)?.data
+    if (!Array.isArray(data) || data.length === 0) {
+      const body = (json && typeof json === 'object' ? json : {}) as Record<string, unknown>
+      // The provider's answer may carry its message in either measured shape:
+      // {"error":{"message":…}} (measured live on the poster fault) or
+      // {"error":"…"} / {"message":"…"}. Retain it — sanitized downstream.
+      const err: unknown = body.error
+      const providerDetail =
+        (typeof err === 'object' && err !== null && typeof (err as { message?: unknown }).message === 'string'
+          ? (err as { message: string }).message
+          : undefined) ??
+        (typeof err === 'string' ? err : undefined) ??
+        (typeof body.message === 'string' ? body.message : '')
+      // noteUpstreamSuccess is NOT claimed: no image was produced.
+      throw new ImageProviderResponseError(res.status, providerDetail, Object.keys(body))
+    }
+    const bytes = await imageBytesFromResponseItem(data[0]).catch((e) => {
+      throw new ImageProviderResponseError(
+        res.status,
+        e instanceof Error ? e.message : 'image payload extraction failed',
+        Object.keys((json && typeof json === 'object' ? json : {}) as Record<string, unknown>),
+      )
+    })
     noteUpstreamSuccess('images')
-    const b64 = res.data?.[0]?.base64
-    if (!b64) throw new Error('Upstream returned no image payload')
-    const bytes = Buffer.from(b64, 'base64')
     // Validate the magic bytes — never accept an empty/unknown payload.
+    // MEASURED (2026-11-11): the gateway normally serves JPEG bytes, but the
+    // CDN URL names a .png object — magic bytes decide, like editImage does.
     const isJpeg = bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8
-    if (!isJpeg) throw new Error('Upstream payload was not a valid image')
+    const isPng = bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+    if (!isJpeg && !isPng) throw new Error('Upstream payload was not a valid image')
     const [w, h] = req.size.split('x').map((n) => parseInt(n, 10))
-    return { bytes, width: w, height: h, format: 'jpeg', durationMs: Date.now() - t0 }
+    return { bytes, width: w, height: h, format: isPng ? 'png' : 'jpeg', durationMs: Date.now() - t0 }
   },
 
   /**
