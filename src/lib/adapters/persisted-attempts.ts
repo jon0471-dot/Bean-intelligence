@@ -24,6 +24,7 @@
  */
 import { db } from '@/lib/db'
 import type { HealthFailureCategory } from './types'
+import { ATTEMPT_FRESHNESS_MS } from './last-attempts'
 import type { AttemptRecordLike } from '@/lib/registry/capabilities'
 
 export type PersistedAttemptTask =
@@ -169,6 +170,54 @@ export async function persistedUpstreamFailure(
     // Evidence lookup must never break the health payload.
     return null
   }
+}
+
+/**
+ * HOTFIX (LAXII TEXT-TO-IMAGE RATE LIMITING, 2026-11-11): the FRESHNESS
+ * contract the persisted failure must satisfy before it may steer a
+ * capability state. `persistedUpstreamFailure` returns the latest failed row
+ * of ANY age — that is correct for `persistedLastAttempt` (display evidence:
+ * the newest record wins, a restart must never whiten a failure), but it is
+ * NOT valid as the capability model's `freshUpstreamFailure` input, whose
+ * documented contract is "fresh upstream-class failure or null" — the same
+ * contract the in-memory tracker enforces with its 15-minute
+ * ATTEMPT_FRESHNESS_MS window and last-write-wins ordering.
+ *
+ * Measured defect this closes (live 2026-11-11T03:39Z): a 24-HOUR-OLD
+ * rate_limited T2I row (2026-11-10T03:24:28Z) was fed to
+ * `generationCapability` as `freshUpstreamFailure`, whose branch outranks
+ * `lastAttempt?.ok` — so a newer SUCCESSFUL real generation
+ * (2026-11-11T03:09:16Z, artifact verified) could never lift the state, and
+ * LAXII Text-to-Image (plus the product badge) rendered 'rate-limited'
+ * forever, with the factually false note "the most recent real generation
+ * attempt was rate-limited upstream". A persisted failure is FRESH evidence
+ * here only when (a) it is inside the same freshness window the in-memory
+ * chain uses and (b) no newer attempt record supersedes it (a success after
+ * the failure invalidates "the most recent attempt failed"). Purely
+ * ADDITIVE: existing functions and every existing caller are unchanged.
+ */
+export async function recentPersistedUpstreamFailure(
+  task: Exclude<PersistedAttemptTask, 'chat-completion'>,
+  opts: {
+    /** Evaluation clock (tests pin it); default now. */
+    now?: number
+    /** The newest known attempt record of ANY outcome; a record NEWER than
+     *  the failure supersedes it as evidence of what happened last. */
+    supersededBy?: AttemptRecordLike | null
+  } = {},
+): Promise<AttemptRecordLike | null> {
+  const failure = await persistedUpstreamFailure(task)
+  if (!failure) return null
+  const t = Date.parse(failure.at)
+  if (Number.isNaN(t)) return null
+  const now = opts.now ?? Date.now()
+  if (now - t > ATTEMPT_FRESHNESS_MS) return null
+  const newer = opts.supersededBy
+  if (newer) {
+    const nt = Date.parse(newer.at)
+    if (!Number.isNaN(nt) && nt > t) return null
+  }
+  return failure
 }
 
 /**

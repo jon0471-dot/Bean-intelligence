@@ -12,6 +12,7 @@ import { lastRealAttempt, recentUpstreamFailure, type AttemptTask } from '@/lib/
 import {
   persistedLastAttempt,
   persistedUpstreamFailure,
+  recentPersistedUpstreamFailure,
 } from '@/lib/adapters/persisted-attempts'
 import { db } from '@/lib/db'
 import { runningPools } from '@/lib/ai-engine/runner'
@@ -271,21 +272,35 @@ export async function GET() {
         note: 'local sandbox runtime',
       }),
     ]
+    // HOTFIX (LAXII TEXT-TO-IMAGE RATE LIMITING, 2026-11-11): the T2I row's
+    // evidence is computed once, with the persisted failure guarded by the
+    // freshness contract (recentPersistedUpstreamFailure): a persisted failure
+    // counts as FRESH only inside the same 15-minute window the in-memory
+    // chain uses AND while no newer attempt record supersedes it. Measured
+    // defect: the previous unconditional `?? persistedUpstreamFailure(...)`
+    // fed a 24-HOUR-OLD rate_limited row (2026-11-10T03:24:28Z) into the
+    // slot whose branch outranks a successful lastAttempt, so the newer real
+    // success (2026-11-11T03:09:16Z, artifact verified) could never lift the
+    // capability off 'rate-limited' — pinned forever with a factually false
+    // note. The RESTART-PROOF intent is preserved: a genuinely fresh failure
+    // that predates this process still holds the state until a newer real
+    // attempt supersedes it.
+    const t2iLastAttempt =
+      lastRealAttempt('image-generation') ?? (await persistedLastAttempt('image-generation'))
+    const t2iFreshUpstreamFailure =
+      recentUpstreamFailure('image-generation') ??
+      (await recentPersistedUpstreamFailure('image-generation', { supersededBy: t2iLastAttempt }))
+
     const laxiiCapabilities: CapabilityHealth[] = [
       generationCapability('text-to-image', 'Text-to-image', true, {
         probe: image,
-        freshUpstreamFailure:
-          recentUpstreamFailure('image-generation') ??
-          // RESTART-PROOF EVIDENCE (2026-11-11): a fresh upstream failure that
-          // predates this process is still fresh evidence — restarts no longer
-          // whiten it.
-          (await persistedUpstreamFailure('image-generation')),
+        freshUpstreamFailure: t2iFreshUpstreamFailure,
         // FINAL CAPABILITY FIX (2026-11-07): when this process has no
         // in-memory attempt record yet (restart), the PERSISTED completed
         // job still proves the capability — the real T2I evidence survives
         // a restart instead of downgrading to unverified. 2026-11-11: the
         // persisted fallback now carries FAILED attempts too, newest wins.
-        lastAttempt: lastRealAttempt('image-generation') ?? (await persistedLastAttempt('image-generation')),
+        lastAttempt: t2iLastAttempt,
         ownBreaker: upstreamBreakerState('images'),
         sharedThrottle: sharedThrottleEvidence
           ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
