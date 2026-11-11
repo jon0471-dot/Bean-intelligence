@@ -9,9 +9,26 @@
 
 import { db } from '@/lib/db'
 import { logger } from '@/lib/observability/logger'
-import { recordUsage } from '@/lib/observability/metering'
-import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
+import { recordUsage, recordAudit } from '@/lib/observability/metering'
+import { hostedImageAdapter, ImageProviderResponseError } from '@/lib/adapters/hosted-image'
 import { withTimeout } from '@/lib/adapters/hosted-llm'
+import {
+  validateDimensions,
+  planExactDimensions,
+  applyExactDimensions,
+  measureImage,
+  generationProvenance,
+  DimensionError,
+  type DimensionPlan,
+} from '@/lib/laxii/dimensions'
+import {
+  extractExactTextDemands,
+  compositeTypography,
+  ocrText,
+  validateExactText,
+  type TextDemand,
+  type TextValidation,
+} from '@/lib/laxii/typography'
 import {
   noteRealAttempt,
   UPSTREAM_FAILURE_CATEGORIES,
@@ -62,6 +79,45 @@ export const IMAGE_MAX_CUMULATIVE_THROTTLE_MS = 30 * 60_000
 export const IMAGE_GENERATION_BACKOFF_FLOOR_MS = 60_000
 /** Backoff cap — never probe a minutes-long throttle window faster than this. */
 export const IMAGE_GENERATION_BACKOFF_MAX_MS = 600_000
+
+/**
+ * POSTER-HOTFIX (2026-11-11): a 2xx provider response without a usable image
+ * payload (measured: the SDK crashed on `result.data.map` for exactly this
+ * shape) is treated as a TRANSIENT provider glitch — ONE bounded automatic
+ * retry after a short jittered pause, then an honest terminal failure. Never
+ * an unbounded retry loop; the attempt is visible on the job.
+ */
+export const IMAGE_MAX_TRANSIENT_RETRIES = 1
+export const IMAGE_TRANSIENT_RETRY_FLOOR_MS = 5_000
+export const IMAGE_TRANSIENT_RETRY_JITTER_MS = 2_000
+
+/**
+ * Customer-safe provider detail: strip anything credential-shaped or
+ * binary-blob-shaped, collapse whitespace, cap length. The full unsanitized
+ * exception stays in the structured log; the audit trail keeps the
+ * sanitized diagnostic (brief PART 5 — diagnostics retained, secrets never
+ * exposed).
+ */
+export function sanitizeProviderDetail(msg: string): string {
+  return msg
+    .replace(/(sk-|Bearer\s+)[A-Za-z0-9._-]+/gi, '$1<redacted>')
+    .replace(/[A-Za-z0-9+/=]{120,}/g, '<redacted-blob>')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160)
+}
+
+function parseTransientRetries(resultJson: string | null): number {
+  if (!resultJson) return 0
+  try {
+    const parsed = JSON.parse(resultJson) as { transientRetries?: unknown }
+    return typeof parsed.transientRetries === 'number' && Number.isFinite(parsed.transientRetries)
+      ? parsed.transientRetries
+      : 0
+  } catch {
+    return 0
+  }
+}
 
 /**
  * Bounded, throttle-aware backoff for the next generation attempt.
@@ -145,12 +201,220 @@ async function updateJob(id: string, data: Record<string, unknown>) {
 }
 
 export async function processImageJob(job: ImageJobRow): Promise<void> {
-  const params = JSON.parse(job.paramsJson) as { prompt: string; size: string }
+  const params = JSON.parse(job.paramsJson) as {
+    prompt: string
+    size?: string
+    width?: number
+    height?: number
+  }
   const backend = getBackend('bean-image-hosted-primary')!
   const startedAt = new Date()
   // Persisted throttle budget (survives restarts — parked jobs re-claim with
   // the SAME row, so the attempt/wait history rides in resultJson).
   const throttle0 = parseThrottleState(job.resultJson)
+  const transientRetries0 = parseTransientRetries(job.resultJson)
+
+  // ---- CUSTOM IMAGE DIMENSIONS (2026-11-11): resolve the exact target ------
+  // Preset jobs carry {size} (one of the 7 native strings — behavior
+  // unchanged); custom jobs carry {width, height}. Both resolve to a target
+  // plus a plan that always generates at a PROVIDER-NATIVE size and delivers
+  // exactly the requested pixels (verified from decoded bytes below).
+  let target: { width: number; height: number }
+  let plan: DimensionPlan
+  try {
+    if (typeof params.width === 'number' && typeof params.height === 'number') {
+      target = validateDimensions(params.width, params.height)
+    } else if (typeof params.size === 'string' && /^\d+x\d+$/.test(params.size)) {
+      const [w, h] = params.size.split('x').map(Number)
+      target = { width: w, height: h }
+    } else {
+      throw new DimensionError('INVALID_DIMENSIONS', 'the job carries neither a valid size nor width/height')
+    }
+    plan = planExactDimensions(target.width, target.height)
+  } catch (e) {
+    // Invalid job parameters: honest terminal failure, no provider call,
+    // no cost. Preserved prompt/settings remain on the row for safe retry.
+    const message =
+      e instanceof DimensionError
+        ? e.message
+        : `This generation request has invalid image dimensions. Original request preserved — resubmit with a supported size.`
+    await updateJob(job.id, {
+      status: 'failed',
+      finishedAt: new Date(),
+      backendId: backend.id,
+      errorClass: 'invalid_request',
+      errorCode: 'INVALID_DIMENSIONS',
+      errorMessage: message,
+    })
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: backend.id,
+      kind: 'image-generation',
+      success: false,
+      errorCode: 'INVALID_DIMENSIONS',
+      durationMs: Date.now() - startedAt.getTime(),
+    })
+    logger.warn('laxii.job_invalid_dimensions', { jobId: job.id, message })
+    return
+  }
+  const generateSize = `${plan.generateWidth}x${plan.generateHeight}`
+
+  // ---- TEXT-HEAVY GENERATION (PART 4, 2026-11-11): explicit exact-text
+  // demands (quoted wording in a typography context) route through the
+  // measured hybrid pipeline when the model itself cannot honor them.
+  const textDemands: TextDemand | null = extractExactTextDemands(params.prompt)
+
+  /**
+   * The single completion path: store the VERIFIED artifact, register the
+   * asset, complete the job with honest metadata, meter the success.
+   * Shared by the direct pipeline and the hybrid-typography recovery.
+   */
+  const completeJob = async (io: {
+    bytes: Buffer
+    format: string
+    durationMs: number
+    generation: Record<string, unknown>
+    verification: Record<string, unknown> | null
+  }): Promise<void> => {
+    const dir = path.join(STORAGE_ROOT, job.userId)
+    fs.mkdirSync(dir, { recursive: true })
+    const ext = io.format === 'png' ? 'png' : 'jpg'
+    fs.writeFileSync(path.join(dir, `${job.id}.${ext}`), io.bytes)
+
+    let assetUrl: string | null = null
+    let assetId: string | null = null
+    try {
+      const asset = await storeResultAsset(job.userId, 'result', io.bytes, target.width, target.height, {
+        jobId: job.id,
+        artifact: 'generation',
+        mime: io.format === 'png' ? 'image/png' : 'image/jpeg',
+      })
+      assetUrl = asset.url
+      assetId = asset.id
+    } catch (e) {
+      logger.warn('laxii.generation_asset_failed', {
+        jobId: job.id,
+        message: e instanceof Error ? e.message : String(e),
+      })
+    }
+
+    await updateJob(job.id, {
+      status: 'completed',
+      progress: 100,
+      finishedAt: new Date(),
+      backendId: backend.id,
+      resultJson: JSON.stringify({
+        imageUrl: `/api/laxii/images/${job.id}`,
+        ...(assetUrl ? { assetUrl, assetId } : {}),
+        width: target.width,
+        height: target.height,
+        format: io.format,
+        bytes: io.bytes.length,
+        durationMs: io.durationMs,
+        generation: io.generation,
+        ...(intelMeta ? { intel: intelMeta } : {}),
+        ...(io.verification ? { verification: io.verification } : {}),
+        ...(throttle0.submissionAttempts > 0 || throttle0.throttleWaitMs > 0
+          ? { submissionAttempts: throttle0.submissionAttempts + 1, throttleWaitMs: throttle0.throttleWaitMs }
+          : {}),
+        ...(transientRetries0 > 0 ? { transientRetries: transientRetries0 } : {}),
+      }),
+    })
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: backend.id,
+      kind: 'image-generation',
+      imageCount: 1,
+      durationMs: io.durationMs,
+      success: true,
+    })
+    logger.info('laxii.job_completed', { jobId: job.id, durationMs: io.durationMs })
+    noteRealAttempt('image-generation', {
+      at: new Date().toISOString(),
+      ok: true,
+      backendId: backend.id,
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    })
+  }
+
+  /**
+   * HYBRID TYPOGRAPHY (brief PART 4): one text-free background generation
+   * at the planned native size + the exact wording composited
+   * deterministically + OCR validation. Bounded to ONE attempt per job by
+   * its callers. The extra background provider call is metered explicitly
+   * (conservative accounting: the account-quota counter never under-counts).
+   */
+  const hybridTypography = async (reason: string): Promise<boolean> => {
+    if (!textDemands) return false
+    try {
+      const bg = await withTimeout(
+        hostedImageAdapter.generateImage!({
+          prompt: textDemands.textFreePrompt,
+          size: generateSize,
+          timeoutMs: backend.timeouts.requestMs,
+        }),
+        backend.timeouts.requestMs,
+        'Image generation',
+      )
+      await recordUsage({
+        userId: job.userId,
+        product: 'laxii',
+        backendId: backend.id,
+        kind: 'image-generation',
+        imageCount: 1,
+        durationMs: bg.durationMs,
+        success: true,
+      })
+      const bgMeasured = await measureImage(bg.bytes)
+      const base =
+        plan.strategy.kind === 'native' ? bg.bytes : (await applyExactDimensions(bg.bytes, target, plan)).bytes
+      const comp = await compositeTypography(base, textDemands.segments, target)
+      const measured = await measureImage(comp.bytes)
+      if (measured.width !== target.width || measured.height !== target.height) {
+        logger.warn('laxii.hybrid_dimension_mismatch', {
+          jobId: job.id,
+          measured: `${measured.width}x${measured.height}`,
+        })
+        return false
+      }
+      const textValidation = validateExactText(await ocrText(comp.bytes), textDemands.segments)
+      await completeJob({
+        bytes: comp.bytes,
+        format: 'jpeg',
+        durationMs: Date.now() - startedAt.getTime(),
+        generation: {
+          ...generationProvenance(plan, target),
+          strategy: 'hybrid-typography',
+          generated: `${bgMeasured.width}x${bgMeasured.height}`,
+          typography: 'deterministic composite — the exact wording is rendered by BEAN, never by the model',
+          directAttempt: reason,
+        },
+        verification: {
+          checked: textValidation.method === 'tesseract',
+          method: `ocr:${textValidation.method}`,
+          textValidation,
+          observation:
+            textValidation.method === 'tesseract'
+              ? textValidation.missing.length === 0
+                ? 'all demanded wording confirmed present by OCR on the final artifact'
+                : `OCR could not confirm: ${textValidation.missing.join(' | ')}`
+              : 'OCR unavailable on this host — the wording is still deterministic (SVG-rendered), but not independently validated',
+        },
+      })
+      logger.info('laxii.hybrid_typography_completed', { jobId: job.id, reason: reason.slice(0, 120) })
+      return true
+    } catch (he) {
+      logger.warn('laxii.hybrid_typography_failed', {
+        jobId: job.id,
+        message: he instanceof Error ? he.message : String(he),
+      })
+      return false
+    }
+  }
 
   await updateJob(job.id, { status: 'running', startedAt, progress: 15 })
 
@@ -189,21 +453,74 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
     const result = await withTimeout(
       hostedImageAdapter.generateImage!({
         prompt: conditionedPrompt,
-        size: params.size,
+        size: generateSize,
         timeoutMs: backend.timeouts.requestMs,
       }),
       backend.timeouts.requestMs,
       'Image generation',
     )
 
+    // ---- EXACT OUTPUT DIMENSIONS (2026-11-11): native sizes pass through;
+    // custom targets are finished to the EXACT requested pixels here, before
+    // verification, so every downstream consumer sees the delivered artifact.
+    // The decoded byte dimensions are MEASURED, never trusted from metadata
+    // (brief PART 2 §9); a mismatch fails the job honestly.
+    let finalBytes = result.bytes
+    let finalFormat = result.format
+    const nativeResult = await measureImage(result.bytes)
+    if (
+      nativeResult.width !== plan.generateWidth ||
+      nativeResult.height !== plan.generateHeight
+    ) {
+      throw new Error(
+        `the provider returned ${nativeResult.width}x${nativeResult.height} for a ` +
+          `${plan.generateWidth}x${plan.generateHeight} request — dimensions did not validate`,
+      )
+    }
+    if (plan.strategy.kind !== 'native') {
+      const applied = await applyExactDimensions(result.bytes, target, plan)
+      const measured = await measureImage(applied.bytes)
+      if (measured.width !== target.width || measured.height !== target.height) {
+        throw new Error(
+          `the exact-dimension pipeline produced ${measured.width}x${measured.height} ` +
+            `instead of the requested ${target.width}x${target.height} — artifact rejected`,
+        )
+      }
+      finalBytes = applied.bytes
+      finalFormat = 'jpeg'
+    }
+
+    // ---- TEXT-HEAVY GENERATION (PART 4): when the prompt demanded exact
+    // wording, OCR the direct artifact. If the model did not honor the
+    // wording, ONE hybrid attempt (text-free background + deterministic
+    // typography) delivers the poster honestly. The local OCR runs on every
+    // text-demanding generation — zero provider cost.
+    let textValidation: TextValidation | null = null
+    if (textDemands) {
+      textValidation = validateExactText(await ocrText(finalBytes), textDemands.segments)
+      if (textValidation.method === 'tesseract' && textValidation.missing.length > 0) {
+        logger.info('laxii.direct_text_incomplete', { jobId: job.id, missing: textValidation.missing })
+        if (
+          await hybridTypography(
+            `the model rendered the demanded wording incompletely (OCR could not confirm: ${textValidation.missing.join(' | ')})`,
+          )
+        ) {
+          return // completed through the hybrid pipeline
+        }
+        // Hybrid declined/failed — the direct artifact stays the result and
+        // the text validation below reports exactly what is missing.
+      }
+    }
+
     // ---- BEAN Intelligence: post-generation verification (non-fatal) -------
     // One bounded vision check against the defect checklist. A skipped or
     // failed check is reported as exactly that — never claimed as passed.
+    // The check runs on the FINAL (exact-dimension) artifact.
     let verification: Record<string, unknown> | null = null
-    let verifiedBytes = result.bytes
-    let verifiedFormat = result.format
+    let verifiedBytes = finalBytes
+    let verifiedFormat = finalFormat
     try {
-      const dataUrl = await imageBufferToDataUrl(result.bytes, result.format === 'png' ? 'image/png' : 'image/jpeg')
+      const dataUrl = await imageBufferToDataUrl(finalBytes, finalFormat === 'png' ? 'image/png' : 'image/jpeg')
       const report = await verifyGeneratedImage(dataUrl, params.prompt)
       verification = {
         checked: report.checked,
@@ -240,10 +557,20 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
           const corr = await hostedImageAdapter.editImage!({
             prompt: buildCorrectionPrompt(serious),
             imageBase64: result.bytes.toString('base64'),
-            size: params.size,
+            size: generateSize,
             timeoutMs: backend.timeouts.requestMs,
           })
-          const corrDataUrl = await imageBufferToDataUrl(corr.bytes, corr.format === 'png' ? 'image/png' : 'image/jpeg')
+          // The correction is edited at the NATIVE generated size; for custom
+          // targets the exact-dimension finish is re-applied so the stored
+          // correction still measures exactly what the user requested.
+          const corrected =
+            plan.strategy.kind === 'native'
+              ? { bytes: corr.bytes, format: corr.format }
+              : {
+                  bytes: (await applyExactDimensions(corr.bytes, target, plan)).bytes,
+                  format: 'jpeg' as const,
+                }
+          const corrDataUrl = await imageBufferToDataUrl(corrected.bytes, corrected.format === 'png' ? 'image/png' : 'image/jpeg')
           const recheck = await verifyGeneratedImage(corrDataUrl, params.prompt)
           const seriousAfter = seriousAnatomyDefects(recheck.defects)
           const applied = recheck.checked && seriousAfter.length < serious.length
@@ -273,9 +600,9 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
             success: true,
           })
           if (applied) {
-            verifiedBytes = corr.bytes
-            verifiedFormat = corr.format
-            const corrAsset = await storeResultAsset(job.userId, 'result', corr.bytes, corr.width, corr.height, {
+            verifiedBytes = corrected.bytes
+            verifiedFormat = corrected.format
+            const corrAsset = await storeResultAsset(job.userId, 'result', corrected.bytes, target.width, target.height, {
               jobId: job.id,
               artifact: 'quality-correction',
               mime: corr.format === 'png' ? 'image/png' : 'image/jpeg',
@@ -324,76 +651,15 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
     // Persist artifact under BEAN storage; access is authorized per-user.
     // The bytes written are the VERIFIED bytes (the applied correction replaces
     // the original file when — and only when — the re-check proved it better).
-    const dir = path.join(STORAGE_ROOT, job.userId)
-    fs.mkdirSync(dir, { recursive: true })
-    const ext = verifiedFormat === 'png' ? 'png' : 'jpg'
-    const filename = `${job.id}.${ext}`
-    fs.writeFileSync(path.join(dir, filename), verifiedBytes)
-
-    // 2026-11-04 go-live: the generation result is ALSO registered as a
-    // real ImageAsset so it can seed follow-up work (conversational edits,
-    // variations) with full ownership checks — the UI's "Use as source"
-    // chains from any completed generation. The stored bytes are the VERIFIED
-    // bytes (the applied quality correction replaces the original when the
-    // re-check proved it better).
-    let assetUrl: string | null = null
-    let assetId: string | null = null
-    try {
-      const asset = await storeResultAsset(job.userId, 'result', verifiedBytes, result.width, result.height, {
-        jobId: job.id,
-        artifact: 'generation',
-        mime: verifiedFormat === 'png' ? 'image/png' : 'image/jpeg',
-      })
-      assetUrl = asset.url
-      assetId = asset.id
-    } catch (e) {
-      logger.warn('laxii.generation_asset_failed', {
-        jobId: job.id,
-        message: e instanceof Error ? e.message : String(e),
-      })
-    }
-
-    await updateJob(job.id, {
-      status: 'completed',
-      progress: 100,
-      finishedAt: new Date(),
-      backendId: backend.id,
-      resultJson: JSON.stringify({
-        imageUrl: `/api/laxii/images/${job.id}`,
-        ...(assetUrl ? { assetUrl, assetId } : {}),
-        width: result.width,
-        height: result.height,
-        format: verifiedFormat,
-        bytes: verifiedBytes.length,
-        durationMs: result.durationMs,
-        ...(intelMeta ? { intel: intelMeta } : {}),
-        ...(verification ? { verification } : {}),
-        // Honest recovery history: when this job was parked on a throttle
-        // window before succeeding, the parked attempts remain visible.
-        ...(throttle0.submissionAttempts > 0 || throttle0.throttleWaitMs > 0
-          ? { submissionAttempts: throttle0.submissionAttempts + 1, throttleWaitMs: throttle0.throttleWaitMs }
-          : {}),
-      }),
-    })
-    await recordUsage({
-      userId: job.userId,
-      product: 'laxii',
-      backendId: backend.id,
-      kind: 'image-generation',
-      imageCount: 1,
+    await completeJob({
+      bytes: verifiedBytes,
+      format: verifiedFormat,
       durationMs: result.durationMs,
-      success: true,
-    })
-    logger.info('laxii.job_completed', { jobId: job.id, durationMs: result.durationMs })
-    // REAL-attempt evidence (2026-11-04 connectivity audit): a genuine
-    // success overrides any previous upstream-failure evidence.
-    noteRealAttempt('image-generation', {
-      at: new Date().toISOString(),
-      ok: true,
-      backendId: backend.id,
-      failureCategory: null,
-      httpStatus: null,
-      upstream: false,
+      generation: generationProvenance(plan, target),
+      verification: {
+        ...(verification ?? {}),
+        ...(textValidation ? { textValidation } : {}),
+      },
     })
   } catch (e) {
     // ZERO-DOWNTIME RECOVERY (2026-11-11): a throttle-class failure (real 429
@@ -402,6 +668,101 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
     // else fails terminally with its honest class, as before.
     if (isGenerationThrottle(e)) {
       await settleThrottledGeneration(job, e, backend.id, startedAt, throttle0)
+      return
+    }
+    // POSTER-HOTFIX (2026-11-11): a 2xx response without a usable image
+    // payload is a TRANSIENT provider glitch — ONE bounded, jittered retry,
+    // then an honest terminal failure that carries the provider's actual
+    // answer (sanitized). Never the old silent TypeError → generic
+    // BACKEND_FAILURE with zero diagnostics.
+    if (e instanceof ImageProviderResponseError) {
+      if (transientRetries0 < IMAGE_MAX_TRANSIENT_RETRIES) {
+        const backoffMs =
+          IMAGE_TRANSIENT_RETRY_FLOOR_MS + Math.floor(Math.random() * IMAGE_TRANSIENT_RETRY_JITTER_MS)
+        await updateJob(job.id, {
+          status: 'retry_wait',
+          nextRunAt: new Date(Date.now() + backoffMs),
+          backendId: backend.id,
+          errorClass: 'transient',
+          errorCode: 'UPSTREAM_RESPONSE_INVALID',
+          errorMessage:
+            `The image service returned an incomplete response — the job stays queued and attempt ` +
+            `${transientRetries0 + 2} starts automatically in ~${Math.round(backoffMs / 1000)}s. ` +
+            `Detail retained: ${sanitizeProviderDetail(e.providerDetail || e.message)}`,
+          resultJson: JSON.stringify({
+            ...(throttle0.submissionAttempts > 0 ? { submissionAttempts: throttle0.submissionAttempts, throttleWaitMs: throttle0.throttleWaitMs } : {}),
+            transientRetries: transientRetries0 + 1,
+            lastTransient: { at: new Date().toISOString(), detail: sanitizeProviderDetail(e.message) },
+          }),
+        })
+        await appendJobEventSafe(job.id, 'notice', {
+          generation_transient_retry: true,
+          attempt: transientRetries0 + 1,
+          backoffMs,
+          bodyKeys: e.bodyKeys,
+        })
+        logger.warn('laxii.job_transient_response_retry', {
+          jobId: job.id,
+          attempt: transientRetries0 + 1,
+          backoffMs,
+          detail: sanitizeProviderDetail(e.message),
+        })
+        return
+      }
+      const detail = sanitizeProviderDetail(e.providerDetail || e.message)
+      noteRealAttempt('image-generation', {
+        at: new Date().toISOString(),
+        ok: false,
+        backendId: backend.id,
+        failureCategory: 'backend-error',
+        httpStatus: null,
+        upstream: false,
+      })
+      await updateJob(job.id, {
+        status: 'failed',
+        finishedAt: new Date(),
+        backendId: backend.id,
+        errorClass: 'malformed_response',
+        errorCode: 'UPSTREAM_RESPONSE_INVALID',
+        errorMessage:
+          `The image service could not produce this image (${IMAGE_MAX_TRANSIENT_RETRIES + 1} attempts — ` +
+          `it returned an incomplete response each time). The prompt and settings are preserved for retry.` +
+          (detail ? ` Provider said: ${detail}` : ''),
+        resultJson: JSON.stringify({
+          ...(throttle0.submissionAttempts > 0 ? { submissionAttempts: throttle0.submissionAttempts, throttleWaitMs: throttle0.throttleWaitMs } : {}),
+          transientRetries: transientRetries0,
+          lastTransient: { at: new Date().toISOString(), detail: sanitizeProviderDetail(e.message), bodyKeys: e.bodyKeys },
+        }),
+      })
+      await recordUsage({
+        userId: job.userId,
+        product: 'laxii',
+        backendId: backend.id,
+        kind: 'image-generation',
+        success: false,
+        errorCode: 'UPSTREAM_RESPONSE_INVALID',
+        durationMs: Date.now() - startedAt.getTime(),
+      })
+      await recordAudit({
+        actorId: job.userId,
+        action: 'laxii.generation_provider_response_invalid',
+        target: job.id,
+        meta: { httpStatus: e.httpStatus, bodyKeys: e.bodyKeys, detail: sanitizeProviderDetail(e.providerDetail || e.message), transientRetries: transientRetries0 },
+      }).catch(() => undefined)
+      logger.warn('laxii.job_failed_malformed_response', {
+        jobId: job.id,
+        httpStatus: e.httpStatus,
+        bodyKeys: e.bodyKeys,
+        detail: sanitizeProviderDetail(e.message),
+      })
+      // HYBRID TYPOGRAPHY RECOVERY (PART 4): for text-heavy prompts the
+      // measured provider fault (e.g. the poster prompt's deterministic
+      // StackOverflowError body) does not have to kill the request — the
+      // text-free background prompt is a DIFFERENT prompt and one bounded
+      // hybrid attempt can still deliver exactly what the user asked for.
+      if (textDemands && (await hybridTypography(`the provider could not process the original prompt (${sanitizeProviderDetail(e.providerDetail || e.message)})`))) {
+        return
+      }
       return
     }
     const message = e instanceof Error ? e.message : String(e)
@@ -421,6 +782,10 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       upstream: isUpstream,
     }
     noteRealAttempt('image-generation', record)
+    // POSTER-HOTFIX (2026-11-11): the sanitized provider reason is retained
+    // on the job and in the audit trail — never again a bare generic
+    // BACKEND_FAILURE with the actual exception lost.
+    const sanitizedReason = sanitizeProviderDetail(message)
     await updateJob(job.id, {
       status: 'failed',
       finishedAt: new Date(),
@@ -429,7 +794,7 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       errorCode: timedOut ? 'BACKEND_TIMEOUT' : 'BACKEND_FAILURE',
       errorMessage: timedOut
         ? 'Generation exceeded the time limit and was stopped.'
-        : 'The image backend could not complete this request.',
+        : `The image backend could not complete this request. Reason: ${sanitizedReason}`,
     })
     await recordUsage({
       userId: job.userId,
@@ -440,6 +805,12 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       errorCode: timedOut ? 'BACKEND_TIMEOUT' : 'BACKEND_FAILURE',
       durationMs: Date.now() - startedAt.getTime(),
     })
+    await recordAudit({
+      actorId: job.userId,
+      action: 'laxii.generation_failed',
+      target: job.id,
+      meta: { errorClass: failure.kind === 'other' && timedOut ? 'timeout' : failure.kind, reason: sanitizedReason },
+    }).catch(() => undefined)
     logger.warn('laxii.job_failed', { jobId: job.id, message })
   }
 }

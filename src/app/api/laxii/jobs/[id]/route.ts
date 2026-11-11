@@ -30,6 +30,9 @@ export async function GET(
           result && job.status === 'completed' ? (result.assetUrl ?? result.imageUrl ?? null) : null,
         width: result?.width,
         height: result?.height,
+        // EXACT-DIMENSION provenance (2026-11-11): the generation resolution
+        // and strategy behind the delivered artifact — additive field.
+        generation: result?.generation ?? null,
         format: result?.format,
         bytes: result?.bytes,
         durationMs: result?.durationMs,
