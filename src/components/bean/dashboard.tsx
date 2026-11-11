@@ -131,6 +131,10 @@ interface HealthData {
       research?: { available: boolean; probe?: ProbeInfo }
       sandbox?: { available: boolean; probe?: ProbeInfo }
       capabilities?: CapabilityRow[]
+      /** OPERATIONAL-TRANSFORMATION (Phase 8): jobs waiting for a worker. */
+      queueDepth?: number
+      /** Embedded engine pools alive in the serving process. */
+      engine?: { embeddedPools: string[]; kind: string }
     }
   >
 }
@@ -140,7 +144,7 @@ interface HealthData {
  *  cards can share one height (the 2026-11-04 card-uniformity change). */
 const FAILURE_LABELS: Record<string, string> = {
   'rate-limited': 'rate-limited',
-  auth: 'credentials rejected',
+  auth: 'Authentication failed',
   billing: 'account restricted',
   timeout: 'timed out',
   network: 'connection lost',
@@ -357,6 +361,16 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
                     )
                   })}
                 </div>
+              )}
+              {/* QUEUE DEPTH + WORKER AVAILABILITY (Phase 8): real counts and
+                  the engine pools actually alive — shown only when present. */}
+              {(probe?.queueDepth != null || probe?.engine) && (
+                <p className="mt-1 text-[10px] leading-relaxed text-white/30">
+                  {probe?.queueDepth != null ? `Queue: ${probe.queueDepth} job(s) waiting · ` : ''}
+                  {probe?.engine
+                    ? `Workers: ${probe.engine.embeddedPools.length > 0 ? `embedded engine running (${probe.engine.embeddedPools.join(', ')})` : 'embedded engine NOT running'}`
+                    : ''}
+                </p>
               )}
               <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <span

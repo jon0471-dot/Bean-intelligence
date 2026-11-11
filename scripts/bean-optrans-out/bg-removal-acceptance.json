@@ -1,0 +1,39 @@
+{
+ "runAt": "2026-11-11T03:13:41.227Z",
+ "assetId": "cmwbjis2r0013rdiw6nnszcwr",
+ "steps": [
+  {
+   "step": "login",
+   "ok": true,
+   "detail": "optrans-acc-1794366503419@bean.local",
+   "at": "2026-11-11T03:13:20.598Z"
+  },
+  {
+   "step": "submit",
+   "ok": true,
+   "detail": "jobId=cmwbjnwik0022rdiw8sntcgy3",
+   "at": "2026-11-11T03:13:20.736Z"
+  },
+  {
+   "step": "terminal",
+   "ok": true,
+   "detail": "status=completed err=",
+   "at": "2026-11-11T03:13:40.940Z"
+  },
+  {
+   "step": "artifact",
+   "ok": true,
+   "detail": "raw 1312x1312 transparentFraction=0.8362 opaqueFraction=0.1623 bytes=583030 sha256=4fdc636e0350ddd0e13d40b0a0f35aaa1781d6f2b1a8e492a6e2d35fbe3b8b99",
+   "at": "2026-11-11T03:13:41.191Z",
+   "evidence": {
+    "file": "scripts/bean-optrans-out/laxii-bg-removal.png"
+   }
+  },
+  {
+   "step": "original-unchanged",
+   "ok": true,
+   "detail": "original asset still served, bytes=91503",
+   "at": "2026-11-11T03:13:41.227Z"
+  }
+ ]
+}

@@ -34,8 +34,44 @@ const PRODUCT_ENV_KEYS: Record<BeanProductId, string> = {
   gangzii: 'BEAN_DAILY_REQUEST_BUDGET_GANGZII',
 }
 
+/**
+ * ADMIN-CONFIGURABLE OVERRIDE (OPERATIONAL-TRANSFORMATION, Phase 9,
+ * 2026-11-11): an administrator can set a runtime budget per product via
+ * the SystemSetting table (key: `provider_budget_<product>`, value: a
+ * positive integer). The DB override WINS over the env default so budgets
+ * can be tightened or lifted without a redeploy. Cached for 30s so the
+ * hot path stays cheap; a misconfigured value is ignored (env fallback).
+ */
+const OVERRIDE_CACHE_TTL_MS = 30_000
+let overrideCache: { at: number; values: Partial<Record<BeanProductId, number | null>> } = { at: 0, values: {} }
+
+async function adminBudgetOverride(productId: BeanProductId): Promise<number | null | undefined> {
+  const now = Date.now()
+  if (now - overrideCache.at > OVERRIDE_CACHE_TTL_MS) {
+    const values: Partial<Record<BeanProductId, number | null>> = {}
+    try {
+      const rows = await db.systemSetting.findMany({
+        where: { key: { startsWith: 'provider_budget_' } },
+        select: { key: true, value: true },
+      })
+      for (const row of rows) {
+        const product = row.key.slice('provider_budget_'.length) as BeanProductId
+        if (!(product in PRODUCT_ENV_KEYS)) continue
+        const n = Number(row.value.trim())
+        values[product] = Number.isFinite(n) && n > 0 ? Math.floor(n) : null
+      }
+    } catch {
+      // settings lookup must never break submissions — env fallback applies
+    }
+    overrideCache = { at: now, values }
+  }
+  return overrideCache.values[productId]
+}
+
 /** Parse the operator's budget for a product; null = no provider-level cap. */
-export function dailyRequestBudget(productId: BeanProductId): number | null {
+export async function dailyRequestBudget(productId: BeanProductId): Promise<number | null> {
+  const override = await adminBudgetOverride(productId)
+  if (override !== undefined) return override
   const raw = process.env[PRODUCT_ENV_KEYS[productId]]
   if (raw === undefined || raw.trim() === '') return null
   const n = Number(raw)
@@ -52,7 +88,7 @@ export async function assertProviderBudget(
   productId: BeanProductId,
   productName: string,
 ): Promise<void> {
-  const budget = dailyRequestBudget(productId)
+  const budget = await dailyRequestBudget(productId)
   if (budget === null) return
   const startOfDay = new Date()
   startOfDay.setUTCHours(0, 0, 0, 0)

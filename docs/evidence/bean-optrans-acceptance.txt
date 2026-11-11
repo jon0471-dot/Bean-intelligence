@@ -1,0 +1,248 @@
+{
+ "runAt": "2026-11-11T03:10:08.442Z",
+ "pass": 24,
+ "note": 1,
+ "steps": [
+  {
+   "suite": "platform",
+   "step": "auth: register+login",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "optrans-acc-1794366503419@bean.local",
+   "at": "2026-11-11T03:08:23.638Z"
+  },
+  {
+   "suite": "riishe",
+   "step": "normal chat: real model response",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "chars=340 elapsed=2002ms mode=normal-chat",
+   "at": "2026-11-11T03:08:25.640Z",
+   "evidence": {
+    "contentPreview": "Mount Everest is the tallest mountain on Earth, with a height of 8,848.86 meters (29,031.7 feet) above sea level. Its height is measured using a combination of traditional ground surveying methods and modern satellite-ba",
+    "mode": "normal-chat"
+   }
+  },
+  {
+   "suite": "riishe",
+   "step": "current-events: retrieval ran with sources",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "sources=2 mode=web-search elapsed=7179ms retrievedAt=2026-11-11T03:08:27.424Z",
+   "at": "2026-11-11T03:08:32.819Z",
+   "evidence": {
+    "sources": [
+     {
+      "id": 2,
+      "title": "Node.js 26.13.0 (LTS)",
+      "url": "https://nodejs.org/en/blog/release/v26.13.0",
+      "hostName": "nodejs.org",
+      "date": "Oct 28, 2026",
+      "official": false,
+      "social": false,
+      "pageRead": true
+     },
+     {
+      "id": 3,
+      "title": "Node.js official release index",
+      "url": "https://nodejs.org/dist/index.json",
+      "hostName": "nodejs.org",
+      "date": "2026-10-28",
+      "official": false,
+      "social": false,
+      "pageRead": true
+     }
+    ],
+    "answerPreview": "The latest stable version of Node.js is v26.13.0, released on October 28, 2026 [2][3]."
+   }
+  },
+  {
+   "suite": "riishe",
+   "step": "citation URL opens (HTTP 200)",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "https://nodejs.org/en/blog/release/v26.13.0",
+   "at": "2026-11-11T03:08:32.873Z"
+  },
+  {
+   "suite": "riishe",
+   "step": "writing mode selected by the server",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "mode=writing",
+   "at": "2026-11-11T03:08:34.890Z",
+   "evidence": {
+    "answerPreview": "Subject: Congratulations on Your First Production Release!\n\nHi [Colleague's Name], \n\nCongratulations on shipping your first production release - that's a fantastic achievement! I'm really impressed wi"
+   }
+  },
+  {
+   "suite": "laxii",
+   "step": "t2i: submit",
+   "ok": true,
+   "httpStatus": 202,
+   "detail": "jobId=cmwbjhs41000wrdiwvzalk7f8",
+   "at": "2026-11-11T03:08:35.094Z"
+  },
+  {
+   "suite": "laxii",
+   "step": "t2i: terminal state",
+   "ok": true,
+   "httpStatus": null,
+   "detail": "{\"id\":\"cmwbjhs41000wrdiwvzalk7f8\",\"status\":\"completed\",\"progress\":100,\"errorCode\":null,\"errorMessage\":null,\"imageUrl\":\"/api/laxii/assets/cmwbjinpz000zrdiwtjhs4bhl\",\"width\":1024,\"height\":1024,\"format\":",
+   "at": "2026-11-11T03:09:21.006Z"
+  },
+  {
+   "suite": "laxii",
+   "step": "t2i: artifact is a real decodable image",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "jpeg 1024x1024 bytes=91503 sha256=3882f1b5db1e105034639383cfb3dc93addd09daa94bea36238efa9785a569b7",
+   "at": "2026-11-11T03:09:21.653Z",
+   "evidence": {
+    "file": "scripts/bean-optrans-out/laxii-t2i.jpg"
+   }
+  },
+  {
+   "suite": "laxii",
+   "step": "original asset uploaded for edit tests",
+   "ok": true,
+   "httpStatus": 201,
+   "detail": "assetId=cmwbjis2r0013rdiw6nnszcwr",
+   "at": "2026-11-11T03:09:21.734Z"
+  },
+  {
+   "suite": "laxii",
+   "step": "bg-removal: submit",
+   "ok": true,
+   "httpStatus": 202,
+   "detail": "jobId=cmwbjiscz0016rdiwc0pkzkp5",
+   "at": "2026-11-11T03:09:22.071Z"
+  },
+  {
+   "suite": "laxii",
+   "step": "bg-removal: terminal state",
+   "ok": false,
+   "httpStatus": null,
+   "detail": "status=failed err=Background removal failed validation: no subject measured (opaque fraction 0) — the cutout would remove the image content. Your original image was not modified.",
+   "at": "2026-11-11T03:09:42.282Z"
+  },
+  {
+   "suite": "laxii",
+   "step": "conversational-edit: submit",
+   "ok": true,
+   "httpStatus": 202,
+   "detail": "jobId=cmwbjj7z2001brdiwmk0pnplu",
+   "at": "2026-11-11T03:09:42.306Z"
+  },
+  {
+   "suite": "laxii",
+   "step": "conversational-edit: terminal state",
+   "ok": true,
+   "httpStatus": null,
+   "detail": "status=completed err=",
+   "at": "2026-11-11T03:10:02.510Z"
+  },
+  {
+   "suite": "laxii",
+   "step": "conversational-edit: real modified artifact",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "png 1312x1312 bytes=1916416 differsFromOriginal=true",
+   "at": "2026-11-11T03:10:02.584Z",
+   "evidence": {
+    "file": "scripts/bean-optrans-out/laxii-edit.png"
+   }
+  },
+  {
+   "suite": "laxii",
+   "step": "original file unchanged after edits",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "sha256Before=3882f1b5db1e1050… sha256After=3882f1b5db1e1050…",
+   "at": "2026-11-11T03:10:02.608Z"
+  },
+  {
+   "suite": "code-giftz",
+   "step": "coding chat: real model response",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "chars=545 projectId=cmwbjjnsj001irdiwculgk7xk",
+   "at": "2026-11-11T03:10:05.297Z",
+   "evidence": {
+    "answerPreview": "```js\nfunction sumOfSquares(n) {\n    let sum = 0;\n    for (let i = 1; i <= n; i++) {\n        sum += i * i;\n    }\n    return sum;\n}\n\nconsole.log(sumOfSquares(5));\n```\n\nThis function calculates the sum "
+   }
+  },
+  {
+   "suite": "code-giftz",
+   "step": "sandbox: real execution of the generated project with isolation profile",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "exit=0 stdout=55 isolation={\"networkNamespace\":true,\"rlimits\":true,\"processSeparation\":true}",
+   "at": "2026-11-11T03:10:06.102Z"
+  },
+  {
+   "suite": "code-giftz",
+   "step": "sandbox: real failure reported verbatim",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "exit=1 stderr=ASSERTION FAILED: expected 55 got 56",
+   "at": "2026-11-11T03:10:06.997Z"
+  },
+  {
+   "suite": "code-giftz",
+   "step": "persistence: project retrievable",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "projects=1",
+   "at": "2026-11-11T03:10:07.068Z"
+  },
+  {
+   "suite": "platform",
+   "step": "health: riishe capability rows present",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "chat:operational, research:operational",
+   "at": "2026-11-11T03:10:08.347Z"
+  },
+  {
+   "suite": "platform",
+   "step": "health: laxii capability rows present",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "text-to-image:rate-limited, conversational-editing:operational, background-removal:blocked, image-enhancement:operational, generative-worker:not-configured",
+   "at": "2026-11-11T03:10:08.347Z"
+  },
+  {
+   "suite": "platform",
+   "step": "health: jazmii capability rows present",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "text-to-video:operational, image-to-video:operational",
+   "at": "2026-11-11T03:10:08.347Z"
+  },
+  {
+   "suite": "platform",
+   "step": "health: code-giftz capability rows present",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "coding-chat:operational, sandbox-execution:operational",
+   "at": "2026-11-11T03:10:08.347Z"
+  },
+  {
+   "suite": "platform",
+   "step": "no secrets exposed in public payloads",
+   "ok": true,
+   "httpStatus": 401,
+   "detail": "providers endpoint auth-gated (HTTP 401); public health payload scanned clean",
+   "at": "2026-11-11T03:10:08.396Z"
+  },
+  {
+   "suite": "platform",
+   "step": "usage endpoint reachable with session",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "per-user usage visible",
+   "at": "2026-11-11T03:10:08.442Z"
+  }
+ ]
+}

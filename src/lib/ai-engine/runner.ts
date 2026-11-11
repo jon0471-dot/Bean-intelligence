@@ -77,6 +77,18 @@ export function poolsRunning(): boolean {
   return (registry.__bean_engine_pools__?.size ?? 0) > 0
 }
 
+/**
+ * OPERATIONAL-TRANSFORMATION (Phase 8, 2026-11-11): the products whose
+ * embedded worker pools are ALIVE in this process — real worker
+ * availability evidence for the health payload (never claimed when the
+ * engine failed to start).
+ */
+export function runningPools(): string[] {
+  const registry = globalThis as unknown as { __bean_engine_pools__?: Map<string, PoolHandle> }
+  const pools = registry.__bean_engine_pools__
+  return pools ? [...pools.keys()].sort() : []
+}
+
 function workerInstanceId(kind: 'embedded' | 'standalone', product: string): string {
   return `wk_${kind}_${product}_${process.pid.toString(36)}_${WORKER_EPOCH}_${randomUUID().slice(0, 8)}`
 }
