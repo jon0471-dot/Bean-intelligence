@@ -143,8 +143,11 @@ function isGenerationThrottle(e: unknown): boolean {
   return e instanceof UpstreamRateLimitError || classifyUpstreamError(e).kind === 'rate_limited'
 }
 
-/** Retry-After hint in ms when an adapter ever surfaces one (else null). */
-function retryAfterMsOf(e: unknown): number | null {
+/** Retry-After hint in ms when an adapter ever surfaces one (else null).
+ *  EXPORTED for the hosted-edit / background-removal paths — CAPABILITY
+ *  RECOVERY (2026-11-11) reuses the identical hint resolution instead of a
+ *  second, divergent one. */
+export function retryAfterMsOf(e: unknown): number | null {
   const raw = (e as { retryAfterMs?: unknown } | null)?.retryAfterMs
   return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : null
 }
@@ -155,7 +158,9 @@ export interface ImageThrottleState {
   throttleWaitMs: number
 }
 
-function parseThrottleState(resultJson: string | null): ImageThrottleState {
+/** EXPORTED: the hosted-edit / background-removal parking path reads the
+ *  same persisted budget shape (one mechanism, no divergent copy). */
+export function parseThrottleState(resultJson: string | null): ImageThrottleState {
   if (!resultJson) return { submissionAttempts: 0, throttleWaitMs: 0 }
   try {
     const parsed = JSON.parse(resultJson) as { submissionAttempts?: unknown; throttleWaitMs?: unknown }

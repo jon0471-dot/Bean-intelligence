@@ -65,9 +65,11 @@ interface FakeJob {
   progress: number
   paramsJson: string
   resultJson: string | null
+  errorClass: string | null
   errorCode: string | null
   errorMessage: string | null
   backendId: string | null
+  nextRunAt: Date | null
   finishedAt: Date | null
 }
 const jobRows = new Map<string, FakeJob>()
@@ -122,6 +124,7 @@ mock.module('@/lib/db', () => ({ db: fakeDb }))
 
 import { _resetUpstreamCooldownForTests, upstreamCoolingDown } from '../../src/lib/upstream/gateway'
 import { hostedImageAdapter } from '../../src/lib/adapters/hosted-image'
+import { IMAGE_MAX_GENERATION_ATTEMPTS } from '../../src/lib/jobs/image-worker'
 import { processEditJob } from '../../src/lib/laxii/jobs'
 
 afterAll(() => {
@@ -154,9 +157,11 @@ function makeJob(params: Record<string, unknown>): FakeJob {
     progress: 0,
     paramsJson: JSON.stringify(params),
     resultJson: null,
+    errorClass: null,
     errorCode: null,
     errorMessage: null,
     backendId: null,
+    nextRunAt: null,
     finishedAt: null,
   }
   jobRows.set(job.id, job)
@@ -247,16 +252,63 @@ describe('conversational-edit job branch', () => {
     expect(usageRecords[0].kind).toBe('image-editing')
   })
 
-  test('a 429 during the job fails it with RATE_LIMITED and upstream evidence', async () => {
+  test('CAPABILITY RECOVERY: a genuine 429 during the job PARKS it in retry_wait with honest throttle evidence', async () => {
+    // The 2026-11-11 recovery contract (the T2I settleThrottledGeneration
+    // pattern): a real provider 429 must not destroy an accepted job — it
+    // parks in retry_wait with a breaker-aligned bounded backoff, persists
+    // the throttle budget, and records genuine upstream evidence.
     const asset = await seedAsset()
     state.editImpl = () => {
       throw new Error('API request failed with status 429: Too many requests')
     }
     const job = makeJob({ mode: 'conversational-edit', assetId: asset.id, prompt: 'make it night with rain' })
     await processEditJob(job)
-    expect(job.status).toBe('failed')
+    expect(job.status).toBe('retry_wait')
+    expect(job.errorClass).toBe('rate_limited')
     expect(job.errorCode).toBe('RATE_LIMITED')
-    expect(job.errorMessage).toContain('rate-limited')
+    expect(job.errorMessage).toContain('429')
+    // The retry is scheduled in the future — never an immediate re-hit.
+    expect(job.nextRunAt).not.toBeNull()
+    expect(job.nextRunAt!.getTime()).toBeGreaterThan(Date.now() + 30_000)
+    // The persisted budget: 1 real attempt consumed, breaker-aligned wait.
+    const parked = JSON.parse(job.resultJson!) as { submissionAttempts: number; throttleWaitMs: number; throttle: { attempted: boolean } }
+    expect(parked.submissionAttempts).toBe(1)
+    expect(parked.throttleWaitMs).toBeGreaterThanOrEqual(60_000)
+    expect(parked.throttle.attempted).toBe(true)
+  })
+
+  test('CAPABILITY RECOVERY: an exhausted throttle budget ends in an honest terminal failure', async () => {
+    const asset = await seedAsset()
+    state.editImpl = () => {
+      throw new Error('API request failed with status 429: Too many requests')
+    }
+    const job = makeJob({ mode: 'conversational-edit', assetId: asset.id, prompt: 'make it night with fog' })
+    // The budget a restart-surviving parked job would carry: one attempt
+    // left. The next real 429 consumes it and must fail the job honestly.
+    job.resultJson = JSON.stringify({ submissionAttempts: IMAGE_MAX_GENERATION_ATTEMPTS - 1, throttleWaitMs: 0 })
+    await processEditJob(job)
+    expect(job.status).toBe('failed')
+    expect(job.errorClass).toBe('rate_limited')
+    expect(job.errorCode).toBe('RATE_LIMITED')
+    expect(job.errorMessage).toContain('throttling')
+    expect(job.errorMessage).toContain(String(IMAGE_MAX_GENERATION_ATTEMPTS))
+  })
+
+  test('a non-throttle upstream failure (timeout) fails terminally WITH its honest errorClass', async () => {
+    const asset = await seedAsset()
+    state.editImpl = () => {
+      // classifyUpstreamError's timeout signature: no embedded HTTP status
+      // + "timed out" → kind 'timeout' → honest persisted class.
+      throw new Error('edit request timed out after 60s waiting for the gateway')
+    }
+    const job = makeJob({ mode: 'conversational-edit', assetId: asset.id, prompt: 'make it dusk' })
+    await processEditJob(job)
+    expect(job.status).toBe('failed')
+    // CAPABILITY RECOVERY: the restart-proof chain now receives this
+    // failure's class (the pre-fix rows carried errorClass null and were
+    // invisible to the persisted evidence after a restart).
+    expect(job.errorClass).toBe('timeout')
+    expect(job.errorCode).toBe('BACKEND_FAILURE')
   })
 
   test('masked generative modes still refuse honestly while the worker is disabled', async () => {

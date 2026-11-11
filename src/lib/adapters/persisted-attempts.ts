@@ -98,17 +98,56 @@ function errorClassToCategory(errorClass: string | null): HealthFailureCategory 
   }
 }
 
+/**
+ * CAPABILITY RECOVERY (2026-11-11): the persisted errorCode is a SECOND
+ * honest record of the same failure — and for the hosted-edit /
+ * background-removal paths it was the ONLY one: their failure writer did not
+ * persist `errorClass` at all (measured live: the genuine 429 rows at
+ * 2026-11-11T05:14:55Z / 05:15:00Z carry errorCode 'RATE_LIMITED' with
+ * errorClass null), so the errorClass-only mapping silently dropped them and
+ * the restart-proof chain was blind to those capabilities' real failures in
+ * BOTH directions — after a restart a fresh 429 lost its evidence entirely,
+ * and the failed row stopped being the last attempt, whitewashing the
+ * capability back to an older success. Only unambiguous upstream-class codes
+ * map to evidence; request-specific codes (VALIDATION_ERROR, CANCELLED,
+ * BACKEND_FAILURE, malformed_response, …) stay non-evidence — same contract
+ * as errorClassToCategory and the chat errorCode mapping above.
+ */
+function errorCodeToCategory(errorCode: string | null): HealthFailureCategory | null {
+  switch (errorCode) {
+    case 'RATE_LIMITED':
+    case 'UPSTREAM_RATE_LIMITED':
+      return 'rate-limited'
+    case 'UPSTREAM_AUTH':
+      return 'auth'
+    case 'UPSTREAM_BILLING':
+      return 'billing'
+    case 'BACKEND_TIMEOUT':
+    case 'UPSTREAM_TIMEOUT':
+      return 'timeout'
+    case 'UPSTREAM_NETWORK':
+      return 'network'
+    default:
+      return null
+  }
+}
+
+/** Category of a failed row: its errorClass, else its errorCode evidence. */
+function failedRowCategory(row: { errorClass: string | null; errorCode: string | null }): HealthFailureCategory | null {
+  return errorClassToCategory(row.errorClass) ?? errorCodeToCategory(row.errorCode)
+}
+
 /** Failed-row lookup shared by the evidence functions (bounded, indexed). */
 async function latestFailedRow(
   where: Record<string, unknown>,
-): Promise<{ finishedAt: Date | null; errorClass: string | null } | null> {
+): Promise<{ finishedAt: Date | null; errorClass: string | null; errorCode: string | null } | null> {
   const row = await db.generationJob.findFirst({
     where: { ...where, status: 'failed' },
     orderBy: [{ finishedAt: 'desc' }, { queuedAt: 'desc' }],
-    select: { finishedAt: true, errorClass: true },
+    select: { finishedAt: true, errorClass: true, errorCode: true },
   })
   if (!row || !row.finishedAt) return null
-  return { finishedAt: row.finishedAt, errorClass: row.errorClass }
+  return { finishedAt: row.finishedAt, errorClass: row.errorClass, errorCode: row.errorCode }
 }
 
 /**
@@ -126,19 +165,27 @@ export async function persistedUpstreamFailure(
         backendId: 'bean-image-hosted-primary',
       })
       if (!row) return null
-      const category = errorClassToCategory(row.errorClass)
+      const category = failedRowCategory(row)
       return category
         ? { at: row.finishedAt!.toISOString(), ok: false, failureCategory: category, httpStatus: null }
         : null
     }
     if (task === 'image-editing') {
+      // CAPABILITY ISOLATION (2026-11-11): background-removal rows are
+      // image-editing rows with a dedicated mode marker; the conversational
+      // editing chain must read ONLY its own attempts — measured live, the
+      // newest completed hosted-edit row was a BACKGROUND-REMOVAL row, so
+      // editing borrowed bg-removal's success evidence (and could equally
+      // inherit its failures). Same `not contains` guard on completions and
+      // failures keeps the two capabilities' persisted evidence separate.
       const row = await latestFailedRow({
         product: 'laxii',
         task: 'image-editing',
         backendId: 'bean-image-hosted-edit',
+        paramsJson: { not: { contains: '"mode":"background-removal"' } },
       })
       if (!row) return null
-      const category = errorClassToCategory(row.errorClass)
+      const category = failedRowCategory(row)
       return category
         ? { at: row.finishedAt!.toISOString(), ok: false, failureCategory: category, httpStatus: null }
         : null
@@ -151,7 +198,7 @@ export async function persistedUpstreamFailure(
         paramsJson: { contains: '"mode":"background-removal"' },
       })
       if (!row) return null
-      const category = errorClassToCategory(row.errorClass)
+      const category = failedRowCategory(row)
       return category
         ? { at: row.finishedAt!.toISOString(), ok: false, failureCategory: category, httpStatus: null }
         : null
@@ -259,8 +306,18 @@ export async function persistedAttempt(task: PersistedAttemptTask): Promise<Atte
     if (task === 'image-editing') {
       // Hosted conversational edits only (the local Diffusers worker has its
       // own registry gate; strict-preserve is enhancement, not editing).
+      // ISOLATION (2026-11-11): background-removal rows share this task and
+      // backend — excluded by their mode marker so editing never borrows
+      // bg-removal's completions (measured live: its newest "edit" success
+      // WAS a bg-removal row).
       const row = await db.generationJob.findFirst({
-        where: { product: 'laxii', task: 'image-editing', status: 'completed', backendId: 'bean-image-hosted-edit' },
+        where: {
+          product: 'laxii',
+          task: 'image-editing',
+          status: 'completed',
+          backendId: 'bean-image-hosted-edit',
+          paramsJson: { not: { contains: '"mode":"background-removal"' } },
+        },
         orderBy: { finishedAt: 'desc' },
         select: { finishedAt: true },
       })

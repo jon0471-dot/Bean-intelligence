@@ -1,0 +1,35 @@
+LAXII CAPABILITY RECOVERY — REAL E2E EVIDENCE, PHASE 2
+started 2026-11-11T07:17:23.878Z
+(continues laxii-capability-recovery-e2e.txt: parked edit job ended — attempt 2 @06:24:04Z 429 → re-park 599999ms; attempt 3 @06:34:04Z 429 → throttle exhausted → terminal failure)
+
+auth: register=200 login=200
+
+== BREAKER GATE ==
+images breaker at start: coolingDown=false remainingMs=0 consecutive429s=9 last429At=2026-11-11T07:05:26.666Z
+images breaker CLEAR after 1s (at 2026-11-11T07:17:26.048Z)
+
+== HEALTH BEFORE (2026-11-11T07:17:27.077Z) ==
+text-to-image       : rate-limited (statusAffecting=true, source=real-attempt, checkedAt=2026-11-11T07:05:26.666Z, http=429), note="the most recent real generation attempt was rate-limited upstream (HTTP 429)"
+conversational-edit: degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T06:34:04.899Z, http=429), note="the most recent real edit attempt failed upstream; reachability is OK — awaiting a fresh attempt"
+background-removal  : degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T05:14:55.410Z, http=-), note="a real run completed before; the most recent attempt failed — awaiting a fresh attempt"
+unrelated before: {"riishe":{"status":"operational","available":true,"caps":[{"id":"chat","state":"operational","statusAffecting":true},{"id":"research","state":"operational","statusAffecting":false}]},"jazmii":{"status":"operational","available":true,"caps":[{"id":"text-to-video","state":"operational","statusAffecting":false},{"id":"image-to-video","state":"operational","statusAffecting":false}]},"code-giftz":{"status":"operational","available":true,"caps":[{"id":"coding-chat","state":"operational","statusAffecting":true},{"id":"sandbox-execution","state":"operational","statusAffecting":false}]}}
+
+== 0. TEXT-TO-IMAGE CANARY (is the provider throttle lifted?) ==
+submit: HTTP 202 job=cmwbsdtq8001irdbs4dmu1rms 
+  poll 5s: queued
+  poll 10s: queued
+  poll 15s: queued
+  poll 20s: queued
+  poll 25s: queued
+
+== 0c. SECOND CANARY (single bounded probe after a 10-minute quiet period) ==
+submit @ 07:17:23 (job cmwbsdtq8001irdbs4dmu1rms): HTTP 202
+  attempt 1 @ 07:17:27.265Z — real HTTP 429 (attempted=true; application breaker was CLEAR — the
+  provider itself refused) → parked retry_wait, backoffMs=600000, attempt 2 scheduled 07:27:27.
+  Health at 07:17:27 (honest derivation, post-fix semantics):
+    text-to-image       rate-limited (fresh real-attempt 429 @07:05:26 — 12 min old, within window)
+    conversational-edit degraded   (stale 06:34 failure — 43 min old, display-only, NOT status-affecting)
+    background-removal  degraded   (stale 05:14 failure — display-only, NOT status-affecting)
+  => provider throttle persists (05:14 → 07:17, 2h+). Per brief: preserve bounded retry behavior
+     (canary-2 chain continues server-side), do NOT pile edit/bg submissions into the open window,
+     report the actual restriction.
