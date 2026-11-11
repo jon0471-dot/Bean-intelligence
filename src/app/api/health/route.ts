@@ -13,6 +13,8 @@ import {
   persistedLastAttempt,
   persistedUpstreamFailure,
 } from '@/lib/adapters/persisted-attempts'
+import { db } from '@/lib/db'
+import { runningPools } from '@/lib/ai-engine/runner'
 import { probeResearchHealth } from '@/lib/research/provider'
 import { probeSandboxHealth } from '@/lib/sandbox/runner'
 import { getBackendsForProduct } from '@/lib/registry/backends'
@@ -357,6 +359,17 @@ export async function GET() {
       }),
     ]
 
+    // QUEUE DEPTH + WORKER AVAILABILITY (OPERATIONAL-TRANSFORMATION, Phase 8,
+    // 2026-11-11): real per-product counts of jobs waiting for a worker
+    // (queued / retry_wait) and the embedded engine pools actually alive in
+    // this process. Both are cheap DB/local reads — never fabricated.
+    const [queueLaxii, queueJazmii, queueGiftz] = await Promise.all([
+      db.generationJob.count({ where: { product: 'laxii', status: { in: ['queued', 'retry_wait'] } } }),
+      db.generationJob.count({ where: { product: 'jazmii', status: { in: ['queued', 'retry_wait'] } } }),
+      db.generationJob.count({ where: { product: 'code-giftz', status: { in: ['queued', 'retry_wait'] } } }),
+    ])
+    const engine = { embeddedPools: runningPools(), kind: 'embedded' as const }
+
     const riisheEntry: ProductEntry = {
       status: productStatus(registryEnabled('riishe'), {
         available: riishe.healthy,
@@ -398,6 +411,8 @@ export async function GET() {
       deterministic: { available: laxiiLocal.healthy, probe: laxiiLocal },
       generative: { available: laxiiWorker.healthy, probe: laxiiWorker },
       capabilities: laxiiCapabilities,
+      queueDepth: queueLaxii,
+      engine,
     }
 
     const giftzEntry: ProductEntry = {
@@ -411,6 +426,8 @@ export async function GET() {
       lastHealthyAt: lastHealthyAtFor('code-giftz-chat-primary'),
       sandbox: { available: sandbox.healthy, probe: sandbox },
       capabilities: giftzCapabilities,
+      queueDepth: queueGiftz,
+      engine,
     }
 
     // JAZMII (2026-11-04): the hosted video backend is registry-enabled, so
@@ -432,6 +449,8 @@ export async function GET() {
       lastHealthyAt: lastHealthyAtFor('video-hosted-primary'),
       ...(videoGeneration ? { generation: videoGeneration, lastGenerationAttempt: lastRealAttempt('video-generation') } : {}),
       capabilities: jazmiiCapabilities,
+      queueDepth: queueJazmii,
+      engine,
     }
 
     return ok({

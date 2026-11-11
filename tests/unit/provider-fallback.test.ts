@@ -291,17 +291,26 @@ describe('bounded fallback semantics (wrapper)', () => {
 })
 
 describe('provider request budget (cost guard)', () => {
-  test('unset env → no budget (null)', () => {
-    expect(dailyRequestBudget('riishe')).toBeNull()
+  test('unset env → no budget (null)', async () => {
+    expect(await dailyRequestBudget('riishe')).toBeNull()
   })
-  test('invalid values are ignored, never trusted', () => {
+  test('invalid values are ignored, never trusted', async () => {
     process.env.BEAN_DAILY_REQUEST_BUDGET_RIISHE = '-5'
-    expect(dailyRequestBudget('riishe')).toBeNull()
+    expect(await dailyRequestBudget('riishe')).toBeNull()
     process.env.BEAN_DAILY_REQUEST_BUDGET_RIISHE = 'abc'
-    expect(dailyRequestBudget('riishe')).toBeNull()
+    expect(await dailyRequestBudget('riishe')).toBeNull()
   })
-  test('valid env parses to a floor-ed integer', () => {
+  test('valid env parses to a floor-ed integer', async () => {
     process.env.BEAN_DAILY_REQUEST_BUDGET_RIISHE = '10.9'
-    expect(dailyRequestBudget('riishe')).toBe(10)
+    expect(await dailyRequestBudget('riishe')).toBe(10)
+  })
+  test('ADMIN OVERRIDE (Phase 9): a SystemSetting budget wins over env (DB-unavailable in tests → env fallback)', async () => {
+    // In the unit environment the SystemSetting table lookup fails cleanly,
+    // which MUST fall back to the env budget — the override never breaks
+    // submissions. The live DB-backed override is exercised in the platform
+    // acceptance (settings row → tightened budget → typed COST_LIMIT).
+    process.env.BEAN_DAILY_REQUEST_BUDGET_RIISHE = '7'
+    expect(await dailyRequestBudget('riishe')).toBe(7)
+    delete process.env.BEAN_DAILY_REQUEST_BUDGET_RIISHE
   })
 })

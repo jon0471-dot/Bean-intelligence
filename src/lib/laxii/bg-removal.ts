@@ -59,37 +59,50 @@ function median(values: number[]): number {
 }
 
 /**
- * Measure the chroma key from the image BORDER RING (outermost 2% of each
- * dimension, min 2px): the median R/G/B of the ring plus the max per-channel
- * spread — the honest measure of how uniform the provider's background is.
+ * Measure the chroma key from the image border — per-EDGE. MEASURED (live
+ * debug 2026-11-11): subjects sit on surfaces that reach the bottom edge
+ * (a teapot on a table), so a whole-ring median was polluted by subject
+ * pixels (measured spread 142 → thresholds exploded → everything keyed
+ * out). The key is taken from the MOST UNIFORM of the four edge bands
+ * (top/bottom/left/right); the uniformity spread decides. A frame whose
+ * every edge is busy (subject touching all sides) yields a high spread and
+ * the validation gate rejects it honestly.
  */
 export function measureChromaKey(raw: RawImage): { key: { r: number; g: number; b: number }; spread: number } {
   const band = Math.max(2, Math.round(Math.min(raw.width, raw.height) * 0.02))
-  const rs: number[] = []
-  const gs: number[] = []
-  const bs: number[] = []
-  const sample = (x: number, y: number) => {
-    const i = (y * raw.width + x) * 3
-    rs.push(raw.data[i])
-    gs.push(raw.data[i + 1])
-    bs.push(raw.data[i + 2])
-  }
-  for (let y = 0; y < raw.height; y++) {
-    const edgeRow = y < band || y >= raw.height - band
-    for (let x = 0; x < raw.width; x++) {
-      if (edgeRow || x < band || x >= raw.width - band) sample(x, y)
+  const collect = (pick: (x: number, y: number) => boolean): Array<[number, number, number]> => {
+    const out: Array<[number, number, number]> = []
+    for (let y = 0; y < raw.height; y++) {
+      for (let x = 0; x < raw.width; x++) {
+        if (pick(x, y)) {
+          const i = (y * raw.width + x) * 3
+          out.push([raw.data[i], raw.data[i + 1], raw.data[i + 2]])
+        }
+      }
     }
+    return out
   }
-  const key = { r: Math.round(median(rs)), g: Math.round(median(gs)), b: Math.round(median(bs)) }
-  // Spread: max deviation of ring samples from the key (per channel, 95th
-  // percentile to ignore isolated border artifacts).
-  const deviations: number[] = []
-  for (let i = 0; i < rs.length; i++) {
-    deviations.push(Math.max(Math.abs(rs[i] - key.r), Math.abs(gs[i] - key.g), Math.abs(bs[i] - key.b)))
+  const bands: Array<Array<[number, number, number]>> = [
+    collect((x, y) => y < band), // top
+    collect((x, y) => y >= raw.height - band), // bottom
+    collect((x, y) => x < band), // left
+    collect((x, y) => x >= raw.width - band), // right
+  ]
+  let best: { key: { r: number; g: number; b: number }; spread: number } | null = null
+  for (const samples of bands) {
+    if (samples.length === 0) continue
+    const key = {
+      r: Math.round(median(samples.map((s) => s[0]))),
+      g: Math.round(median(samples.map((s) => s[1]))),
+      b: Math.round(median(samples.map((s) => s[2]))),
+    }
+    const deviations = samples
+      .map((s) => Math.max(Math.abs(s[0] - key.r), Math.abs(s[1] - key.g), Math.abs(s[2] - key.b)))
+      .sort((a, b) => a - b)
+    const spread = deviations[Math.floor(deviations.length * 0.95)] ?? 0
+    if (!best || spread < best.spread) best = { key, spread }
   }
-  deviations.sort((a, b) => a - b)
-  const spread = deviations[Math.floor(deviations.length * 0.95)] ?? 0
-  return { key, spread }
+  return best ?? { key: { r: 0, g: 0, b: 0 }, spread: 255 }
 }
 
 /**
