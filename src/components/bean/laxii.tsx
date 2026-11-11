@@ -30,6 +30,7 @@ import {
   Shield,
   Contrast,
   Sparkles,
+  Scissors,
   Trash2,
 } from 'lucide-react'
 
@@ -116,7 +117,7 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [opts, setOpts] = useState({ denoise: true, exposureWhiteBalance: true, grade: true, localContrast: true, upscaleFactor: 1 })
-  const [editCaps, setEditCaps] = useState<{ smartEditAvailable: boolean; hostedEditAvailable: boolean; reason: string | null }>({ smartEditAvailable: false, hostedEditAvailable: false, reason: null })
+  const [editCaps, setEditCaps] = useState<{ smartEditAvailable: boolean; hostedEditAvailable: boolean; bgRemovalAvailable: boolean; reason: string | null }>({ smartEditAvailable: false, hostedEditAvailable: false, bgRemovalAvailable: false, reason: null })
 
   // ---- Mask editor state (see MaskEditor) ----
   const [editorReset, setEditorReset] = useState(0)
@@ -143,10 +144,11 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
       setEditCaps({
         smartEditAvailable: d.capabilities['smart-edit']?.available === true,
         hostedEditAvailable: d.capabilities['conversational-edit']?.available === true,
+        bgRemovalAvailable: d.capabilities['background-removal']?.available === true,
         reason: d.unavailableReason ?? null,
       })
     } catch {
-      setEditCaps({ smartEditAvailable: false, hostedEditAvailable: false, reason: null })
+      setEditCaps({ smartEditAvailable: false, hostedEditAvailable: false, bgRemovalAvailable: false, reason: null })
     }
   }, [])
 
@@ -302,6 +304,28 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
         json: { mode: 'conversational-edit', assetId: asset.id, prompt: p },
       })
       setNotice('AI edit queued — this is a whole-image generative edit (not pixel-preserving).')
+      await loadJobs()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** PHASE 4 (OPERATIONAL-TRANSFORMATION): real background removal — the
+   *  provider separates the subject (chroma background), the deterministic
+   *  stage cuts it to a true transparent PNG. No prompt needed. */
+  async function submitBackgroundRemoval() {
+    if (!asset || busy) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      await beanFetch('/api/laxii/edit', {
+        method: 'POST',
+        json: { mode: 'background-removal', assetId: asset.id },
+      })
+      setNotice('Background removal queued — the result is a transparent PNG (subject cut out).')
       await loadJobs()
     } catch (e) {
       setError((e as Error).message)
@@ -475,6 +499,15 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
                 >
                   <Wand2 className="mr-1.5 h-4 w-4" />
                   AI Edit (whole image){editCaps.hostedEditAvailable ? '' : ' — unavailable'}
+                </Button>
+                <Button
+                  onClick={() => void submitBackgroundRemoval()}
+                  disabled={busy || !editCaps.bgRemovalAvailable}
+                  variant="outline"
+                  className="w-full border-[rgba(212,175,55,0.4)] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.08)]"
+                >
+                  <Scissors className="mr-1.5 h-4 w-4" />
+                  Remove background{editCaps.bgRemovalAvailable ? '' : ' — unavailable'}
                 </Button>
                 <Button
                   onClick={() => {

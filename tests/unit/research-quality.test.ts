@@ -34,6 +34,19 @@ import { auditClaimSupport } from '../../src/lib/riishe/claims'
 import { buildVerificationNote } from '../../src/lib/riishe/orchestrator'
 import { buildSystemPrompt } from '../../src/lib/riishe/prompts'
 
+// SEMANTIC-ROUTER SEAM (OPERATIONAL-TRANSFORMATION, 2026-11-11): the
+// orchestrator now invokes resolveAutoSearchDecision when the deterministic
+// policy is not confident. Unit tests must stay hermetic — the semantic
+// layer is mocked to echo the deterministic decision (its real behavior is
+// covered by auto-grounding.test.ts with an injected transport).
+mock.module('@/lib/research/semantic-router', () => ({
+  resolveAutoSearchDecision: async (
+    _message: string,
+    deterministic: { search: boolean; risk: string; reason: string },
+  ) => ({ decision: deterministic, semantic: null, semanticRan: false }),
+}))
+
+
 const result = (over: Partial<Parameters<typeof rankSources>[1][number]>) => ({
   url: 'https://example.com/a',
   title: 't',

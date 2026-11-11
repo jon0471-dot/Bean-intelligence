@@ -59,6 +59,46 @@ const DOC_HINTS: RegExp[] = [
   /\b(document|article|paper|transcript|report|contract|chapter|page\s*\d|paragraph|the\s+following\s+text|attached)\b/i,
 ]
 
+/**
+ * RESPONSE MODES (OPERATIONAL-TRANSFORMATION, Phase 3): the composer stays
+ * toggle-free (backend-controlled routing), but the server now RECOGNIZES
+ * which of the five advertised response modes a turn belongs to and shapes
+ * the answer protocol accordingly:
+ *   normal-chat | web-search | deep-research | document-analysis | writing
+ * These detectors are pure and deterministic — mode selection is recorded
+ * in message metadata (router.mode) so routing is observable, never assumed.
+ */
+
+/** Deep-research request signals (multi-source investigation, not a lookup). */
+const DEEP_RESEARCH_PATTERNS: RegExp[] = [
+  /\b(in\s+depth|in[-\s]depth|deep\s+research|deep\s+dive|comprehensive|exhaustive|thorough)\b/i,
+  /\b(research\s+report|detailed\s+report|full\s+report|write\s+(me\s+)?a\s+report|background\s+report)\b/i,
+  /\b(compare|comparison|contrast)\b[^\n]{0,80}\b(across|between|among|versus|vs\.?)\b/i,
+  /\b(pros\s+and\s+cons|trade[-\s]?offs?|strengths\s+and\s+weaknesses)\b/i,
+  /\b(market\s+analysis|industry\s+analysis|competitive\s+landscape|state\s+of\s+the)\b/i,
+  /\b(with\s+citations?|with\s+sources?|sourced|cited\s+sources)\b/i,
+]
+
+/**
+ * Writing-mode signals: the user asks for a PIECE OF WRITING to be produced
+ * (not a factual answer). Detection is deliberately conservative — real
+ * ambiguity falls through to chat/search rather than hijacking the turn.
+ */
+const WRITING_PATTERNS: RegExp[] = [
+  /\b(write|draft|compose|redraft)\b[^\n]{0,60}\b(an?|the)\b[^\n]{0,40}\b(email|letter|essay|article|blog\s*post|post|caption|bio|speech|story|poem|script|summary|review|outline|proposal|memo|announcement|invitation|itinerary|plan)\b/i,
+  /\b(essay|cover\s+letter|blog\s*post|guest\s+post|product\s+description|social\s+media\s+caption|wedding\s+speech|toast)\b[^\n]{0,40}\b(about|on|for)\b/i,
+  /\b(rewrite|rephrase|reword|polish|proofread|shorten|expand)\b[^\n]{0,80}\b(this|the following|it)\b/i,
+  /\b(help\s+me\s+write|can\s+you\s+write|write\s+this|write\s+one)\b/i,
+]
+
+export function isDeepResearchQuery(message: string): boolean {
+  return DEEP_RESEARCH_PATTERNS.some((re) => re.test(message))
+}
+
+export function isWritingTask(message: string): boolean {
+  return WRITING_PATTERNS.some((re) => re.test(message))
+}
+
 const FRESHNESS_PATTERNS: RegExp[] = [
   /\b(latest|newest|current|most\s+recent)\s+(version|release|update|build|lts|stable)\b/i,
   /\b(version|release)\s+of\b.*\b(latest|current|now|today)\b/i,

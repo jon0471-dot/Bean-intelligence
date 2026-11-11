@@ -32,6 +32,11 @@ export type AttemptTask =
   | 'image-generation'
   | 'image-enhancement'
   | 'image-editing'
+  // OPERATIONAL-TRANSFORMATION (2026-11-11), Phase 4: background removal is
+  // its own advertised capability on the hosted edit endpoint — its attempts
+  // are recorded separately so one capability's evidence can never mask
+  // another's (same pattern as the t2v/i2v keys).
+  | 'image-bg-removal'
   | 'video-generation'
   // GO-LIVE (2026-11-05): per-capability video keys — the umbrella
   // 'video-generation' stays the product-level record; t2v/i2v attempts

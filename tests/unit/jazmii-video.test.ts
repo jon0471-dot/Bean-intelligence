@@ -143,6 +143,25 @@ mock.module('global.fetch', () => ({}))
   return Promise.resolve(new Response(MP4, { status: 200 }))
 }
 
+// FFPROBE SEAM (OPERATIONAL-TRANSFORMATION, 2026-11-11): the worker's
+// completion gate now runs REAL ffprobe stream validation. These lifecycle
+// tests script the download bytes (fake container headers), so the ffprobe
+// boundary is mocked to a passing measurement — the ffprobe module's REAL
+// behavior is covered by tests/unit/media-ffprobe.test.ts with actual
+// ffmpeg/ffprobe binaries.
+const FAKE_STREAM_PROBE = {
+  ok: true as const,
+  video: { codec: 'h264', width: 640, height: 360, durationSec: 5.2, frames: 156, fps: 30 },
+  audio: null,
+}
+mock.module('@/lib/media/ffprobe', () => ({
+  probeVideoBytes: async () => FAKE_STREAM_PROBE,
+  probeVideoFile: async () => FAKE_STREAM_PROBE,
+  validateVideoArtifact: async () => FAKE_STREAM_PROBE,
+  MIN_DURATION_SEC: 0.5,
+  MIN_FRAMES: 8,
+}))
+
 import { detectVideoContainer } from '../../src/lib/adapters/hosted-video'
 import { _resetUpstreamCooldownForTests, upstreamBreakerState } from '../../src/lib/upstream/gateway'
 import { lastRealAttempt } from '../../src/lib/adapters/last-attempts'

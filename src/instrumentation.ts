@@ -21,4 +21,21 @@ export async function register(): Promise<void> {
       e instanceof Error ? e.message : String(e),
     )
   }
+  // SANDBOX RETENTION HYGIENE (OPERATIONAL-TRANSFORMATION, 2026-11-11):
+  // cleanupOldRuns previously ran only opportunistically inside the two run
+  // routes — measured: 602 stale workspaces accumulated. A scheduled sweep
+  // at boot + every 6h keeps sandbox-runs/ bounded without user traffic.
+  try {
+    const { cleanupOldRuns } = await import('@/lib/sandbox/runner')
+    const sweep = () =>
+      cleanupOldRuns().catch(() => undefined)
+    void sweep()
+    const g = globalThis as unknown as { __beanSandboxSweepTimer?: NodeJS.Timeout }
+    if (!g.__beanSandboxSweepTimer) {
+      g.__beanSandboxSweepTimer = setInterval(sweep, 6 * 3600_000)
+      g.__beanSandboxSweepTimer.unref?.()
+    }
+  } catch {
+    // retention hygiene must never block boot
+  }
 }

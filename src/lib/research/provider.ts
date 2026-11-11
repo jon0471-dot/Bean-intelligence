@@ -315,14 +315,23 @@ export async function readPage(url: string, timeoutMs = 25_000): Promise<PageCon
       'page_reader',
     )
   } catch (e) {
-    throw normalizeUpstreamError('functions', 'page_reader', e)
+    // HEALTH EVIDENCE FIX (OPERATIONAL-TRANSFORMATION, 2026-11-11): readPage
+    // failures previously went unrecorded — only webSearch fed the real-
+    // attempt tracker, so a page_reader-only outage was invisible to the
+    // research capability evidence. The same classification records here.
+    const normalized = normalizeUpstreamError('functions', 'page_reader', e)
+    const failure = classifyUpstreamError(normalized)
+    recordSearchAttempt(false, failure.kind === 'other' ? null : failure, normalized.message)
+    throw normalized
   }
   // PHASE 1 bounded backoff: a real success resets the consecutive-429 streak.
   noteUpstreamSuccess('functions')
   const html = raw?.data?.html
   if (typeof html !== 'string' || html.length === 0) {
+    recordSearchAttempt(false, null, 'Page reader returned no content.')
     throw new ResearchToolError('page_reader', 'Page reader returned no content.')
   }
+  recordSearchAttempt(true, null, null)
   const providerTime = typeof raw.data?.publishedTime === 'string' && raw.data.publishedTime.trim() ? raw.data.publishedTime.trim() : null
   // Publication-date verification: when the provider omits a date, extract
   // one from the page's own structured metadata (JSON-LD / meta / <time>).

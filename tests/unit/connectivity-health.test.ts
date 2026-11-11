@@ -318,13 +318,30 @@ describe('real-attempt evidence: LAXII degradation from REAL generation outcomes
     expect(failure).not.toBeNull()
     expect(failure?.failureCategory).toBe('rate-limited')
     expect(failure?.httpStatus).toBe(429)
-    // The probe (reachable) still passes, but the measured generation
-    // capability is failing -> DEGRADED, never "Operational".
-    const status = productStatus(true, {
+    // CONFLATION REMOVAL (2026-11-11): the LEGACY generation slot no longer
+    // moves the product badge — the authoritative degradation comes from the
+    // capability rows the health route now always emits. Pinned here in both
+    // shapes: the legacy payload stays core-honest, the capability row
+    // degrades the badge exactly as the live route renders it.
+    const legacyStatus = productStatus(true, {
       available: true,
       generation: { available: false, failureCategory: 'rate-limited', httpStatus: 429 },
     })
-    expect(status).toBe('degraded')
+    expect(legacyStatus).toBe('operational')
+    const capabilityStatus = productStatus(true, {
+      available: true,
+      capabilities: [
+        {
+          id: 'text-to-image',
+          label: 'Text-to-image',
+          core: true,
+          state: 'rate-limited',
+          statusAffecting: true,
+          evidence: { checkedAt: new Date().toISOString(), source: 'shared-throttle' },
+        },
+      ],
+    })
+    expect(capabilityStatus).toBe('rate-limited')
   })
 
   test('a successful generation attempt overrides the failure evidence', () => {

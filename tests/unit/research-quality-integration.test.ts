@@ -15,6 +15,19 @@
 import { describe, test, expect, mock } from 'bun:test'
 import type { TaskAdapter } from '../../src/lib/adapters/types'
 
+// SEMANTIC-ROUTER SEAM (OPERATIONAL-TRANSFORMATION, 2026-11-11): the
+// orchestrator now invokes resolveAutoSearchDecision when the deterministic
+// policy is not confident. Unit tests must stay hermetic — the semantic
+// layer is mocked to echo the deterministic decision (its real behavior is
+// covered by auto-grounding.test.ts with an injected transport).
+mock.module('@/lib/research/semantic-router', () => ({
+  resolveAutoSearchDecision: async (
+    _message: string,
+    deterministic: { search: boolean; risk: string; reason: string },
+  ) => ({ decision: deterministic, semantic: null, semanticRan: false }),
+}))
+
+
 // ---- Fixture search results (clearly synthetic; used ONLY to test wiring) --
 const SEARCH_RESULTS = [
   {

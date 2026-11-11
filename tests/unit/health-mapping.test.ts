@@ -55,16 +55,34 @@ describe('productStatus: healthy / degraded / unavailable / not-configured deriv
     expect(productStatus(true, { available: false })).toBe('unavailable')
   })
 
-  test('RIISHE under a research-only 429: core ok + research down = DEGRADED (partial availability)', () => {
-    // The exact post-mitigation scenario: the chat class answers, the
-    // functions class (web_search/page_reader) is rate-limited upstream.
-    // The dashboard must show the honest middle state — never "Operational".
+  test('RIISHE under a research-only 429: core ok + research down stays OPERATIONAL (display-only row)', () => {
+    // CONFLATION REMOVAL (OPERATIONAL-TRANSFORMATION, 2026-11-11): the exact
+    // post-mitigation scenario — chat answers, the functions class is
+    // throttled — must NOT move the product badge: research is an OPTIONAL
+    // capability on a separately rate-limited endpoint class, and the legacy
+    // boolean conflation was the measured "research outage turned the whole
+    // product Degraded while chat was fully operational" defect. The live
+    // per-capability row (statusAffecting:false) carries the state; the
+    // legacy payload path shows the honest core status.
     const status = productStatus(true, { available: true, research: { available: false } })
-    expect(status).toBe('degraded')
+    expect(status).toBe('operational')
   })
 
-  test('CODE GIFTZ under a sandbox failure: core ok + sandbox down = DEGRADED', () => {
+  test('CODE GIFTZ under a sandbox failure: core ok + sandbox down stays OPERATIONAL (display-only row)', () => {
+    // Same conflation removal: sandbox execution is local and independent of
+    // the coding-chat backend (its capability row is display-only).
     const status = productStatus(true, { available: true, sandbox: { available: false } })
+    expect(status).toBe('operational')
+  })
+
+  test('capability rows still degrade the badge when status-affecting (the authoritative path)', () => {
+    const status = productStatus(true, {
+      available: true,
+      capabilities: [
+        { id: 'text-to-video', label: 'Text-to-video', core: true, state: 'degraded', statusAffecting: true, evidence: { checkedAt: 'x', source: 'real-attempt' } },
+        { id: 'image-to-video', label: 'Image-to-video', core: false, state: 'operational', statusAffecting: false, evidence: { checkedAt: 'x', source: 'real-attempt' } },
+      ],
+    })
     expect(status).toBe('degraded')
   })
 

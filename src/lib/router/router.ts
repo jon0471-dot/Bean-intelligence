@@ -17,7 +17,7 @@
 import { getBackend, getBackendsForProduct, type BackendDescriptor } from '@/lib/registry/backends'
 import { getProduct, type BeanProductId, type BeanTask } from '@/lib/registry/products'
 import { BeanApiError } from '@/lib/api/errors'
-import { checkDailyQuota, checkRateLimit } from '@/lib/auth/ratelimit'
+import { checkDailyQuota, checkRateLimit, PRODUCT_RATE_LIMITS } from '@/lib/auth/ratelimit'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
 import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
@@ -141,8 +141,14 @@ export async function preflight(
     throw new BeanApiError('NO_BACKEND', `No backend is configured for ${product.name}.`)
   }
 
-  // 3. rate limit + quota
-  const rl = checkRateLimit(`${userId}:${productId}`, 20, 60_000)
+  // 3. rate limit + quota. WIRING FIX (OPERATIONAL-TRANSFORMATION,
+  // 2026-11-11): PRODUCT_RATE_LIMITS was exported but never read — every
+  // product silently shared the hardcoded 20/min while its documented
+  // policy (laxii/jazmii 6, giftz 15, riishe 20) was dead config. The
+  // per-product policy is now the actual burst limit (20/min default for
+  // any product without an entry).
+  const burstPerMin = PRODUCT_RATE_LIMITS[productId] ?? 20
+  const rl = checkRateLimit(`${userId}:${productId}`, burstPerMin, 60_000)
   if (!rl.allowed) {
     throw new BeanApiError(
       'RATE_LIMITED',

@@ -257,6 +257,42 @@ describe('unverifiedCapability: image-to-video is never advertised without a rea
     })
     expect(cap.state).toBe('operational')
   })
+
+  test('EVIDENCE PARITY (2026-11-11): a fresh credential rejection degrades I2V even with an old success', () => {
+    // Measured 2026-11-11 01:14Z: the shared gateway account 401'd every
+    // submission while image-to-video kept reading "operational" from a
+    // 4-day-old persisted completion. Fresh upstream evidence must outrank
+    // an old success — both video capabilities ride the same credentials.
+    const cap = unverifiedCapability('image-to-video', 'Image-to-video', false, {
+      probe: probe(),
+      lastAttempt: attempt({ at: '2026-11-07T02:21:35.717Z', ok: true, failureCategory: null, httpStatus: null }),
+      freshUpstreamFailure: attempt({ at: new Date().toISOString(), ok: false, failureCategory: 'auth', httpStatus: 401 }),
+    })
+    expect(cap.state).toBe('degraded')
+    expect(cap.statusAffecting).toBe(true)
+    expect(cap.evidence.failureCategory).toBe('auth')
+    expect(cap.evidence.note).toContain('credentials/account')
+  })
+
+  test('EVIDENCE PARITY: a fresh 429 renders I2V rate-limited (not broken)', () => {
+    const cap = unverifiedCapability('image-to-video', 'Image-to-video', false, {
+      probe: probe(),
+      lastAttempt: attempt({ at: '2026-11-07T02:21:35.717Z', ok: true, failureCategory: null, httpStatus: null }),
+      freshUpstreamFailure: attempt({ at: new Date().toISOString(), ok: false, failureCategory: 'rate-limited', httpStatus: 429 }),
+    })
+    expect(cap.state).toBe('rate-limited')
+    expect(cap.evidence.note).toContain('429')
+  })
+
+  test('EVIDENCE PARITY: an open video-class breaker is rate-limited evidence', () => {
+    const cap = unverifiedCapability('image-to-video', 'Image-to-video', false, {
+      probe: probe(),
+      lastAttempt: attempt({ at: '2026-11-07T02:21:35.717Z', ok: true, failureCategory: null, httpStatus: null }),
+      ownBreaker: { coolingDown: true, last429At: new Date().toISOString() },
+    })
+    expect(cap.state).toBe('rate-limited')
+    expect(cap.evidence.source).toBe('breaker')
+  })
 })
 
 describe('probeCapability and product-badge aggregation', () => {

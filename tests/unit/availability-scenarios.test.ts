@@ -173,6 +173,9 @@ describe('dashboard status per acceptance scenario', () => {
   test('legacy payloads (no capability rows) still derive honest statuses', () => {
     expect(productStatus(true, entry({ available: true }))).toBe('operational')
     expect(productStatus(true, entry({ available: false, probe: { failureCategory: 'rate-limited', httpStatus: 429 } }))).toBe('rate-limited')
-    expect(productStatus(true, entry({ available: true, research: { available: false } }))).toBe('degraded')
+    // CONFLATION REMOVAL (2026-11-11): a legacy payload without capability
+    // rows no longer degrades the badge from secondary slots — the badge
+    // follows the core dependency alone.
+    expect(productStatus(true, entry({ available: true, research: { available: false } }))).toBe('operational')
   })
 })

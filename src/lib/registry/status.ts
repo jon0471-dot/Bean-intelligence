@@ -181,15 +181,13 @@ export function productStatus(
     return 'operational'
   }
 
-  // Legacy payload (predates capability rows): the pre-2026-11-07 boolean
-  // rules, now throttle-aware.
+  // LEGACY PAYLOAD (predates capability rows, 2026-11-07): the core probe
+  // rules only. CONFLATION REMOVAL (OPERATIONAL-TRANSFORMATION, 2026-11-11):
+  // the previous branch degraded the badge for ANY secondary slot failure
+  // (research, sandbox, generation) — the exact "research outage turned the
+  // whole product Degraded while chat was fully operational" defect the
+  // capability model fixed. Secondary capabilities are display-only there;
+  // the badge follows the core dependency alone.
   if (!probe.available) return throttleOf()
-  // Measured secondary-capability failures: research (RIISHE), sandbox
-  // (CODE GIFTZ), and LAXII/JAZMII hosted generation as evidenced by the
-  // most recent REAL attempt — degraded (partial availability).
-  const secondaryFailures = [probe.research, probe.sandbox, probe.generation].filter(
-    (cap) => cap && !cap.available,
-  )
-  if (secondaryFailures.length > 0) return 'degraded'
   return 'operational'
 }

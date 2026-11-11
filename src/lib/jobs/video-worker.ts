@@ -26,6 +26,7 @@ import {
   queryVideoJob,
   submitVideoJob,
 } from '@/lib/adapters/hosted-video'
+import { validateVideoArtifact } from '@/lib/media/ffprobe'
 import {
   noteRealAttempt,
   UPSTREAM_FAILURE_CATEGORIES,
@@ -72,6 +73,17 @@ export interface VideoJobResult {
   durationMs?: number
   width?: number
   height?: number
+  /** ffprobe-measured stream facts — the REAL completion gate (Phase 5). */
+  stream?: {
+    codec: string
+    width: number
+    height: number
+    durationSec: number
+    frames?: number
+    fps?: number
+    validatedBy: 'ffprobe'
+  }
+  audio?: { codec: string }
   /** Present while job tracking is being throttled upstream (honest UI
    *  display — FINAL FIX 2026-11-07: a throttled status poll never fails an
    *  accepted job, it backs off and keeps tracking). */
@@ -205,6 +217,20 @@ export class VideoProviderFailedError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'VideoProviderFailedError'
+  }
+}
+
+/**
+ * OPERATIONAL-TRANSFORMATION (2026-11-11), Phase 5: the provider returned a
+ * payload that passed container magic bytes but failed REAL stream
+ * validation (ffprobe: no decodable video stream, degenerate duration or
+ * frame count). A artifact like that must never complete a job — advertised
+ * videos must be real, decodable, non-degenerate MP4/WebM files.
+ */
+export class VideoArtifactInvalidError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'VideoArtifactInvalidError'
   }
 }
 
@@ -445,6 +471,18 @@ export async function processVideoJob(job: JobRow): Promise<void> {
       }
     }
     if (!dl) throw new Error('video download failed') // unreachable; keeps TS narrowing honest
+    // ---- FFPROBE COMPLETION GATE (OPERATIONAL-TRANSFORMATION, Phase 5) ----
+    // Container magic bytes alone accepted degenerate captures. The payload
+    // must decode into a real video stream (codec, sane duration, frame
+    // count) before BEAN stores it or marks the job completed. A rejection
+    // is an honest terminal failure carrying ffprobe's measured reason —
+    // never a fake 100% completion state.
+    const streamProbe = await validateVideoArtifact(dl.bytes, dl.format, { jobId: job.id })
+    if (!streamProbe.ok || !streamProbe.video) {
+      throw new VideoArtifactInvalidError(
+        `The provider returned a payload that is not a playable video: ${streamProbe.error ?? 'stream validation failed'}. No video was stored.`,
+      )
+    }
     const dir = path.join(STORAGE_ROOT, job.userId)
     fs.mkdirSync(dir, { recursive: true })
     const filename = `${job.id}.${dl.format}`
@@ -485,6 +523,19 @@ export async function processVideoJob(job: JobRow): Promise<void> {
       format: dl.format,
       bytes: dl.bytesLength,
       durationMs: dl.durationMs,
+      width: streamProbe.video.width,
+      height: streamProbe.video.height,
+      // ffprobe-measured stream facts (real validation, never estimated).
+      stream: {
+        codec: streamProbe.video.codec,
+        width: streamProbe.video.width,
+        height: streamProbe.video.height,
+        durationSec: streamProbe.video.durationSec,
+        ...(streamProbe.video.frames !== null ? { frames: streamProbe.video.frames } : {}),
+        ...(streamProbe.video.fps !== null ? { fps: streamProbe.video.fps } : {}),
+        validatedBy: 'ffprobe',
+      },
+      ...(streamProbe.audio ? { audio: streamProbe.audio } : {}),
       ...(continuity ? { continuity } : {}),
     }
     await updateJob(job.id, {
@@ -687,6 +738,32 @@ function jobParams(job: JobRow): VideoJobParams {
 
 async function handleVideoFailure(job: JobRow, backendId: string, e: unknown, startedAt: Date): Promise<void> {
   const message = e instanceof Error ? e.message : String(e)
+  if (e instanceof VideoArtifactInvalidError) {
+    // ffprobe-rejected artifact: the provider DID answer and returned a
+    // payload, but it is not a real playable video. Evidence is visible in
+    // lastAttempt (backend-error, upstream: false mirrors the
+    // provider-failed semantics) but never becomes availability.
+    noteVideoAttempt(jobParams(job), {
+      at: new Date().toISOString(),
+      ok: false,
+      backendId,
+      failureCategory: 'backend-error',
+      httpStatus: null,
+      upstream: false,
+    })
+    await failJob(job, backendId, 'ARTIFACT_INVALID', message, 'permanent')
+    await recordUsage({
+      userId: job.userId,
+      product: 'jazmii',
+      backendId,
+      kind: 'video-generation',
+      success: false,
+      errorCode: 'ARTIFACT_INVALID',
+      durationMs: Date.now() - startedAt.getTime(),
+    })
+    logger.warn('jazmii.job_artifact_invalid', { jobId: job.id, message: message.slice(0, 200) })
+    return
+  }
   if (e instanceof VideoProviderFailedError) {
     // Provider-reported failure: request-specific, not product-health evidence.
     noteVideoAttempt(jobParams(job), {

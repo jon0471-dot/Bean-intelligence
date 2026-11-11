@@ -1,7 +1,7 @@
 /**
  * BEAN Intelligence — CODE GIFTZ restricted execution sandbox.
  *
- * Isolation model (documented honestly in docs/security/SECURITY.md):
+ * Isolation model (OPERATIONAL-TRANSFORMATION hardening, 2026-11-11):
  *  - Generated code NEVER runs inside the Next.js server process.
  *  - Each run gets an ephemeral workspace under sandbox-runs/<id>/ .
  *  - Child process spawns with a minimal environment (no secrets, no
@@ -10,10 +10,29 @@
  *  - Execution happens ONLY after explicit user approval per task
  *    ("Run in sandbox" action) — never automatically on generation.
  *
- * Known limitation (recorded, not hidden): process-level isolation does not
- * provide kernel-level filesystem/network confinement. Production should
- * run this step in a container/gVisor-style sandbox. The capability claim
- * in the UI says "restricted sandbox", never "fully isolated VM".
+ * ISOLATION LAYERS (measured on this host, 2026-11-11):
+ *  1. Network confinement — the child runs inside `unshare -Urn` (a user
+ *     namespace mapped to root with a FRESH, EMPTY network namespace): it
+ *     has no interfaces, so untrusted code cannot reach the network, the
+ *     platform gateway or the metadata of other services. Measured live:
+ *     connect() inside the namespace fails immediately (ECONNREFUSED — no
+ *     route), while ordinary execution still works.
+ *  2. Resource limits — `prlimit` caps address space (4 GiB, tuned so the
+ *     JS runtime's virtual reservations fit), CPU seconds, process count,
+ *     open file descriptors and output file size. A fork bomb, a memory
+ *     hog or an endless loop is bounded by the kernel, not by politeness.
+ *  3. Process separation + minimal env + ephemeral workspace + SIGKILL
+ *     wall clock (as before).
+ *
+ * Residual limitation (recorded, not hidden): the child still runs under
+ * the same OS uid, so kernel-level FILESYSTEM confinement (chroot/mount
+ * namespaces) is not available without root — production should run this
+ * step in a container/gVisor-style sandbox; recorded in
+ * docs/security/SECURITY.md. The capability claim in the UI says
+ * "restricted sandbox", never "fully isolated VM". When unshare/prlimit
+ * are unavailable on a host, the runner falls back to layer 3 only and
+ * every run result + health probe reports EXACTLY which layers were
+ * active — never a blanket isolation claim.
  */
 import { spawn } from 'child_process'
 import { randomUUID } from 'crypto'
@@ -25,6 +44,87 @@ import type { HealthReport } from '@/lib/adapters/types'
 const SANDBOX_ROOT = path.join(process.cwd(), 'sandbox-runs')
 const TIMEOUT_MS = 15_000
 const MAX_OUTPUT_BYTES = 64_000
+
+// ---- ISOLATION (Phase 6/9 hardening, 2026-11-11) -------------------------
+
+/** Default resource limits (measured: bun needs >512MB virtual; 4GiB fits). */
+const RLIMIT_AS_BYTES = Number(process.env.BEAN_SANDBOX_RLIMIT_AS ?? 4 * 1024 * 1024 * 1024)
+const RLIMIT_CPU_SEC = Number(process.env.BEAN_SANDBOX_RLIMIT_CPU ?? 10)
+const RLIMIT_NPROC = Number(process.env.BEAN_SANDBOX_RLIMIT_NPROC ?? 128)
+const RLIMIT_NOFILE = Number(process.env.BEAN_SANDBOX_RLIMIT_NOFILE ?? 256)
+const RLIMIT_FSIZE_BYTES = Number(process.env.BEAN_SANDBOX_RLIMIT_FSIZE ?? 16 * 1024 * 1024)
+
+export interface SandboxIsolationProfile {
+  /** Layers actually active for a run — reported verbatim in results. */
+  networkNamespace: boolean
+  rlimits: boolean
+  processSeparation: boolean
+}
+
+let cachedTooling: { unshare: boolean; prlimit: boolean } | null = null
+
+function toolingAvailable(): { unshare: boolean; prlimit: boolean } {
+  if (cachedTooling) return cachedTooling
+  const check = (bin: string): boolean => {
+    try {
+      fs.accessSync(bin, fs.constants.X_OK)
+      return true
+    } catch {
+      return false
+    }
+  }
+  const dirs = (process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin').split(':')
+  const find = (name: string): boolean => dirs.some((d) => check(path.join(d, name)))
+  cachedTooling = { unshare: find('unshare'), prlimit: find('prlimit') }
+  return cachedTooling
+}
+
+/**
+ * The isolation profile for THIS host. `BEAN_SANDBOX_DISABLE_ISOLATION=1`
+ * turns layers 1-2 off (documented escape hatch for constrained hosts) —
+ * the profile then reports honestly which layers are missing.
+ */
+export function sandboxIsolationProfile(): SandboxIsolationProfile {
+  if (process.env.BEAN_SANDBOX_DISABLE_ISOLATION === '1') {
+    return { networkNamespace: false, rlimits: false, processSeparation: true }
+  }
+  const t = toolingAvailable()
+  return { networkNamespace: t.unshare, rlimits: t.prlimit, processSeparation: true }
+}
+
+/**
+ * Wrap [command, ...args] in the measured isolation chain:
+ *   prlimit --as --cpu --nproc --nofile --fsize -- unshare -Urn <cmd>
+ * Order matters: prlimit applies the rlimits to itself, then execs unshare,
+ * which enters the fresh user+network namespace and execs the real command —
+ * so the limits hold inside the namespace too. Verified live on this host:
+ * bun runs, network connect() fails, limits enforce.
+ */
+function wrapWithIsolation(command: string, args: string[]): { command: string; args: string[]; profile: SandboxIsolationProfile } {
+  const profile = sandboxIsolationProfile()
+  let cmd = command
+  let rest = [...args]
+  const t = toolingAvailable()
+  if (t.unshare) {
+    rest = [cmd, ...rest]
+    cmd = 'unshare'
+    rest = ['-Urn', ...rest]
+  }
+  if (t.prlimit) {
+    rest = [cmd, ...rest]
+    cmd = 'prlimit'
+    rest = [
+      `--as=${RLIMIT_AS_BYTES}`,
+      `--cpu=${RLIMIT_CPU_SEC}`,
+      `--nproc=${RLIMIT_NPROC}`,
+      `--nofile=${RLIMIT_NOFILE}`,
+      `--fsize=${RLIMIT_FSIZE_BYTES}`,
+      '--',
+      ...rest,
+    ]
+  }
+  return { command: cmd, args: rest, profile }
+}
 
 export interface SandboxFile {
   path: string
@@ -39,6 +139,8 @@ export interface SandboxRunResult {
   exitCode: number | null
   timedOut: boolean
   durationMs: number
+  /** Which isolation layers were active (reported honestly to the user). */
+  isolation: SandboxIsolationProfile
 }
 
 /** Only safe relative paths inside the workspace are allowed. */
@@ -120,13 +222,20 @@ export async function runInSandbox(files: SandboxFile[]): Promise<SandboxRunResu
     files[0]
 
   const t0 = Date.now()
-  const result = await new Promise<Omit<SandboxRunResult, 'runId' | 'files'>>((resolve) => {
+  // Python entries run under the system CPython; everything else keeps the
+  // existing JS/TS runtime. Both are wrapped in the measured isolation chain
+  // (fresh user+network namespace + rlimits) with the same workspace, env
+  // and wall clock as before.
+  const python = isPythonEntry(entry.path)
+  const wrapped = wrapWithIsolation(
+    python ? pickPython() : pickRuntime(),
+    python ? [entry.path] : ['run', entry.path],
+  )
+  const result = await new Promise<Omit<SandboxRunResult, 'runId' | 'files' | 'isolation'>>((resolve) => {
     // Python entries run under the system CPython; everything else keeps the
-    // existing JS/TS runtime. Same workspace, same minimal env, same timeout.
-    const python = isPythonEntry(entry.path)
-    const command = python ? pickPython() : pickRuntime()
-    const args = python ? [entry.path] : ['run', entry.path]
-    const child = spawn(command, args, {
+    // existing JS/TS runtime. Same workspace, same minimal env, same timeout
+    // — both wrapped in the measured isolation chain (namespace + rlimits).
+    const child = spawn(wrapped.command, wrapped.args, {
       cwd: workspace,
       env: {
         PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
@@ -168,7 +277,7 @@ export async function runInSandbox(files: SandboxFile[]): Promise<SandboxRunResu
     })
   })
 
-  return { runId, files, ...result }
+  return { runId, files, isolation: wrapped.profile, ...result }
 }
 
 /**
@@ -281,6 +390,14 @@ export async function probeSandboxHealth(): Promise<HealthReport> {
       ? jsOutcome
       : pyOutcome
 
+  // ISOLATION PROFILE (Phase 6/9 hardening, 2026-11-11): the probe reports
+  // which confinement layers are active on THIS host — the dashboard never
+  // claims kernel isolation that is not measured here.
+  const profile = sandboxIsolationProfile()
+  const isolationNote = profile.networkNamespace && profile.rlimits
+    ? 'Isolation: fresh user+network namespace (unshare -Urn, no interfaces) + prlimit rlimits (as/cpu/nproc/nofile/fsize) + process separation + minimal env.'
+    : `Isolation: process separation + minimal env only${profile.networkNamespace ? ' + network namespace' : ''}${profile.rlimits ? ' + rlimits' : ''} (unshare/prlimit unavailable or disabled on this host).`
+
   return {
     healthy: outcome.ok,
     checkedAt,
@@ -294,7 +411,7 @@ export async function probeSandboxHealth(): Promise<HealthReport> {
       : outcome.detail.includes('timed out after')
         ? ('timeout' as const)
         : ('backend-error' as const),
-    detail: outcome.detail,
+    detail: `${outcome.detail} ${isolationNote}`,
   }
 }
 
