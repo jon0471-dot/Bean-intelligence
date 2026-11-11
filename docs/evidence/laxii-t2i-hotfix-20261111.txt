@@ -1,0 +1,29 @@
+== HOTFIX LAXII T2I RATE-LIMITED — evidence 2026-11-11T03:52:07Z ==
+
+-- ROOT CAUSE (live, pre-fix 03:39Z): T2I row state=rate-limited with checkedAt=2026-11-10T03:24:28Z (24h-old persisted rate_limited row) while lastAttempt.ok=true at 2026-11-11T03:09:16Z; images breaker closed (consecutive429s=0); queue depth 0.
+
+-- POST-FIX real generation E2E (scripts/hotfix-laxii-t2i-verify.ts):
+PASS health reachable (before) — time=2026-11-11T03:52:08.234Z
+PASS auth register+login — register=200 login=200
+PASS request accepted (202 + job id) — job=cmwbl1sim002urdiwg8rvhb67 status=queued
+PASS job reached terminal state — status=completed errorCode=— errorMessage=—
+PASS artifact URL present — imageUrl=/api/laxii/assets/cmwbl2mb6002xrdiwbqd652us
+PASS image bytes retrievable (authenticated) — HTTP 200, content-type=image/jpeg
+PASS valid image format (JPEG magic bytes) — bytes=121855 magic=255,216 hex=ff d8 ff e0
+PASS image dimensions correct (SOF-parsed vs claimed) — measured=1024x1024 claimed=1024x1024 format=jpeg bytes=121855
+PASS byte length consistent — resultJson.bytes=121855 downloaded=121855
+PASS generation history recorded — history row: status=completed size=1024x1024 durationMs=34226 format=jpeg
+PASS T2I capability = operational with fresh real-attempt evidence — state=operational source=real-attempt note="the most recent real generation attempt succeeded" checkedAt=2026-11-11T03:52:46.967Z
+PASS T2I evidence anchored to THIS generation — lastAttempt.at=2026-11-11T03:52:46.967Z job finishedAt=2026-11-11T03:52:46.964Z
+PASS other LAXII capability rows unchanged — before=[background-removal:operational:false, conversational-editing:operational:false, generative-worker:not-configured:false, image-enhancement:operational:false, text-to-image:operational:false] after=[background-removal:operational:false, conversational-editing:operational:false, generative-worker:not-configured:false, image-enhancement:operational:false, text-to-image:operational:false]
+PASS other product untouched: riishe — status operational→operational, caps chat:operational,research:operational → chat:operational,research:operational
+PASS other product untouched: jazmii — status operational→operational, caps image-to-video:operational,text-to-video:operational → image-to-video:operational,text-to-video:operational
+PASS other product untouched: code-giftz — status operational→operational, caps coding-chat:operational,sandbox-execution:operational → coding-chat:operational,sandbox-execution:operational
+
+== RESULT: 16/16 checks passed ==
+
+-- DB state after:
+== ACTIVE laxii jobs (duplicate-guard / queue depth) ==
+[]
+
+== UsageRecord today (UTC) == total=29 laxii=11
