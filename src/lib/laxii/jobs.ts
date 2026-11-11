@@ -43,7 +43,20 @@ import {
   UPSTREAM_FAILURE_CATEGORIES,
   type RealAttemptRecord,
 } from '@/lib/adapters/last-attempts'
-import { classifyUpstreamError, healthFailureCategory } from '@/lib/upstream/gateway'
+import {
+  classifyUpstreamError,
+  healthFailureCategory,
+  upstreamCooldownRemainingMs,
+  UpstreamRateLimitError,
+} from '@/lib/upstream/gateway'
+import {
+  IMAGE_MAX_CUMULATIVE_THROTTLE_MS,
+  IMAGE_MAX_GENERATION_ATTEMPTS,
+  imageGenerationBackoffMs,
+  parseThrottleState,
+  retryAfterMsOf,
+} from '@/lib/jobs/image-worker'
+import type { HealthFailureCategory } from '@/lib/adapters/types'
 import { appendJobEventSafe } from '@/lib/ai-engine/events'
 import { CHROMA_BG_PROMPT, chromaCutout, validateCutout } from './bg-removal'
 
@@ -52,6 +65,10 @@ export interface JobLike {
   userId: string
   status: string
   paramsJson: string
+  /** CAPABILITY RECOVERY (2026-11-11): the engine claim hands the row's
+   *  resultJson through, so the hosted-edit / bg-removal throttle parking
+   *  can persist its bounded retry budget in the same place T2I does. */
+  resultJson?: string | null
 }
 
 export interface MaskStrokeSpec {
@@ -148,6 +165,166 @@ async function failJob(jobId: string, code: string, message: string, errorClass?
       ...(errorClass ? { errorClass } : {}),
     },
   })
+}
+
+/**
+ * CAPABILITY RECOVERY (2026-11-11): honest errorClass on every persisted
+ * failure. The hosted-edit and background-removal paths previously called
+ * failJob WITHOUT an errorClass, so their failed rows carried only
+ * errorCode — and the restart-proof evidence chain (which maps errorClass)
+ * was blind to their genuine upstream failures: measured live, their real
+ * HTTP 429 rows were invisible to the persisted chain, so a restart
+ * whitewashed a throttled capability back to an older success. Only
+ * UPSTREAM classes become errorClass; request-specific rejections
+ * (validation, contract 400s, cancellations) stay class-less — they are not
+ * product-health evidence (pinned real-attempt semantics, unchanged).
+ */
+function jobErrorClassFor(category: HealthFailureCategory): string | undefined {
+  switch (category) {
+    case 'rate-limited':
+      return 'rate_limited'
+    case 'auth':
+      return 'auth'
+    case 'billing':
+      return 'billing'
+    case 'timeout':
+      return 'timeout'
+    case 'network':
+      return 'network'
+    default:
+      return undefined
+  }
+}
+
+/**
+ * ZERO-DOWNTIME RECOVERY for hosted edit / background removal (CAPABILITY
+ * RECOVERY, 2026-11-11) — the SAME bounded throttle recovery the image
+ * worker's settleThrottledGeneration runs for T2I (and the video worker
+ * since 2026-11-08; measured: throttle windows last minutes, and retrying
+ * INTO an open window only deepens the throttle). A genuine HTTP 429 PARKS
+ * the job in retry_wait with a breaker-aligned backoff (provider Retry-After
+ * honored when an adapter ever surfaces one — the gateway sends none today;
+ * else the images breaker's remaining window; else the escalating
+ * 60s·2^(n-1) schedule, capped at 10 minutes). The retry budget persists in
+ * resultJson so it survives restarts, and is bounded BOTH ways
+ * (IMAGE_MAX_GENERATION_ATTEMPTS real attempts; IMAGE_MAX_CUMULATIVE_
+ * THROTTLE_MS total parked wait) so exhaustion ends in an honest terminal
+ * failure. A breaker SKIP made no network request — it counts no attempt and
+ * only extends the scheduled wait. Re-claim is the engine claim protocol's
+ * existing job (CLAIMABLE_STATES includes retry_wait-due) and re-execution
+ * is idempotent: no artifact exists until the result asset is stored, so the
+ * retry IS the first accepted generation — no duplicate submission.
+ *
+ * Returns true when the error WAS a throttle and the job is settled (parked
+ * or terminally exhausted); false → not a throttle, caller's generic failure
+ * path proceeds.
+ */
+async function settleThrottledEditJob(
+  job: JobLike,
+  e: unknown,
+  backendId: string,
+  startedAt: number,
+  opts: { noteTask: 'image-editing' | 'image-bg-removal'; label: string },
+): Promise<boolean> {
+  if (classifyUpstreamError(e).kind !== 'rate_limited') return false
+  // Product-health evidence: a real 429 is genuine upstream evidence; a
+  // breaker skip is an application-side deferral (no request left the host).
+  const attempted = !(e instanceof UpstreamRateLimitError && !e.attempted)
+  noteRealAttempt(opts.noteTask, {
+    at: new Date().toISOString(),
+    ok: false,
+    backendId,
+    failureCategory: 'rate-limited',
+    httpStatus: attempted ? 429 : null,
+    upstream: attempted,
+  })
+  const throttle0 = parseThrottleState(job.resultJson ?? null)
+  const attempt = attempted ? throttle0.submissionAttempts + 1 : throttle0.submissionAttempts
+  const breakerRemainingMs = upstreamCooldownRemainingMs('images')
+  const retryAfterMs = retryAfterMsOf(e)
+  const backoffMs = imageGenerationBackoffMs(Math.max(1, attempt), breakerRemainingMs, retryAfterMs)
+  const cumulativeWaitMs = throttle0.throttleWaitMs + backoffMs
+  const exhausted =
+    (attempted && attempt >= IMAGE_MAX_GENERATION_ATTEMPTS) ||
+    cumulativeWaitMs > IMAGE_MAX_CUMULATIVE_THROTTLE_MS
+  const throttle = {
+    attempt: Math.max(1, attempt),
+    backoffMs,
+    retryAfterMs,
+    attempted,
+    at: new Date().toISOString(),
+  }
+  if (exhausted) {
+    const message =
+      `The image gateway kept throttling this ${opts.label} (HTTP 429): ${Math.max(1, attempt)} authorized attempt(s) ` +
+      `over ~${Math.round(cumulativeWaitMs / 60_000)} minutes all landed inside the same account-wide throttle window, ` +
+      `so no edited image was produced. The job keeps its full attempt history. Resubmitting is the way to try again — ` +
+      `it will succeed once the provider's throttle window closes.`
+    await db.generationJob
+      .update({
+        where: { id: job.id },
+        data: {
+          status: 'failed',
+          finishedAt: new Date(),
+          errorClass: 'rate_limited',
+          errorCode: 'RATE_LIMITED',
+          errorMessage: message,
+          resultJson: JSON.stringify({ submissionAttempts: attempt, throttleWaitMs: cumulativeWaitMs, throttle }),
+        },
+      })
+      .catch(() => undefined)
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId,
+      kind: 'image-editing',
+      success: false,
+      errorCode: 'RATE_LIMITED',
+      durationMs: Date.now() - startedAt,
+    })
+    logger.warn('laxii.edit_throttle_exhausted', {
+      jobId: job.id,
+      label: opts.label,
+      attempt,
+      cumulativeWaitMs,
+    })
+    return true
+  }
+  const message = attempted
+    ? `The image gateway is throttling edits (HTTP 429). The job stays queued — attempt ` +
+      `${attempt + 1} of ${IMAGE_MAX_GENERATION_ATTEMPTS} starts automatically in ~${Math.round(backoffMs / 1000)}s. ` +
+      `Nothing was lost; no duplicate was created.`
+    : `The image gateway is inside its 429 cooldown window, so no ${opts.label} was attempted (submitting into ` +
+      `an open throttle only deepens it). The job stays queued and will run when the window clears ` +
+      `(~${Math.round(backoffMs / 1000)}s).`
+  await db.generationJob
+    .update({
+      where: { id: job.id },
+      data: {
+        status: 'retry_wait',
+        nextRunAt: new Date(Date.now() + backoffMs),
+        errorClass: 'rate_limited',
+        errorCode: 'RATE_LIMITED',
+        errorMessage: message,
+        resultJson: JSON.stringify({ submissionAttempts: attempt, throttleWaitMs: cumulativeWaitMs, throttle }),
+      },
+    })
+    .catch(() => undefined)
+  await appendJobEventSafe(job.id, 'notice', {
+    edit_throttled: true,
+    label: opts.label,
+    attempt: Math.max(1, attempt),
+    backoffMs,
+    retryAfterMs,
+    attempted,
+  }).catch(() => undefined)
+  logger.warn('laxii.edit_throttled', {
+    jobId: job.id,
+    label: opts.label,
+    attempt: Math.max(1, attempt),
+    backoffMs,
+  })
+  return true
 }
 
 async function loadMaskStrokes(
@@ -488,6 +665,10 @@ async function processHostedEditJob(job: JobLike, startedAt: number): Promise<vo
     })
     logger.info('laxii.hosted_edit_completed', { jobId: job.id, bytes: outPng.length })
   } catch (e) {
+    // CAPABILITY RECOVERY (2026-11-11): a genuine HTTP 429 PARKS the job
+    // (bounded, breaker-aligned retry_wait — the T2I recovery) instead of
+    // failing it terminally on the first throttle.
+    if (await settleThrottledEditJob(job, e, backend.id, startedAt, { noteTask: 'image-editing', label: 'conversational edit' })) return
     const isBean = e instanceof BeanApiError
     const failure = classifyUpstreamError(e)
     const category = healthFailureCategory(failure.kind)
@@ -513,6 +694,10 @@ async function processHostedEditJob(job: JobLike, startedAt: number): Promise<vo
           : failure.kind === 'auth' || failure.kind === 'billing'
             ? 'The image backend rejected the request for account/configuration reasons. This needs an operator — retrying will not change it.'
             : message,
+      // HONEST PERSISTED CLASS (CAPABILITY RECOVERY): upstream classes
+      // (auth/billing/timeout/network) survive restarts as health evidence;
+      // request-specific rejections stay class-less on purpose.
+      jobErrorClassFor(category),
     )
     await recordUsage({
       userId: job.userId,
@@ -639,14 +824,6 @@ async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Pro
       durationMs: Date.now() - startedAt,
       success: true,
     })
-    noteRealAttempt('image-editing', {
-      at: new Date().toISOString(),
-      ok: true,
-      backendId: backend.id,
-      failureCategory: null,
-      httpStatus: null,
-      upstream: false,
-    })
     noteRealAttempt('image-bg-removal', {
       at: new Date().toISOString(),
       ok: true,
@@ -655,6 +832,12 @@ async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Pro
       httpStatus: null,
       upstream: false,
     })
+    // ISOLATION (CAPABILITY RECOVERY, 2026-11-11): a background-removal
+    // completion records evidence ONLY under its own capability key — the
+    // previous cross-write to 'image-editing' let a bg-removal success stand
+    // in for a conversational-edit success (and a bg failure block editing),
+    // which the capability model explicitly forbids: one capability's
+    // evidence must never mask another's.
     logger.info('laxii.bg_removal_completed', {
       jobId: job.id,
       bytes: png.length,
@@ -662,6 +845,11 @@ async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Pro
       opaqueFraction: cutout.stats.opaqueFraction,
     })
   } catch (e) {
+    // CAPABILITY RECOVERY (2026-11-11): a genuine HTTP 429 PARKS the job
+    // (bounded, breaker-aligned retry_wait — the T2I recovery) instead of
+    // failing it terminally on the first throttle. Evidence is noted under
+    // THIS capability's key only (no cross-write to 'image-editing').
+    if (await settleThrottledEditJob(job, e, backend.id, startedAt, { noteTask: 'image-bg-removal', label: 'background removal' })) return
     const isBean = e instanceof BeanApiError
     const failure = classifyUpstreamError(e)
     const category = healthFailureCategory(failure.kind)
@@ -675,10 +863,13 @@ async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Pro
       httpStatus: failure.status,
       upstream: UPSTREAM_FAILURE_CATEGORIES.has(category),
     }
-    noteRealAttempt('image-editing', record)
+    // ISOLATION: recorded under 'image-bg-removal' ONLY — the removed
+    // 'image-editing' cross-write let a bg-removal failure block the
+    // conversational-editing capability (the measured "Blocked (HTTP 429)"
+    // state that pinned editing after this job's 429).
     noteRealAttempt('image-bg-removal', record)
     logger.warn('laxii.bg_removal_failed', { jobId: job.id, code, kind: failure.kind, message: message.slice(0, 200) })
-    await failJob(job.id, code, message)
+    await failJob(job.id, code, message, jobErrorClassFor(category))
     await recordUsage({
       userId: job.userId,
       product: 'laxii',

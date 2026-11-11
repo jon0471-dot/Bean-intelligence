@@ -10,6 +10,7 @@ import type { HealthReport } from '@/lib/adapters/types'
 import { safeProbe } from '@/lib/adapters/safe-probe'
 import { lastRealAttempt, recentUpstreamFailure, type AttemptTask } from '@/lib/adapters/last-attempts'
 import {
+  persistedAttempt,
   persistedLastAttempt,
   persistedUpstreamFailure,
   recentPersistedUpstreamFailure,
@@ -291,6 +292,32 @@ export async function GET() {
       recentUpstreamFailure('image-generation') ??
       (await recentPersistedUpstreamFailure('image-generation', { supersededBy: t2iLastAttempt }))
 
+    // CAPABILITY RECOVERY (2026-11-11): the conversational-editing and
+    // background-removal rows read the SAME freshness/supersession contract
+    // the T2I row has used since the LAXII T2I hotfix — the persisted failure
+    // is FRESH evidence only inside ATTEMPT_FRESHNESS_MS AND while no newer
+    // attempt record supersedes it. Measured defect: bg-removal fed the
+    // UNguarded persistedUpstreamFailure into its freshUpstreamFailure slot
+    // (the exact pre-hotfix T2I defect), and editing rendered ANY failed
+    // last attempt — a stale 429 included — as a status-affecting contract
+    // 'Blocked (HTTP 429)' that never expired. The RESTART-PROOF intent is
+    // preserved: a genuinely fresh failure that predates this process still
+    // holds its state until a newer real attempt supersedes it.
+    const editLastAttempt =
+      lastRealAttempt('image-editing') ?? (await persistedLastAttempt('image-editing'))
+    const editFreshUpstreamFailure =
+      recentUpstreamFailure('image-editing') ??
+      (await recentPersistedUpstreamFailure('image-editing', { supersededBy: editLastAttempt }))
+    const bgLastAttempt =
+      lastRealAttempt('image-bg-removal') ?? (await persistedLastAttempt('image-bg-removal'))
+    const bgFreshUpstreamFailure =
+      recentUpstreamFailure('image-bg-removal') ??
+      (await recentPersistedUpstreamFailure('image-bg-removal', { supersededBy: bgLastAttempt }))
+    // A real completed bg-removal run exists? (drives unverifiedCapability's
+    // honest tail: completed-before + failed-newest → display-only degraded,
+    // never the factually false "never completed a real run" blocked state.)
+    const bgCompletedRun = await persistedAttempt('image-bg-removal')
+
     const laxiiCapabilities: CapabilityHealth[] = [
       generationCapability('text-to-image', 'Text-to-image', true, {
         probe: image,
@@ -308,7 +335,12 @@ export async function GET() {
       }),
       editingCapability('conversational-editing', 'Conversational editing', true, {
         probe: image,
-        lastAttempt: lastRealAttempt('image-editing') ?? (await persistedLastAttempt('image-editing')),
+        lastAttempt: editLastAttempt,
+        freshUpstreamFailure: editFreshUpstreamFailure,
+        ownBreaker: upstreamBreakerState('images'),
+        sharedThrottle: sharedThrottleEvidence
+          ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
+          : null,
         contractBlocker: LAXII_EDIT_CONTRACT_BLOCKER,
       }),
       // BACKGROUND REMOVAL (OPERATIONAL-TRANSFORMATION, 2026-11-11): its own
@@ -317,13 +349,13 @@ export async function GET() {
       // completed run (same contract as image-to-video).
       unverifiedCapability('background-removal', 'Background removal', false, {
         probe: image,
-        lastAttempt: lastRealAttempt('image-bg-removal') ?? (await persistedLastAttempt('image-bg-removal')),
-        freshUpstreamFailure:
-          recentUpstreamFailure('image-bg-removal') ?? (await persistedUpstreamFailure('image-bg-removal')),
+        lastAttempt: bgLastAttempt,
+        freshUpstreamFailure: bgFreshUpstreamFailure,
         ownBreaker: upstreamBreakerState('images'),
         sharedThrottle: sharedThrottleEvidence
           ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
           : null,
+        hasCompletedRun: bgCompletedRun !== null,
       }),
       probeCapability('image-enhancement', 'Deterministic enhancement', false, {
         probe: laxiiLocal,

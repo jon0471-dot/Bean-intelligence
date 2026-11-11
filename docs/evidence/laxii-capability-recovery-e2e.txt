@@ -1,0 +1,139 @@
+LAXII CAPABILITY RECOVERY — REAL E2E EVIDENCE
+started 2026-11-11T06:08:59.377Z
+
+auth: register=200 login=200
+
+== HEALTH BEFORE (2026-11-11T06:09:00.975Z) ==
+text-to-image       : degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T05:14:53.288Z, http=-), note="the most recent real attempt failed; reachability is OK — awaiting a fresh attempt"
+conversational-edit: degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T05:15:00.839Z, http=-), note="the most recent real edit attempt failed upstream; reachability is OK — awaiting a fresh attempt"
+background-removal  : degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T05:14:55.410Z, http=-), note="a real run completed before; the most recent attempt failed — awaiting a fresh attempt"
+deterministic-enh   : operational (statusAffecting=false, source=probe, checkedAt=2026-11-11T06:08:59.723Z, http=-), note="local Sharp preservation engine (executed, not claimed)"
+diffusers-worker    : not-configured (statusAffecting=false, source=registry, checkedAt=2026-11-11T06:08:59.723Z, http=-), note="local Diffusers worker (registry-gated smart edit / object removal)"
+breaker classes: [{"class":"chat","coolingDown":false,"remainingMs":0,"consecutive429s":0,"currentCooldownMs":60000,"last429At":null,"skippedCalls":0},{"class":"functions","coolingDown":false,"remainingMs":0,"consecutive429s":0,"currentCooldownMs":60000,"last429At":null,"skippedCalls":0},{"class":"images","coolingDown":false,"remainingMs":0,"consecutive429s":0,"currentCooldownMs":60000,"last429At":null,"skippedCalls":0},{"class":"video","coolingDown":false,"remainingMs":0,"consecutive429s":0,"currentCooldownMs":60000,"last429At":null,"skippedCalls":0},{"class":"audio","coolingDown":false,"remainingMs":0,"consecutive429s":0,"currentCooldownMs":60000,"last429At":null,"skippedCalls":0}]
+unrelated before: {"riishe":{"status":"operational","available":true,"caps":[{"id":"chat","state":"operational","statusAffecting":true},{"id":"research","state":"operational","statusAffecting":false}]},"jazmii":{"status":"operational","available":true,"caps":[{"id":"text-to-video","state":"operational","statusAffecting":false},{"id":"image-to-video","state":"operational","statusAffecting":false}]},"code-giftz":{"status":"operational","available":true,"caps":[{"id":"coding-chat","state":"operational","statusAffecting":true},{"id":"sandbox-execution","state":"operational","statusAffecting":false}]}}
+
+== 1. TEXT-TO-IMAGE (real generation) ==
+submit: HTTP 202 job=cmwbpxtl80008rdbs1916e52w 
+  poll 6s: queued
+  poll 11s: queued
+  poll 16s: queued
+  poll 21s: queued
+  poll 26s: queued
+  poll 31s: queued
+  poll 36s: queued
+  poll 41s: queued
+  poll 46s: queued
+  poll 51s: queued
+  poll 56s: queued
+  poll 61s: queued
+  poll 66s: queued
+  poll 71s: queued
+  poll 76s: queued
+  poll 81s: queued
+  poll 86s: queued
+  poll 91s: queued
+  poll 96s: queued
+  poll 102s: queued
+  poll 107s: queued
+  poll 112s: queued
+  poll 117s: queued
+  poll 122s: queued
+  poll 127s: queued
+  poll 132s: queued
+  poll 137s: queued
+  poll 142s: queued
+  poll 147s: queued
+  poll 152s: queued
+  poll 157s: queued
+  poll 162s: queued
+  poll 167s: queued
+  poll 172s: queued
+  poll 177s: queued
+final: failed
+T2I VERDICT: FAIL — job ended "failed" error=null
+
+== 2. CONVERSATIONAL EDITING (real hosted edit) ==
+upload edit-src-1794377339378.png: HTTP 201 asset=cmwbq1qe6000hrdbs96142xq1
+submit: HTTP 202 job=cmwbq1qm9000krdbsjm0ap0ig 
+  poll 5s: queued
+  poll 10s: queued
+  poll 15s: queued
+  poll 20s: queued
+  poll 25s: queued
+  poll 30s: queued
+  poll 35s: queued
+  poll 40s: queued
+  poll 45s: queued
+  poll 51s: queued
+  poll 56s: queued
+  poll 61s: queued
+  poll 66s: queued
+  poll 71s: queued
+  poll 76s: queued
+  poll 81s: queued
+  poll 86s: queued
+  poll 91s: queued
+  poll 96s: queued
+  poll 101s: queued
+  poll 106s: queued
+  poll 111s: queued
+  poll 116s: queued
+  poll 121s: queued
+  poll 126s: queued
+  poll 131s: queued
+  poll 136s: queued
+  poll 141s: queued
+  poll 147s: queued
+  poll 152s: queued
+  poll 157s: queued
+  poll 162s: queued
+  poll 167s: queued
+  poll 172s: queued
+  poll 177s: queued
+  poll 182s: queued
+  poll 187s: queued
+  poll 192s: queued
+  poll 197s: queued
+  poll 202s: queued
+  poll 207s: queued
+  poll 212s: queued
+  poll 217s: queued
+  poll 222s: queued
+  poll 227s: queued
+  poll 232s: queued
+  poll 237s: queued
+  poll 243s: queued
+  poll 248s: queued
+  poll 253s: queued
+  poll 258s: queued
+  poll 263s: queued
+  poll 268s: queued
+  poll 273s: queued
+  poll 278s: queued
+  poll 283s: queued
+  poll 288s: queued
+  poll 293s: queued
+  poll 298s: queued
+  poll 303s: queued
+  poll 308s: queued
+  poll 313s: queued
+  poll 318s: queued
+  poll 324s: queued
+  poll 329s: queued
+  poll 334s: queued
+  poll 339s: queued
+  poll 344s: queued
+  poll 349s: queued
+  poll 354s: queued
+  poll 359s: queued
+  poll 364s: queued
+  poll 369s: queued
+  poll 374s: queued
+  poll 379s: queued
+  poll 384s: queued
+  poll 389s: queued
+  poll 394s: queued
+  poll 399s: queued
+  poll 404s: queued
+  poll 409s: queued
+  poll 414s: queued

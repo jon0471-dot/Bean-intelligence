@@ -56,6 +56,7 @@
  */
 
 import type { HealthFailureCategory, HealthReport } from '../adapters/types'
+import { UPSTREAM_FAILURE_CATEGORIES } from '../adapters/last-attempts'
 
 export type CapabilityState =
   | 'operational'
@@ -339,6 +340,15 @@ export interface EditingCapabilityInput {
   lastAttempt: AttemptRecordLike | null
   /** The measured contract blocker (evidence-backed), or null. */
   contractBlocker: { measuredAt: string; note: string } | null
+  /** CAPABILITY RECOVERY (2026-11-11): fresh upstream-class failure evidence
+   *  under the SAME freshness/supersession contract as generationCapability
+   *  (15-minute ATTEMPT_FRESHNESS_MS window, newest-attempt-wins) — a stale
+   *  rate-limit record must never render as a standing block. */
+  freshUpstreamFailure?: AttemptRecordLike | null
+  /** This endpoint class's own breaker state (images — shared with T2I). */
+  ownBreaker?: { coolingDown: boolean; last429At: string | null }
+  /** LABELED shared-account throttle evidence, or null when none is fresh. */
+  sharedThrottle?: { last429At: string | null; note: string } | null
 }
 
 /**
@@ -347,6 +357,23 @@ export interface EditingCapabilityInput {
  * the only officially-documented one and is measured too). A REAL successful
  * edit flips the capability to operational — the blocker claim is
  * evidence-driven in both directions and is re-verified by every attempt.
+ *
+ * CAPABILITY RECOVERY (2026-11-11): the evidence chain now mirrors
+ * generationCapability / unverifiedCapability exactly (ONE mechanism, no
+ * second freshness contract):
+ *  - a FRESH upstream failure is throttle/runtime evidence — 'rate-limited'
+ *    for an observed 429, 'degraded' for any other upstream class — never a
+ *    contract verdict;
+ *  - a STALE upstream failure (window expired, no newer attempt) is
+ *    display-only 'degraded' with the real evidence, NOT a status-affecting
+ *    'Blocked (HTTP 429)' pin — measured live, a 25-minute-old genuine 429
+ *    held this row at status-affecting Blocked indefinitely while the
+ *    identical T2I evidence rendered display-only Degraded;
+ *  - the contract 'blocked' state remains for the measured NON-upstream
+ *    verdict (the historic 400/1210 shape rejections — retrying cannot fix
+ *    a contract) and for no-attempts-on-record;
+ *  - while the images-class breaker is open (or the labeled shared throttle
+ *    is fresh), submissions fail fast — the row says so like its siblings.
  */
 export function editingCapability(
   id: string,
@@ -354,7 +381,7 @@ export function editingCapability(
   core: boolean,
   input: EditingCapabilityInput,
 ): CapabilityHealth {
-  const { probe, lastAttempt, contractBlocker } = input
+  const { probe, lastAttempt, contractBlocker, freshUpstreamFailure, ownBreaker, sharedThrottle } = input
   const lastAttemptEvidence: CapabilityEvidence['lastAttempt'] = lastAttempt
     ? { at: lastAttempt.at, ok: lastAttempt.ok, failureCategory: lastAttempt.failureCategory, httpStatus: lastAttempt.httpStatus }
     : null
@@ -376,6 +403,46 @@ export function editingCapability(
       },
     }
   }
+  if (freshUpstreamFailure) {
+    // Same semantics as generationCapability: a fresh throttle is Rate
+    // limited (the provider is refusing volume — not a product defect), any
+    // other upstream class is Degraded. Never a contract verdict.
+    const throttled = freshUpstreamFailure.failureCategory === 'rate-limited'
+    return {
+      id,
+      label,
+      core,
+      state: throttled ? 'rate-limited' : 'degraded',
+      statusAffecting: true,
+      evidence: {
+        checkedAt: freshUpstreamFailure.at,
+        source: 'real-attempt',
+        failureCategory: freshUpstreamFailure.failureCategory,
+        httpStatus: freshUpstreamFailure.httpStatus,
+        note: throttled
+          ? 'the most recent real edit attempt was rate-limited upstream (HTTP 429)'
+          : 'the most recent real edit attempt failed upstream',
+        lastAttempt: lastAttemptEvidence,
+      },
+    }
+  }
+  if (ownBreaker?.coolingDown && ownBreaker.last429At) {
+    return {
+      id,
+      label,
+      core,
+      state: 'rate-limited',
+      statusAffecting: true,
+      evidence: {
+        checkedAt: ownBreaker.last429At,
+        source: 'breaker',
+        failureCategory: 'rate-limited',
+        httpStatus: 429,
+        note: 'endpoint-class breaker is open after an observed 429; submissions fail fast until it clears',
+        lastAttempt: lastAttemptEvidence,
+      },
+    }
+  }
   if (lastAttempt?.ok) {
     return {
       id,
@@ -392,6 +459,53 @@ export function editingCapability(
         lastAttempt: lastAttemptEvidence,
       },
     }
+  }
+  if (sharedThrottle) {
+    return {
+      id,
+      label,
+      core,
+      state: 'rate-limited',
+      statusAffecting: true,
+      evidence: {
+        checkedAt: sharedThrottle.last429At,
+        source: 'shared-throttle',
+        failureCategory: 'rate-limited',
+        httpStatus: 429,
+        note: sharedThrottle.note,
+        lastAttempt: lastAttemptEvidence,
+      },
+    }
+  }
+  if (lastAttempt && !lastAttempt.ok) {
+    // CAPABILITY RECOVERY (2026-11-11): an upstream-class failure that is no
+    // longer fresh is display-only evidence — the same non-fresh-failure
+    // semantics generationCapability applies to T2I. The previous behavior
+    // rendered ANY failed last attempt (a 429 included) as a status-affecting
+    // contract 'blocked', pinning historical throttle windows on this row
+    // indefinitely.
+    const upstreamClass =
+      lastAttempt.failureCategory !== null && UPSTREAM_FAILURE_CATEGORIES.has(lastAttempt.failureCategory)
+    if (upstreamClass) {
+      return {
+        id,
+        label,
+        core,
+        state: 'degraded',
+        statusAffecting: false,
+        evidence: {
+          checkedAt: lastAttempt.at,
+          source: 'real-attempt',
+          failureCategory: lastAttempt.failureCategory,
+          httpStatus: lastAttempt.httpStatus,
+          note: 'the most recent real edit attempt failed upstream; reachability is OK — awaiting a fresh attempt',
+          lastAttempt: lastAttemptEvidence,
+        },
+      }
+    }
+    // Non-upstream failure (the measured 400/1210 contract class and other
+    // request-specific rejections): the contract blocker explains it —
+    // fall through to the contract branch below.
   }
   if (contractBlocker) {
     return {
@@ -457,9 +571,18 @@ export function unverifiedCapability(
     ownBreaker?: { coolingDown: boolean; last429At: string | null }
     /** LABELED shared-account throttle evidence, or null when none is fresh. */
     sharedThrottle?: { last429At: string | null; note: string } | null
+    /** CAPABILITY RECOVERY (2026-11-11), OPT-IN: a real completed run exists
+     *  on record for this capability. When true, a failed newest attempt
+     *  renders as display-only 'degraded' ("completed before; the most
+     *  recent attempt failed — awaiting a fresh attempt") instead of the
+     *  never-completed 'blocked' state — which was factually false for a
+     *  capability WITH completed runs and pinned historical 429s on it
+     *  indefinitely. Absent/false (JAZMII image-to-video) keeps the exact
+     *  previous semantics — this flag changes nothing for existing callers. */
+    hasCompletedRun?: boolean
   },
 ): CapabilityHealth {
-  const { probe, lastAttempt, freshUpstreamFailure, ownBreaker, sharedThrottle } = input
+  const { probe, lastAttempt, freshUpstreamFailure, ownBreaker, sharedThrottle, hasCompletedRun } = input
   const lastAttemptEvidence: CapabilityEvidence['lastAttempt'] = lastAttempt
     ? { at: lastAttempt.at, ok: lastAttempt.ok, failureCategory: lastAttempt.failureCategory, httpStatus: lastAttempt.httpStatus }
     : null
@@ -554,6 +677,30 @@ export function unverifiedCapability(
         failureCategory: 'rate-limited',
         httpStatus: 429,
         note: sharedThrottle.note,
+        lastAttempt: lastAttemptEvidence,
+      },
+    }
+  }
+  if (lastAttempt && !lastAttempt.ok && hasCompletedRun === true) {
+    // CAPABILITY RECOVERY (2026-11-11): with a real completed run on record,
+    // a failed newest attempt is display-only evidence — the same tail
+    // semantics generationCapability applies ("the most recent real attempt
+    // failed; awaiting a fresh attempt"). The previous unconditional
+    // 'blocked' ("attempted live but never completed a real run") was
+    // factually false here AND status-affecting, so a historical 429 could
+    // hold the capability — and the product badge — hostage forever.
+    return {
+      id,
+      label,
+      core,
+      state: 'degraded',
+      statusAffecting: false,
+      evidence: {
+        checkedAt: lastAttempt.at,
+        source: 'real-attempt',
+        failureCategory: lastAttempt.failureCategory,
+        httpStatus: lastAttempt.httpStatus,
+        note: 'a real run completed before; the most recent attempt failed — awaiting a fresh attempt',
         lastAttempt: lastAttemptEvidence,
       },
     }
