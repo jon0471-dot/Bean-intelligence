@@ -5,7 +5,7 @@
  * All model behavior is a recording stub — the loop, registry and builtins
  * under test are the real production code.
  */
-import { describe, test, expect } from 'bun:test'
+import {mock, describe, test, expect } from 'bun:test'
 import {
   parseToolCalls,
   runToolLoop,
@@ -24,6 +24,19 @@ import { shouldSearch } from '../../src/lib/research/policy'
 import type { ChatTurn } from '../../src/lib/adapters/types'
 import type { TaskAdapter } from '../../src/lib/adapters/types'
 import type { ToolContext } from '../../src/lib/riishe/tools/types'
+
+// SEMANTIC-ROUTER SEAM (OPERATIONAL-TRANSFORMATION, 2026-11-11): the
+// orchestrator now invokes resolveAutoSearchDecision when the deterministic
+// policy is not confident. Unit tests must stay hermetic — the semantic
+// layer is mocked to echo the deterministic decision (its real behavior is
+// covered by auto-grounding.test.ts with an injected transport).
+mock.module('@/lib/research/semantic-router', () => ({
+  resolveAutoSearchDecision: async (
+    _message: string,
+    deterministic: { search: boolean; risk: string; reason: string },
+  ) => ({ decision: deterministic, semantic: null, semanticRan: false }),
+}))
+
 
 const emptyCtx: ToolContext = { permissions: new Set(), documents: new Map() }
 

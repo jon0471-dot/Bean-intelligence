@@ -5,6 +5,7 @@ import { parseBody } from '@/lib/api/validate'
 import { requireUser } from '@/lib/auth/session'
 import { preflight } from '@/lib/router/router'
 import { enqueueJob } from '@/lib/jobs/queue'
+import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { recordAudit } from '@/lib/observability/metering'
 import { loadAsset } from '@/lib/laxii/assets'
 
@@ -66,6 +67,26 @@ export async function POST(request: Request) {
     const { backend, release } = await preflight(user.id, 'laxii', 'image-enhancement')
     release() // the queue holds the concurrency slot while processing
 
+    // DUPLICATE-SUBMISSION GUARD (OPERATIONAL-TRANSFORMATION, 2026-11-11):
+    // generate/edit already refuse an identical ACTIVE job with 409 — the
+    // enhance route was the one submission path without the guard, so a
+    // double-click could queue two identical enhancement jobs. Terminal
+    // jobs never block a deliberate resubmission.
+    const dedupeKey = dedupeKeyFor(user.id, 'laxii', 'image-enhancement', {
+      assetId: body.assetId,
+      maskStrokes: body.maskStrokes,
+      faceZones: body.faceZones,
+      shaping: body.shaping,
+      options: body.options,
+      globalColor: body.globalColor,
+    })
+    if (await hasActiveDuplicate(dedupeKey)) {
+      throw new BeanApiError(
+        'CONCURRENCY_LIMIT',
+        'An identical enhancement is already queued or running. Wait for it to finish.',
+      )
+    }
+
     const job = await db.generationJob.create({
       data: {
         userId: user.id,
@@ -73,6 +94,7 @@ export async function POST(request: Request) {
         task: 'image-enhancement',
         status: 'queued',
         backendId: backend.id,
+        dedupeKey,
         paramsJson: JSON.stringify({
           assetId: body.assetId,
           maskStrokes: body.maskStrokes,

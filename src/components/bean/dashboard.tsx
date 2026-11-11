@@ -265,20 +265,13 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
           const latency = probe?.probe?.latencyMs
           const coreFailed = status === 'unavailable'
           // GO-LIVE (2026-11-05): the failing-capability line is derived from
-          // the measured capability rows (with a fallback to the legacy
-          // slots when a payload predates them). Only status-affecting rows
-          // are named — display-only rows stay in the payload.
+          // the measured capability rows ONLY. CONFLATION REMOVAL (2026-11-11):
+          // the fallback that fabricated a capability row from the legacy
+          // slots (research/sandbox/generation) is gone — a payload without
+          // capability rows shows no per-capability failure line instead of
+          // implying evidence that was never measured.
           const failingCapabilities: CapabilityRow[] =
-            probe?.capabilities?.filter((c) => c.statusAffecting && c.state !== 'operational') ??
-            (status === 'degraded'
-              ? ([
-                  p.id === 'riishe'
-                    ? { id: 'research', label: 'research', core: false, state: 'unavailable' as const, statusAffecting: true, evidence: capInfo(probe?.research?.probe) }
-                    : p.id === 'code-giftz'
-                      ? { id: 'sandbox', label: 'sandbox', core: false, state: 'unavailable' as const, statusAffecting: true, evidence: capInfo(probe?.sandbox?.probe) }
-                      : { id: 'generation', label: 'generation', core: true, state: 'unavailable' as const, statusAffecting: true, evidence: { failureCategory: probe?.generation?.failureCategory ?? null, httpStatus: probe?.generation?.httpStatus ?? null } },
-                ] as CapabilityRow[])
-              : [])
+            probe?.capabilities?.filter((c) => c.statusAffecting && c.state !== 'operational') ?? []
           const failureText =
             coreFailed || status === 'not-configured'
               ? failureLabel(probe?.probe?.failureCategory, probe?.probe?.httpStatus)

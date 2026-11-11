@@ -9,7 +9,7 @@
  * All model/provider behavior is a stub; the pipeline, cache and orchestrator
  * under test are the real production code. No network.
  */
-import { describe, test, expect } from 'bun:test'
+import {mock, describe, test, expect } from 'bun:test'
 import {
   isStraightforwardQuestion,
   dedupeQueries,
@@ -28,6 +28,19 @@ import { orchestrateTurn, selectTools, liftSelfCheck } from '../../src/lib/riish
 import type { TaskAdapter, ChatTurn } from '../../src/lib/adapters/types'
 import type { ToolContext } from '../../src/lib/riishe/tools/types'
 import type { OrchestrationEvent } from '../../src/lib/riishe/orchestrator'
+
+// SEMANTIC-ROUTER SEAM (OPERATIONAL-TRANSFORMATION, 2026-11-11): the
+// orchestrator now invokes resolveAutoSearchDecision when the deterministic
+// policy is not confident. Unit tests must stay hermetic — the semantic
+// layer is mocked to echo the deterministic decision (its real behavior is
+// covered by auto-grounding.test.ts with an injected transport).
+mock.module('@/lib/research/semantic-router', () => ({
+  resolveAutoSearchDecision: async (
+    _message: string,
+    deterministic: { search: boolean; risk: string; reason: string },
+  ) => ({ decision: deterministic, semantic: null, semanticRan: false }),
+}))
+
 
 function searchResult(partial: Partial<WebSearchResult> & { url: string }): WebSearchResult {
   return {

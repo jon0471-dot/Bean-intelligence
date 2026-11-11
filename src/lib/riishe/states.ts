@@ -100,6 +100,12 @@ export interface MessageMetadata {
     signals: Array<{ family: string; match: string }>
     codeExecution: boolean
     imageAnalysis: boolean
+    /** RESPONSE MODES (Phase 3, backend-selected — the composer has no mode
+     *  toggle): which advertised response mode this turn was routed to. */
+    mode?: 'normal-chat' | 'web-search' | 'deep-research' | 'document-analysis' | 'writing'
+    /** True when the semantic freshness router adjudicated the Auto search
+     *  decision (deterministic policy was not confident). */
+    semanticRouted?: boolean
   }
   /** Provenance for system-authored memory-action receipts (real DB
    *  operations, not model output). Absent on ordinary turns. */

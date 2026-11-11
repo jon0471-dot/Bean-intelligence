@@ -29,6 +29,7 @@ import { withTimeout, UpstreamTruncatedError } from '@/lib/adapters/hosted-llm'
 import { streamConfig } from './stream-config'
 import { solveWithContinuation } from './continuation'
 import { shouldSearch, isDocumentLike, isNewsEventQuery, type SearchDecision } from '@/lib/research/policy'
+import { isDeepResearchQuery, isWritingTask } from '@/lib/riishe/classify'
 import { detectLanguage, LANGUAGE_NAMES } from '@/lib/intel/language'
 import { runResearch, formatEvidenceBlock, type EvidencePack } from '@/lib/research/pipeline'
 import { detectSensitiveCase } from '@/lib/research/sensitive'
@@ -116,6 +117,11 @@ export interface OrchestrationInput {
    */
   hooks?: {
     runResearch?: (message: string, decision: SearchDecision) => Promise<EvidencePack>
+    /** Test seam for the semantic Auto-routing layer (see below). */
+    resolveAutoSearch?: (
+      message: string,
+      deterministic: SearchDecision,
+    ) => Promise<{ decision: SearchDecision; semanticRan: boolean }>
   }
 }
 
@@ -162,13 +168,17 @@ export function selectTools(args: {
   researchFailed: boolean
   /** True when at least one attached document is an image. */
   hasImageDocuments?: boolean
+  /** DEEP RESEARCH mode: a multi-source investigation keeps web_search and
+   *  read_url in the loop even after a successful pipeline pack, so the
+   *  report is genuinely multi-source rather than pipeline-only. */
+  deepResearch?: boolean
 }): string[] {
   const tools = new Set<string>()
-  const { searchNeeded, task, hasDocuments, allowCodeExecution, researchFailed, hasImageDocuments } = args
+  const { searchNeeded, task, hasDocuments, allowCodeExecution, researchFailed, hasImageDocuments, deepResearch } = args
   if (task === 'math') tools.add('calculate')
   if (hasDocuments) tools.add('read_document')
   if (hasImageDocuments) tools.add('analyze_image')
-  if (hasDocuments || (searchNeeded && researchFailed)) {
+  if (hasDocuments || (searchNeeded && researchFailed) || deepResearch) {
     tools.add('web_search')
     tools.add('read_url')
   }
@@ -366,7 +376,52 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       )
     }
   }
-  const decision = resolveSearchDecision(userMessage)
+  const decisionDeterministic = resolveSearchDecision(userMessage)
+  // RESPONSE MODES (OPERATIONAL-TRANSFORMATION, Phase 3): the server selects
+  // which advertised mode this turn is served in — the composer has no mode
+  // toggle, so routing stays backend-controlled and is recorded in metadata.
+  // document-analysis: attachments dominate; writing: the user asked for a
+  // piece of writing; deep-research: research task with explicit depth
+  // signals; web-search: fresh-evidence lookup; normal-chat: everything else.
+  let responseMode: 'normal-chat' | 'web-search' | 'deep-research' | 'document-analysis' | 'writing' =
+    documents.length > 0
+      ? 'document-analysis'
+      : isWritingTask(userMessage)
+        ? 'writing'
+        : profile.task === 'research' && isDeepResearchQuery(userMessage)
+          ? 'deep-research'
+          : decisionDeterministic.search
+            ? 'web-search'
+            : 'normal-chat'
+  // Reassigned only by the semantic escalation below (deterministic "no" →
+  // semantic "needs current" upgrades the turn to web-search).
+
+  // AUTO SEARCH DECISION — both halves now actually run: the deterministic
+  // freshness policy first; when it is NOT confident, the semantic freshness
+  // router adjudicates (resolveAutoSearchDecision — it can only ADD
+  // retrieval, never suppress a deterministic search verdict, and every
+  // failure degrades to the deterministic decision). The router rides the
+  // guarded chat-class transport, so an open 429 breaker skips it with zero
+  // network traffic. The dead-code audit (2026-11-11) found this layer was
+  // built and tested but never invoked — wiring it completes the Auto
+  // decision the module documents.
+  let decision = decisionDeterministic
+  let semanticRouted = false
+  if (!decisionDeterministic.search) {
+    // LAZY LOAD: the semantic layer loads on first ambiguous turn and is
+    // mockable at the module boundary (hermetic unit tests patch
+    // '@/lib/research/semantic-router' before calling orchestrateTurn).
+    const { resolveAutoSearchDecision } = await import('@/lib/research/semantic-router')
+    const resolved = input.hooks?.resolveAutoSearch
+      ? await input.hooks.resolveAutoSearch(userMessage, decisionDeterministic)
+      : await resolveAutoSearchDecision(userMessage, decisionDeterministic)
+    decision = resolved.decision
+    semanticRouted = resolved.semanticRan
+    if (resolved.decision.search && responseMode === 'normal-chat') {
+      // The semantic layer escalated retrieval — the turn is a web-search turn.
+      responseMode = 'web-search'
+    }
+  }
   const searchNeeded = decision.search && !isDocumentLike(userMessage)
 
   // ---- Injection gate (input side, BEFORE generation) ----------------------
@@ -418,6 +473,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const documentBlock = documents.length > 0 ? buildDocumentBlock(documents) : null
 
   // ---- Tool plan (final — depends on the retrieval outcome) ------------------
+  const deepResearchMode = responseMode === 'deep-research'
   const finalToolNames = selectTools({
     searchNeeded,
     task: profile.task,
@@ -425,6 +481,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     allowCodeExecution,
     researchFailed: searchNeeded && (pack?.sources.length ?? 0) === 0,
     hasImageDocuments: capabilityPlan.imageAnalysis && documents.some((d) => d.kind === 'image'),
+    deepResearch: deepResearchMode,
   })
   const finalToolsActive = finalToolNames.length > 0 && input.toolContext != null
   // Recompute buffering now that the tool plan is known: without an echo
@@ -444,8 +501,16 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         staleness: pack?.staleness ?? null,
         // Ongoing news events and cases get the structured research shape
         // (summary -> confirmed timeline -> latest verified update ->
-        // unresolved questions). Ordinary lookups keep natural prose.
-        researchShape: decision.risk === 'high' && isNewsEventQuery(userMessage) ? 'news' : null,
+        // unresolved questions); DEEP RESEARCH turns get the report shape
+        // (overview -> key findings -> conflicts -> limitations). Ordinary
+        // lookups keep natural prose.
+        researchShape:
+          deepResearchMode && pack
+            ? 'report'
+            : decision.risk === 'high' && isNewsEventQuery(userMessage)
+              ? 'news'
+              : null,
+        responseMode,
         sensitiveCase,
         hasImages: documents.some((d) => d.kind === 'image'),
         userLanguage: LANGUAGE_NAMES[langProfile.primary],
@@ -1250,18 +1315,23 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     ...(input.digest ? { digestUsed: true } : {}),
     // "last checked" time: recorded whenever retrieval was ATTEMPTED (pipeline
     // or a model-requested web tool), so time-sensitive answers carry a real
-    // check timestamp.
-    ...(researchRan ? { retrievedAt: new Date().toISOString() } : {}),
+    // check timestamp. RETRIEVED-AT HONESTY FIX (2026-11-11): when the
+    // pipeline ran, the stamp is the pack's OWN fetchedAt — the ORIGINAL
+    // fetch time, cache-aware — instead of respond-time now(); a cache hit
+    // can no longer present itself as a fresh check.
+    ...(researchRan ? { retrievedAt: pack ? pack.fetchedAt : new Date().toISOString() } : {}),
     ...(injectionBlocked ? { injectionBlocked: true } : {}),
     ...(verificationNote ? { verificationNote } : {}),
     // Phase-2 routing observability (additive): the deterministic router's
-    // decision + capability plan for this turn.
+    // decision + capability plan + response mode for this turn.
     router: {
       task: classified.task,
       confidence: classified.confidence,
       signals: classified.signals,
       codeExecution: capabilityPlan.codeExecution,
       imageAnalysis: capabilityPlan.imageAnalysis,
+      mode: responseMode,
+      ...(semanticRouted ? { semanticRouted: true } : {}),
     },
     timings,
   }

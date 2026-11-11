@@ -3,11 +3,24 @@
  * removed, the server decides code-execution need from the message/task and
  * documents — deterministically and auditably.
  */
-import { describe, test, expect } from 'bun:test'
+import {mock, describe, test, expect } from 'bun:test'
 import { planCapabilities } from '../../src/lib/riishe/capability-plan'
 import { selectTools, orchestrateTurn } from '../../src/lib/riishe/orchestrator'
 import type { TaskAdapter } from '../../src/lib/adapters/types'
 import type { EvidencePack } from '../../src/lib/research/pipeline'
+
+// SEMANTIC-ROUTER SEAM (OPERATIONAL-TRANSFORMATION, 2026-11-11): the
+// orchestrator now invokes resolveAutoSearchDecision when the deterministic
+// policy is not confident. Unit tests must stay hermetic — the semantic
+// layer is mocked to echo the deterministic decision (its real behavior is
+// covered by auto-grounding.test.ts with an injected transport).
+mock.module('@/lib/research/semantic-router', () => ({
+  resolveAutoSearchDecision: async (
+    _message: string,
+    deterministic: { search: boolean; risk: string; reason: string },
+  ) => ({ decision: deterministic, semantic: null, semanticRan: false }),
+}))
+
 
 describe('planCapabilities (automatic code execution decision)', () => {
   test('explicit execution requests are granted', () => {

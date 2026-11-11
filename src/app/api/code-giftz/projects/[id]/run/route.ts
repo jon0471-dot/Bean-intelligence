@@ -76,6 +76,9 @@ export async function POST(
         exitCode: run.exitCode,
         timedOut: run.timedOut,
         durationMs: run.durationMs,
+        // Isolation profile actually active for THIS run (never a blanket
+        // isolation claim — Phase 6/9 hardening).
+        isolation: run.isolation,
       },
     })
   })

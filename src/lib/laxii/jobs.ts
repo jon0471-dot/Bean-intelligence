@@ -44,6 +44,8 @@ import {
   type RealAttemptRecord,
 } from '@/lib/adapters/last-attempts'
 import { classifyUpstreamError, healthFailureCategory } from '@/lib/upstream/gateway'
+import { appendJobEventSafe } from '@/lib/ai-engine/events'
+import { CHROMA_BG_PROMPT, chromaCutout, validateCutout } from './bg-removal'
 
 export interface JobLike {
   id: string
@@ -72,7 +74,7 @@ export interface EnhanceJobParams {
 }
 
 export interface EditJobParams {
-  mode: 'smart-edit' | 'object-removal' | 'reference-guided' | 'conversational-edit'
+  mode: 'smart-edit' | 'object-removal' | 'reference-guided' | 'conversational-edit' | 'background-removal'
   assetId: string
   maskStrokes?: MaskStrokeSpec[]
   faceZones?: FaceZoneSpec[]
@@ -96,12 +98,37 @@ interface StageCtx {
   lastProgress: number
 }
 
-async function checkCancelled(ctx: StageCtx): Promise<boolean> {
+/**
+ * Cancellation checkpoint that also SETTLES the row (OPERATIONAL-
+ * TRANSFORMATION, 2026-11-11): the engine's cooperative cancel only sets
+ * `cancelRequested` on running jobs — the processor must stop AND mark the
+ * job cancelled, otherwise the row would stay "running" forever. Returns
+ * true when processing must stop (row already terminal, or cancelled now).
+ */
+async function stopIfCancelled(ctx: StageCtx): Promise<boolean> {
   const fresh = await db.generationJob.findUnique({
     where: { id: ctx.job.id },
-    select: { status: true },
+    select: { status: true, cancelRequested: true },
   })
-  return !fresh || fresh.status === 'failed' || fresh.status === 'rejected'
+  if (!fresh || fresh.status === 'failed' || fresh.status === 'rejected') return true
+  if (fresh.cancelRequested === true) {
+    await db.generationJob
+      .update({
+        where: { id: ctx.job.id },
+        data: {
+          status: 'cancelled',
+          errorClass: 'cancelled',
+          errorCode: 'CANCELLED',
+          errorMessage:
+            'Cancelled at your request — processing stopped between stages. The original image was never modified by this job.',
+          finishedAt: new Date(),
+        },
+      })
+      .catch(() => undefined)
+    await appendJobEventSafe(ctx.job.id, 'notice', { cancelled: 'between_stages' }).catch(() => undefined)
+    return true
+  }
+  return fresh.status === 'cancelled'
 }
 
 async function progress(ctx: StageCtx, value: number): Promise<void> {
@@ -279,7 +306,7 @@ export async function processEnhancementJob(job: JobLike): Promise<void> {
     const params = JSON.parse(job.paramsJson) as EnhanceJobParams
     await progress(ctx, 15)
 
-    if (await checkCancelled(ctx)) return
+    if (await stopIfCancelled(ctx)) return
     const imageBytes = await readAssetBytes(job.userId, params.assetId)
     const inputAsset = await loadAsset(job.userId, params.assetId)
 
@@ -294,7 +321,7 @@ export async function processEnhancementJob(job: JobLike): Promise<void> {
     const processedRaw = await decodeToRaw(result.outputPng)
 
     await progress(ctx, 60)
-    if (await checkCancelled(ctx)) return
+    if (await stopIfCancelled(ctx)) return
 
     let mask: ShapedMask | null = null
     let faceZones: FaceZone[] = []
@@ -377,7 +404,7 @@ async function processHostedEditJob(job: JobLike, startedAt: number): Promise<vo
       throw new BeanApiError('PROVIDER_UNAVAILABLE', 'Hosted image editing is not enabled in this deployment.')
     }
     await progress(ctx, 10)
-    if (await checkCancelled(ctx)) return
+    if (await stopIfCancelled(ctx)) return
 
     const imageBytes = await readAssetBytes(job.userId, params.assetId)
     const inputAsset = await loadAsset(job.userId, params.assetId)
@@ -390,7 +417,7 @@ async function processHostedEditJob(job: JobLike, startedAt: number): Promise<vo
       .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 90 })
       .toBuffer()
-    if (await checkCancelled(ctx)) return
+    if (await stopIfCancelled(ctx)) return
 
     await progress(ctx, 45)
     const editFn = hostedImageAdapter.editImage
@@ -500,6 +527,171 @@ async function processHostedEditJob(job: JobLike, startedAt: number): Promise<vo
 }
 
 // ---------------------------------------------------------------------------
+// Background removal (two-stage: hosted chroma replacement + deterministic
+// cutout) — OPERATIONAL-TRANSFORMATION, Phase 4
+// ---------------------------------------------------------------------------
+
+/**
+ * REAL background removal. The authorized hosted edit endpoint returns
+ * OPAQUE JPEG only (measured 2026-11-11: no alpha output exists), so a
+ * direct "transparent cutout" claim would be fake. The honest pipeline:
+ *  1. the provider performs the SUBJECT/BACKGROUND SEPARATION by replacing
+ *     the background with a uniform chroma-key green (measured live: corner
+ *     samples within ±3 RGB);
+ *  2. bg-removal.ts keys that color out deterministically into a true alpha
+ *     PNG, with the key, thresholds and coverage fractions all measured.
+ * A result without meaningful transparency is an HONEST failure — never a
+ * stored fake cutout.
+ */
+async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Promise<void> {
+  const ctx: StageCtx = { job, lastProgress: 0 }
+  const backend = getBackend('bean-image-hosted-edit')!
+  const params = JSON.parse(job.paramsJson) as EditJobParams
+  try {
+    if (backend.enabled !== true) {
+      throw new BeanApiError('PROVIDER_UNAVAILABLE', 'Hosted image editing is not enabled in this deployment.')
+    }
+    await progress(ctx, 10)
+    if (await stopIfCancelled(ctx)) return
+
+    const imageBytes = await readAssetBytes(job.userId, params.assetId)
+    const inputAsset = await loadAsset(job.userId, params.assetId)
+    await progress(ctx, 25)
+
+    // Bound the submission payload: longest side ≤ 1024, JPEG q90.
+    const prepared = await sharp(imageBytes)
+      .rotate()
+      .removeAlpha()
+      .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 90 })
+      .toBuffer()
+    if (await stopIfCancelled(ctx)) return
+
+    await progress(ctx, 45)
+    const editFn = hostedImageAdapter.editImage
+    if (!editFn) throw new Error('The hosted edit adapter has no edit implementation.')
+    const result = await editFn.call(hostedImageAdapter, {
+      prompt: CHROMA_BG_PROMPT,
+      imageBase64: prepared.toString('base64'),
+      timeoutMs: backend.timeouts.requestMs,
+    })
+    await progress(ctx, 75)
+
+    // Stage 2: measure the key, cut it out, validate the coverage.
+    const keyed = await toRaw(result.bytes)
+    const cutout = chromaCutout(keyed)
+    const rejection = validateCutout(cutout.stats)
+    if (rejection) {
+      // The provider answered but the two-stage pipeline could not produce a
+      // usable transparency. HONEST failure with the measured reason.
+      throw new LaxiiImageError(`Background removal failed validation: ${rejection}. Your original image was not modified.`)
+    }
+    const png = await sharp(cutout.rgba, {
+      raw: { width: cutout.width, height: cutout.height, channels: 4 },
+    })
+      .png({ compressionLevel: 6 })
+      .toBuffer()
+    await progress(ctx, 90)
+
+    const resultAsset = await storeResultAsset(job.userId, 'result', png, cutout.width, cutout.height, {
+      jobId: job.id,
+      provenance: {
+        engine: 'hosted-edit+chroma-cutout',
+        pipeline: 'two-stage-bg-removal',
+        mode: 'background-removal',
+        note:
+          'Stage 1 (provider): background replaced with uniform chroma-key green. Stage 2 (deterministic): key measured from the border ring and cut out to true alpha. Transparent PNG.',
+      },
+    })
+
+    await db.generationJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'completed',
+        progress: 100,
+        finishedAt: new Date(),
+        backendId: backend.id,
+        resultJson: JSON.stringify({
+          imageUrl: resultAsset.url,
+          originalUrl: inputAsset.url,
+          width: cutout.width,
+          height: cutout.height,
+          format: 'png',
+          transparent: true,
+          bytes: png.length,
+          durationMs: Date.now() - startedAt,
+          chroma: cutout.stats,
+          provenance: {
+            engine: 'hosted-edit+chroma-cutout',
+            pipeline: 'two-stage-bg-removal',
+            mode: 'background-removal',
+            inputPreparedMaxSidePx: 1024,
+          },
+        }),
+      },
+    })
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: backend.id,
+      kind: 'image-editing',
+      imageCount: 1,
+      durationMs: Date.now() - startedAt,
+      success: true,
+    })
+    noteRealAttempt('image-editing', {
+      at: new Date().toISOString(),
+      ok: true,
+      backendId: backend.id,
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    })
+    noteRealAttempt('image-bg-removal', {
+      at: new Date().toISOString(),
+      ok: true,
+      backendId: backend.id,
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    })
+    logger.info('laxii.bg_removal_completed', {
+      jobId: job.id,
+      bytes: png.length,
+      transparentFraction: cutout.stats.transparentFraction,
+      opaqueFraction: cutout.stats.opaqueFraction,
+    })
+  } catch (e) {
+    const isBean = e instanceof BeanApiError
+    const failure = classifyUpstreamError(e)
+    const category = healthFailureCategory(failure.kind)
+    const message = isBean ? e.message : e instanceof LaxiiImageError ? e.message : e instanceof Error ? e.message.slice(0, 240) : 'Background removal could not complete.'
+    const code = failure.kind === 'rate_limited' ? 'RATE_LIMITED' : isBean ? e.code : 'BACKEND_FAILURE'
+    const record: RealAttemptRecord = {
+      at: new Date().toISOString(),
+      ok: false,
+      backendId: backend.id,
+      failureCategory: category,
+      httpStatus: failure.status,
+      upstream: UPSTREAM_FAILURE_CATEGORIES.has(category),
+    }
+    noteRealAttempt('image-editing', record)
+    noteRealAttempt('image-bg-removal', record)
+    logger.warn('laxii.bg_removal_failed', { jobId: job.id, code, kind: failure.kind, message: message.slice(0, 200) })
+    await failJob(job.id, code, message)
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: backend.id,
+      kind: 'image-editing',
+      success: false,
+      errorCode: code,
+      durationMs: Date.now() - startedAt,
+    })
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Generative editing (Diffusers worker — registry-gated)
 // ---------------------------------------------------------------------------
 
@@ -510,6 +702,10 @@ export async function processEditJob(job: JobLike): Promise<void> {
   const params = JSON.parse(job.paramsJson) as EditJobParams
   if (params.mode === 'conversational-edit') {
     await processHostedEditJob(job, startedAt)
+    return
+  }
+  if (params.mode === 'background-removal') {
+    await processBackgroundRemovalJob(job, startedAt)
     return
   }
   const ctx: StageCtx = { job, lastProgress: 0 }
@@ -524,7 +720,7 @@ export async function processEditJob(job: JobLike): Promise<void> {
     const params = JSON.parse(job.paramsJson) as EditJobParams
     await progress(ctx, 10)
 
-    if (await checkCancelled(ctx)) return
+    if (await stopIfCancelled(ctx)) return
     const imageBytes = await readAssetBytes(job.userId, params.assetId)
     const inputAsset = await loadAsset(job.userId, params.assetId)
 
@@ -554,7 +750,7 @@ export async function processEditJob(job: JobLike): Promise<void> {
     const genImage = await resizeRaw(workingOriginal, genW, genH)
     const genMask = resizeMask(mask, genW, genH)
 
-    if (await checkCancelled(ctx)) return
+    if (await stopIfCancelled(ctx)) return
     let workerResult: Record<string, unknown>
     if (params.mode === 'object-removal') {
       workerResult = await workerRequest(

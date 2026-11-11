@@ -29,6 +29,7 @@ import type { AttemptRecordLike } from '@/lib/registry/capabilities'
 export type PersistedAttemptTask =
   | 'image-generation'
   | 'image-editing'
+  | 'image-bg-removal'
   | 'video-generation-t2v'
   | 'video-generation-i2v'
   // CHAT-RECOVERY (2026-11-10): the quota-free chat health probe reads the
@@ -64,6 +65,109 @@ function recordFrom(finishedAt: Date | null): AttemptRecordLike | null {
     ok: true,
     failureCategory: null,
     httpStatus: null,
+  }
+}
+
+/**
+ * RESTART-PROOF FAILURE EVIDENCE (OPERATIONAL-TRANSFORMATION, 2026-11-11):
+ * the persisted store previously carried ONLY completed rows, so a server
+ * restart legitimately erased every trace of a real upstream failure — a
+ * capability with a fresh 401/429 yesterday and a success last week came
+ * back "operational" after a deploy. Failed GenerationJob rows persist
+ * `errorClass` (rate_limited | auth | billing | timeout | network | …), so
+ * the same honest evidence the in-memory tracker holds is recoverable from
+ * the database. Only UPSTREAM-class failures count as health evidence; a
+ * request-specific rejection (content policy, cancellation, budget) is not
+ * product-health evidence and stays out of the chain.
+ */
+function errorClassToCategory(errorClass: string | null): HealthFailureCategory | null {
+  switch (errorClass) {
+    case 'rate_limited':
+      return 'rate-limited'
+    case 'auth':
+      return 'auth'
+    case 'billing':
+      return 'billing'
+    case 'timeout':
+      return 'timeout'
+    case 'network':
+      return 'network'
+    default:
+      return null
+  }
+}
+
+/** Failed-row lookup shared by the evidence functions (bounded, indexed). */
+async function latestFailedRow(
+  where: Record<string, unknown>,
+): Promise<{ finishedAt: Date | null; errorClass: string | null } | null> {
+  const row = await db.generationJob.findFirst({
+    where: { ...where, status: 'failed' },
+    orderBy: [{ finishedAt: 'desc' }, { queuedAt: 'desc' }],
+    select: { finishedAt: true, errorClass: true },
+  })
+  if (!row || !row.finishedAt) return null
+  return { finishedAt: row.finishedAt, errorClass: row.errorClass }
+}
+
+/**
+ * The most recent REAL FAILED attempt with an upstream error class, from
+ * the persisted GenerationJob table — or null when none exists.
+ */
+export async function persistedUpstreamFailure(
+  task: Exclude<PersistedAttemptTask, 'chat-completion'>,
+): Promise<AttemptRecordLike | null> {
+  try {
+    if (task === 'image-generation') {
+      const row = await latestFailedRow({
+        product: 'laxii',
+        task: 'image-generation',
+        backendId: 'bean-image-hosted-primary',
+      })
+      if (!row) return null
+      const category = errorClassToCategory(row.errorClass)
+      return category
+        ? { at: row.finishedAt!.toISOString(), ok: false, failureCategory: category, httpStatus: null }
+        : null
+    }
+    if (task === 'image-editing') {
+      const row = await latestFailedRow({
+        product: 'laxii',
+        task: 'image-editing',
+        backendId: 'bean-image-hosted-edit',
+      })
+      if (!row) return null
+      const category = errorClassToCategory(row.errorClass)
+      return category
+        ? { at: row.finishedAt!.toISOString(), ok: false, failureCategory: category, httpStatus: null }
+        : null
+    }
+    if (task === 'image-bg-removal') {
+      const row = await latestFailedRow({
+        product: 'laxii',
+        task: 'image-editing',
+        backendId: 'bean-image-hosted-edit',
+        paramsJson: { contains: '"mode":"background-removal"' },
+      })
+      if (!row) return null
+      const category = errorClassToCategory(row.errorClass)
+      return category
+        ? { at: row.finishedAt!.toISOString(), ok: false, failureCategory: category, httpStatus: null }
+        : null
+    }
+    // t2v / i2v: the latest failed video row of EITHER shape is evidence for
+    // both capabilities — the shared account/endpoint rejects them alike.
+    // The per-capability split matters for completions (who actually got an
+    // artifact), not for credential-level rejections.
+    const row = await latestFailedRow({ product: 'jazmii', task: 'video-generation' })
+    if (!row) return null
+    const category = errorClassToCategory(row.errorClass)
+    return category
+      ? { at: row.finishedAt!.toISOString(), ok: false, failureCategory: category, httpStatus: null }
+      : null
+  } catch {
+    // Evidence lookup must never break the health payload.
+    return null
   }
 }
 
@@ -113,6 +217,23 @@ export async function persistedAttempt(task: PersistedAttemptTask): Promise<Atte
       })
       return recordFrom(row?.finishedAt ?? null)
     }
+    if (task === 'image-bg-removal') {
+      // Background-removal rows are image-editing rows whose params carry
+      // the dedicated mode — matched by the persisted params JSON so the
+      // capability's evidence stays separate from conversational editing's.
+      const row = await db.generationJob.findFirst({
+        where: {
+          product: 'laxii',
+          task: 'image-editing',
+          status: 'completed',
+          backendId: 'bean-image-hosted-edit',
+          paramsJson: { contains: '"mode":"background-removal"' },
+        },
+        orderBy: { finishedAt: 'desc' },
+        select: { finishedAt: true },
+      })
+      return recordFrom(row?.finishedAt ?? null)
+    }
     // t2v / i2v: classify completed video jobs by the persisted params
     // (i2v carries the image_url driver field). Bounded scan: the last 25
     // completed jobs are far more than enough to find the latest of either.
@@ -140,4 +261,19 @@ export async function persistedAttempt(task: PersistedAttemptTask): Promise<Atte
     // evidence yields null (honest unverified), never an error.
     return null
   }
+}
+
+/**
+ * RESTART-PROOF EVIDENCE (OPERATIONAL-TRANSFORMATION, 2026-11-11): the
+ * newest persisted record of ANY outcome — completed OR upstream-failed —
+ * so a restart can never whiten a recent real failure into an old
+ * success. The in-memory tracker always outranks this (its records are
+ * newer by construction); this is the fallback evidence store.
+ */
+export async function persistedLastAttempt(
+  task: Exclude<PersistedAttemptTask, 'chat-completion'>,
+): Promise<AttemptRecordLike | null> {
+  const [success, failure] = await Promise.all([persistedAttempt(task), persistedUpstreamFailure(task)])
+  if (success && failure) return Date.parse(failure.at) > Date.parse(success.at) ? failure : success
+  return failure ?? success
 }

@@ -91,6 +91,15 @@ const schema = z.discriminatedUnion('mode', [
       .enum(['1024x1024', '768x1344', '864x1152', '1344x768', '1152x864', '1440x720', '720x1440'])
       .optional(),
   }),
+  // OPERATIONAL-TRANSFORMATION (2026-11-11), Phase 4: REAL background
+  // removal — two-stage pipeline (hosted chroma separation + deterministic
+  // cutout to true alpha). No user prompt: the fixed chroma instruction
+  // lives beside the cutout math (bg-removal.ts) so the stages stay
+  // consistent.
+  z.object({
+    mode: z.literal('background-removal'),
+    assetId: z.string().min(1),
+  }),
 ])
 
 /**
@@ -119,7 +128,7 @@ export async function POST(request: Request) {
     if (body.mode === 'strict-preserve') {
       opTask = 'image-enhancement'
       backendId = 'bean-image-local-sharp'
-    } else if (body.mode === 'conversational-edit') {
+    } else if (body.mode === 'conversational-edit' || body.mode === 'background-removal') {
       resolveProvider('hosted-edit')
       opTask = 'image-editing'
       backendId = 'bean-image-hosted-edit'
@@ -200,6 +209,9 @@ export async function GET() {
     // evidence too — a restart must not forget a real conversational edit.
     const editAttempt = lastRealAttempt('image-editing') ?? (await persistedAttempt('image-editing'))
     const editAvailable = Boolean(editAttempt?.ok)
+    // BACKGROUND REMOVAL (2026-11-11): its own evidence chain (per-capability
+    // attempt keys) — never advertised from conversational-editing's record.
+    const bgAttempt = lastRealAttempt('image-bg-removal') ?? (await persistedAttempt('image-bg-removal'))
     return ok({
       capabilities: {
         'strict-preserve': { available: true, engine: 'deterministic-sharp' },
@@ -212,6 +224,17 @@ export async function GET() {
                 note:
                   'BLOCKED — ' + LAXII_EDIT_CONTRACT_BLOCKER.note,
                 blockerSince: editAttempt?.at ?? LAXII_EDIT_CONTRACT_BLOCKER.measuredAt,
+              }),
+        },
+        'background-removal': {
+          available: Boolean(bgAttempt?.ok),
+          engine: 'hosted-edit+chroma-cutout',
+          ...(bgAttempt?.ok
+            ? {}
+            : {
+                note:
+                  'Available only after a real two-stage run completes (hosted chroma separation + deterministic cutout). Measured constraint: the hosted endpoint has no direct alpha output, so the transparent PNG comes from the deterministic stage.',
+                ...(bgAttempt ? { blockerSince: bgAttempt.at } : {}),
               }),
         },
         'smart-edit': { available: worker.registryEnabled, engine: 'diffusers-worker' },

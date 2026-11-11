@@ -23,6 +23,14 @@
  * Health: the same honest two-layer contract as the image adapter — a cheap
  * read-only reachability probe (GET /models, redirect-manual) plus breaker
  * state. Health NEVER runs a generation.
+ *
+ * AUTH-SURFACE FIX (OPERATIONAL-TRANSFORMATION, 2026-11-11): the real video
+ * submission/poll calls authenticate with BOTH the bearer credential AND
+ * the platform session token (measured: with the token absent the endpoint
+ * answers HTTP 401 {"error":"missing X-Token header"} while the /models
+ * probe still passed — a green reachability probe masked a fully-broken
+ * submission path). The probe and the config check now cover the REAL auth
+ * surface: the platform token must be present, and the probe sends it.
  */
 import ZAI from 'z-ai-web-dev-sdk'
 import type { HealthFailureCategory, HealthReport, TaskAdapter } from './types'
@@ -211,14 +219,21 @@ async function probeGatewayReachability(
   baseUrl: string,
   apiKey: string,
   timeoutMs: number,
+  token?: string,
 ): Promise<{ reachable: boolean; status: number | null; latencyMs: number; error: string | null; redirected: boolean }> {
   const t0 = Date.now()
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  // AUTH-SURFACE FIX (2026-11-11): mirror the SDK's real submission headers —
+  // Authorization: Bearer <apiKey> PLUS X-Token: <platform token> when a
+  // token is configured. Probing only one credential surface masked the
+  // measured 401 submission outage.
+  const headers: Record<string, string> = { Accept: 'application/json', Authorization: `Bearer ${apiKey}` }
+  if (token) headers['X-Token'] = token
   try {
     const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`, {
       method: 'GET',
-      headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` },
+      headers,
       signal: controller.signal,
       redirect: 'manual',
     })
@@ -246,9 +261,10 @@ export const hostedVideoAdapter: TaskAdapter = {
     const t0 = Date.now()
     try {
       const zai = await ZAI.create()
-      const cfg = (zai as unknown as { config?: { baseUrl?: string; apiKey?: string } }).config
+      const cfg = (zai as unknown as { config?: { baseUrl?: string; apiKey?: string; token?: string } }).config
       const baseUrl = cfg?.baseUrl
       const apiKey = cfg?.apiKey
+      const token = typeof cfg?.token === 'string' ? cfg.token : ''
       const checkedAt = new Date().toISOString()
       if (!baseUrl || !apiKey) {
         return {
@@ -258,6 +274,22 @@ export const hostedVideoAdapter: TaskAdapter = {
           httpStatus: null,
           failureCategory: 'misconfigured' as HealthFailureCategory,
           detail: 'Misconfigured: gateway client has no baseUrl/apiKey — the video endpoint cannot be reached.',
+        }
+      }
+      // AUTH-SURFACE FIX (2026-11-11): the video endpoints authenticate with
+      // the platform session token (X-Token) — measured live 2026-11-11
+      // 01:14Z: every submission returned HTTP 401 {"error":"missing
+      // X-Token header"} while the bearer-only /models probe stayed green.
+      // A missing token is a misconfiguration that retries cannot fix.
+      if (!token) {
+        return {
+          healthy: false,
+          checkedAt,
+          latencyMs: Date.now() - t0,
+          httpStatus: null,
+          failureCategory: 'auth' as HealthFailureCategory,
+          detail:
+            'Misconfigured: the platform session token (X-Token) required by the video endpoints is absent from the gateway client config — submissions would be rejected with HTTP 401 "missing X-Token header". This needs an operator.',
         }
       }
       const breaker = upstreamBreakerState('video')
@@ -271,7 +303,7 @@ export const hostedVideoAdapter: TaskAdapter = {
           detail: `Video gateway deferred: the video endpoint class is rate-limited (breaker open, ${Math.round(breaker.remainingMs / 1000)}s remaining) — no network call was made.`,
         }
       }
-      const reach = await probeGatewayReachability(baseUrl, apiKey, 5_000)
+      const reach = await probeGatewayReachability(baseUrl, apiKey, 5_000, token)
       if (!reach.reachable) {
         return {
           healthy: false,
@@ -329,7 +361,7 @@ export const hostedVideoAdapter: TaskAdapter = {
         httpStatus: reach.status,
         failureCategory: null,
         detail:
-          'Video gateway reachable and configured. This probe does NOT run a generation — completed real jobs are the capability evidence.',
+          'Video gateway reachable and configured (bearer + platform token present; probe sends the full submission auth surface). This probe does NOT run a generation — completed real jobs are the capability evidence.',
       }
     } catch (e) {
       return {

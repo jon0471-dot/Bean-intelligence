@@ -33,6 +33,7 @@ const failingZai = {
 mock.module('z-ai-web-dev-sdk', () => ({ default: { create: async () => failingZai } }))
 
 mock.module('../../src/lib/research/direct', () => ({
+
   // The premise of these tests is TOTAL retrieval failure (the measured 429
   // window). The independent lane is a real network path, so it is mocked to
   // fail too — the honest-degradation assertions below then hold for the
@@ -77,6 +78,19 @@ function recordingAdapter(reply: string): TaskAdapter & { calls: Array<{ message
     },
   }
 }
+
+
+// SEMANTIC-ROUTER SEAM (OPERATIONAL-TRANSFORMATION, 2026-11-11): the
+// orchestrator now invokes resolveAutoSearchDecision when the deterministic
+// policy is not confident. Unit tests must stay hermetic — the semantic
+// layer is mocked to echo the deterministic decision (its real behavior is
+// covered by auto-grounding.test.ts with an injected transport).
+mock.module('@/lib/research/semantic-router', () => ({
+  resolveAutoSearchDecision: async (
+    _message: string,
+    deterministic: { search: boolean; risk: string; reason: string },
+  ) => ({ decision: deterministic, semantic: null, semanticRan: false }),
+}))
 
 describe('simulated search outage (honest degradation)', () => {
   test('current-officeholder question with a dead provider reports live verification unavailable', async () => {

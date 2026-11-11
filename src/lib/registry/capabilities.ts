@@ -432,6 +432,17 @@ export function editingCapability(
  * by the account throttle) keep it BLOCKED — never advertised as available
  * without a real successful test; never exercised at all -> also blocked
  * with the unverified note (the adapter being wired is not evidence).
+ *
+ * EVIDENCE-PARITY FIX (OPERATIONAL-TRANSFORMATION, 2026-11-11): this
+ * capability previously looked ONLY at the probe and the last attempt, so
+ * a live credential outage on the SHARED gateway account (measured
+ * 2026-11-11 01:14Z: every submission 401'd) left image-to-video reading
+ * "operational" from a days-old success while text-to-video — which reads
+ * the full evidence chain — said degraded. The inputs now mirror
+ * generationCapability: a fresh upstream failure, an open class breaker or
+ * a fresh labeled shared throttle outrank an old success, because the same
+ * credentials/endpoints serve both capabilities and an old artifact cannot
+ * prove today's submissions authenticate.
  */
 export function unverifiedCapability(
   id: string,
@@ -440,9 +451,15 @@ export function unverifiedCapability(
   input: {
     probe: HealthReport
     lastAttempt: AttemptRecordLike | null
+    /** recentUpstreamFailure(task) — fresh upstream-class failure or null. */
+    freshUpstreamFailure?: AttemptRecordLike | null
+    /** This endpoint class's own breaker state. */
+    ownBreaker?: { coolingDown: boolean; last429At: string | null }
+    /** LABELED shared-account throttle evidence, or null when none is fresh. */
+    sharedThrottle?: { last429At: string | null; note: string } | null
   },
 ): CapabilityHealth {
-  const { probe, lastAttempt } = input
+  const { probe, lastAttempt, freshUpstreamFailure, ownBreaker, sharedThrottle } = input
   const lastAttemptEvidence: CapabilityEvidence['lastAttempt'] = lastAttempt
     ? { at: lastAttempt.at, ok: lastAttempt.ok, failureCategory: lastAttempt.failureCategory, httpStatus: lastAttempt.httpStatus }
     : null
@@ -464,6 +481,49 @@ export function unverifiedCapability(
       },
     }
   }
+  if (freshUpstreamFailure) {
+    // EVIDENCE-PARITY FIX (2026-11-11): same semantics as
+    // generationCapability — a fresh throttle is Rate limited, any other
+    // upstream class (auth, billing, timeout, network) is Degraded. An old
+    // success can never outrank fresh contrary evidence.
+    const throttled = freshUpstreamFailure.failureCategory === 'rate-limited'
+    return {
+      id,
+      label,
+      core,
+      state: throttled ? 'rate-limited' : 'degraded',
+      statusAffecting: true,
+      evidence: {
+        checkedAt: freshUpstreamFailure.at,
+        source: 'real-attempt',
+        failureCategory: freshUpstreamFailure.failureCategory,
+        httpStatus: freshUpstreamFailure.httpStatus,
+        note: throttled
+          ? 'the most recent real submission was rate-limited upstream (HTTP 429)'
+          : freshUpstreamFailure.failureCategory === 'auth'
+            ? 'the most recent real submission was rejected on credentials/account grounds (HTTP 401/403) — the shared gateway account cannot submit right now'
+            : 'the most recent real submission failed upstream',
+        lastAttempt: lastAttemptEvidence,
+      },
+    }
+  }
+  if (ownBreaker?.coolingDown && ownBreaker.last429At) {
+    return {
+      id,
+      label,
+      core,
+      state: 'rate-limited',
+      statusAffecting: true,
+      evidence: {
+        checkedAt: ownBreaker.last429At,
+        source: 'breaker',
+        failureCategory: 'rate-limited',
+        httpStatus: 429,
+        note: 'endpoint-class breaker is open after an observed 429; submissions fail fast until it clears',
+        lastAttempt: lastAttemptEvidence,
+      },
+    }
+  }
   if (lastAttempt?.ok) {
     return {
       id,
@@ -477,6 +537,23 @@ export function unverifiedCapability(
         failureCategory: null,
         httpStatus: null,
         note: 'a real run completed successfully',
+        lastAttempt: lastAttemptEvidence,
+      },
+    }
+  }
+  if (sharedThrottle) {
+    return {
+      id,
+      label,
+      core,
+      state: 'rate-limited',
+      statusAffecting: true,
+      evidence: {
+        checkedAt: sharedThrottle.last429At,
+        source: 'shared-throttle',
+        failureCategory: 'rate-limited',
+        httpStatus: 429,
+        note: sharedThrottle.note,
         lastAttempt: lastAttemptEvidence,
       },
     }

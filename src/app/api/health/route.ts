@@ -9,7 +9,10 @@ import { staggeredRemoteProbes } from '@/lib/adapters/probe-stagger'
 import type { HealthReport } from '@/lib/adapters/types'
 import { safeProbe } from '@/lib/adapters/safe-probe'
 import { lastRealAttempt, recentUpstreamFailure, type AttemptTask } from '@/lib/adapters/last-attempts'
-import { persistedAttempt } from '@/lib/adapters/persisted-attempts'
+import {
+  persistedLastAttempt,
+  persistedUpstreamFailure,
+} from '@/lib/adapters/persisted-attempts'
 import { probeResearchHealth } from '@/lib/research/provider'
 import { probeSandboxHealth } from '@/lib/sandbox/runner'
 import { getBackendsForProduct } from '@/lib/registry/backends'
@@ -269,12 +272,18 @@ export async function GET() {
     const laxiiCapabilities: CapabilityHealth[] = [
       generationCapability('text-to-image', 'Text-to-image', true, {
         probe: image,
-        freshUpstreamFailure: recentUpstreamFailure('image-generation'),
+        freshUpstreamFailure:
+          recentUpstreamFailure('image-generation') ??
+          // RESTART-PROOF EVIDENCE (2026-11-11): a fresh upstream failure that
+          // predates this process is still fresh evidence — restarts no longer
+          // whiten it.
+          (await persistedUpstreamFailure('image-generation')),
         // FINAL CAPABILITY FIX (2026-11-07): when this process has no
         // in-memory attempt record yet (restart), the PERSISTED completed
         // job still proves the capability — the real T2I evidence survives
-        // a restart instead of downgrading to unverified.
-        lastAttempt: lastRealAttempt('image-generation') ?? (await persistedAttempt('image-generation')),
+        // a restart instead of downgrading to unverified. 2026-11-11: the
+        // persisted fallback now carries FAILED attempts too, newest wins.
+        lastAttempt: lastRealAttempt('image-generation') ?? (await persistedLastAttempt('image-generation')),
         ownBreaker: upstreamBreakerState('images'),
         sharedThrottle: sharedThrottleEvidence
           ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
@@ -282,8 +291,22 @@ export async function GET() {
       }),
       editingCapability('conversational-editing', 'Conversational editing', true, {
         probe: image,
-        lastAttempt: lastRealAttempt('image-editing') ?? (await persistedAttempt('image-editing')),
+        lastAttempt: lastRealAttempt('image-editing') ?? (await persistedLastAttempt('image-editing')),
         contractBlocker: LAXII_EDIT_CONTRACT_BLOCKER,
+      }),
+      // BACKGROUND REMOVAL (OPERATIONAL-TRANSFORMATION, 2026-11-11): its own
+      // two-stage pipeline (hosted chroma separation + deterministic cutout)
+      // and its own evidence chain — never advertised without a real
+      // completed run (same contract as image-to-video).
+      unverifiedCapability('background-removal', 'Background removal', false, {
+        probe: image,
+        lastAttempt: lastRealAttempt('image-bg-removal') ?? (await persistedLastAttempt('image-bg-removal')),
+        freshUpstreamFailure:
+          recentUpstreamFailure('image-bg-removal') ?? (await persistedUpstreamFailure('image-bg-removal')),
+        ownBreaker: upstreamBreakerState('images'),
+        sharedThrottle: sharedThrottleEvidence
+          ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
+          : null,
       }),
       probeCapability('image-enhancement', 'Deterministic enhancement', false, {
         probe: laxiiLocal,
@@ -300,18 +323,37 @@ export async function GET() {
     const jazmiiCapabilities: CapabilityHealth[] = [
       generationCapability('text-to-video', 'Text-to-video', true, {
         probe: video,
-        freshUpstreamFailure: recentUpstreamFailure('video-generation-t2v'),
+        freshUpstreamFailure:
+          recentUpstreamFailure('video-generation-t2v') ??
+          // RESTART-PROOF EVIDENCE (2026-11-11): the measured 01:14Z 401 must
+          // survive a server restart instead of evaporating into an old
+          // success.
+          (await persistedUpstreamFailure('video-generation-t2v')),
         // FINAL CAPABILITY FIX (2026-11-07): persisted real completions
         // (T2V and I2V alike) stay the capability evidence across restarts.
-        lastAttempt: lastRealAttempt('video-generation-t2v') ?? (await persistedAttempt('video-generation-t2v')),
+        // 2026-11-11: the persisted fallback carries FAILED attempts too —
+        // newest record wins, a success can never whitewash a newer failure.
+        lastAttempt: lastRealAttempt('video-generation-t2v') ?? (await persistedLastAttempt('video-generation-t2v')),
         ownBreaker: upstreamBreakerState('video'),
         sharedThrottle: sharedThrottleEvidence
           ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
           : null,
       }),
+      // EVIDENCE-PARITY FIX (2026-11-11): image-to-video now reads the SAME
+      // evidence chain as text-to-video. Both ride the shared gateway
+      // account — measured 2026-11-11 01:14Z, a credential rejection 401'd
+      // every submission while I2V kept reading "operational" from a 4-day-
+      // old persisted success. Fresh upstream failures, the video-class
+      // breaker and the labeled shared throttle now outrank old successes.
       unverifiedCapability('image-to-video', 'Image-to-video', false, {
         probe: video,
-        lastAttempt: lastRealAttempt('video-generation-i2v') ?? (await persistedAttempt('video-generation-i2v')),
+        lastAttempt: lastRealAttempt('video-generation-i2v') ?? (await persistedLastAttempt('video-generation-i2v')),
+        freshUpstreamFailure:
+          recentUpstreamFailure('video-generation-i2v') ?? (await persistedUpstreamFailure('video-generation-i2v')),
+        ownBreaker: upstreamBreakerState('video'),
+        sharedThrottle: sharedThrottleEvidence
+          ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
+          : null,
       }),
     ]
 

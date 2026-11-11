@@ -27,9 +27,14 @@ export interface PromptContext {
   documentNames?: readonly string[]
   /** 'news' = the question is about an ongoing news event or case; the
    *  answer must follow the structured research shape (summary -> timeline
-   *  -> latest verified update -> unresolved questions). Null for ordinary
+   *  -> latest verified update -> unresolved questions). 'report' = the
+   *  turn was routed to DEEP RESEARCH (multi-source investigation); the
+   *  answer must follow the structured report shape. Null for ordinary
    *  lookups, which keep natural prose. */
-  researchShape?: 'news' | null
+  researchShape?: 'news' | 'report' | null
+  /** Response mode for this turn (backend-selected; recorded in metadata).
+   *  'writing' adds the structured content-creation protocol. */
+  responseMode?: 'normal-chat' | 'web-search' | 'deep-research' | 'document-analysis' | 'writing' | null
   /** Turn concerns an ongoing incident/case (missing person, crime, death,
    *  disaster) — adds the sensitive-case protocol on top. */
   sensitiveCase?: boolean
@@ -99,6 +104,22 @@ Research answer structure (this question is about an ongoing news event or case)
 5. State any limitation ONCE, in one place — never repeat the same uncertainty across paragraphs or sections.
 - Allegations (suspects, detentions, arrests, accusations, family involvement) are NEVER stated as bare fact: attribute each to the outlet and the officials it comes from ("The Hindu reported, citing police, that ..."). If an allegation's only support is a social-media post, either name the outlet behind the post and say it is a social-media report, or omit the allegation — a repost is not independent confirmation.
 - Identify people exactly as the retrieved reports do. If reports disagree on a name, age or other identifying detail, surface the disagreement instead of silently picking one. Never add identifying details (home, school, family) that the reports do not state.`
+
+const DEEP_RESEARCH_PROTOCOL = `
+Deep-research report structure (this turn is a multi-source investigation — the reader asked for depth, not a quick lookup):
+1. "Overview" — a short paragraph stating the direct answer to the question as the evidence supports it, with citations on its central claims.
+2. "Key findings" — 3-6 bullets, each a specific, dated, cited finding. Prefer primary/official sources; give publication dates. Group related findings.
+3. "Conflicting or uncertain claims" — ONLY when retrieved sources disagree or leave gaps: name each disagreement, who asserts it, and which claim the stronger evidence supports. If nothing conflicts, omit this section entirely — do not invent controversy.
+4. "Limitations" — at most two sentences: what the retrieved evidence could not establish (recency, coverage, access), stated once.
+5. NEVER pad: every section must carry information the evidence actually supports. Omit empty sections; never invent a source, quote, number or date to fill structure. Every factual claim that rests on the evidence carries its citation marker.`
+
+const WRITING_PROTOCOL = `
+Writing-mode protocol (the user asked for a piece of writing to be produced):
+- Establish the essentials first: audience, purpose, format and length. When the request leaves them open, choose sensible defaults and say so in one clause — do not stall with questions when a reasonable default exists.
+- Produce the requested piece directly: use the structure the format implies (subject lines and greetings for emails; headings for articles/reports; measured paragraphs for essays). Markdown formatting only where it serves the piece.
+- Quality bar: concrete, specific, natural phrasing; no filler, no "in today's fast-paced world", no fabricated statistics, quotes, sources or citations. If a factual claim would need verification, either keep it general or flag it in one short bracketed note like [verify: X].
+- When retrieved evidence IS attached to this turn and the piece states facts from it, cite those claims normally; creative writing and original work need no citations.
+- Keep the requested tone, language and named constraints (word count, point of view, do-not-mention items) exactly.`
 
 const SENSITIVE_CASE_PROTOCOL = `
 Sensitive ongoing-case protocol (missing persons, crimes, deaths, investigations):
@@ -188,6 +209,8 @@ export function buildSystemPrompt(ctx: PromptContext, toolCatalog?: string): str
   if (ctx.task === 'document') prompt += DOCUMENT_PROTOCOL
   if (ctx.evidenceBlock) prompt += CITATION_PROTOCOL
   if (ctx.evidenceBlock && ctx.researchShape === 'news') prompt += RESEARCH_SHAPE_PROTOCOL
+  if (ctx.evidenceBlock && ctx.researchShape === 'report') prompt += DEEP_RESEARCH_PROTOCOL
+  if (ctx.responseMode === 'writing') prompt += WRITING_PROTOCOL
   if (ctx.sensitiveCase) prompt += SENSITIVE_CASE_PROTOCOL
   if (ctx.hasImages) prompt += IMAGE_PROTOCOL
   if (ctx.userLanguage && ctx.userLanguage !== 'English') prompt += MULTILINGUAL_PROTOCOL

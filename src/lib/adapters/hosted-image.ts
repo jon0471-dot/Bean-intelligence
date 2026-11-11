@@ -370,9 +370,13 @@ export const hostedImageAdapter: TaskAdapter = {
     const b64 = res.data?.[0]?.base64
     if (!b64) throw new Error('Upstream returned no edited image payload')
     const bytes = Buffer.from(b64, 'base64')
+    // MEASURED FORMAT (2026-11-11): the endpoint returns JPEG in practice;
+    // a PNG payload (alpha-capable) is accepted too instead of being
+    // hard-rejected — the format is REPORTED, callers honor it.
     const isJpeg = bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8
-    if (!isJpeg) throw new Error('Upstream payload was not a valid image')
+    const isPng = bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+    if (!isJpeg && !isPng) throw new Error('Upstream payload was not a valid image')
     const [w, h] = (req.size ?? '1024x1024').split('x').map((n) => parseInt(n, 10))
-    return { bytes, width: w, height: h, format: 'jpeg', durationMs: Date.now() - t0 }
+    return { bytes, width: w, height: h, format: isPng ? 'png' : 'jpeg', durationMs: Date.now() - t0 }
   },
 }

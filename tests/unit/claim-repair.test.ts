@@ -50,6 +50,7 @@ const scriptedZai = {
 mock.module('z-ai-web-dev-sdk', () => ({ default: { create: async () => scriptedZai } }))
 
 mock.module('../../src/lib/research/direct', () => ({
+
   // The independent lane is a REAL network path (Wikipedia API, official
   // sources). These tests exercise gateway retry/repair semantics, so the
   // lane is neutralized at its module boundary; its live behavior is covered
@@ -96,6 +97,19 @@ const BASE = {
 }
 
 const CM_QUESTION = 'who is the cm of tamilnadu'
+
+
+// SEMANTIC-ROUTER SEAM (OPERATIONAL-TRANSFORMATION, 2026-11-11): the
+// orchestrator now invokes resolveAutoSearchDecision when the deterministic
+// policy is not confident. Unit tests must stay hermetic — the semantic
+// layer is mocked to echo the deterministic decision (its real behavior is
+// covered by auto-grounding.test.ts with an injected transport).
+mock.module('@/lib/research/semantic-router', () => ({
+  resolveAutoSearchDecision: async (
+    _message: string,
+    deterministic: { search: boolean; risk: string; reason: string },
+  ) => ({ decision: deterministic, semantic: null, semanticRan: false }),
+}))
 
 describe('bounded claim-repair pass', () => {
   test('repairs an uncited headline claim against the retrieved evidence and verifies', async () => {

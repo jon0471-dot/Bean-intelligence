@@ -56,7 +56,7 @@ mock.module('@/lib/ai-engine/events', () => ({
 }))
 
 // Scripted image adapter: each generateImage call consumes the next behavior.
-const generateScript: Array<() => Promise<unknown>> = []
+const generateScript: Array<(req: unknown) => Promise<unknown>> = []
 let generateCalls = 0
 mock.module('@/lib/adapters/hosted-image', () => ({
   hostedImageAdapter: {
