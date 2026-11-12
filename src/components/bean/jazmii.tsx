@@ -844,6 +844,29 @@ function VideoInThread({
           )}
         </div>
 
+        {/* Failed/rejected runs keep an honest retry affordance: the SAME
+            prompt + settings re-submitted through the real pipeline. */}
+        {terminalBad ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => {
+                setRegenerating(true)
+                void onRegenerate(message).finally(() => setRegenerating(false))
+              }}
+              disabled={regenerating}
+              className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2.5 py-1.5 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)] disabled:opacity-50"
+            >
+              {regenerating ? <Spinner className="h-3 w-3" /> : <RefreshCw className="h-3 w-3" />} Retry generation
+            </button>
+            <button
+              onClick={() => onContinue(`Continue this video: make it `)}
+              className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2.5 py-1.5 text-[11px] text-white/60 hover:bg-white/5"
+            >
+              <PenLine className="h-3 w-3" /> Continue with another prompt
+            </button>
+          </div>
+        ) : null}
+
         {job.status === 'completed' && job.videoUrl ? (
           <div className="flex flex-wrap items-center gap-1.5">
             <a

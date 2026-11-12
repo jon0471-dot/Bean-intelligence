@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T08:31:29.249Z",
+  "generatedAt": "2026-11-12T10:13:19.590Z",
   "allOk": false,
   "passed": 7,
   "total": 11,
@@ -82,7 +82,7 @@
       "criterion": "switch between conversations without losing messages",
       "ok": true,
       "detail": {
-        "secondConversation": "cmwdagvug003aptiqcgj9d301",
+        "secondConversation": "cmwde3uoc0004pt5mg3wk9xvv",
         "messagesAfterSwitch": 6
       }
     },
@@ -127,8 +127,8 @@
         "legacyRouteStatus": 200,
         "availability": {
           "available": true,
-          "accountThrottled": true,
-          "reason": "JAZMII runs on the authorized hosted video backend. The shared gateway account is rate-limited right now (HTTP 429 observed moments ago) — new submissions will be rejected until the breaker clears. Try again shortly.",
+          "accountThrottled": false,
+          "reason": "JAZMII is operational: submissions run on the authorized hosted video backend. Completion is proven by each job, individually.",
           "product": "JAZMII"
         }
       }

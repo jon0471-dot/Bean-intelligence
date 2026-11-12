@@ -14,7 +14,9 @@
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'fs'
 import sharp from 'sharp'
 
-const BASE = 'http://127.0.0.1:3000'
+// Base URL env-tunable so the run can target the standalone prod server or a
+// dev server without editing the script (default remains the dev :3000).
+const BASE = process.env.JAZMII_ACCEPT_BASE ?? 'http://127.0.0.1:3000'
 const OUT_DIR = 'scripts/jazmii-chat-acceptance-out'
 // Poll budget per video job (env-tunable so a single shell command can run a
 // step and exit inside its own timeout; the JOB's own bounded retry_wait and
