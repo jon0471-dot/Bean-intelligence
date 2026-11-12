@@ -1,0 +1,140 @@
+# BEAN Intelligence — Project Handoff (Session Continuity Document)
+
+> Maintained for future Z.ai development sessions. Last updated: 2026-11-12 (UTC+8).
+> This document contains environment variable NAMES only — never secret values.
+
+## 1. Repository & Sync State
+
+| Item | Value |
+| --- | --- |
+| Target repository (per current sync brief) | `https://github.com/jon0471-dot/bean-ai-Inteligence.git` |
+| Owner / name | `jon0471-dot` / `bean-ai-Inteligence` |
+| Branch | `main` |
+| Local HEAD at handoff | `64e092f` (94 commits; working tree clean) |
+| Existing public repo found on the account | `https://github.com/jon0471-dot/Bean-intelligence` (default branch `main`, HEAD `a705bdb`, 74 commits) |
+
+**Critical sync fact (2026-11-12):** the exact target repo `bean-ai-Inteligence` is not publicly visible (HTTP 404 unauthenticated — either private or nonexistent), while a differently-named public repo `Bean-intelligence` exists under the same owner. The two histories are **parallel but unrelated by SHA** (same commit messages, different roots: local `9d4dd82` vs remote `d85a9f2`). The remote was re-rooted when it was first pushed. The only meaningful remote-only change is `a705bdb` (+20 `.gitignore` lines covering `.env*`, `db/*.db`, `sandbox-runs/`, `storage/`, `upload/`, `*.log`); remote commit `d38074a` is a pure chmod sweep (1608 files, 0 content lines).
+
+**Agreed reconciliation strategy (pending authorization + user repo-name confirmation):** adopt the remote `.gitignore` hardening, merge `origin/main` into local `main` with `--allow-unrelated-histories` (resolving to keep local verified content + remote ignore rules), then push — the merge makes the push a fast-forward on the remote, preserving BOTH sides' history without force-push.
+
+**Reference commits verified present locally (Phase 2 of sync brief):**
+`1e3f7cc` (LAXII T2I freshness hotfix), `c1a77e5`, `9b1eeb9` (LAXII recovery evidence), `e96d757` (platform-wide recovery verification), `a5d8b16` (JAZMII auth correction + phases 1-6), `b902fa3` (custom dimensions + poster hotfix). Do not recreate them.
+
+## 2. Stack & Runtime
+
+- Bun + Next.js (dev server on port 3000, `dev` logs to `dev.log`)
+- Prisma ORM, SQLite datasource (`db/custom.db`, env `DATABASE_URL`)
+- LAXII image workers: Python (`LAXII_WORKER_PYTHON`) + local diffusers models dir (`LAXII_WORKER_MODELS_DIR`), hosted provider adapter fallback (`LAXII_PROVIDER`)
+- CODE GIETZ sandbox: `unshare -Urn` network namespace + `prlimit` rlimits + process separation (`src/lib/sandbox/runner.ts`)
+- JAZMII completion gate: `ffprobe` stream validation (codec/duration/frames)
+- Poster recovery OCR validation: `tesseract`
+- Z.ai SDK functions used by diagnostics: `web_search`, `page_reader`
+
+## 3. Completed Functionality (all verified live, see commit messages for evidence)
+
+### RIISHE — conversational intelligence
+- Real chat + live web research (independent retrieval lane), source verification with opening citations, `retrievedAt` from `pack.fetchedAt`
+- SSE streaming recovery (verified: 19 deltas, `done:true`, response persisted)
+- Response modes with semantic freshness router wired (was dead code, fixed in `a5d8b16`)
+- Page-reader failures recorded as health evidence
+
+### LAXII — image intelligence
+- Text-to-image (custom dimensions: width/height 256..4096, exact decoded pixels verified per artifact)
+- Conversational editing (PNG output, materially-different artifact verified)
+- Background removal (two-stage chroma pipeline, per-edge band selection; measured transparency accepted)
+- Deterministic enhancement (measured-available probe; no false negative)
+- Poster generation: provider `StackOverflowError` root-caused (HTTP 200 + error body), adapter calls documented wire contract directly, typed `ImageProviderResponseError`, ONE bounded transient retry, hybrid-typography recovery with real OCR validation
+- Persisted failure freshness: 15-min `ATTEMPT_FRESHNESS_MS` window + last-write-wins + superseded-by-newer-attempt (`recentPersistedUpstreamFailure`), fixes stale-429 pinning (`1e3f7cc`)
+- Capability isolation (per-capability breakers/mode markers), bounded retries, throttle parking, Retry-After honored, restart-proof persisted evidence
+
+### JAZMII — video intelligence
+- Text-to-video + image-to-video, asynchronous job processing with polling bounds
+- Auth-surface probe fix: `X-Token` header required and sent (bearer-only probe masked the real 401; fixed in `a5d8b16`, verified live in `e96d757`)
+- ffprobe-gated completion: real T2V (h264 1890x1080, 5.19s, 161 frames) + I2V (h264 1080x1080, 5.13s, 159 frames) verified 2026-11-12
+
+### CODE GIETZ — coding intelligence
+- Coding chat, repository understanding, project persistence
+- Sandboxed execution with measured isolation profile (`networkNamespace`, `rlimits`, `processSeparation`), real failure verbatim reporting
+- Scheduled sandbox sweep, retention via `BEAN_SANDBOX_RETENTION_HOURS`
+
+### Shared infrastructure
+- Capability registry mapping capabilities to real implementations; 9-state health semantics (Checking/Operational/Degraded/Unavailable/Rate-limited/Auth-failed/Not-configured/Maintenance/Unknown)
+- Health probes: 15s client fetch bound (no stuck "Checking"), `probeCapability` failure note carries measured diagnostic, per-product queue depth from real DB counts
+- Worker liveness ≠ capability health (readiness/liveness distinction)
+- Provider budgets: `SystemSetting` `provider_budget_*` overrides with 30s cache, env fallback
+- Provider credentials surfaced via `ProviderCredential` table (encrypted, masked hints) — 0 rows currently; keys come from env
+- Staggered health probes (shared-account 2-QPS limit finding F1)
+
+## 4. Pending Functionality
+
+1. **GitHub synchronization itself** — blocked on (a) repository-name confirmation (`bean-ai-Inteligence` vs existing `Bean-intelligence`) and (b) working GitHub authorization reaching this sandbox (see §6 Known Issues #1).
+2. Poster generation at provider: upstream `java.lang.StackOverflowError` for the measured prompt remains a provider-side fault; client-side recovery (bounded retry + hybrid-typography composite) is shipped. Retry the raw probe (`scripts/hotfix-poster-probe.ts`) if the provider is fixed.
+3. `scripts/` TypeScript baseline: ~142 pre-existing tsc errors in one-off diagnostic/fulltest scripts (src/ and tests/ are clean). Cleanup is optional, not blocking.
+
+## 5. Architecture Decisions (immutable context)
+
+1. **Persisted evidence freshness over truth-by-age:** a persisted upstream failure only gates a capability for `ATTEMPT_FRESHNESS_MS` (15 min) and is superseded by any newer attempt (success or failure) — fixes the stale-429-forever bug of `1e3f7cc`.
+2. **Capability isolation:** one capability's rate-limit/auth state must never pin another capability or the product badge.
+3. **Honest health evidence:** only real attempted requests produce rate-limit evidence; no fail-fast impersonation; `errorClass` persisted as measured.
+4. **Bounded everything:** retries (jittered, budget-capped), throttle parking (30-min budget), poll windows (`JAZMII_VIDEO_MAX_POLL_MS`), probe timeouts (15s client bound).
+5. **Sandbox isolation is non-negotiable:** network namespace + rlimits + process separation; `BEAN_SANDBOX_DISABLE_ISOLATION` exists only for measured diagnostics.
+6. **No key material in public payloads:** provider credentials masked (`maskedHint`), auth-gated provider endpoints.
+7. **Fast-forward-only sync:** preserve both remote and local history; no force-push, no destructive resets.
+
+## 6. Known Issues (as of 2026-11-12)
+
+1. **GitHub authorization not yet available in sandbox** — no `gh` CLI, no GitHub OAuth function in the Z.ai SDK (`Unknown function: github_oauth`), no SSH keys, no git credential store, no `GITHUB_TOKEN`/`GH_TOKEN` env. Push cannot start until the user completes authorization through Z.ai so that a credential becomes available to `git` here, and confirms the exact target repository.
+2. **Tracked sensitive runtime data (STOP-GATE per sync brief Phase 4):** git currently tracks `db/custom.db` (153 `User` rows incl. `passwordHash`, 328 `Session` tokens), `db/custom.db.backup-20261104-135209.db` (65 users), `db/custom.db.backup-20261107-engine.db` (106 users), `scripts/e2e-verify-out/verify.db` (43 users), `scripts/giftz-verify-out/verify.db` (98 users). `.env` is tracked but benign (`DATABASE_URL` = local SQLite path only, no credentials). **These must be untracked (`git rm --cached`) and must never be pushed; historical blobs in local history are an open decision for the user (purge-before-first-push vs private-repo acceptance).**
+3. **Existing exposure on the public `Bean-intelligence` repo:** `scripts/e2e-verify-out/verify.db` and `scripts/giftz-verify-out/verify.db` are already tracked/pushed there (test-fixture users with password hashes + session tokens). Recommend remote purge + rotation assessment regardless of the sync outcome.
+4. Health fan-out can transiently trip the provider's authoritative 2-QPS limit (finding F1, 2026-11-10) — staggered probes shipped; keep probe concurrency low.
+5. Provider rate limits are account-level and time-windowed (real 2h+ 429 window observed 2026-11-11 05:14→07:17Z); LAXII bounded chain behaved correctly throughout.
+
+## 7. Test Results (executed 2026-11-12, this exact tree)
+
+| Suite | Command | Result |
+| --- | --- | --- |
+| Full | `bun test --isolate tests/` | **1367 pass / 0 fail** (92 files, 32,240 expect calls, 32.87s) |
+| Targeted LAXII | recovery + hosted-edit files | **33/33 pass** |
+| TypeScript | `tsc --noEmit` | **0 errors in `src/` and `tests/`** (142 pre-existing in `scripts/` one-offs) |
+| Lint | `eslint .` | **clean** (fixed `scripts/hotfix-poster-probe.ts` require→import) |
+
+Historical baselines for reference only (older trees): full 1389/0, operational acceptance 26/26, JAZMII 8/8, LAXII 33/33.
+
+## 8. Deployment Instructions
+
+```bash
+bun install
+bun run db:generate            # prisma generate
+bun run db:push                # create/update SQLite schema (DATABASE_URL must point to db/custom.db)
+bun run dev                    # development on :3000 (logs to dev.log)
+# production:
+bun run build                  # next build + static/standalone copy
+bun run start                  # standalone server on :3000
+```
+
+- Prerequisites: Bun, Python (LAXII workers), `ffprobe` (JAZMII validation), `tesseract` (poster OCR validation); Linux user namespaces enabled for the CODE GIETZ sandbox (`unshare -Urn`).
+- Dev server recovery: prefer inline `sleep + timeout` or a supervised process; detached `nohup` processes are recycled in this environment.
+
+## 9. Required Environment Variables (names only — values must never be committed)
+
+**Core (required):**
+- `DATABASE_URL` — Prisma/SQLite datasource (e.g. local `file:` path)
+
+**Provider routing (required for hosted provider capabilities):**
+- `BEAN_PROVIDER_OPENAI_API_KEY`, `BEAN_PROVIDER_OPENAI_BASE_URL`, `BEAN_PROVIDER_OPENAI_MODEL`
+- `BEAN_LLAMACPP_API_KEY`, `BEAN_LLAMACPP_BASE_URL`, `BEAN_LLAMACPP_MODEL` (local inference option)
+- `LAXII_PROVIDER` — LAXII adapter selection
+
+**Workers / runtime (optional, defaults exist):**
+- `LAXII_WORKER_PYTHON`, `LAXII_WORKER_MODELS_DIR`
+- `BEAN_SANDBOX_RUNTIME`, `BEAN_SANDBOX_PYTHON`, `BEAN_SANDBOX_DISABLE_ISOLATION`, `BEAN_SANDBOX_RETENTION_HOURS`, `BEAN_SANDBOX_RLIMIT_AS`, `BEAN_SANDBOX_RLIMIT_CPU`, `BEAN_SANDBOX_RLIMIT_FSIZE`, `BEAN_SANDBOX_RLIMIT_NOFILE`, `BEAN_SANDBOX_RLIMIT_NPROC`
+
+**Tuning knobs (optional, all timeout/budget/limit overrides):**
+- `BEAN_IMAGE_PROBE_TIMEOUT_MS`, `BEAN_INTEL_CROSSLINGUAL_TIMEOUT_MS`, `BEAN_INTEL_GROUNDING_TIMEOUT_MS`, `BEAN_INTEL_TECHDOCS_TIMEOUT_MS`, `BEAN_VERIFY_MAX_ATTEMPTS`, `BEAN_VERIFY_MAX_INPUT_CHARS`, `BEAN_VERIFY_MIN_CONFIDENCE`, `BEAN_VERIFY_MODEL`, `BEAN_VERIFY_REGENERATIONS`, `BEAN_VERIFY_TIMEOUT_MS`, `JAZMII_VIDEO_DOWNLOAD_RETRY_MS`, `JAZMII_VIDEO_MAX_POLL_MS`, `JAZMII_VIDEO_POLL_INTERVAL_MS`, `RIISHE_MAX_OUTPUT_TOKENS`, `BEAN_LOG_LEVEL`, `BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS`
+
+## 10. Security Rules (standing)
+
+1. Never commit: `.env*` (except `.env.example`), `db/*.db`, DB backups, `sandbox-runs/`, `storage/`, `upload/`, logs, SSH keys, model weights.
+2. Never print or transmit secret values; diagnostics use masked hints and length-only reporting.
+3. Never bypass provider rate limits or authentication; never fake capability states; no mock/Ollama substitution.
+4. Preserve verified history; no force-push to shared branches; push only after explicit user approval.
