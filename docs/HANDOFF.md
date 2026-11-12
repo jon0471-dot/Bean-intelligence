@@ -3,22 +3,61 @@
 > Maintained for future Z.ai development sessions. Last updated: 2026-11-12 (UTC+8).
 > This document contains environment variable NAMES only — never secret values.
 
+## 0. Permanent GitHub Sync & Update Policy (standing, every session)
+
+**Official repository (confirmed by owner 2026-11-12):** `https://github.com/jon0471-dot/Bean-intelligence.git` — owner `jon0471-dot`, name `Bean-intelligence`, branch `main`. Never switch repositories, never push to similarly-named repos, never create replacements without explicit owner approval.
+
+**Workflow for every completed change:** MAKE CHANGE → TEST → REVIEW → SECURITY SCAN → COMMIT → PUSH → VERIFY.
+
+1. Complete the task; run relevant tests/validation.
+2. Inspect the complete diff; check for out-of-scope changes.
+3. Scan staged files for secrets/credentials/keys/DB files/session tokens/PII/generated runtime data; confirm sensitive files are excluded from tracking (see §10 rules).
+4. Commit with conventional message (`feat(scope): …`, `fix(scope): …`, `refactor(scope): …`, `security(github): …`, `docs(scope): …`, `chore(scope): …`).
+5. Push to `main` immediately when all checks pass — do not wait for the owner to say "push".
+6. Verify the push against the remote reference (`git ls-remote` or GitHub API) and report the exact SHA + verification result. Never claim GitHub is updated without remote verification.
+
+**Safety (never bypass):** no force-push, no remote-history deletion/overwrite, no secrets/.env/DBs/session data/generated media/logs/uploads in commits, no blind remote-file replacement, no discarding local work, no unrelated functionality changes, no unverified "tested" claims. If anything blocks a safe push: stop, preserve local work, explain the blocker, propose the safest recovery.
+
+**Session start checklist:** verify repo + branch (`main`); check connectivity + write permissions; `git fetch origin`; inspect remote changes; preserve local uncommitted work; reconcile remote changes safely before developing; never overwrite newer remote work.
+
+**Authorization:** established once via Z.ai's supported GitHub OAuth integration and reused across sessions — never re-ask while valid; if expired/missing, stop and request reconnection; never ask the owner to paste tokens/passwords into chat. As of 2026-11-12 the sandbox still has **no credential** (no `gh` CLI, no OAuth function in the Z.ai SDK, no SSH keys, no credential store, no token env) — the first push therefore awaits reconnection/authorization landing in the session environment.
+
 ## 1. Repository & Sync State
 
 | Item | Value |
 | --- | --- |
-| Target repository (per current sync brief) | `https://github.com/jon0471-dot/bean-ai-Inteligence.git` |
-| Owner / name | `jon0471-dot` / `bean-ai-Inteligence` |
+| **Official repository** | `https://github.com/jon0471-dot/Bean-intelligence.git` (public, default branch `main`, HEAD `a705bdb`, 74 commits) |
 | Branch | `main` |
-| Local HEAD at handoff | `64e092f` (94 commits; working tree clean) |
-| Existing public repo found on the account | `https://github.com/jon0471-dot/Bean-intelligence` (default branch `main`, HEAD `a705bdb`, 74 commits) |
+| Local HEAD at handoff | `27afc3e` (96 commits: 64e092f + sync-prep 3052104 + tracking-hygiene 27afc3e; working tree clean) |
+| Discarded candidate name | `bean-ai-Inteligence` — not publicly visible (404); owner confirmed the official repo is `Bean-intelligence`; do not use the other name |
 
-**Critical sync fact (2026-11-12):** the exact target repo `bean-ai-Inteligence` is not publicly visible (HTTP 404 unauthenticated — either private or nonexistent), while a differently-named public repo `Bean-intelligence` exists under the same owner. The two histories are **parallel but unrelated by SHA** (same commit messages, different roots: local `9d4dd82` vs remote `d85a9f2`). The remote was re-rooted when it was first pushed. The only meaningful remote-only change is `a705bdb` (+20 `.gitignore` lines covering `.env*`, `db/*.db`, `sandbox-runs/`, `storage/`, `upload/`, `*.log`); remote commit `d38074a` is a pure chmod sweep (1608 files, 0 content lines).
+**History relationship:** local and remote histories are **parallel but unrelated by SHA** (same commit messages, different roots: local `9d4dd82` vs remote `d85a9f2` — the remote was re-rooted when first pushed). Remote-only content: `a705bdb` (+20 `.gitignore` secret/runtime rules) and `d38074a` (pure chmod sweep, 1608 files, 0 content lines). Local is ahead by the entire verified recovery work (~20 meaningful commits). File-tree divergence: 85 files only-in-local (scripts/docs/tests/src evidence of verified work), 3 files only-in-remote (`.zscripts/dev.pid`, the two `verify.db` files — all sensitive/runtime).
 
-**Agreed reconciliation strategy (pending authorization + user repo-name confirmation):** adopt the remote `.gitignore` hardening, merge `origin/main` into local `main` with `--allow-unrelated-histories` (resolving to keep local verified content + remote ignore rules), then push — the merge makes the push a fast-forward on the remote, preserving BOTH sides' history without force-push.
+**Reconciliation plan (initial sync, awaiting owner authorization):**
+1. Rewrite LOCAL history with `git filter-repo` to purge all sensitive/generated paths (see §1.1) — local-only rewrite, nothing was ever pushed from this sandbox; preserves every commit message and content diff, changes SHAs (commit-map recorded and reported).
+2. `git fetch origin` + `git merge origin/main --allow-unrelated-histories`; resolve by keeping local verified content, the union `.gitignore`, and DELETING the remote-only sensitive files (`verify.db` ×2, `dev.pid`) from the merge result.
+3. Push `main` — fast-forward on the remote (no force-push); remote's existing public history preserved untouched.
+4. Verify remote SHA via `git ls-remote`/API; report SHA + result.
+
+**§1.1 History-cleanup scope (measured, local history audit 2026-11-12):**
+
+| Path pattern | Objects | Size | Content risk |
+| --- | --- | --- | --- |
+| `db/custom.db`, `db/custom.db.backup-*` | across 62 commits | 114.4 MB with verify DBs | User rows (email + passwordHash), Session tokens |
+| `scripts/e2e-verify-out/verify.db`, `scripts/giftz-verify-out/verify.db` | 2 | (included above) | Same schema, fixture users |
+| `.env` | historical | tiny | Benign (local sqlite path) but must never be in history |
+| `storage/` | 212 blobs | 32.6 MB | Generated media |
+| `upload/` | 4 blobs | 12.2 MB | Private uploaded media |
+| `sandbox-runs/`, `tool-results/` | 71+8 blobs | ~0 MB | Generated execution artifacts |
+| `dev.log.pre-recovery-1103` | 1 | 713 KB | Scanned: no credentials (Prisma SQL column names only) |
+| Junk PDF committed under a sentence as filename | 1 | 639 B | Accidental test artifact |
+
+Total ≈ 159 MB of the 169 MB `.git`. After purge: repo shrinks to ~10 MB of real content; no PII/credentials/session data reachable from any pushed commit.
+
+**Remote (public) residual exposure — separate owner decision, not fixable by this push:** the two `verify.db` files and `dev.log.pre-recovery-1103` exist in the PUBLIC repo's current tree and history. Our merge push removes them from `main`'s tip going forward; true removal from remote history requires a remote history rewrite (force-push — explicit owner approval required) or GitHub support/GC. Old commits remain reachable by SHA until then. Recommend rotation assessment for the fixture credentials.
 
 **Reference commits verified present locally (Phase 2 of sync brief):**
-`1e3f7cc` (LAXII T2I freshness hotfix), `c1a77e5`, `9b1eeb9` (LAXII recovery evidence), `e96d757` (platform-wide recovery verification), `a5d8b16` (JAZMII auth correction + phases 1-6), `b902fa3` (custom dimensions + poster hotfix). Do not recreate them.
+`1e3f7cc` (LAXII T2I freshness hotfix), `c1a77e5`, `9b1eeb9` (LAXII recovery evidence), `e96d757` (platform-wide recovery verification), `a5d8b16` (JAZMII auth correction + phases 1-6), `b902fa3` (custom dimensions + poster hotfix). After the local history rewrite their SHAs change (mapping will be reported); messages and diffs are preserved. Do not recreate them manually.
 
 ## 2. Stack & Runtime
 
