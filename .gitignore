@@ -87,3 +87,9 @@ scripts/giftz-verify-out/verify.db
 
 # Runtime PID files
 *.pid
+
+# Agent/tool runtime outputs
+tool-results/
+
+# Historical dev server log snapshot
+dev.log*
