@@ -422,7 +422,20 @@ async function finishWithArtifacts(opts: {
     pipeline: opts.pipeline,
     identitySimilarity: opts.identity,
   })
-  const diffPng = await differenceMap(opts.original, outputRaw)
+  const diffPng = await (async () => {
+    if (opts.width === opts.original.width && opts.height === opts.original.height) {
+      return differenceMap(opts.original, outputRaw)
+    }
+    // UPSCALE PATH (fixed 2026-11-12, measured via conversational acceptance):
+    // a Lanczos upscale legitimately changes the output geometry, so the
+    // difference map is computed against the geometry-matched (resampled)
+    // baseline — it then shows what the enhancement changed BEYOND pure
+    // rescaling. The previous code asserted same-geometry and failed the job
+    // AFTER the upscaled image had been produced (geometry mismatch), which
+    // discarded a genuine result.
+    const baseline = await resizeRaw(opts.original, opts.width, opts.height)
+    return differenceMap(baseline, outputRaw)
+  })()
   const resultPng = await encodePng(opts.outputData, opts.width, opts.height)
 
   const resultAsset = await storeResultAsset(opts.ctx.job.userId, 'result', resultPng, opts.width, opts.height, {

@@ -1,0 +1,161 @@
+{
+  "generatedAt": "2026-11-12T05:19:13.858Z",
+  "allOk": true,
+  "passed": 11,
+  "total": 11,
+  "steps": [
+    {
+      "id": "session",
+      "criterion": "test account",
+      "ok": true,
+      "detail": {
+        "email": "laxii-unified-1794460578399@bean.test"
+      }
+    },
+    {
+      "id": "A1",
+      "criterion": "generate through conversation",
+      "ok": true,
+      "detail": {
+        "jobId": "cmwd3hvy00009pti72hq9ljk1",
+        "status": "completed",
+        "size": "1024x1024",
+        "bytesVerified": true,
+        "error": null,
+        "durationMs": 41486
+      }
+    },
+    {
+      "id": "upload",
+      "criterion": "asset upload (capability preserved)",
+      "ok": true,
+      "detail": {
+        "id": "cmwd3irya000ipti7dp0prswv"
+      }
+    },
+    {
+      "id": "A2",
+      "criterion": "upload + edit through conversation",
+      "ok": true,
+      "detail": {
+        "jobId": "cmwd3iryu000ppti7x3ddodze",
+        "status": "completed",
+        "mode": "conversational-edit",
+        "sourceAssetId": "cmwd3irya000ipti7dp0prswv",
+        "error": null,
+        "durationMs": 20220
+      }
+    },
+    {
+      "id": "A3",
+      "criterion": "background removal with PNG transparency",
+      "ok": true,
+      "detail": {
+        "jobId": "cmwd3j9vw0010pti7eri5zj5f",
+        "status": "completed",
+        "transparentFlag": null,
+        "alphaStats": {
+          "channels": 4,
+          "transparentFraction": 0.878
+        },
+        "error": null,
+        "durationMs": 20300
+      }
+    },
+    {
+      "id": "A4",
+      "criterion": "enhance through conversation",
+      "ok": true,
+      "detail": {
+        "jobId": "cmwd3jrv4001bpti72lxfh7j3",
+        "status": "completed",
+        "preservationReport": true,
+        "exactPreservedPct": 0,
+        "error": null,
+        "durationMs": 5112
+      }
+    },
+    {
+      "id": "A5",
+      "criterion": "upscale through conversation + dimensions",
+      "ok": true,
+      "detail": {
+        "jobId": "cmwd3jy4f001opti7yv3vvchx",
+        "status": "completed",
+        "sourceSize": "640x480",
+        "resultSize": "2560x1920",
+        "error": null,
+        "durationMs": 5072
+      }
+    },
+    {
+      "id": "A6",
+      "criterion": "follow-up edit on the previous result",
+      "ok": true,
+      "detail": {
+        "jobId": "cmwd3k4cp0021pti7wuz18jat",
+        "status": "completed",
+        "chainedFrom": "/api/laxii/assets/cmwd3jyx1001tpti740ap24xf",
+        "error": null,
+        "durationMs": 20266
+      }
+    },
+    {
+      "id": "A7",
+      "criterion": "conversation persistence across sessions",
+      "ok": true,
+      "detail": {
+        "conversationId": "cmwd3iryn000lpti74bbgu6xu",
+        "title": "Change the background to a warm sunset gradient.",
+        "messages": 10,
+        "jobLinkedMessages": 5,
+        "persistedAfterRelogin": 10
+      }
+    },
+    {
+      "id": "A8",
+      "criterion": "genuine status + error handling (clarify + honest refusal)",
+      "ok": true,
+      "detail": {
+        "clarifyKind": "clarify",
+        "refusalKind": "text",
+        "refusalErrorCode": "PROVIDER_UNAVAILABLE"
+      }
+    },
+    {
+      "id": "A9",
+      "criterion": "existing backend routes still work (legacy composer path)",
+      "ok": true,
+      "detail": {
+        "directJobId": "cmwd3kk8e002npti77kvcim6o",
+        "status": "completed",
+        "capabilities": {
+          "strict-preserve": {
+            "available": true,
+            "engine": "deterministic-sharp"
+          },
+          "conversational-edit": {
+            "available": true,
+            "engine": "hosted-edit"
+          },
+          "background-removal": {
+            "available": true,
+            "engine": "hosted-edit+chroma-cutout"
+          },
+          "smart-edit": {
+            "available": false,
+            "engine": "diffusers-worker"
+          },
+          "object-removal": {
+            "available": false,
+            "engine": "diffusers-worker"
+          },
+          "reference-guided": {
+            "available": false,
+            "engine": "diffusers-worker"
+          }
+        }
+      }
+    }
+  ]
+}
