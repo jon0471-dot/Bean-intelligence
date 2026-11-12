@@ -35,7 +35,7 @@ import { isOngoingCaseQuery } from './policy'
 import { coreTopic, detectSensitiveCase } from './sensitive'
 import { isPrimaryHost } from './rank'
 import { extractDatelineFromText } from './provider'
-import { UpstreamRateLimitError } from '@/lib/upstream/gateway'
+import { UpstreamRateLimitError, classifyUpstreamError } from '@/lib/upstream/gateway'
 import { expandQueriesForLanguage } from '@/lib/intel/crosslingual'
 import {
   runDirectRetrieval,
@@ -505,6 +505,11 @@ export interface BoundedSearchOutcome {
   retried: boolean
   /** Most recent provider error message when the search ultimately failed. */
   error: string | null
+  /** AUTHORITATIVE ZERO-RESULTS (2026-11-12 reliability fix): the provider
+   *  explicitly answered that the index has nothing for this query (inner
+   *  422 "No search results available"). Honest signal for the pack's
+   *  degraded notes — empty results are NOT an outage. */
+  noResults: boolean
 }
 
 export async function searchWithBoundedRetry(
@@ -513,28 +518,43 @@ export async function searchWithBoundedRetry(
 ): Promise<BoundedSearchOutcome> {
   try {
     const first = await runSharedSearch(q, opts)
-    if (first.length > 0) return { results: first, attempts: 1, retried: false, error: null }
+    if (first.length > 0) return { results: first, attempts: 1, retried: false, error: null, noResults: false }
   } catch (e) {
     // Rate-limited (observed 429 OR the cooldown breaker skipped the call):
     // fail fast. Retrying into an active throttle deepens it (measured).
     if (e instanceof UpstreamRateLimitError) {
-      return { results: [], attempts: e.attempted ? 1 : 0, retried: false, error: e.message }
+      return { results: [], attempts: e.attempted ? 1 : 0, retried: false, error: e.message, noResults: false }
+    }
+    // AUTHORITATIVE ZERO-RESULTS (2026-11-12 reliability fix): the provider
+    // explicitly answered "No search results available" (inner 422). Retrying
+    // the same query into an authoritative empty index is a doomed call —
+    // return the honest empty outcome immediately (attempts === 1).
+    if (classifyUpstreamError(e).kind === 'no_results') {
+      return {
+        results: [],
+        attempts: 1,
+        retried: false,
+        error: e instanceof Error ? e.message : 'unavailable',
+        noResults: true,
+      }
     }
     // First attempt failed (transient provider error) — fall through to retry.
   }
   await new Promise((r) => setTimeout(r, SEARCH_RETRY_BACKOFF_MS))
   try {
     const second = await runSharedSearch(q, opts)
-    return { results: second, attempts: 2, retried: true, error: null }
+    return { results: second, attempts: 2, retried: true, error: null, noResults: false }
   } catch (e) {
     if (e instanceof UpstreamRateLimitError) {
-      return { results: [], attempts: e.attempted ? 2 : 1, retried: true, error: e.message }
+      return { results: [], attempts: e.attempted ? 2 : 1, retried: true, error: e.message, noResults: false }
     }
+    const noResults = classifyUpstreamError(e).kind === 'no_results'
     return {
       results: [],
       attempts: 2,
       retried: true,
       error: e instanceof Error ? e.message : 'unavailable',
+      noResults,
     }
   }
 }
@@ -674,7 +694,7 @@ export async function runResearch(
       oldestFetchAt = oldestFetchAt === null
         ? Date.parse(cached.fetchedAt)
         : Math.min(oldestFetchAt, Date.parse(cached.fetchedAt))
-      return { results: cached.value, attempts: 0, retried: false, error: null }
+      return { results: cached.value, attempts: 0, retried: false, error: null, noResults: false }
     }
     const outcome = await searchWithBoundedRetry(q, {
       num: 6,
@@ -693,7 +713,14 @@ export async function runResearch(
       if (s.value.retried) searchRetries += 1
       if (s.value.error !== null) {
         hadGatewayFailure = true
-        degraded.push(`search "${queries[i].slice(0, 60)}" failed: ${s.value.error}`)
+        // HONEST ZERO-RESULTS NOTE (2026-11-12 reliability fix): an
+        // authoritative provider "no results" answer must not read like an
+        // outage in the pack's degraded notes.
+        if (s.value.noResults) {
+          degraded.push(`search "${queries[i].slice(0, 60)}" returned no results (authoritative provider response — not an outage)`)
+        } else {
+          degraded.push(`search "${queries[i].slice(0, 60)}" failed: ${s.value.error}`)
+        }
       } else if (s.value.results.length === 0) {
         hadGatewayFailure = true // empty result set — the lane gets one attempt
       } else {

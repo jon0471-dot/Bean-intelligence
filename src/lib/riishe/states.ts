@@ -77,6 +77,20 @@ export interface MessageMetadata {
   stages: Array<{ stage: 'researching' | 'tools' | 'solving' | 'verifying'; durationMs: number }>
   /** Honest degradation notes (tool failures, fallbacks). */
   degraded: string[]
+  /** INDEPENDENT-LANE DIAGNOSTICS (2026-11-12 live-research reliability fix):
+   *  honest notes from the key-free retrieval lane that runs beside/instead
+   *  of the gateway (Wikipedia API / official sources) — what it fetched and
+   *  what failed. Persisted ALONGSIDE `degraded` so a fallback lane's
+   *  failure is diagnosable after a conversation reload (previously dropped:
+   *  Message.metadata carried only `degraded`). Contains no credentials,
+   *  no request payloads and no personal data — only tool outcomes. */
+  independent?: string[]
+  /** Wall time spent in the independent lane (0/unset when it never ran). */
+  independentMs?: number
+  /** Real provider call counts for this turn's research (observability,
+   *  cache hits excluded). Absent when research never ran. */
+  searchCalls?: number
+  pageReadCalls?: number
   /** Real server-side tool executions for this turn (name, outcome, time). */
   toolRuns?: Array<{ tool: string; ok: boolean; durationMs: number }>
   /** True when a condensed digest of earlier turns was included in context. */

@@ -170,6 +170,15 @@ export async function webSearch(query: string, opts: WebSearchOptions = {}): Pro
     // error so degraded reports carry the real reason, not a bare "unavailable".
     const normalized = normalizeUpstreamError('functions', 'web_search', e)
     const failure = classifyUpstreamError(normalized)
+    if (failure.kind === 'no_results') {
+      // AUTHORITATIVE ZERO-RESULTS (2026-11-12 reliability fix): the gateway
+      // answered — the index genuinely has nothing for this query. This is a
+      // successful transport round-trip, NOT provider unavailability, so the
+      // health evidence records it as a real completed attempt instead of
+      // misrepresenting empty results as an outage.
+      recordSearchAttempt(true, null, null)
+      throw normalized
+    }
     recordSearchAttempt(false, failure.kind === 'other' ? null : failure, normalized.message)
     throw normalized
   }

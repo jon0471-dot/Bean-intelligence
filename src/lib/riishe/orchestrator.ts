@@ -525,9 +525,16 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   }, input.digest)
   if (documentBlock) userTurn = `${documentBlock}\n\n${userTurn}`
   if (searchNeeded && pack && pack.sources.length === 0) {
-    userTurn +=
-      '\n\nNOTE: live research was requested but every search tool failed. State plainly that you could ' +
-      'not verify current information in this reply, and answer from stable knowledge with explicit uncertainty.'
+    // HONEST ZERO-RESULTS DISTINCTION (2026-11-12 reliability fix): when the
+    // search backend ANSWERED that the index has nothing for every query
+    // (authoritative empty results), the model must not be told that every
+    // tool "failed" — empty results are not an outage.
+    const authoritativeEmpty =
+      pack.degraded.length > 0 && pack.degraded.every((d) => /returned no results/i.test(d))
+    userTurn += authoritativeEmpty
+      ? '\n\nNOTE: live research was requested but the searches returned no results for this question (the search backend answered authoritatively — this is not an outage). State plainly that no current sources could be found for this question, and answer from stable knowledge with explicit uncertainty.'
+      : '\n\nNOTE: live research was requested but every search tool failed. State plainly that you could ' +
+        'not verify current information in this reply, and answer from stable knowledge with explicit uncertainty.'
   }
 
   const baseMessages: ChatTurn[] = [
@@ -1309,6 +1316,18 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     verification: verification.filter((v) => v.status !== 'not_applicable'),
     stages,
     degraded,
+    // INDEPENDENT-LANE DIAGNOSTICS (2026-11-12 live-research reliability
+    // fix): the fallback lane's notes + real call counts persist ALONGSIDE
+    // `degraded` so post-hoc diagnosis survives conversation reload. The
+    // pack previously carried these but Message.metadata dropped them.
+    ...(pack
+      ? {
+          ...(pack.independent && pack.independent.length > 0 ? { independent: pack.independent } : {}),
+          ...(pack.independentMs && pack.independentMs > 0 ? { independentMs: pack.independentMs } : {}),
+          searchCalls: pack.searchCalls,
+          pageReadCalls: pack.pageReadCalls,
+        }
+      : {}),
     ...(toolExecutions.length > 0
       ? { toolRuns: toolExecutions.map((e) => ({ tool: e.tool, ok: e.ok, durationMs: e.durationMs })) }
       : {}),
