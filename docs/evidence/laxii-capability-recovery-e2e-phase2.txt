@@ -33,3 +33,9 @@ submit @ 07:17:23 (job cmwbsdtq8001irdbs4dmu1rms): HTTP 202
   => provider throttle persists (05:14 → 07:17, 2h+). Per brief: preserve bounded retry behavior
      (canary-2 chain continues server-side), do NOT pile edit/bg submissions into the open window,
      report the actual restriction.
+
+== 0d. CANARY-2 FINAL OUTCOME (2026-11-12T01:10Z, from DB + health) ==
+attempt 3 @ 2026-11-11T07:37:27.774Z — real HTTP 429 (attempted=true) → throttle exhausted → TERMINAL FAILURE.
+All three bounded chains exhausted honestly: T2I (06:11-06:12), edit (06:12→06:34), canary-2 (07:17→07:37).
+18h later (2026-11-12T01:10Z) the health payload correctly renders these as display-only degraded
+  (no stale-429 pinning) and all breaker classes are clear — the throttle was genuinely gone.
