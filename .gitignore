@@ -93,3 +93,6 @@ tool-results/
 
 # Historical dev server log snapshot
 dev.log*
+
+# Local history backups (never commit)
+backup/
