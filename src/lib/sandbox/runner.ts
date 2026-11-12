@@ -50,7 +50,14 @@ const MAX_OUTPUT_BYTES = 64_000
 /** Default resource limits (measured: bun needs >512MB virtual; 4GiB fits). */
 const RLIMIT_AS_BYTES = Number(process.env.BEAN_SANDBOX_RLIMIT_AS ?? 4 * 1024 * 1024 * 1024)
 const RLIMIT_CPU_SEC = Number(process.env.BEAN_SANDBOX_RLIMIT_CPU ?? 10)
-const RLIMIT_NPROC = Number(process.env.BEAN_SANDBOX_RLIMIT_NPROC ?? 128)
+/** MEASURED CHANGE (2026-11-12): 128 killed legitimate runs — bun's runtime
+ *  startup (worker + GC + JIT threads; pool sizing varies with host state)
+ *  can exceed 128 TASKS (RLIMIT_NPROC counts threads) and the runtime then
+ *  dies on a failed clone (SIGTRAP → honest "exit code: killed" for a program
+ *  that wanted to exit(3)). 512 still bounds fork-bomb abuse hard (a single
+ *  sandboxed child), while AS (4G) + CPU (10s) + the SIGKILL wall clock remain
+ *  the primary resource fences. Override: BEAN_SANDBOX_RLIMIT_NPROC. */
+const RLIMIT_NPROC = Number(process.env.BEAN_SANDBOX_RLIMIT_NPROC ?? 512)
 const RLIMIT_NOFILE = Number(process.env.BEAN_SANDBOX_RLIMIT_NOFILE ?? 256)
 const RLIMIT_FSIZE_BYTES = Number(process.env.BEAN_SANDBOX_RLIMIT_FSIZE ?? 16 * 1024 * 1024)
 
