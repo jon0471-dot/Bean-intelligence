@@ -7,7 +7,9 @@
  * instead of being discarded by the SDK's unguarded `result.data.map(...)`.
  * Secrets never printed; response bodies redacted defensively.
  */
-const cfg = JSON.parse(require('fs').readFileSync('/etc/.z-ai-config', 'utf8'))
+import { readFileSync } from 'fs'
+
+const cfg = JSON.parse(readFileSync('/etc/.z-ai-config', 'utf8'))
 const BASE = cfg.baseUrl.replace(/\/+$/, '')
 
 const POSTER_PROMPT =

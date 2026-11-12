@@ -60,3 +60,30 @@ server.log
 # DB backups of the isolated verification environment (never commit DB backups)
 scripts/giftz-verify-out/verify.db.backup-*.db
 scripts/e2e-verify-out/verify.db.backup-*.db
+
+# BEAN Intelligence local secrets and runtime data
+.env*
+!.env.example
+
+# Local databases and backups
+db/custom.db
+db/custom.db.*
+db/*.db
+db/*.db-*
+
+# Generated execution artifacts
+sandbox-runs/
+
+# Generated media and uploaded files
+storage/
+upload/
+
+# Local logs
+*.log
+
+# Isolated verification environment runtime DBs (never commit)
+scripts/e2e-verify-out/verify.db
+scripts/giftz-verify-out/verify.db
+
+# Runtime PID files
+*.pid
