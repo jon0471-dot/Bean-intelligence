@@ -1,0 +1,103 @@
+
+==== PHASE 3 (2026-11-12): provider throttle lifted after 18h — REAL capability verification ====
+started 2026-11-12T01:13:37.823Z
+
+auth: register=200 login=200
+
+== BREAKER GATE ==
+images breaker at start: coolingDown=false remainingMs=0 consecutive429s=0 last429At=null
+images breaker CLEAR after 1s (at 2026-11-12T01:13:40.638Z)
+
+== HEALTH BEFORE (2026-11-12T01:13:41.669Z) ==
+text-to-image       : degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T07:37:27.774Z, http=-), note="the most recent real attempt failed; reachability is OK — awaiting a fresh attempt"
+conversational-edit: degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T06:34:04.899Z, http=-), note="the most recent real edit attempt failed upstream; reachability is OK — awaiting a fresh attempt"
+background-removal  : degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T05:14:55.410Z, http=-), note="a real run completed before; the most recent attempt failed — awaiting a fresh attempt"
+unrelated before: {"riishe":{"status":"operational","available":true,"caps":[{"id":"chat","state":"operational","statusAffecting":true},{"id":"research","state":"operational","statusAffecting":false}]},"jazmii":{"status":"operational","available":true,"caps":[{"id":"text-to-video","state":"operational","statusAffecting":false},{"id":"image-to-video","state":"operational","statusAffecting":false}]},"code-giftz":{"status":"operational","available":true,"caps":[{"id":"coding-chat","state":"operational","statusAffecting":true},{"id":"sandbox-execution","state":"operational","statusAffecting":false}]}}
+
+== 0. TEXT-TO-IMAGE CANARY (is the provider throttle lifted?) ==
+submit: HTTP 202 job=cmwcutw2f0008ptvo2zu2wu1p 
+  poll 6s: running
+  poll 11s: running
+  poll 16s: running
+  poll 21s: running
+  poll 26s: running
+  poll 31s: running
+  poll 36s: running
+final: completed
+T2I CANARY VERDICT: FAIL — job ended "completed" error=null
+=> provider still throttled; per brief: preserve bounded retry behavior and report the actual restriction. NOT piling edit/bg submissions into an open throttle window.
+
+== HEALTH AFTER (2026-11-12T01:14:24.165Z) ==
+text-to-image       : operational (statusAffecting=false, source=real-attempt, checkedAt=2026-11-12T01:14:18.901Z, http=-), note="the most recent real generation attempt succeeded"
+conversational-edit: degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T06:34:04.899Z, http=-), note="the most recent real edit attempt failed upstream; reachability is OK — awaiting a fresh attempt"
+background-removal  : degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T05:14:55.410Z, http=-), note="a real run completed before; the most recent attempt failed — awaiting a fresh attempt"
+breaker classes: [{"class":"chat","coolingDown":false,"consecutive429s":0,"last429At":null},{"class":"functions","coolingDown":false,"consecutive429s":0,"last429At":null},{"class":"images","coolingDown":false,"consecutive429s":0,"last429At":null},{"class":"video","coolingDown":false,"consecutive429s":0,"last429At":null},{"class":"audio","coolingDown":false,"consecutive429s":0,"last429At":null}]
+unrelated after:  {"riishe":{"status":"operational","available":true,"caps":[{"id":"chat","state":"operational","statusAffecting":true},{"id":"research","state":"operational","statusAffecting":false}]},"jazmii":{"status":"operational","available":true,"caps":[{"id":"text-to-video","state":"operational","statusAffecting":false},{"id":"image-to-video","state":"operational","statusAffecting":false}]},"code-giftz":{"status":"operational","available":true,"caps":[{"id":"coding-chat","state":"operational","statusAffecting":true},{"id":"sandbox-execution","state":"operational","statusAffecting":false}]}}
+UNRELATED PRODUCTS UNCHANGED (status+caps): YES
+
+finished 2026-11-12T01:14:24.167Z
+
+==== PHASE 3 (2026-11-12): provider throttle lifted after 18h — REAL capability verification ====
+started 2026-11-12T01:15:25.544Z
+
+auth: register=200 login=200
+
+== BREAKER GATE ==
+images breaker at start: coolingDown=false remainingMs=0 consecutive429s=0 last429At=null
+images breaker CLEAR after 1s (at 2026-11-12T01:15:27.944Z)
+
+== HEALTH BEFORE (2026-11-12T01:15:28.995Z) ==
+text-to-image       : operational (statusAffecting=false, source=real-attempt, checkedAt=2026-11-12T01:14:18.901Z, http=-), note="the most recent real generation attempt succeeded"
+conversational-edit: degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T06:34:04.899Z, http=-), note="the most recent real edit attempt failed upstream; reachability is OK — awaiting a fresh attempt"
+background-removal  : degraded (statusAffecting=false, source=real-attempt, checkedAt=2026-11-11T05:14:55.410Z, http=-), note="a real run completed before; the most recent attempt failed — awaiting a fresh attempt"
+unrelated before: {"riishe":{"status":"operational","available":true,"caps":[{"id":"chat","state":"operational","statusAffecting":true},{"id":"research","state":"operational","statusAffecting":false}]},"jazmii":{"status":"operational","available":true,"caps":[{"id":"text-to-video","state":"operational","statusAffecting":false},{"id":"image-to-video","state":"operational","statusAffecting":false}]},"code-giftz":{"status":"operational","available":true,"caps":[{"id":"coding-chat","state":"operational","statusAffecting":true},{"id":"sandbox-execution","state":"operational","statusAffecting":false}]}}
+
+== 0. TEXT-TO-IMAGE CANARY (is the provider throttle lifted?) ==
+submit: HTTP 202 job=cmwcuw6m7000mptvosg68ao59 
+  poll 5s: running
+  poll 10s: running
+  poll 15s: running
+  poll 20s: running
+  poll 25s: running
+  poll 30s: running
+  poll 35s: running
+final: completed
+artifact: HTTP 200, 148500 bytes, magic=JPEG, decoded=1024x1024, format=jpeg
+T2I CANARY VERDICT: PASS — provider permits requests
+
+== 1. CONVERSATIONAL EDITING (real hosted edit) ==
+upload edit-src-1794446125544.png: HTTP 201 asset=cmwcux2iw000tptvolf3dxvy0
+submit: HTTP 202 job=cmwcux2qq000wptvopfoumqec 
+  poll 5s: running
+  poll 10s: running
+  poll 15s: running
+final: completed
+artifact: HTTP 200, 451746 bytes, magic=PNG, decoded=1312x1312, differs-from-input=true
+EDIT VERDICT: PASS — real edited image artifact, decoded + materially different from the input
+
+== 2. BACKGROUND REMOVAL (real two-stage pipeline) ==
+upload bgrem-src-1794446125544.png: HTTP 201 asset=cmwcuxiry0013ptvoc8mbqa1z
+submit: HTTP 202 job=cmwcuxisw0016ptvo6m8km9a1 
+  poll 5s: running
+  poll 10s: running
+  poll 15s: running
+final: completed
+artifact: HTTP 200, 257583 bytes, magic=PNG, decoded=1312x1312, fully-transparent-pixel-fraction=0.571, job-reported=-
+BG-REMOVAL VERDICT: PASS — real transparent PNG (measured alpha)
+
+== HEALTH AFTER (2026-11-12T01:16:53.217Z) ==
+text-to-image       : operational (statusAffecting=false, source=real-attempt, checkedAt=2026-11-12T01:16:07.124Z, http=-), note="the most recent real generation attempt succeeded"
+conversational-edit: operational (statusAffecting=false, source=real-attempt, checkedAt=2026-11-12T01:16:29.871Z, http=-), note="a real edit completed successfully — the recorded blocker is lifted"
+background-removal  : operational (statusAffecting=false, source=real-attempt, checkedAt=2026-11-12T01:16:49.585Z, http=-), note="a real run completed successfully"
+breaker classes: [{"class":"chat","coolingDown":false,"consecutive429s":0,"last429At":null},{"class":"functions","coolingDown":false,"consecutive429s":0,"last429At":null},{"class":"images","coolingDown":false,"consecutive429s":0,"last429At":null},{"class":"video","coolingDown":false,"consecutive429s":0,"last429At":null},{"class":"audio","coolingDown":false,"consecutive429s":0,"last429At":null}]
+unrelated after:  {"riishe":{"status":"operational","available":true,"caps":[{"id":"chat","state":"operational","statusAffecting":true},{"id":"research","state":"operational","statusAffecting":false}]},"jazmii":{"status":"operational","available":true,"caps":[{"id":"text-to-video","state":"operational","statusAffecting":false},{"id":"image-to-video","state":"operational","statusAffecting":false}]},"code-giftz":{"status":"operational","available":true,"caps":[{"id":"coding-chat","state":"operational","statusAffecting":true},{"id":"sandbox-execution","state":"operational","statusAffecting":false}]}}
+UNRELATED PRODUCTS UNCHANGED (status+caps): YES
+
+finished 2026-11-12T01:16:53.219Z
+
+== VERDICT SUMMARY (all real, decoded-byte-verified) ==
+T2I       PASS — completed ~40s, JPEG magic ff-d8, 148500 bytes, decoded 1024x1024, health → operational (fresh real success)
+EDIT      PASS — completed ~15s, PNG 451746 bytes, decoded 1312x1312, materially different from input, health → operational ("recorded blocker lifted")
+BG-REMOVAL PASS — completed ~15s, PNG 257583 bytes, decoded 1312x1312, MEASURED fully-transparent fraction 0.571, health → operational
+deterministic-enhancement — operational via live probe (Sharp engine executed per health check; real run 2026-11-11T05:15:06Z completed with pixel-diff report)
+UNRELATED PRODUCTS UNCHANGED (status+caps): YES (riishe/jazmii/code-giftz byte-identical before vs after)
