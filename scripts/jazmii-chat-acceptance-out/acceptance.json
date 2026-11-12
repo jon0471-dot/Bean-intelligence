@@ -1,0 +1,137 @@
+{
+  "generatedAt": "2026-11-12T08:31:29.249Z",
+  "allOk": false,
+  "passed": 7,
+  "total": 11,
+  "steps": [
+    {
+      "id": "session",
+      "criterion": "test account (resumed)",
+      "ok": true,
+      "detail": {
+        "email": "jazmii-studio-1794469381428@bean.test",
+        "resumed": true
+      }
+    },
+    {
+      "id": "A1",
+      "criterion": "new conversation + real text-to-video",
+      "ok": false,
+      "detail": {
+        "jobId": "cmwd8qkcp001kptiqz2h27psm",
+        "status": "failed",
+        "stream": {
+          "w": null,
+          "h": null,
+          "dur": null,
+          "codec": null
+        },
+        "media": {},
+        "error": "The video provider kept throttling submissions (HTTP 429): 2 authorized submission attempt(s) over ~33 minutes all landed inside the same account-wide throttle window, so no generation was ever accepted and no video was produced. The job was not deleted — every attempt is recorded here. BEAN has exactly one authorized video provider (the platform gateway account); a submission can succeed only once its throttle window closes, so a resubmitted job is the way to try again.",
+        "resumed": true
+      }
+    },
+    {
+      "id": "A3",
+      "criterion": "reference upload + real image-to-video",
+      "ok": false,
+      "detail": {
+        "jobId": "cmwd9e3650028ptiq774ovhzp",
+        "status": "failed",
+        "stream": {
+          "w": null,
+          "h": null,
+          "dur": null,
+          "codec": null
+        },
+        "media": {},
+        "error": "The video provider kept throttling submissions (HTTP 429): 2 authorized submission attempt(s) over ~35 minutes all landed inside the same account-wide throttle window, so no generation was ever accepted and no video was produced. The job was not deleted — every attempt is recorded here. BEAN has exactly one authorized video provider (the platform gateway account); a submission can succeed only once its throttle window closes, so a resubmitted job is the way to try again.",
+        "resumed": true
+      }
+    },
+    {
+      "id": "A5",
+      "criterion": "follow-up prompt continues the conversation",
+      "ok": false,
+      "detail": {
+        "jobId": "cmwd9g10t002hptiqmsg8mx5w",
+        "status": "failed",
+        "stream": {
+          "w": null,
+          "h": null,
+          "dur": null,
+          "codec": null
+        },
+        "media": {},
+        "error": "The video provider kept throttling submissions (HTTP 429): 1 authorized submission attempt(s) over ~34 minutes all landed inside the same account-wide throttle window, so no generation was ever accepted and no video was produced. The job was not deleted — every attempt is recorded here. BEAN has exactly one authorized video provider (the platform gateway account); a submission can succeed only once its throttle window closes, so a resubmitted job is the way to try again.",
+        "resumed": true
+      }
+    },
+    {
+      "id": "A4",
+      "criterion": "multiple videos in one conversation + playback/download paths linked",
+      "ok": true,
+      "detail": {
+        "messages": 6,
+        "jobMessages": 3,
+        "uniqueJobs": 3
+      }
+    },
+    {
+      "id": "A6",
+      "criterion": "switch between conversations without losing messages",
+      "ok": true,
+      "detail": {
+        "secondConversation": "cmwdagvug003aptiqcgj9d301",
+        "messagesAfterSwitch": 6
+      }
+    },
+    {
+      "id": "A7",
+      "criterion": "reload restores conversation history (new session)",
+      "ok": true,
+      "detail": {
+        "messagesAfterRelogin": 6
+      }
+    },
+    {
+      "id": "A8",
+      "criterion": "new chat leaves previous results intact",
+      "ok": true,
+      "detail": {
+        "messagesAfterNewChat": 6
+      }
+    },
+    {
+      "id": "A9",
+      "criterion": "jobs remain associated with their original conversation",
+      "ok": true,
+      "detail": {
+        "conversationJobs": 3,
+        "userJobTotal": 3
+      }
+    },
+    {
+      "id": "A10",
+      "criterion": "download works (media bytes delivered)",
+      "ok": false,
+      "detail": {
+        "reason": "no completed video"
+      }
+    },
+    {
+      "id": "A11",
+      "criterion": "provider auth + job recovery parity (legacy list route operational)",
+      "ok": true,
+      "detail": {
+        "legacyRouteStatus": 200,
+        "availability": {
+          "available": true,
+          "accountThrottled": true,
+          "reason": "JAZMII runs on the authorized hosted video backend. The shared gateway account is rate-limited right now (HTTP 429 observed moments ago) — new submissions will be rejected until the breaker clears. Try again shortly.",
+          "product": "JAZMII"
+        }
+      }
+    }
+  ]
+}
