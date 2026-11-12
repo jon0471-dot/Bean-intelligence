@@ -1,23 +1,23 @@
 {
- "runAt": "2026-11-11T02:14:51.240Z",
- "pass": 6,
- "note": 1,
+ "runAt": "2026-11-12T01:23:52.785Z",
+ "pass": 8,
+ "note": 0,
  "steps": [
   {
    "step": "auth: register+login",
    "ok": true,
    "httpStatus": 200,
-   "detail": "user jazmii-acc-1794362021597@bean.local",
-   "at": "2026-11-11T01:53:41.704Z"
+   "detail": "user jazmii-acc-1794446357621@bean.local",
+   "at": "2026-11-12T01:19:17.730Z"
   },
   {
    "step": "t2v: submit",
    "ok": true,
    "httpStatus": 202,
-   "detail": "jobId=cmwbgth07000vrdvr3iz9m6r1",
-   "at": "2026-11-11T01:53:41.721Z",
+   "detail": "jobId=cmwcv1392001kptvoo56k55ig",
+   "at": "2026-11-12T01:19:17.944Z",
    "evidence": {
-    "jobId": "cmwbgth07000vrdvr3iz9m6r1",
+    "jobId": "cmwcv1392001kptvoo56k55ig",
     "rateLimitHeaders": {}
    }
   },
@@ -25,38 +25,38 @@
    "step": "t2v: terminal state",
    "ok": true,
    "httpStatus": null,
-   "detail": "status=completed elapsed=543.6s",
-   "at": "2026-11-11T02:02:45.285Z",
+   "detail": "status=completed elapsed=161.7s",
+   "at": "2026-11-12T01:21:59.421Z",
    "evidence": {
     "job": {
      "ok": true,
      "job": {
-      "id": "cmwbgth07000vrdvr3iz9m6r1",
+      "id": "cmwcv1392001kptvoo56k55ig",
       "status": "completed",
       "progress": 100,
       "errorCode": null,
       "errorMessage": null,
-      "videoUrl": "/api/jazmii/jobs/cmwbgth07000vrdvr3iz9m6r1/media",
+      "videoUrl": "/api/jazmii/jobs/cmwcv1392001kptvoo56k55ig/media",
       "format": "mp4",
-      "bytes": 3372874,
-      "queuedAt": "2026-11-11T01:53:41.719Z",
-      "startedAt": "2026-11-11T02:00:13.374Z",
-      "finishedAt": "2026-11-11T02:02:42.201Z"
+      "bytes": 3256021,
+      "queuedAt": "2026-11-12T01:19:17.941Z",
+      "startedAt": "2026-11-12T01:19:17.947Z",
+      "finishedAt": "2026-11-12T01:21:50.370Z"
      }
     },
-    "elapsedSec": 543.6
+    "elapsedSec": 161.7
    }
   },
   {
    "step": "t2v: artifact ffprobe validation",
    "ok": true,
    "httpStatus": 200,
-   "detail": "{\"codec\":\"h264\",\"width\":1890,\"height\":1080,\"durationSec\":5.193548,\"nb_frames\":\"161\",\"avg_frame_rate\":\"31/1\",\"audioCodec\":null,\"sizeBytes\":\"3372874\",\"formatName\":\"mov,mp4,m4a,3gp,3g2,mj2\"}",
-   "at": "2026-11-11T02:02:45.916Z",
+   "detail": "{\"codec\":\"h264\",\"width\":1890,\"height\":1080,\"durationSec\":5.193548,\"nb_frames\":\"161\",\"avg_frame_rate\":\"31/1\",\"audioCodec\":null,\"sizeBytes\":\"3256021\",\"formatName\":\"mov,mp4,m4a,3gp,3g2,mj2\"}",
+   "at": "2026-11-12T01:22:00.328Z",
    "evidence": {
-    "file": "scripts/bean-optrans-out/jazmii-t2v-cmwbgth07000vrdvr3iz9m6r1.mp4",
-    "sha256": "781f40ff8aad1ffcd8f14875806b5474c876a6d02de6d7733c70dcd273038724",
-    "bytes": 3372874,
+    "file": "scripts/bean-optrans-out/jazmii-t2v-cmwcv1392001kptvoo56k55ig.mp4",
+    "sha256": "6d4f0b6453c7eab89590d2b28619a5fb0bf85a3b103129689bbf70c3c77137e5",
+    "bytes": 3256021,
     "contentType": "video/mp4"
    }
   },
@@ -64,68 +64,81 @@
    "step": "i2v: submit",
    "ok": true,
    "httpStatus": 202,
-   "detail": "jobId=cmwbh554h001drdvroepc6fwe",
-   "at": "2026-11-11T02:02:46.201Z",
+   "detail": "jobId=cmwcv4kkl001optvo9vlpwm7s",
+   "at": "2026-11-12T01:22:00.363Z",
    "evidence": {
-    "jobId": "cmwbh554h001drdvroepc6fwe",
+    "jobId": "cmwcv4kkl001optvo9vlpwm7s",
     "rateLimitHeaders": {}
    }
   },
   {
    "step": "i2v: terminal state",
-   "ok": false,
+   "ok": true,
    "httpStatus": null,
-   "detail": "status=timeout elapsed=724.1s",
-   "at": "2026-11-11T02:14:50.054Z",
+   "detail": "status=completed elapsed=110.6s",
+   "at": "2026-11-12T01:23:50.955Z",
    "evidence": {
     "job": {
      "ok": true,
      "job": {
-      "id": "cmwbh554h001drdvroepc6fwe",
-      "status": "queued",
-      "progress": 5,
-      "errorCode": "RATE_LIMITED",
-      "errorMessage": "The video provider is throttling new submissions (HTTP 429). The job stays queued — submission attempt 4 of 5 starts automatically in ~480s. Nothing was lost; no duplicate was created.",
-      "videoUrl": null,
-      "queuedAt": "2026-11-11T02:02:46.193Z",
-      "startedAt": "2026-11-11T02:08:59.529Z",
-      "finishedAt": null
+      "id": "cmwcv4kkl001optvo9vlpwm7s",
+      "status": "completed",
+      "progress": 100,
+      "errorCode": null,
+      "errorMessage": null,
+      "videoUrl": "/api/jazmii/jobs/cmwcv4kkl001optvo9vlpwm7s/media",
+      "format": "mp4",
+      "bytes": 5018582,
+      "queuedAt": "2026-11-12T01:22:00.357Z",
+      "startedAt": "2026-11-12T01:22:00.923Z",
+      "finishedAt": "2026-11-12T01:23:46.543Z"
      }
     },
-    "elapsedSec": 724.1
+    "elapsedSec": 110.6
+   }
+  },
+  {
+   "step": "i2v: artifact ffprobe validation",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "{\"codec\":\"h264\",\"width\":1080,\"height\":1080,\"durationSec\":5.129032,\"nb_frames\":\"159\",\"avg_frame_rate\":\"31/1\",\"audioCodec\":null,\"sizeBytes\":\"5018582\",\"formatName\":\"mov,mp4,m4a,3gp,3g2,mj2\"}",
+   "at": "2026-11-12T01:23:51.534Z",
+   "evidence": {
+    "file": "scripts/bean-optrans-out/jazmii-i2v-cmwcv4kkl001optvo9vlpwm7s.mp4",
+    "sha256": "ccbab98ac810e2b873fa972cac2ba062c9123d4ebf1830d88bc9f0e7bacc7f68",
+    "bytes": 5018582
    }
   },
   {
    "step": "final: jazmii health snapshot",
    "ok": true,
    "httpStatus": 200,
-   "detail": "[{\"id\":\"text-to-video\",\"label\":\"Text-to-video\",\"core\":true,\"state\":\"rate-limited\",\"statusAffecting\":true,\"evidence\":{\"checkedAt\":\"2026-11-11T02:14:51.230Z\",\"source\":\"probe\",\"failureCategory\":\"rate-limited\",\"httpStatus\":429,\"note\":\"backend probe deferred/failed on upstream throttling\",\"lastAttempt\":{\"at\":\"2026-11-11T02:02:42.204Z\",\"ok\":true,\"failureCategory\":null,\"httpStatus\":null}}},{\"id\":\"image-to-video\",\"label\":\"Image-to-video\",\"core\":false,\"state\":\"rate-limited\",\"statusAffecting\":true,\"eviden",
-   "at": "2026-11-11T02:14:51.240Z",
+   "detail": "[{\"id\":\"text-to-video\",\"label\":\"Text-to-video\",\"core\":true,\"state\":\"operational\",\"statusAffecting\":false,\"evidence\":{\"checkedAt\":\"2026-11-12T01:21:50.374Z\",\"source\":\"real-attempt\",\"failureCategory\":null,\"httpStatus\":null,\"note\":\"the most recent real generation attempt succeeded\",\"lastAttempt\":{\"at\":\"2026-11-12T01:21:50.374Z\",\"ok\":true,\"failureCategory\":null,\"httpStatus\":null}}},{\"id\":\"image-to-video\",\"label\":\"Image-to-video\",\"core\":false,\"state\":\"operational\",\"statusAffecting\":false,\"evidence\":{",
+   "at": "2026-11-12T01:23:52.785Z",
    "evidence": {
     "jazmii": {
-     "status": "rate-limited",
-     "available": false,
+     "status": "operational",
+     "available": true,
      "probe": {
-      "healthy": false,
-      "checkedAt": "2026-11-11T02:14:51.230Z",
-      "latencyMs": null,
-      "httpStatus": 429,
-      "failureCategory": "rate-limited",
-      "detail": "Video gateway deferred: the video endpoint class is rate-limited (breaker open, 133s remaining) — no network call was made."
+      "healthy": true,
+      "checkedAt": "2026-11-12T01:23:52.768Z",
+      "latencyMs": 4,
+      "httpStatus": 404,
+      "failureCategory": null,
+      "detail": "Video gateway reachable and configured (bearer + platform token present; probe sends the full submission auth surface). This probe does NOT run a generation — completed real jobs are the capability evidence."
      },
-     "lastHealthyAt": "2026-11-11T02:02:29.388Z",
+     "lastHealthyAt": "2026-11-12T01:23:52.768Z",
      "generation": {
-      "available": false,
-      "failureCategory": "rate-limited",
-      "httpStatus": 429,
-      "checkedAt": "2026-11-11T02:09:04.032Z",
-      "note": "endpoint-class breaker is open after an observed 429; submissions fail fast until it clears"
+      "available": true,
+      "failureCategory": null,
+      "httpStatus": null,
+      "checkedAt": "2026-11-12T01:23:46.551Z"
      },
      "lastGenerationAttempt": {
-      "at": "2026-11-11T02:12:38.617Z",
-      "ok": false,
+      "at": "2026-11-12T01:23:46.551Z",
+      "ok": true,
       "backendId": "bean-video-hosted-primary",
-      "failureCategory": "rate-limited",
+      "failureCategory": null,
       "httpStatus": null,
       "upstream": false
      },
@@ -134,16 +147,16 @@
        "id": "text-to-video",
        "label": "Text-to-video",
        "core": true,
-       "state": "rate-limited",
-       "statusAffecting": true,
+       "state": "operational",
+       "statusAffecting": false,
        "evidence": {
-        "checkedAt": "2026-11-11T02:14:51.230Z",
-        "source": "probe",
-        "failureCategory": "rate-limited",
-        "httpStatus": 429,
-        "note": "backend probe deferred/failed on upstream throttling",
+        "checkedAt": "2026-11-12T01:21:50.374Z",
+        "source": "real-attempt",
+        "failureCategory": null,
+        "httpStatus": null,
+        "note": "the most recent real generation attempt succeeded",
         "lastAttempt": {
-         "at": "2026-11-11T02:02:42.204Z",
+         "at": "2026-11-12T01:21:50.374Z",
          "ok": true,
          "failureCategory": null,
          "httpStatus": null
@@ -154,23 +167,33 @@
        "id": "image-to-video",
        "label": "Image-to-video",
        "core": false,
-       "state": "rate-limited",
-       "statusAffecting": true,
+       "state": "operational",
+       "statusAffecting": false,
        "evidence": {
-        "checkedAt": "2026-11-11T02:14:51.230Z",
-        "source": "probe",
-        "failureCategory": "rate-limited",
-        "httpStatus": 429,
-        "note": "backend probe deferred/failed on upstream throttling",
+        "checkedAt": "2026-11-12T01:23:46.551Z",
+        "source": "real-attempt",
+        "failureCategory": null,
+        "httpStatus": null,
+        "note": "a real run completed successfully",
         "lastAttempt": {
-         "at": "2026-11-11T02:12:38.617Z",
-         "ok": false,
-         "failureCategory": "rate-limited",
+         "at": "2026-11-12T01:23:46.551Z",
+         "ok": true,
+         "failureCategory": null,
          "httpStatus": null
         }
        }
       }
-     ]
+     ],
+     "queueDepth": 0,
+     "engine": {
+      "embeddedPools": [
+       "embedded:code-giftz",
+       "embedded:jazmii",
+       "embedded:laxii",
+       "embedded:riishe"
+      ],
+      "kind": "embedded"
+     }
     }
    }
   }

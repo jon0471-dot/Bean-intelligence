@@ -753,6 +753,26 @@ export function probeCapability(
     }
   }
   const state = stateForProbe(probe)
+  // PLATFORM-WIDE RECOVERY (2026-11-12, Part 7 #6 — preserve actual provider
+  // error classification): the failure note used to be a bare "probe failed",
+  // which discarded the probe's measured diagnostic — measured live, a fresh
+  // real web_search/page_reader timeout rendered as research
+  // "unavailable — probe failed" while the payload's detail knew exactly why
+  // ("the most recent REAL web_search/page_reader failed upstream
+  // (timeout, at …)"). The detail carries the REAL classification (which
+  // upstream class, what was observed, what was NOT fired); surfacing it
+  // keeps the dashboard honest about failure provenance. Bounded — probe
+  // details are constructed diagnostics (never raw provider bodies), and the
+  // cap keeps the row presentable.
+  const failureNote = (probe.detail ?? '').trim()
+  const baseNote =
+    state === 'rate-limited'
+      ? 'probe deferred/failed on upstream throttling (HTTP 429)'
+      : 'probe failed'
+  const boundedNote =
+    failureNote.length > 0
+      ? `${baseNote}: ${failureNote.slice(0, 220)}${failureNote.length > 220 ? '…' : ''}`
+      : baseNote
   return {
     id,
     label,
@@ -764,11 +784,7 @@ export function probeCapability(
       source: 'probe',
       failureCategory: probe.healthy ? null : probe.failureCategory,
       httpStatus: probe.healthy ? null : probe.httpStatus,
-      note: probe.healthy
-        ? (note ?? 'probe passed')
-        : state === 'rate-limited'
-          ? 'probe deferred/failed on upstream throttling (HTTP 429)'
-          : 'probe failed',
+      note: probe.healthy ? (note ?? 'probe passed') : boundedNote,
     },
   }
 }

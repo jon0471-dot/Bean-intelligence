@@ -48,7 +48,9 @@ async function pollJob(j: ReturnType<typeof jar>, jobId: string, maxMs: number):
     const res = await j.call(`/api/laxii/jobs/${jobId}`)
     const body = (await res.json().catch(() => ({}))) as { job?: { status?: string; result?: Record<string, unknown>; error?: unknown } }
     status = body.job?.status ?? ''
-    result = body.job?.result ?? null
+    // The API nests imageUrl as a SIBLING of status inside job (job.result is
+    // the raw resultJson only in the DB) — read the whole job object.
+    result = (body.job ?? null) as unknown as Record<string, unknown> | null
     error = body.job?.error ?? null
     if (status === 'completed' || status === 'failed' || status === 'cancelled' || status === 'rejected') break
     log(`  poll ${Math.round((Date.now() - t0) / 1000)}s: ${status}`)

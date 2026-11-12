@@ -1,25 +1,25 @@
 {
- "runAt": "2026-11-11T03:10:08.442Z",
- "pass": 24,
- "note": 1,
+ "runAt": "2026-11-12T01:26:13.177Z",
+ "pass": 26,
+ "note": 0,
  "steps": [
   {
    "suite": "platform",
    "step": "auth: register+login",
    "ok": true,
    "httpStatus": 200,
-   "detail": "optrans-acc-1794366503419@bean.local",
-   "at": "2026-11-11T03:08:23.638Z"
+   "detail": "optrans-acc-1794446661979@bean.local",
+   "at": "2026-11-12T01:24:22.086Z"
   },
   {
    "suite": "riishe",
    "step": "normal chat: real model response",
    "ok": true,
    "httpStatus": 200,
-   "detail": "chars=340 elapsed=2002ms mode=normal-chat",
-   "at": "2026-11-11T03:08:25.640Z",
+   "detail": "chars=338 elapsed=2448ms mode=normal-chat",
+   "at": "2026-11-12T01:24:24.534Z",
    "evidence": {
-    "contentPreview": "Mount Everest is the tallest mountain on Earth, with a height of 8,848.86 meters (29,031.7 feet) above sea level. Its height is measured using a combination of traditional ground surveying methods and modern satellite-ba",
+    "contentPreview": "The tallest mountain on Earth is Mount Everest, with a height of 8,848.86 meters (29,031.7 feet) above sea level. Its height is measured using a combination of traditional surveying methods and modern GPS technology, wit",
     "mode": "normal-chat"
    }
   },
@@ -28,32 +28,22 @@
    "step": "current-events: retrieval ran with sources",
    "ok": true,
    "httpStatus": 200,
-   "detail": "sources=2 mode=web-search elapsed=7179ms retrievedAt=2026-11-11T03:08:27.424Z",
-   "at": "2026-11-11T03:08:32.819Z",
+   "detail": "sources=1 mode=web-search elapsed=18743ms retrievedAt=2026-11-12T01:24:26.633Z",
+   "at": "2026-11-12T01:24:43.278Z",
    "evidence": {
     "sources": [
      {
-      "id": 2,
-      "title": "Node.js 26.13.0 (LTS)",
-      "url": "https://nodejs.org/en/blog/release/v26.13.0",
-      "hostName": "nodejs.org",
-      "date": "Oct 28, 2026",
-      "official": false,
-      "social": false,
-      "pageRead": true
-     },
-     {
-      "id": 3,
+      "id": 1,
       "title": "Node.js official release index",
       "url": "https://nodejs.org/dist/index.json",
       "hostName": "nodejs.org",
-      "date": "2026-10-28",
+      "date": "2026-11-10",
       "official": false,
       "social": false,
       "pageRead": true
      }
     ],
-    "answerPreview": "The latest stable version of Node.js is v26.13.0, released on October 28, 2026 [2][3]."
+    "answerPreview": "\nBased on the evidence provided, the latest stable version of Node.js is v26.13.1 [1]. The exact release date for this version could not be verified from the cited sources."
    }
   },
   {
@@ -61,8 +51,8 @@
    "step": "citation URL opens (HTTP 200)",
    "ok": true,
    "httpStatus": 200,
-   "detail": "https://nodejs.org/en/blog/release/v26.13.0",
-   "at": "2026-11-11T03:08:32.873Z"
+   "detail": "https://nodejs.org/dist/index.json",
+   "at": "2026-11-12T01:24:43.312Z"
   },
   {
    "suite": "riishe",
@@ -70,9 +60,9 @@
    "ok": true,
    "httpStatus": 200,
    "detail": "mode=writing",
-   "at": "2026-11-11T03:08:34.890Z",
+   "at": "2026-11-12T01:24:44.847Z",
    "evidence": {
-    "answerPreview": "Subject: Congratulations on Your First Production Release!\n\nHi [Colleague's Name], \n\nCongratulations on shipping your first production release - that's a fantastic achievement! I'm really impressed wi"
+    "answerPreview": "Subject: Congratulations on your first production release!\n\nCongratulations on shipping your first production release! This is a fantastic achievement and a great milestone in your journey. Well done "
    }
   },
   {
@@ -80,24 +70,24 @@
    "step": "t2i: submit",
    "ok": true,
    "httpStatus": 202,
-   "detail": "jobId=cmwbjhs41000wrdiwvzalk7f8",
-   "at": "2026-11-11T03:08:35.094Z"
+   "detail": "jobId=cmwcv83i4002nptvo0b8elnnz",
+   "at": "2026-11-12T01:24:44.863Z"
   },
   {
    "suite": "laxii",
    "step": "t2i: terminal state",
    "ok": true,
    "httpStatus": null,
-   "detail": "{\"id\":\"cmwbjhs41000wrdiwvzalk7f8\",\"status\":\"completed\",\"progress\":100,\"errorCode\":null,\"errorMessage\":null,\"imageUrl\":\"/api/laxii/assets/cmwbjinpz000zrdiwtjhs4bhl\",\"width\":1024,\"height\":1024,\"format\":",
-   "at": "2026-11-11T03:09:21.006Z"
+   "detail": "{\"id\":\"cmwcv83i4002nptvo0b8elnnz\",\"status\":\"completed\",\"progress\":100,\"errorCode\":null,\"errorMessage\":null,\"imageUrl\":\"/api/laxii/assets/cmwcv8w9x002qptvofrd91mpn\",\"width\":1024,\"height\":1024,\"generati",
+   "at": "2026-11-12T01:25:25.294Z"
   },
   {
    "suite": "laxii",
    "step": "t2i: artifact is a real decodable image",
    "ok": true,
    "httpStatus": 200,
-   "detail": "jpeg 1024x1024 bytes=91503 sha256=3882f1b5db1e105034639383cfb3dc93addd09daa94bea36238efa9785a569b7",
-   "at": "2026-11-11T03:09:21.653Z",
+   "detail": "jpeg 1024x1024 bytes=73340 sha256=cc6c5a9959d93afc2a3e62fbc0cd3d2b276f397937ae8444b756092517425384",
+   "at": "2026-11-12T01:25:25.427Z",
    "evidence": {
     "file": "scripts/bean-optrans-out/laxii-t2i.jpg"
    }
@@ -107,32 +97,43 @@
    "step": "original asset uploaded for edit tests",
    "ok": true,
    "httpStatus": 201,
-   "detail": "assetId=cmwbjis2r0013rdiw6nnszcwr",
-   "at": "2026-11-11T03:09:21.734Z"
+   "detail": "assetId=cmwcv8ytu002uptvo50bi74xq",
+   "at": "2026-11-12T01:25:25.463Z"
   },
   {
    "suite": "laxii",
    "step": "bg-removal: submit",
    "ok": true,
    "httpStatus": 202,
-   "detail": "jobId=cmwbjiscz0016rdiwc0pkzkp5",
-   "at": "2026-11-11T03:09:22.071Z"
+   "detail": "jobId=cmwcv8yw2002xptvoqnvcte6k",
+   "at": "2026-11-12T01:25:25.542Z"
   },
   {
    "suite": "laxii",
    "step": "bg-removal: terminal state",
-   "ok": false,
+   "ok": true,
    "httpStatus": null,
-   "detail": "status=failed err=Background removal failed validation: no subject measured (opaque fraction 0) — the cutout would remove the image content. Your original image was not modified.",
-   "at": "2026-11-11T03:09:42.282Z"
+   "detail": "status=completed err=",
+   "at": "2026-11-12T01:25:45.786Z"
+  },
+  {
+   "suite": "laxii",
+   "step": "bg-removal: valid transparent image",
+   "ok": true,
+   "httpStatus": 200,
+   "detail": "raw 1312x1312 transparentFraction=0.5226 bytes=624353 sha256=bfd929577bc3cf588beab89bc14620b8b99e96b257e1b98961dfb6e8e3f6722e",
+   "at": "2026-11-12T01:25:45.964Z",
+   "evidence": {
+    "file": "scripts/bean-optrans-out/laxii-bg-removal.png"
+   }
   },
   {
    "suite": "laxii",
    "step": "conversational-edit: submit",
    "ok": true,
    "httpStatus": 202,
-   "detail": "jobId=cmwbjj7z2001brdiwmk0pnplu",
-   "at": "2026-11-11T03:09:42.306Z"
+   "detail": "jobId=cmwcv9eox0034ptvoux1ujurn",
+   "at": "2026-11-12T01:25:46.022Z"
   },
   {
    "suite": "laxii",
@@ -140,15 +141,15 @@
    "ok": true,
    "httpStatus": null,
    "detail": "status=completed err=",
-   "at": "2026-11-11T03:10:02.510Z"
+   "at": "2026-11-12T01:26:06.219Z"
   },
   {
    "suite": "laxii",
    "step": "conversational-edit: real modified artifact",
    "ok": true,
    "httpStatus": 200,
-   "detail": "png 1312x1312 bytes=1916416 differsFromOriginal=true",
-   "at": "2026-11-11T03:10:02.584Z",
+   "detail": "png 1312x1312 bytes=1410688 differsFromOriginal=true",
+   "at": "2026-11-12T01:26:06.267Z",
    "evidence": {
     "file": "scripts/bean-optrans-out/laxii-edit.png"
    }
@@ -158,18 +159,18 @@
    "step": "original file unchanged after edits",
    "ok": true,
    "httpStatus": 200,
-   "detail": "sha256Before=3882f1b5db1e1050… sha256After=3882f1b5db1e1050…",
-   "at": "2026-11-11T03:10:02.608Z"
+   "detail": "sha256Before=cc6c5a9959d93afc… sha256After=cc6c5a9959d93afc…",
+   "at": "2026-11-12T01:26:06.284Z"
   },
   {
    "suite": "code-giftz",
    "step": "coding chat: real model response",
    "ok": true,
    "httpStatus": 200,
-   "detail": "chars=545 projectId=cmwbjjnsj001irdiwculgk7xk",
-   "at": "2026-11-11T03:10:05.297Z",
+   "detail": "chars=834 projectId=cmwcv9umf003bptvouue17kst",
+   "at": "2026-11-12T01:26:09.704Z",
    "evidence": {
-    "answerPreview": "```js\nfunction sumOfSquares(n) {\n    let sum = 0;\n    for (let i = 1; i <= n; i++) {\n        sum += i * i;\n    }\n    return sum;\n}\n\nconsole.log(sumOfSquares(5));\n```\n\nThis function calculates the sum "
+    "answerPreview": "I'll write a JavaScript function `sumOfSquares(n)` that calculates the sum of squares from 1² to n², along with a usage example.\n\n```js\n// Function to calculate sum of squares from 1^2 to n^2\nfunction"
    }
   },
   {
@@ -178,7 +179,7 @@
    "ok": true,
    "httpStatus": 200,
    "detail": "exit=0 stdout=55 isolation={\"networkNamespace\":true,\"rlimits\":true,\"processSeparation\":true}",
-   "at": "2026-11-11T03:10:06.102Z"
+   "at": "2026-11-12T01:26:10.520Z"
   },
   {
    "suite": "code-giftz",
@@ -186,7 +187,7 @@
    "ok": true,
    "httpStatus": 200,
    "detail": "exit=1 stderr=ASSERTION FAILED: expected 55 got 56",
-   "at": "2026-11-11T03:10:06.997Z"
+   "at": "2026-11-12T01:26:11.583Z"
   },
   {
    "suite": "code-giftz",
@@ -194,23 +195,23 @@
    "ok": true,
    "httpStatus": 200,
    "detail": "projects=1",
-   "at": "2026-11-11T03:10:07.068Z"
+   "at": "2026-11-12T01:26:11.768Z"
   },
   {
    "suite": "platform",
    "step": "health: riishe capability rows present",
    "ok": true,
    "httpStatus": 200,
-   "detail": "chat:operational, research:operational",
-   "at": "2026-11-11T03:10:08.347Z"
+   "detail": "chat:operational, research:unavailable",
+   "at": "2026-11-12T01:26:12.950Z"
   },
   {
    "suite": "platform",
    "step": "health: laxii capability rows present",
    "ok": true,
    "httpStatus": 200,
-   "detail": "text-to-image:rate-limited, conversational-editing:operational, background-removal:blocked, image-enhancement:operational, generative-worker:not-configured",
-   "at": "2026-11-11T03:10:08.347Z"
+   "detail": "text-to-image:operational, conversational-editing:operational, background-removal:operational, image-enhancement:operational, generative-worker:not-configured",
+   "at": "2026-11-12T01:26:12.950Z"
   },
   {
    "suite": "platform",
@@ -218,7 +219,7 @@
    "ok": true,
    "httpStatus": 200,
    "detail": "text-to-video:operational, image-to-video:operational",
-   "at": "2026-11-11T03:10:08.347Z"
+   "at": "2026-11-12T01:26:12.950Z"
   },
   {
    "suite": "platform",
@@ -226,7 +227,7 @@
    "ok": true,
    "httpStatus": 200,
    "detail": "coding-chat:operational, sandbox-execution:operational",
-   "at": "2026-11-11T03:10:08.347Z"
+   "at": "2026-11-12T01:26:12.950Z"
   },
   {
    "suite": "platform",
@@ -234,7 +235,7 @@
    "ok": true,
    "httpStatus": 401,
    "detail": "providers endpoint auth-gated (HTTP 401); public health payload scanned clean",
-   "at": "2026-11-11T03:10:08.396Z"
+   "at": "2026-11-12T01:26:13.071Z"
   },
   {
    "suite": "platform",
@@ -242,7 +243,7 @@
    "ok": true,
    "httpStatus": 200,
    "detail": "per-user usage visible",
-   "at": "2026-11-11T03:10:08.442Z"
+   "at": "2026-11-12T01:26:13.177Z"
   }
  ]
 }
