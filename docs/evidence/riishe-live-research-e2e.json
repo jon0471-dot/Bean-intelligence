@@ -1,47 +1,41 @@
 {
-  "generatedAt": "2026-11-08T17:26:19.119Z",
+  "generatedAt": "2026-11-12T06:01:07.695Z",
   "base": "http://localhost:3000",
   "cases": [
     {
       "query": "Who is the current Chief Minister of Tamil Nadu?",
       "verdict": "PASS",
-      "answer": "\nThe current Chief Minister of Tamil Nadu is C. Joseph Vijay [1, 2, 3, 4]. He shifted to a new official residence at Chennai's Greenways Road on November 6, 2026 [1]. Vijay, a former Tamil film star, was sworn in as Chief Minister on May 10, 2026 [4, 6].",
+      "answer": "\nThe current Chief Minister of Tamil Nadu is C. Joseph Vijay [3, 4, 5]. He is a former actor who has been serving as the 9th chief minister of Tamil Nadu [5].",
       "sources": [
-        {
-          "url": "https://www.hindustantimes.com/india-news/tamil-nadu-cm-vijay-shifts-to-new-official-residence-at-chennai-greenways-road-101793940297169.html",
-          "title": "Tamil Nadu CM Vijay shifts to new official residence at",
-          "date": "2026-11-06T11:17:08+05:30"
-        },
-        {
-          "url": "https://www.tn.gov.in/minister_list.php",
-          "title": "Government of Tamil Nadu",
-          "date": null
-        },
         {
           "url": "https://en.wikipedia.org/wiki/Chief_Minister_of_Tamil_Nadu",
           "title": "Chief Minister of Tamil Nadu",
           "date": null
         },
         {
-          "url": "https://en.wikipedia.org/wiki/C._Joseph_Vijay",
-          "title": "C. Joseph Vijay",
+          "url": "https://www.tn.gov.in/minister_list.php",
+          "title": "Council of Ministers",
           "date": null
         },
         {
-          "url": "https://www.google.com/goto?url=CAESawHEIkXXBni2bCFr_HPKQ5seC8tsb8xROSt_7Ad3DeOzhLDiDfefFigUIcdnFIS0rdM_M-ZWkM1dNAMyBeH7bwqX4N1DUa9jLb_vh2Jt0igkJTuc8JjS_Q3Dq6EdMS0LWVpyWThicfbwFW3S&gsessionid=ZAEC8gxKWJ-vevkkKwP8sKwR6HHKqcISfXYLedIigq9m-of_nk5gDg",
-          "title": "Tamil film star Vijay is Indian state chief minister after days",
-          "date": "May 10, 2026"
+          "url": "https://en.wikipedia.org/wiki/C._Joseph_Vijay",
+          "title": "C. Joseph Vijay",
+          "date": null
         }
       ],
-      "researchQueries": [],
-      "firstTokenMs": null,
-      "durationMs": 12782,
-      "wallMs": 12911
+      "researchQueries": [
+        "Who is the current Chief Minister of Tamil Nadu?",
+        "Who is the current Chief Minister of Tamil Nadu? India",
+        "Who is the current Chief Minister of Tamil Nadu? latest news update"
+      ],
+      "firstTokenMs": 26456,
+      "durationMs": 27417,
+      "wallMs": 27561
     },
     {
       "query": "Who is the current Prime Minister of India?",
       "verdict": "PASS",
-      "answer": "Based on the evidence provided, Narendra Modi is the current Prime Minister of India. He has been serving in this position since May 26, 2014 [5].",
+      "answer": "Based on the retrieved evidence, Narendra Modi is the current Prime Minister of India [5]. He has been serving in this position since May 26, 2014 [5].",
       "sources": [
         {
           "url": "https://en.wikipedia.org/wiki/Narendra_Modi",
@@ -49,22 +43,75 @@
           "date": null
         }
       ],
-      "researchQueries": [],
-      "firstTokenMs": null,
-      "durationMs": 6513,
-      "wallMs": 6545
+      "researchQueries": [
+        "Who is the current Prime Minister of India?",
+        "Who is the current Prime Minister of India? latest news update"
+      ],
+      "firstTokenMs": 8733,
+      "durationMs": 8750,
+      "wallMs": 8772
     },
     {
       "query": "What is the latest stable Node.js version?",
-      "error": "chat failed: HTTP 429 {\"ok\":false,\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"chat completion is rate-limited upstream (HTTP 429): API request failed with status 429: {\\\"error\\\":\\\"Too many requests, please try again later\\\"}\"}}"
+      "verdict": "PASS",
+      "answer": "\nThe latest stable Node.js version is v26.13.1 (LTS) [1][3].",
+      "sources": [
+        {
+          "url": "https://nodejs.org/dist/index.json",
+          "title": "Node.js official release index",
+          "date": "2026-11-10"
+        },
+        {
+          "url": "https://nodejs.org/en/blog/release/v26.13.1",
+          "title": "Node.js 26.13.1 (LTS)",
+          "date": "Nov 11, 2026"
+        }
+      ],
+      "researchQueries": [
+        "What is the latest stable Node.js version?",
+        "Node.js official release notes changelog",
+        "Node.js GitHub releases latest version"
+      ],
+      "firstTokenMs": 6538,
+      "durationMs": 7309,
+      "wallMs": 7328
     },
     {
       "query": "What is the latest major announcement on the Tamil Nadu government website?",
-      "error": "chat failed: HTTP 429 {\"ok\":false,\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle\"}}"
+      "verdict": "PASS",
+      "answer": "Based on the retrieved evidence, the latest major announcement on the Tamil Nadu government website appears to be about the Rain Water Harvesting Programme, with orders issued on October 16, 2026 [2].",
+      "sources": [
+        {
+          "url": "https://www.tn.gov.in",
+          "title": "Government of Tamil Nadu",
+          "date": null
+        }
+      ],
+      "researchQueries": [
+        "What is the latest major announcement on the Tamil Nadu government website?",
+        "What is the latest major announcement on the Tamil Nadu government website? India"
+      ],
+      "firstTokenMs": 15075,
+      "durationMs": 15322,
+      "wallMs": 15353
     },
     {
       "query": "Who is the current President of the United States?",
-      "error": "chat failed: HTTP 429 {\"ok\":false,\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle\"}}"
+      "verdict": "PASS",
+      "answer": "Based on the retrieved evidence, the current President of the United States is Donald J. Trump [4].",
+      "sources": [
+        {
+          "url": "https://www.whitehouse.gov/",
+          "title": "The White House",
+          "date": "2026-01-22T14:00:00+00:00"
+        }
+      ],
+      "researchQueries": [
+        "Who is the current President of the United States?"
+      ],
+      "firstTokenMs": 2536,
+      "durationMs": 2551,
+      "wallMs": 2574
     }
   ]
 }

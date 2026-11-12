@@ -87,6 +87,7 @@ export type UpstreamFailureKind =
   | 'timeout'
   | 'truncated'
   | 'network'
+  | 'no_results'
   | 'other'
 
 export interface UpstreamFailure {
@@ -100,12 +101,68 @@ export interface UpstreamFailure {
  * instanceof first (their messages are human-facing, not parse targets);
  * raw SDK errors are parsed from the status they embed, which the SDK words
  * either as `status NNN: ...` or `HTTP NNN` in BEAN's own wrappers.
+ *
+ * INNER-STATUS FIX (2026-11-12, RIISHE live-research reliability — approved
+ * minimal fix, measured live): the gateway wraps its OWN upstream failure in
+ * an OUTER HTTP 500 whose body carries the real upstream signal, e.g.
+ *   `Function invoke failed with status 500: {"error":"Search failed:
+ *    request failed with status 429: {\"code\":429,...\"status\":42900}"}`.
+ * The previous parser matched the FIRST `status NNN` — the outer 500 — so
+ * wrapped 429s classified as generic 'other', the documented 429 fail-fast
+ * + breaker path never engaged, and every query was retried once into the
+ * same struggling upstream. The parser now ALSO extracts the INNER signal
+ * (innermost `request failed with status NNN` + JSON `"status"`/`"code"`
+ * fields) and prefers it. Mappings preserved unchanged for unwrapped
+ * messages: 429 → rate_limited, 401/403 → auth, 402 → billing, truncation,
+ * timeout wording and transport-network patterns all behave exactly as
+ * before when no inner signal exists.
  */
 export function classifyUpstreamError(e: unknown): UpstreamFailure {
   if (e instanceof UpstreamRateLimitError) return { kind: 'rate_limited', status: 429 }
   if (e instanceof UpstreamAuthError) return { kind: 'auth', status: e.status }
   if (e instanceof UpstreamBillingError) return { kind: 'billing', status: e.status }
   const message = e instanceof Error ? e.message : String(e)
+
+  // ---- inner (wrapped) upstream signals ----------------------------------
+  const innerStatuses: number[] = []
+  for (const m of message.matchAll(/request failed with status (\d{3,5})/g)) {
+    innerStatuses.push(Number(m[1]))
+  }
+  for (const m of message.matchAll(/"status"\s*:\s*"?(\d{3,5})"?/g)) {
+    innerStatuses.push(Number(m[1]))
+  }
+  for (const m of message.matchAll(/"code"\s*:\s*"?(\d{3,5})"?/g)) {
+    innerStatuses.push(Number(m[1]))
+  }
+  if (innerStatuses.length > 0) {
+    const family = (n: number): number | null => {
+      // The gateway's upstream codes are status*100 + subcode (42900, 42206):
+      // a 429xx/422xx family means the inner HTTP status 429/422.
+      if (n >= 100 && n <= 599) return n
+      if (n >= 40000 && n <= 59999) return Math.floor(n / 100)
+      return null
+    }
+    const families = innerStatuses.map(family).filter((v): v is number => v !== null)
+    if (families.includes(429)) return { kind: 'rate_limited', status: 429 }
+    // Authoritative zero-results: the gateway ANSWERED that the index has
+    // nothing for the query (measured 2026-11-12: "No search results
+    // available for query …" with inner 422/42206). This is NOT an outage —
+    // a dedicated honest class so callers neither retry it nor record it as
+    // provider unavailability.
+    if (families.includes(422) && /no search results|zero results|no results available/i.test(message)) {
+      return { kind: 'no_results', status: 422 }
+    }
+    if (families.includes(401) || families.includes(403)) return { kind: 'auth', status: families.includes(401) ? 401 : 403 }
+    if (families.includes(402)) return { kind: 'billing', status: 402 }
+    // A wrapped upstream TIMEOUT (the gateway's upstream stalled mid-read)
+    // is its own honest class — distinct from a generic wrapped 5xx.
+    const wrapped5xx = families.find((v) => v >= 500)
+    if (wrapped5xx !== undefined && /read\s?timed?\s?out|readtimeout|timed?\s?out/i.test(message)) {
+      return { kind: 'timeout', status: wrapped5xx }
+    }
+  }
+
+  // ---- legacy outer-status parsing (behavior preserved verbatim) ----------
   const m = /(?:\bstatus\s+(\d{3})|\bHTTP\s+(\d{3}))/.exec(message)
   const status = m ? Number(m[1] ?? m[2]) : null
   if (status === 429) return { kind: 'rate_limited', status }
