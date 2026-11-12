@@ -29,6 +29,7 @@ model User {
   memories            RiisheMemory[]
   providerCredentials ProviderCredential[]
   apiKeys             ApiKey[]
+  laxiiConversations  LaxiiConversation[]
 }
 
 model Session {
@@ -350,4 +351,39 @@ model SystemSetting {
   value     String
   updatedBy String?
   updatedAt DateTime @updatedAt
+}
+
+// LAXII UNIFIED CONVERSATIONAL STUDIO (2026-11-12) — additive persistence for
+// the one-workspace redesign. Existing GenerationJob and ImageAsset records
+// are the source of truth for every artifact and job state; these tables only
+// LINK to them by id (jobId / assetId), so all artifact references and
+// storage paths keep working and no existing row is rewritten.
+model LaxiiConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String   @default("New image conversation")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  LaxiiMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model LaxiiMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String // user | assistant
+  kind           String // text | job | clarify | mask-request
+  text           String?
+  // Optional LINKS — never copies: the referenced GenerationJob / ImageAsset
+  // rows stay owned by their existing pipelines.
+  assetId        String?
+  jobId          String?
+  maskAssetIds   String? // JSON array of mask asset ids (masked-edit flow)
+  metaJson       String? // intent, engine hints, capability truth
+  createdAt      DateTime @default(now())
+  conversation   LaxiiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
 }
