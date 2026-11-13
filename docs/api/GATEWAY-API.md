@@ -43,7 +43,18 @@ A request with neither principal gets `401 UNAUTHENTICATED`.
 - Each key carries: name, permission scopes, per-key rate limit (req/min),
   optional expiry (`expiresAt`), status (`active | revoked`), usage counters.
 - Scopes: `chat:completions`, `models:read`, `providers:read`, `usage:read`,
-  and `*` (admin wildcard). Scope checks run per endpoint (`assertScope`).
+  `images:generate`, `videos:generate`, `code:generate`, `files:read`, and
+  `*` (admin wildcard). Scope checks run per endpoint (`assertScope`).
+- **Product scopes (Phase 1):** the four product scopes are real registered
+  grants — validated at creation and enforced by the same central gate — but
+  NO `/api/v1` endpoint requires them yet; the product endpoints that will
+  consume them arrive in a later phase. Keys holding only product scopes
+  therefore cannot call any gateway operation today, by design.
+- **Project-scoped keys (Phase 1):** a key may be bound to exactly one
+  developer-portal Project (`projectId`). Bound keys are minted by their
+  owning user through the portal, can never hold `*`, and are contained to
+  their project (central `assertProjectBinding` gate); `projectId: null`
+  legacy administrator keys keep platform-wide behavior.
 - Keys never grant credential management — only admin **sessions** manage
   providers, credentials and keys.
 
@@ -93,6 +104,16 @@ the truthful timing metadata.
 | GET | `/api/v1/keys` | **admin session** | — |
 | DELETE | `/api/v1/keys/:id` | **admin session** (owner) | — |
 | POST | `/api/v1/keys/:id/rotate` | **admin session** (owner) | — |
+
+Developer-portal project/key management (Phase 1) lives OUTSIDE this gateway
+contract: `POST/GET /api/portal/projects`, `GET/PATCH /api/portal/projects/:id`,
+`POST/GET /api/portal/projects/:id/keys`,
+`DELETE /api/portal/projects/:id/keys/:keyId`,
+`POST /api/portal/projects/:id/keys/:keyId/rotate`,
+`GET /api/portal/projects/:id/usage`, `GET /api/portal/projects/:id/logs` —
+session-authenticated (any signed-in user), owner-scoped with 404 on
+cross-user access, 403 for API-key principals, and the same one-time raw-key
+rule as every key surface.
 
 All responses use the BEAN envelope: success `{ "ok": true, …data }`, failure
 `{ "ok": false, "error": "…", "code": "<STABLE_CODE>" }` with a matching HTTP

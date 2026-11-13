@@ -17,6 +17,7 @@ import {
   BarChart3,
   Settings,
   ShieldCheck,
+  FolderKey,
   LogOut,
   Menu,
   X,
@@ -28,6 +29,7 @@ export type ViewId =
   | 'laxii'
   | 'jazmii'
   | 'code-giftz'
+  | 'portal'
   | 'usage'
   | 'settings'
   | 'admin'
@@ -38,6 +40,7 @@ const NAV: Array<{ id: ViewId; label: string; icon: React.ElementType; group: st
   { id: 'laxii', label: 'LAXII', icon: ImageIcon, group: 'Products' },
   { id: 'jazmii', label: 'JAZMII', icon: Video, group: 'Products' },
   { id: 'code-giftz', label: 'CODE GIFTZ', icon: Code2, group: 'Products' },
+  { id: 'portal', label: 'Developer portal', icon: FolderKey, group: 'Account' },
   { id: 'usage', label: 'Usage & quotas', icon: BarChart3, group: 'Account' },
   { id: 'settings', label: 'Settings', icon: Settings, group: 'Account' },
 ]
