@@ -1,0 +1,18 @@
+/* DotGrid.css — React Bits (https://reactbits.dev) — MIT + Commons Clause v1.0.
+ * Upstream: https://github.com/DavidHDev/react-bits/blob/4e0d091d3b1ea8b7aadef33716a8d99d164ae4ce/src/ts-default/Backgrounds/DotGrid/DotGrid.css — Copyright (c) 2026 David Haz.
+ * Included by BEAN Intelligence; notices: docs/THIRD-PARTY-NOTICES.md. */
+
+.dot-grid {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.dot-grid__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}

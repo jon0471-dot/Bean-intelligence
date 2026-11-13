@@ -35,12 +35,17 @@ export async function GET(
         title: project.title,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
-        messages: messages.map((m) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          changes: m.metaJson ? (JSON.parse(m.metaJson) as { changes?: Array<{ path: string; change: string }> }).changes ?? [] : [],
-        })),
+        messages: messages.map((m) => {
+          const meta = m.metaJson ? (JSON.parse(m.metaJson) as { changes?: Array<{ path: string; change: string }>; frontend?: unknown }) : {}
+          return {
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            changes: meta.changes ?? [],
+            // ADDITIVE: Frontend Intelligence summary (frontend turns only).
+            ...(meta.frontend ? { frontend: meta.frontend } : {}),
+          }
+        }),
         files: files.map((f) => ({ path: f.path, content: f.content, origin: f.origin })),
       },
     })

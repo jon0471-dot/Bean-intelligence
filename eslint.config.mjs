@@ -44,6 +44,20 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
+  // Third-party React Bits implementations (src/components/giftz-kit) are
+  // vendored VERBATIM with attribution headers — rewriting upstream code to
+  // satisfy these rules would corrupt the supply chain (exact sources are
+  // pinned in docs/CODE-GIFTZ-FRONTEND-INTELLIGENCE-AUDIT.md). The repo
+  // already declines these rules globally (see above); the rule ids changed
+  // in eslint-plugin-react-hooks v6, so they are re-disabled here by scope.
+  files: ["src/components/giftz-kit/**"],
+  rules: {
+    "react-hooks/refs": "off",
+    "react-hooks/set-state-in-effect": "off",
+    "react-hooks/purity": "off",
+    "react-compiler/react-compiler": "off",
+  },
+}, {
   ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
 }];
 

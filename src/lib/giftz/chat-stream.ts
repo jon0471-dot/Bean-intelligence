@@ -90,6 +90,8 @@ export interface GiftzTurnResult {
     corrections: number
     issuesFound: number
   } | null
+  /** Frontend Intelligence summary + checks (ADDITIVE; frontend turns only). */
+  frontend?: import('@/lib/frontend-intel/types').FrontendTurnResult
 }
 
 export interface GiftzChatStreamDeps {
@@ -249,6 +251,7 @@ export function createGiftzChatStream(deps: GiftzChatStreamDeps): ReadableStream
             changes: result.changes,
             files,
             verification: result.verification ?? null,
+            ...(result.frontend ? { frontend: result.frontend } : {}),
           })
         } catch (e) {
           if (isClientDisconnected(e) || clientGone) {
