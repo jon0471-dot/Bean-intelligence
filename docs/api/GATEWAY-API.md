@@ -3,6 +3,12 @@
 Version: 1.0 (work order: Self-Verification Engine + Unified AI Model API & Secure Key Management)
 Base path: `/api/v1`
 
+**Machine-readable contract:** [`docs/api/openapi.yaml`](./openapi.yaml) (OpenAPI
+3.1) describes this same implemented `/api/v1` surface — endpoints, auth
+requirements, schemas, error responses and rate-limit headers. This document
+remains the narrative reference; the YAML is the integratable contract. Both
+describe only IMPLEMENTED endpoints.
+
 This is the single internal call surface for every configured AI model. It is
 also the documented integration interface for future BEAN-family products
 (they call this gateway with their own application API keys — provider
@@ -46,8 +52,31 @@ A request with neither principal gets `401 UNAUTHENTICATED`.
 - `30 requests/min` per principal (sliding window) — `429 RATE_LIMITED`.
 - `500 requests/day` per principal (durable) — `429 QUOTA_EXCEEDED`.
 - Per-key limit (default 60/min, configurable 1–600) is enforced **before**
-  any backend work; rejected requests carry `Retry-After` semantics in the
-  error message.
+  any backend work.
+
+### Rate-limit response headers (truthful, on 429s)
+
+Applicable `429` responses carry rate-limit headers derived from the REAL
+limiter, quota or breaker state — a value that is not known is OMITTED, never
+fabricated:
+
+- `Retry-After` — integer seconds from the known retry delay: the sliding
+  window's slot expiry (per-principal and per-key limits), the time until the
+  daily quota's next local-midnight reset, or the REMAINING upstream circuit
+  breaker window after an observed provider 429 (when a provider supplies its
+  own retry hint, that hint is honored instead). Always a non-negative integer.
+- `X-RateLimit-Limit` — the window limit that rejected the call (30/min
+  principal window, the key's own per-min limit, or 500/day quota).
+- `X-RateLimit-Remaining` — units actually left in the current window (0 on a
+  rejected request).
+- `X-RateLimit-Reset` — epoch SECONDS of the real reset moment: the
+  sliding-window slot expiry or the next local midnight for the daily quota.
+  Emitted only when a genuine reset timestamp can be calculated.
+
+Successful responses do not carry rate-limit headers (the contract limits the
+headers to rejections, so success behavior is unchanged). Which case produced
+a 429 is always visible in the error `code` and message — the headers only add
+the truthful timing metadata.
 
 ---
 
@@ -203,8 +232,8 @@ structural hard caps.
 |---|---|---|
 | `UNAUTHENTICATED` | 401 | No/invalid session and no/invalid Bearer key |
 | `FORBIDDEN` | 403 | Key lacks the scope, or the key has expired |
-| `RATE_LIMITED` | 429 | Caller limit reached **or upstream 429 observed** (upstream cooling) |
-| `QUOTA_EXCEEDED` | 429 | Daily gateway quota exhausted |
+| `RATE_LIMITED` | 429 | Caller limit reached **or upstream 429 observed** (upstream cooling). Carries truthful `Retry-After` / `X-RateLimit-*` headers when the real values are known |
+| `QUOTA_EXCEEDED` | 429 | Daily gateway quota exhausted. Carries the same truthful headers (`Reset` = next local midnight) when known |
 | `VALIDATION_ERROR` | 400 | Malformed request / invalid key operation (e.g. revoking an already-revoked key) |
 | `CAPABILITY_UNSUPPORTED` | 422 | Model cannot serve chat, or output truncated at provider cap |
 | `PRODUCT_UNAVAILABLE` | 503 | Model disabled, or external provider has no credential yet |

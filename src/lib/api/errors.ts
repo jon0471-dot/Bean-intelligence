@@ -50,11 +50,16 @@ const HTTP_STATUS: Record<BeanErrorCode, number> = {
 export class BeanApiError extends Error {
   code: BeanErrorCode
   detail?: string
+  /** Optional HTTP headers for the error response (e.g. truthful rate-limit
+   *  headers on 429s). Never carries secrets or internal identifiers; values
+   *  are built by rateLimitHeaders() from real limiter/breaker state. */
+  headers?: Record<string, string>
 
-  constructor(code: BeanErrorCode, message: string, detail?: string) {
+  constructor(code: BeanErrorCode, message: string, detail?: string, options?: { headers?: Record<string, string> }) {
     super(message)
     this.code = code
     this.detail = detail
+    this.headers = options?.headers
   }
 
   toResponse() {
@@ -63,9 +68,45 @@ export class BeanApiError extends Error {
         ok: false as const,
         error: { code: this.code, message: this.message, detail: this.detail },
       },
-      { status: HTTP_STATUS[this.code] },
+      { status: HTTP_STATUS[this.code], headers: this.headers },
     )
   }
+}
+
+export interface RateLimitHeaderInput {
+  /** Total units the window allows (requests or quota units). */
+  limit?: number | null
+  /** Units remaining in the current window. */
+  remaining?: number | null
+  /** Epoch milliseconds at which the window resets (real, calculated). */
+  resetAtMs?: number | null
+  /** Known retry delay in seconds (from the limiter/breaker, never guessed). */
+  retryAfterSec?: number | null
+}
+
+/**
+ * Build truthful rate-limit response headers. Values come verbatim from the
+ * actual limiter/quota/breaker state; any value that is absent or not a real
+ * non-negative number is OMITTED rather than fabricated. X-RateLimit-Reset is
+ * emitted only when a genuine reset timestamp was calculated (epoch seconds).
+ * Returns undefined when no header has a truthful value, so callers can pass
+ * the result straight into BeanApiError options without changing behavior.
+ */
+export function rateLimitHeaders(input: RateLimitHeaderInput): Record<string, string> | undefined {
+  const headers: Record<string, string> = {}
+  if (typeof input.retryAfterSec === 'number' && Number.isFinite(input.retryAfterSec) && input.retryAfterSec >= 0) {
+    headers['Retry-After'] = String(Math.ceil(input.retryAfterSec))
+  }
+  if (typeof input.limit === 'number' && Number.isFinite(input.limit) && input.limit >= 0) {
+    headers['X-RateLimit-Limit'] = String(Math.floor(input.limit))
+  }
+  if (typeof input.remaining === 'number' && Number.isFinite(input.remaining) && input.remaining >= 0) {
+    headers['X-RateLimit-Remaining'] = String(Math.floor(input.remaining))
+  }
+  if (typeof input.resetAtMs === 'number' && Number.isFinite(input.resetAtMs) && input.resetAtMs > 0) {
+    headers['X-RateLimit-Reset'] = String(Math.floor(input.resetAtMs / 1000))
+  }
+  return Object.keys(headers).length > 0 ? headers : undefined
 }
 
 /** Uniform success envelope. */

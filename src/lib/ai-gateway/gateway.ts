@@ -29,7 +29,7 @@ import { estimateTokens } from '@/lib/api/validate'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/observability/logger'
 import { recordUsage } from '@/lib/observability/metering'
-import { checkRateLimit } from '@/lib/auth/ratelimit'
+import { checkRateLimit, type RateLimitResult } from '@/lib/auth/ratelimit'
 import { upstreamCoolingDown, classifyUpstreamError } from '@/lib/upstream/gateway'
 import { getGatewayModels, resolveGatewayModel, type GatewayModelWithHealth } from '@/lib/registry/models'
 import { openAICompatibleChat, openAICompatibleStream } from './providers/openai-compatible'
@@ -48,17 +48,33 @@ const MAX_TEMPERATURE = 2
 // ---- caller throttling ------------------------------------------------------
 
 /** Sliding-window burst limit + durable daily quota, per calling principal. */
-export function checkGatewayRateLimit(principalId: string): { allowed: boolean; retryAfterSec: number } {
+export function checkGatewayRateLimit(principalId: string): RateLimitResult {
   return checkRateLimit(`gateway:${principalId}`, GATEWAY_RATE_LIMIT_PER_MIN, 60_000)
 }
 
-export async function checkGatewayQuota(principalId: string): Promise<{ allowed: boolean; used: number; limit: number }> {
+export async function checkGatewayQuota(principalId: string): Promise<{
+  allowed: boolean
+  used: number
+  limit: number
+  /** Epoch ms of the REAL reset (next local midnight — the same boundary the
+   *  count query below uses via startOfDay). Calculated, never guessed. */
+  resetsAtMs: number
+}> {
   const startOfDay = new Date()
   startOfDay.setHours(0, 0, 0, 0)
   const used = await db.usageRecord.count({
     where: { userId: principalId, product: 'api-gateway', success: true, createdAt: { gte: startOfDay } },
   })
-  return { allowed: used < GATEWAY_DAILY_QUOTA, used, limit: GATEWAY_DAILY_QUOTA }
+  // setHours(24, …) normalizes to the NEXT local midnight (DST-correct) —
+  // exactly when createdAt >= startOfDay flips to a fresh zero count.
+  const resetBoundary = new Date()
+  resetBoundary.setHours(24, 0, 0, 0)
+  return {
+    allowed: used < GATEWAY_DAILY_QUOTA,
+    used,
+    limit: GATEWAY_DAILY_QUOTA,
+    resetsAtMs: resetBoundary.getTime(),
+  }
 }
 
 // ---- request normalization ---------------------------------------------------

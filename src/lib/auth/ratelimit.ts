@@ -19,6 +19,11 @@ const windows = new Map<string, WindowState>()
 export interface RateLimitResult {
   allowed: boolean
   retryAfterSec: number
+  /** Caller slots left in the current window (limiter truth, never invented). */
+  remaining: number
+  /** Epoch ms when the next slot frees (oldest in-window hit + window);
+   *  a REAL calculated reset for the sliding window, null when unknown. */
+  resetAtMs: number | null
 }
 
 export function checkRateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
@@ -28,11 +33,23 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): Ra
   if (state.hits.length >= limit) {
     windows.set(key, state)
     const oldest = state.hits[0]
-    return { allowed: false, retryAfterSec: Math.ceil((windowMs - (now - oldest)) / 1000) }
+    return {
+      allowed: false,
+      retryAfterSec: Math.ceil((windowMs - (now - oldest)) / 1000),
+      remaining: Math.max(0, limit - state.hits.length),
+      // A slot frees exactly when the oldest in-window hit leaves the window.
+      resetAtMs: oldest + windowMs,
+    }
   }
   state.hits.push(now)
   windows.set(key, state)
-  return { allowed: true, retryAfterSec: 0 }
+  const oldest = state.hits[0]
+  return {
+    allowed: true,
+    retryAfterSec: 0,
+    remaining: Math.max(0, limit - state.hits.length),
+    resetAtMs: oldest !== undefined ? oldest + windowMs : null,
+  }
 }
 
 /** Product-specific rate limit policy (burst window 60s). */

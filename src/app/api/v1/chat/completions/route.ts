@@ -21,11 +21,12 @@
  * response surface.
  */
 import { z } from 'zod'
-import { handle, BeanApiError } from '@/lib/api/errors'
+import { handle, BeanApiError, rateLimitHeaders } from '@/lib/api/errors'
 import { parseBody } from '@/lib/api/validate'
 import { requireGatewayPrincipal } from '@/lib/security/gateway-auth'
 import { checkGatewayRateLimit, checkGatewayQuota, planGatewayChat, executeGatewayChat, executeGatewayChatStream, gatewayErrorFor, isGatewayCancelled, recordGatewayCall } from '@/lib/ai-gateway/gateway'
 import { GATEWAY_RATE_LIMIT_PER_MIN, GATEWAY_DAILY_QUOTA } from '@/lib/ai-gateway/types'
+import { upstreamCooldownRemainingMs, UpstreamRateLimitError } from '@/lib/upstream/gateway'
 import { logger } from '@/lib/observability/logger'
 
 const schema = z.object({
@@ -57,11 +58,38 @@ export async function POST(request: Request) {
     // Caller throttling (per-principal, distinct from product limits).
     const rl = checkGatewayRateLimit(principal.userId)
     if (!rl.allowed) {
-      throw new BeanApiError('RATE_LIMITED', `Gateway rate limit reached (${GATEWAY_RATE_LIMIT_PER_MIN}/min). Retry in ${rl.retryAfterSec}s.`)
+      // Headers carry the SAME limiter state that rejected the call.
+      throw new BeanApiError(
+        'RATE_LIMITED',
+        `Gateway rate limit reached (${GATEWAY_RATE_LIMIT_PER_MIN}/min). Retry in ${rl.retryAfterSec}s.`,
+        undefined,
+        {
+          headers: rateLimitHeaders({
+            limit: GATEWAY_RATE_LIMIT_PER_MIN,
+            remaining: rl.remaining,
+            resetAtMs: rl.resetAtMs,
+            retryAfterSec: rl.retryAfterSec,
+          }),
+        },
+      )
     }
     const quota = await checkGatewayQuota(principal.userId)
     if (!quota.allowed) {
-      throw new BeanApiError('QUOTA_EXCEEDED', `Gateway daily quota reached (${quota.used}/${quota.limit}). Resets at midnight.`)
+      // Daily quota: the reset boundary is the real next-local-midnight the
+      // count query uses; Retry-After is derived from it, never invented.
+      throw new BeanApiError(
+        'QUOTA_EXCEEDED',
+        `Gateway daily quota reached (${quota.used}/${quota.limit}). Resets at midnight.`,
+        undefined,
+        {
+          headers: rateLimitHeaders({
+            limit: quota.limit,
+            remaining: Math.max(0, quota.limit - quota.used),
+            resetAtMs: quota.resetsAtMs,
+            retryAfterSec: Math.max(0, Math.ceil((quota.resetsAtMs - Date.now()) / 1000)),
+          }),
+        },
+      )
     }
 
     const body = await parseBody(request, schema)
@@ -188,6 +216,18 @@ export async function POST(request: Request) {
       })
     } catch (e) {
       const beanError = gatewayErrorFor(e)
+      // Truthful upstream retry timing when the evidence exists: prefer the
+      // provider's own Retry-After hint (when an adapter captured one), else
+      // the REAL remaining breaker window for the chat class. Omitted when
+      // neither is known — never fabricated.
+      if (beanError.code === 'RATE_LIMITED') {
+        const providerHintMs = e instanceof UpstreamRateLimitError ? e.retryAfterMs : null
+        const breakerRemainingMs = upstreamCooldownRemainingMs('chat')
+        const knownMs = providerHintMs ?? (breakerRemainingMs > 0 ? breakerRemainingMs : null)
+        if (knownMs !== null && knownMs > 0) {
+          beanError.headers = rateLimitHeaders({ retryAfterSec: Math.ceil(knownMs / 1000) })
+        }
+      }
       await recordGatewayCall({
         ctx, plan, status: beanErrorToStatus(beanError.code), errorCode: beanError.code,
         streamed: false, modelId: plan.model.id, durationMs: Date.now() - t0,

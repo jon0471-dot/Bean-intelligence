@@ -1,0 +1,1068 @@
+# BEAN Intelligence — Gateway API (implemented /api/v1 surface)
+#
+# Machine-readable contract for the ENDPOINTS THAT EXIST IN THE REPOSITORY TODAY.
+# Source of truth: the route implementations under src/app/api/v1/** and the
+# libraries they call (src/lib/api/errors.ts, src/lib/security/gateway-auth.ts,
+# src/lib/security/api-keys.ts, src/lib/ai-gateway/gateway.ts).
+#
+# Scope discipline:
+#   - Only implemented endpoints are documented here. Planned future surfaces
+#     (image generation/edit, background removal, video jobs, external code
+#     generation, webhooks, developer portal, subscriptions/billing) are
+#     deliberately ABSENT — they do not exist yet and must not be integrated
+#     against.
+#   - Header values (Retry-After, X-RateLimit-*) are emitted by the server ONLY
+#     when the real limiter/quota/breaker state provides them; the server never
+#     fabricates a value, so any of these headers may be absent on a 429.
+openapi: 3.1.0
+info:
+  title: BEAN Intelligence Gateway API
+  version: 1.0.0
+  summary: Unified AI model gateway (chat, models, providers, usage, API keys)
+  description: |
+    The single BEAN-owned call surface for every configured AI model.
+
+    Two independent principals authenticate calls:
+
+    1. **Session** — the browser cookie (`bean_session`, httpOnly) of a
+       signed-in BEAN user. Product UIs use this.
+    2. **Application API key** — `Authorization: Bearer bgk_…`. Bearer wins
+       when present (machine clients send no cookies). Keys carry permission
+       scopes enforced per endpoint; key management itself is admin-session
+       only and can never be performed by an API key.
+
+    All responses use the BEAN envelope. Success: `{ "ok": true, …payload }`.
+    Failure: `{ "ok": false, "error": { "code", "message", "detail" } }` with a
+    matching HTTP status. Error text never contains provider credentials, key
+    material, prompts, or stack traces.
+
+    Rate limiting (caller-side, enforced before any backend work):
+    - `30 requests/min` per principal (sliding window) → `429 RATE_LIMITED`.
+    - `500 requests/day` per principal (durable daily quota) → `429 QUOTA_EXCEEDED`.
+    - Per-key limit (default 60/min, configurable 1–600) → `429 RATE_LIMITED`.
+    - An upstream provider throttle opens a circuit breaker; while it is open,
+      chat calls fail fast with `429 RATE_LIMITED` and a `Retry-After` derived
+      from the REAL remaining breaker window (when known).
+
+    On `429` responses the server returns truthful rate-limit headers when the
+    corresponding values are known: `Retry-After` (integer seconds),
+    `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`
+    (epoch seconds) — each omitted rather than fabricated when no real value
+    exists.
+externalDocs:
+  description: Human-readable gateway reference (implemented/planned split)
+  url: https://github.com/jon0471-dot/Bean-intelligence/blob/main/docs/api/GATEWAY-API.md
+servers:
+  - url: /
+    description: Deployment origin; all paths below are relative to /api/v1
+tags:
+  - name: Health
+    description: Gateway liveness and measured upstream probes (public)
+  - name: Models
+    description: Unified model catalogue
+  - name: Providers
+    description: Provider overview with measured health
+  - name: Usage
+    description: Honest usage reporting (no invented cost data)
+  - name: Chat
+    description: Chat completions (JSON and SSE streaming)
+  - name: API Keys
+    description: Application API key management (admin session only)
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getGatewayHealth
+      summary: Gateway liveness plus measured probes for every model class
+      description: |
+        Public (no authentication). Reports the honest availability of the
+        chat, image and research/functions classes, each backed by a MEASURED
+        probe (`safeProbe` — probe failures are captured, never thrown), plus
+        the credential-encryption configuration status. This is the endpoint
+        deployment monitoring should poll.
+      security: []
+      responses:
+        '200':
+          description: Gateway is live; per-class availability is the measured truth.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+              example:
+                ok: true
+                service: bean-ai-gateway
+                version: v1
+                live: true
+                time: '2026-11-13T10:00:00.000Z'
+                chatClass:
+                  available: true
+                  probe: { healthy: true, checkedAt: '2026-11-13T10:00:00.000Z', latencyMs: 412, detail: 'chat completion round-trip ok' }
+                imageClass:
+                  available: true
+                  probe: { healthy: true, checkedAt: '2026-11-13T10:00:00.000Z', latencyMs: 388, detail: 'image backend reachable' }
+                functionsClass:
+                  available: true
+                  probe: { healthy: true, checkedAt: '2026-11-13T10:00:00.000Z', latencyMs: 250, detail: 'research functions reachable' }
+                credentialEncryption: configured
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /models:
+    get:
+      tags: [Models]
+      operationId: listModels
+      summary: Unified model catalogue (public-safe projection)
+      description: |
+        Auth: session OR application API key with the `models:read` scope.
+        Returns the public-safe projection of the unified registry: no endpoint
+        URLs and no credential material. `availability` is the measured truth
+        (latest probe outranks configuration), one of `available`,
+        `unavailable`, `awaiting-credentials`, `disabled`.
+      security:
+        - sessionCookie: []
+        - bearerApiKey: []
+      responses:
+        '200':
+          description: Catalogue with credential-encryption status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModelsResponse' }
+              example:
+                ok: true
+                models:
+                  - id: bean-chat-hosted
+                    displayName: BEAN Chat (hosted)
+                    provider: bean-hosted
+                    capabilities: [chat, streaming]
+                    contextLimits: { maxPromptChars: 12000, maxHistoryMessages: 24 }
+                    streaming: true
+                    availability: available
+                    configurationStatus: configured
+                    pricing: { unit: request, costUnit: null }
+                credentialEncryption: configured
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /providers:
+    get:
+      tags: [Providers]
+      operationId: listProviders
+      summary: Provider overview with measured health
+      description: |
+        Auth: session OR application API key with the `providers:read` scope.
+        One entry per provider that serves registered models: model ids,
+        measured health (cached probes), and honest detail text. Includes the
+        registered EXTERNAL provider types (`registeredExternalProviders`) and
+        the credential-encryption status. No credentials, no endpoint URLs.
+      security:
+        - sessionCookie: []
+        - bearerApiKey: []
+      responses:
+        '200':
+          description: Provider overview.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProvidersResponse' }
+              example:
+                ok: true
+                providers:
+                  - provider: bean-hosted
+                    models: [bean-chat-hosted, bean-code-hosted, bean-image-hosted]
+                    healthy: true
+                    detail: 'chat completion round-trip ok'
+                    latencyMs: 412
+                registeredExternalProviders: [openai-compatible]
+                credentialEncryption: configured
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /usage:
+    get:
+      tags: [Usage]
+      operationId: getUsage
+      summary: Usage rollups for the calling principal (last 30 days)
+      description: |
+        Auth: session OR application API key with the `usage:read` scope. A
+        session user sees their own rollups; an API key sees the rollups of its
+        owning user; an ADMIN SESSION additionally receives gateway-wide
+        aggregates (`global`). Token counts are labeled exact vs estimated.
+        `totals.cost` is always `null` with `costNote` explaining that cost
+        data is not reported by providers — BEAN never invents costs.
+      security:
+        - sessionCookie: []
+        - bearerApiKey: []
+      responses:
+        '200':
+          description: Usage rollups for the principal (plus global for admin sessions).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsageResponse' }
+              example:
+                ok: true
+                windowDays: 30
+                principal: { kind: api-key, userId: usr_example, admin: false }
+                totals: { tokensIn: 1480, tokensOut: 9800, cost: null, costNote: 'cost data not reported by providers' }
+                byProduct:
+                  - { product: api-gateway, requests: 12, tokensIn: 1480, tokensOut: 9800, durationMs: 41200 }
+                recent:
+                  - { product: api-gateway, backendId: bean-llm-hosted-primary, kind: chat, tokensIn: 148, tokensOut: 980, durationMs: 4120, success: true, errorCode: null, createdAt: '2026-11-13T09:59:00.000Z' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /chat/completions:
+    post:
+      tags: [Chat]
+      operationId: createChatCompletion
+      summary: Chat completion — JSON or SSE streaming
+      description: |
+        Auth: session OR application API key with the `chat:completions` scope.
+        The unified chat endpoint for every chat-capable gateway model.
+
+        Request: OpenAI-style field names are accepted for interoperability
+        (`max_tokens` as an alias of `maxTokens`). `model` is required and must
+        be a chat-capable gateway model id from `GET /api/v1/models`
+        (e.g. `bean-chat-hosted`, `bean-code-hosted`); unknown ids are a typed
+        `404 NOT_FOUND`, never a fallback. `providerModel` is required ONLY for
+        external OpenAI-compatible models (the provider-side model name, e.g.
+        `gpt-4o-mini`) and ignored for hosted models. Validation bounds: 1–48
+        messages, each ≤64,000 chars; `system` ≤24,000 chars; `temperature`
+        0–2 (clamped server-side); `maxTokens` 1–32,000.
+
+        JSON response (`stream` false/absent): BEAN envelope with content,
+        provider/model identity, `finishReason`, and `usage` — `usage.exact`
+        is `true` only when the provider reported real token counts; the hosted
+        path reports clearly-labeled estimates.
+
+        SSE response (`stream: true`): `content-type: text/event-stream`.
+        Repeated `data: {"delta":"…"}` frames; `: keepalive` comment lines
+        every 15s during silent stretches; EXACTLY ONE terminal frame — either
+        `data: {"done":true,"model":"…","provider":"…","durationMs":…}` or a
+        typed error frame `data: {"error":"…","code":"…","partial":true}`
+        (`partial:true` means deltas were already delivered — never a fake
+        completion). Cancellation is cooperative: cancelled callers receive
+        nothing further.
+
+        Failures: every failure maps through the shared upstream classifier —
+        a provider 429 stays a caller-visible `429 RATE_LIMITED`; auth/billing
+        failures worded so retrying will not help; provider credentials never
+        appear anywhere in the response surface.
+
+        Rate limiting order: per-principal sliding window → daily quota →
+        (after plan) upstream execution. Rejected requests carry truthful
+        rate-limit headers when the values are known.
+      security:
+        - sessionCookie: []
+        - bearerApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChatCompletionRequest' }
+            example:
+              model: bean-chat-hosted
+              messages:
+                - { role: system, content: 'You are BEAN.' }
+                - { role: user, content: 'Explain event-loop ordering in two sentences.' }
+              stream: false
+              temperature: 0.7
+              max_tokens: 4000
+      responses:
+        '200':
+          description: |
+            Completion succeeded. JSON (application/json) when `stream` is
+            false/absent; SSE (text/event-stream) when `stream` is true.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChatCompletionResponse' }
+              example:
+                ok: true
+                content: 'The event loop processes…'
+                model: bean-chat-hosted
+                provider: bean-hosted
+                finishReason: stop
+                usage: { tokensIn: 148, tokensOut: 980, exact: false }
+                durationMs: 4120
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE frames as described in the endpoint description: delta
+                  frames, keepalive comments, exactly one terminal frame.
+              example: |
+                data: {"delta":"The event loop"}
+
+                : keepalive
+
+                data: {"delta":" processes callbacks…"}
+
+                data: {"done":true,"model":"bean-chat-hosted","provider":"bean-hosted","durationMs":4120}
+
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Unknown model id (see GET /api/v1/models).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              example:
+                ok: false
+                error:
+                  code: NOT_FOUND
+                  message: 'Unknown model id: no-such-model. See GET /api/v1/models for the registered catalogue.'
+                  detail: null
+        '422':
+          description: Model cannot serve chat (CAPABILITY_UNSUPPORTED) or plan-level validation failure.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              example:
+                ok: false
+                error:
+                  code: CAPABILITY_UNSUPPORTED
+                  message: 'Model bean-image-hosted does not support chat completions.'
+                  detail: null
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          description: Upstream auth/billing/network failure (BACKEND_FAILURE — wording says when retrying will not help).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              example:
+                ok: false
+                error:
+                  code: BACKEND_FAILURE
+                  message: 'The connection to the provider was lost before the response finished.'
+                  detail: null
+        '503':
+          description: Model disabled or external provider has no configured credential (PRODUCT_UNAVAILABLE).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              example:
+                ok: false
+                error:
+                  code: PRODUCT_UNAVAILABLE
+                  message: 'This external provider has no configured credential yet. An administrator must add one (server-side) before calls can be made.'
+                  detail: null
+        '504':
+          description: Provider stopped responding before completion (BACKEND_TIMEOUT).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              example:
+                ok: false
+                error:
+                  code: BACKEND_TIMEOUT
+                  message: 'The provider stopped sending data before the response finished (timed out).'
+                  detail: null
+
+  /keys:
+    get:
+      tags: [API Keys]
+      operationId: listApiKeys
+      summary: List application API keys (metadata only)
+      description: |
+        **Admin session ONLY** — an API key can never list keys (no scope
+        grants that). Returns up to 100 most recent keys; every key appears as
+        a `fingerprint` (`bgk_xxxx…hash4`) — the response contains no raw key
+        material by construction. `scopes` echoes the valid permission scopes.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Key metadata list (no secrets).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KeyListResponse' }
+              example:
+                ok: true
+                scopes: [chat:completions, models:read, providers:read, usage:read]
+                keys:
+                  - id: key_example
+                    name: BEAN integration
+                    fingerprint: 'bgk_9x2f…a1b2'
+                    permissions: [chat:completions, models:read]
+                    rateLimitPerMin: 60
+                    status: active
+                    expiresAt: null
+                    lastUsedAt: '2026-11-13T09:59:00.000Z'
+                    requestCount: 12
+                    createdAt: '2026-11-13T09:00:00.000Z'
+                    revokedAt: null
+                actorId: usr_admin_example
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [API Keys]
+      operationId: createApiKey
+      summary: Create an application API key
+      description: |
+        **Admin session ONLY.** Creates a key with a CSPRNG (256 bits, `bgk_`
+        prefix). The COMPLETE key is returned in THIS response and never again
+        — only its SHA-256 hash is stored. Bounds: `name` 1–100 chars;
+        `permissions` 1–16 entries from the scope list (or `*` for the admin
+        wildcard); `rateLimitPerMin` 1–600 (default 60); `expiresAt` ISO
+        date-time or null. Every creation is audit-logged.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KeyCreateRequest' }
+            example:
+              name: BEAN integration
+              permissions: [chat:completions, models:read]
+              rateLimitPerMin: 60
+              expiresAt: null
+      responses:
+        '200':
+          description: |
+            Created. The `key` field is shown EXACTLY ONCE — the caller must
+            store it now; it cannot be retrieved again.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KeyCreatedResponse' }
+              example:
+                ok: true
+                key: 'bgk_EXAMPLE_ONLY_NEVER_A_REAL_KEY_VALUE'
+                id: key_example
+                name: BEAN integration
+                prefix: bgk_9x2f
+                permissions: [chat:completions, models:read]
+                rateLimitPerMin: 60
+                expiresAt: null
+                notice: 'Store this key now — it is shown only once and cannot be retrieved again.'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /keys/{id}:
+    delete:
+      tags: [API Keys]
+      operationId: revokeApiKey
+      summary: Revoke an application API key
+      description: |
+        **Admin session ONLY (owner).** Revocation is immediate and permanent:
+        verification rejects the key on the next request. Revoking a key the
+        admin does not own → `404 NOT_FOUND`; revoking an already-revoked key →
+        `400 VALIDATION_ERROR` (caller error, not a silent no-op). Audit-logged.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/KeyId'
+      responses:
+        '200':
+          description: Key revoked.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KeyRevokeResponse' }
+              example: { ok: true, revoked: true, id: key_example }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /keys/{id}/rotate:
+    post:
+      tags: [API Keys]
+      operationId: rotateApiKey
+      summary: Rotate an application API key
+      description: |
+        **Admin session ONLY (owner).** The previous key hash is replaced
+        immediately (the old key stops working) and the NEW complete key is
+        returned exactly once — never stored raw, never shown again. Rotation
+        of another admin's key → `404 NOT_FOUND`; rotating a revoked key →
+        `400 VALIDATION_ERROR`. Audit-logged.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/KeyId'
+      responses:
+        '200':
+          description: Rotated. The new `key` is shown EXACTLY ONCE.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KeyRotateResponse' }
+              example:
+                ok: true
+                key: 'bgk_EXAMPLE_ONLY_NEVER_A_REAL_KEY_VALUE'
+                id: key_example
+                prefix: bgk_b7c4
+                notice: 'Store this new key now — it is shown only once and cannot be retrieved again. The previous key no longer works.'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerApiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: bgk_
+      description: |
+        Application API key (`bgk_…`, 256-bit CSPRNG material). Created by an
+        administrator via POST /api/v1/keys; the complete value is displayed
+        exactly once at creation/rotation and only its SHA-256 hash is stored.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: bean_session
+      description: httpOnly BEAN session cookie (browser sign-in).
+
+  parameters:
+    KeyId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+      description: API key id (as returned by POST /api/v1/keys or GET /api/v1/keys).
+      example: key_example
+
+  headers:
+    RetryAfter:
+      description: |
+        Known retry delay in integer seconds, derived from the REAL limiter or
+        circuit-breaker state. OMITTED when no exact value is available — the
+        server never fabricates a retry time. Always a non-negative integer.
+      schema: { type: integer, minimum: 0 }
+      example: 42
+    RateLimitLimit:
+      description: Window limit that produced this response (requests/min or daily quota units) when known.
+      schema: { type: integer, minimum: 0 }
+      example: 30
+    RateLimitRemaining:
+      description: Units remaining in the current window (limiter truth; 0 on a rejected request) when known.
+      schema: { type: integer, minimum: 0 }
+      example: 0
+    RateLimitReset:
+      description: |
+        Epoch seconds at which the window genuinely resets — the sliding-window
+        slot-expiry for per-principal/per-key limits, or the next local
+        midnight for the daily quota. OMITTED when no real timestamp can be
+        calculated.
+      schema: { type: integer, minimum: 0 }
+      example: 1731486000
+
+  responses:
+    RateLimited:
+      description: |
+        Rate limit reached (`RATE_LIMITED` — per-principal window, per-key
+        window, or an open upstream circuit breaker) or daily quota exhausted
+        (`QUOTA_EXCEEDED`). Headers appear ONLY when the server holds a real
+        value: `Retry-After` from the known retry delay; `X-RateLimit-Limit` /
+        `X-RateLimit-Remaining` from limiter or quota state;
+        `X-RateLimit-Reset` only when a genuine reset timestamp was calculated.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            perPrincipalRateLimit:
+              summary: Per-principal sliding-window rejection
+              value:
+                ok: false
+                error:
+                  code: RATE_LIMITED
+                  message: 'Gateway rate limit reached (30/min). Retry in 42s.'
+                  detail: null
+            quotaExceeded:
+              summary: Daily quota rejection
+              value:
+                ok: false
+                error:
+                  code: QUOTA_EXCEEDED
+                  message: 'Gateway daily quota reached (500/500). Resets at midnight.'
+                  detail: null
+            perKeyRateLimit:
+              summary: Per-key sliding-window rejection
+              value:
+                ok: false
+                error:
+                  code: RATE_LIMITED
+                  message: 'API key rate limit reached (60/min). Retry in 17s.'
+                  detail: null
+            upstreamCooldown:
+              summary: Upstream provider throttle (circuit breaker open)
+              value:
+                ok: false
+                error:
+                  code: RATE_LIMITED
+                  message: 'The upstream AI gateway is rate-limited right now (HTTP 429 observed moments ago). Try again shortly.'
+                  detail: null
+    Unauthorized:
+      description: No/invalid session and no/invalid Bearer key.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            ok: false
+            error:
+              code: UNAUTHENTICATED
+              message: 'Sign in or present a valid application API key (Authorization: Bearer bgk_…).'
+              detail: null
+    Forbidden:
+      description: |
+        Missing role/scope — key lacks the required permission scope, key has
+        expired, or an admin-only area was called without an admin session
+        (API keys can NEVER manage keys or credentials).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            scopeMissing:
+              summary: API key lacks the endpoint scope
+              value:
+                ok: false
+                error:
+                  code: FORBIDDEN
+                  message: 'This API key does not grant the required permission.'
+                  detail: null
+            adminOnly:
+              summary: Key management requires an admin session
+              value:
+                ok: false
+                error:
+                  code: FORBIDDEN
+                  message: 'This area is restricted to BEAN administrators using an authenticated session.'
+                  detail: null
+    NotFound:
+      description: Resource not found or owned by a different administrator.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            ok: false
+            error:
+              code: NOT_FOUND
+              message: 'API key not found.'
+              detail: null
+    ValidationError:
+      description: Malformed body or invalid operation (message names the first failing field).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            ok: false
+            error:
+              code: VALIDATION_ERROR
+              message: 'messages: Array must contain at most 48 element(s)'
+              detail: null
+    InternalError:
+      description: Unexpected failure (never leaks stack traces or internals).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            ok: false
+            error:
+              code: INTERNAL_ERROR
+              message: 'Something went wrong handling your request.'
+              detail: null
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      description: Uniform failure envelope. `detail` is customer-safe or omitted/null.
+      required: [ok, error]
+      properties:
+        ok: { type: boolean, const: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable BEAN error code (see GATEWAY-API.md §3).
+              enum:
+                - UNAUTHENTICATED
+                - FORBIDDEN
+                - NOT_FOUND
+                - VALIDATION_ERROR
+                - UNSUPPORTED_FORMAT
+                - UNSUPPORTED_CONTENT
+                - PAYLOAD_TOO_LARGE
+                - RATE_LIMITED
+                - QUOTA_EXCEEDED
+                - COST_LIMIT
+                - PRODUCT_UNAVAILABLE
+                - PROVIDER_UNAVAILABLE
+                - NO_BACKEND
+                - BACKEND_TIMEOUT
+                - BACKEND_FAILURE
+                - CAPABILITY_UNSUPPORTED
+                - CONCURRENCY_LIMIT
+                - SANDBOX_DENIED
+                - INTERNAL_ERROR
+            message: { type: string, description: Customer-safe human-readable text. }
+            detail: { type: [string, 'null'], description: Optional customer-safe detail; null when absent. }
+
+    HealthProbe:
+      type: object
+      description: MEASURED probe result (never an assumption).
+      required: [healthy, checkedAt, latencyMs, detail]
+      properties:
+        healthy: { type: boolean }
+        checkedAt: { type: string, format: date-time }
+        latencyMs: { type: [integer, 'null'] }
+        detail: { type: string }
+        httpStatus: { type: [integer, 'null'], description: HTTP status the probe observed, when a real exchange happened. }
+        failureCategory: { type: [string, 'null'], description: Coarse failure class for unhealthy outcomes; null when healthy. }
+        cached: { type: boolean, description: True when served from the short-lived probe cache. }
+
+    HealthResponse:
+      type: object
+      required: [ok, service, version, live, time, chatClass, imageClass, functionsClass, credentialEncryption]
+      properties:
+        ok: { type: boolean, const: true }
+        service: { type: string, const: bean-ai-gateway }
+        version: { type: string, const: v1 }
+        live: { type: boolean, const: true }
+        time: { type: string, format: date-time }
+        chatClass:
+          type: object
+          required: [available, probe]
+          properties:
+            available: { type: boolean }
+            probe: { $ref: '#/components/schemas/HealthProbe' }
+        imageClass:
+          type: object
+          required: [available, probe]
+          properties:
+            available: { type: boolean }
+            probe: { $ref: '#/components/schemas/HealthProbe' }
+        functionsClass:
+          type: object
+          required: [available, probe]
+          properties:
+            available: { type: boolean }
+            probe: { $ref: '#/components/schemas/HealthProbe' }
+        credentialEncryption: { type: string, enum: [configured, not-configured] }
+
+    ContextLimits:
+      type: object
+      description: The backend's REAL enforced limits (null when unknown).
+      required: [maxPromptChars, maxHistoryMessages]
+      properties:
+        maxPromptChars: { type: [integer, 'null'] }
+        maxHistoryMessages: { type: [integer, 'null'] }
+
+    PublicModel:
+      type: object
+      description: Public-safe projection — no endpoint URLs, no credential material.
+      required: [id, displayName, provider, capabilities, contextLimits, streaming, availability, configurationStatus, pricing]
+      properties:
+        id: { type: string, description: Stable gateway model id (what requests carry). example: bean-chat-hosted }
+        displayName: { type: string }
+        provider: { type: string }
+        capabilities:
+          type: array
+          items: { type: string, enum: [chat, streaming, image-generation, image-enhancement, image-editing] }
+        contextLimits: { $ref: '#/components/schemas/ContextLimits' }
+        streaming: { type: boolean }
+        availability: { type: string, enum: [available, unavailable, awaiting-credentials, disabled], description: Measured truth (probe result outranks configuration). }
+        configurationStatus: { type: string, description: Credential configuration state for external providers. }
+        pricing:
+          type: object
+          description: Reported ONLY where the provider reports cost data (costUnit null otherwise — never invented).
+          required: [unit, costUnit]
+          properties:
+            unit: { type: string }
+            costUnit: { type: [string, 'null'] }
+
+    ModelsResponse:
+      type: object
+      required: [ok, models, credentialEncryption]
+      properties:
+        ok: { type: boolean, const: true }
+        models:
+          type: array
+          items: { $ref: '#/components/schemas/PublicModel' }
+        credentialEncryption: { type: string, enum: [configured, not-configured] }
+
+    ProviderOverview:
+      type: object
+      required: [provider, models, healthy, detail, latencyMs]
+      properties:
+        provider: { type: string }
+        models:
+          type: array
+          items: { type: string }
+        healthy: { type: [boolean, 'null'], description: Measured probe outcome; null when no probe is registered for the provider. }
+        detail: { type: string }
+        latencyMs: { type: [integer, 'null'] }
+
+    ProvidersResponse:
+      type: object
+      required: [ok, providers, registeredExternalProviders, credentialEncryption]
+      properties:
+        ok: { type: boolean, const: true }
+        providers:
+          type: array
+          items: { $ref: '#/components/schemas/ProviderOverview' }
+        registeredExternalProviders:
+          type: array
+          items: { type: string }
+          description: Registered EXTERNAL provider types (credential-capable).
+        credentialEncryption: { type: string, enum: [configured, not-configured] }
+
+    UsageProductRollup:
+      type: object
+      required: [product, requests, tokensIn, tokensOut, durationMs]
+      properties:
+        product: { type: string }
+        requests: { type: integer }
+        tokensIn: { type: integer }
+        tokensOut: { type: integer }
+        durationMs: { type: integer }
+
+    UsageRecentCall:
+      type: object
+      required: [product, backendId, kind, tokensIn, tokensOut, durationMs, success, errorCode, createdAt]
+      properties:
+        product: { type: string }
+        backendId: { type: [string, 'null'] }
+        kind: { type: string, example: chat }
+        tokensIn: { type: [integer, 'null'] }
+        tokensOut: { type: [integer, 'null'] }
+        durationMs: { type: [integer, 'null'] }
+        success: { type: boolean }
+        errorCode: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    UsageResponse:
+      type: object
+      required: [ok, windowDays, principal, totals, byProduct, recent]
+      properties:
+        ok: { type: boolean, const: true }
+        windowDays: { type: integer, const: 30 }
+        principal:
+          type: object
+          required: [kind, userId, admin]
+          properties:
+            kind: { type: string, enum: [session, api-key] }
+            userId: { type: string }
+            admin: { type: boolean }
+        totals:
+          type: object
+          description: Cost is never invented — null unless a provider reports it (none do today).
+          required: [tokensIn, tokensOut, cost, costNote]
+          properties:
+            tokensIn: { type: integer }
+            tokensOut: { type: integer }
+            cost: { type: 'null' }
+            costNote: { type: string }
+        byProduct:
+          type: array
+          items: { $ref: '#/components/schemas/UsageProductRollup' }
+        recent:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/UsageRecentCall' }
+        global:
+          type: object
+          description: Present ONLY for admin sessions — gateway-wide aggregates.
+          required: [byProduct, gatewayRequests30d, gatewayErrors30d, activeApiKeys]
+          properties:
+            byProduct:
+              type: array
+              items: { $ref: '#/components/schemas/UsageProductRollup' }
+            gatewayRequests30d: { type: integer }
+            gatewayErrors30d: { type: integer }
+            activeApiKeys: { type: integer }
+
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role: { type: string, enum: [system, user, assistant] }
+        content: { type: string, minLength: 1, maxLength: 64000 }
+
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+          minLength: 1
+          description: Chat-capable gateway model id from GET /api/v1/models (e.g. bean-chat-hosted, bean-code-hosted). Unknown ids → 404.
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 48
+          items: { $ref: '#/components/schemas/ChatMessage' }
+        system:
+          type: string
+          maxLength: 24000
+          description: Convenience system instruction — prepended once as a system turn.
+        stream: { type: boolean, default: false, description: true → SSE delta frames; false/absent → one JSON completion. }
+        temperature: { type: number, minimum: 0, maximum: 2, description: Clamped server-side; forwarded only where the provider accepts it. }
+        max_tokens: { type: integer, minimum: 1, maximum: 32000, description: OpenAI-style alias of maxTokens. }
+        maxTokens: { type: integer, minimum: 1, maximum: 32000 }
+        providerModel:
+          type: string
+          maxLength: 200
+          description: Provider-side model name — REQUIRED for external OpenAI-compatible models, ignored for hosted models.
+
+    ChatCompletionResponse:
+      type: object
+      required: [ok, content, model, provider, finishReason, usage, durationMs]
+      properties:
+        ok: { type: boolean, const: true }
+        content: { type: string }
+        model: { type: string, description: Gateway model id that served the call. }
+        provider: { type: string }
+        finishReason: { type: string, enum: [stop, length, unknown] }
+        usage:
+          type: object
+          required: [tokensIn, tokensOut, exact]
+          properties:
+            tokensIn: { type: integer }
+            tokensOut: { type: integer }
+            exact: { type: boolean, description: true only when the provider reported real counts; hosted path is labeled estimates. }
+        durationMs: { type: integer }
+
+    KeyCreateRequest:
+      type: object
+      required: [name, permissions]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        permissions:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items: { type: string, enum: [chat:completions, models:read, providers:read, usage:read, '*'] }
+        rateLimitPerMin: { type: integer, minimum: 1, maximum: 600, default: 60 }
+        expiresAt: { type: [string, 'null'], format: date-time, description: ISO date-time with offset, or null for never-expires. }
+
+    KeyCreatedResponse:
+      type: object
+      description: The ONLY response that ever contains the complete raw key.
+      required: [ok, key, id, name, prefix, permissions, rateLimitPerMin, expiresAt, notice]
+      properties:
+        ok: { type: boolean, const: true }
+        key: { type: string, description: Complete key — shown exactly once; store immediately. }
+        id: { type: string }
+        name: { type: string }
+        prefix: { type: string, description: 'bgk_xxxx — display/lookup hint only.' }
+        permissions:
+          type: array
+          items: { type: string }
+        rateLimitPerMin: { type: integer }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        notice: { type: string }
+
+    ApiKeyView:
+      type: object
+      description: Metadata-only projection — fingerprint instead of secret.
+      required: [id, name, fingerprint, permissions, rateLimitPerMin, status, expiresAt, lastUsedAt, requestCount, createdAt, revokedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        fingerprint: { type: string, description: 'bgk_xxxx…hash4 — identifiable, useless to an attacker.' }
+        permissions:
+          type: array
+          items: { type: string }
+        rateLimitPerMin: { type: integer }
+        status: { type: string, enum: [active, revoked] }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        lastUsedAt: { type: [string, 'null'], format: date-time }
+        requestCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
+
+    KeyListResponse:
+      type: object
+      required: [ok, scopes, keys, actorId]
+      properties:
+        ok: { type: boolean, const: true }
+        scopes:
+          type: array
+          items: { type: string, enum: [chat:completions, models:read, providers:read, usage:read] }
+        keys:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/ApiKeyView' }
+        actorId: { type: string }
+
+    KeyRevokeResponse:
+      type: object
+      required: [ok, revoked, id]
+      properties:
+        ok: { type: boolean, const: true }
+        revoked: { type: boolean, const: true }
+        id: { type: string }
+
+    KeyRotateResponse:
+      type: object
+      description: The ONLY response that ever contains the rotated raw key.
+      required: [ok, key, id, prefix, notice]
+      properties:
+        ok: { type: boolean, const: true }
+        key: { type: string, description: New complete key — shown exactly once. }
+        id: { type: string }
+        prefix: { type: string }
+        notice: { type: string }
