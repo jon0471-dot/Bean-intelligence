@@ -21,7 +21,7 @@
  */
 import { randomBytes } from 'node:crypto'
 import { db } from '@/lib/db'
-import { BeanApiError } from '@/lib/api/errors'
+import { BeanApiError, rateLimitHeaders } from '@/lib/api/errors'
 import { checkRateLimit } from '@/lib/auth/ratelimit'
 import { hashApiKey, safeEqual } from './crypto'
 
@@ -202,7 +202,21 @@ export async function verifyApiKey(rawKey: string): Promise<Extract<ApiKeyAuth, 
   // Per-key rate limit (60s sliding window) — enforced BEFORE any backend work.
   const rl = checkRateLimit(`apikey:${match.id}`, match.rateLimitPerMin, 60_000)
   if (!rl.allowed) {
-    throw new BeanApiError('RATE_LIMITED', `API key rate limit reached (${match.rateLimitPerMin}/min). Retry in ${rl.retryAfterSec}s.`)
+    // Truthful limiter state on the wire: Retry-After + X-RateLimit-* come
+    // from the same sliding window that rejected the call — nothing invented.
+    throw new BeanApiError(
+      'RATE_LIMITED',
+      `API key rate limit reached (${match.rateLimitPerMin}/min). Retry in ${rl.retryAfterSec}s.`,
+      undefined,
+      {
+        headers: rateLimitHeaders({
+          limit: match.rateLimitPerMin,
+          remaining: rl.remaining,
+          resetAtMs: rl.resetAtMs,
+          retryAfterSec: rl.retryAfterSec,
+        }),
+      },
+    )
   }
   // Usage tracking — metadata only, never the secret.
   await db.apiKey

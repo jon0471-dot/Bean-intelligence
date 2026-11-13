@@ -13,7 +13,8 @@ Error codes: `UNAUTHENTICATED 401 · FORBIDDEN 403 · NOT_FOUND 404 · VALIDATIO
 · SANDBOX_DENIED 403 · INTERNAL_ERROR 500`.
 
 Auth: session cookie `bean_session` (httpOnly). Endpoints marked 🔒 require it; 🛡️
-require the admin role.
+require the admin role. The `/api/v1` gateway additionally accepts application
+API keys (`Authorization: Bearer bgk_…`) where noted below.
 
 ---
 
@@ -71,6 +72,32 @@ require the admin role.
 | --- | --- | --- |
 | GET | `/api/usage` 🔒 | Per-product rollup, quotas, recent activity. Tokens are estimates; cost always "not reported". |
 | GET | `/api/admin/overview` 🛡️ | Private backend registry (provider, model identity, license, limits, probes), stats, audit trail. |
+
+### BEAN Gateway API (`/api/v1`) — unified AI model gateway
+
+Full narrative reference: [`docs/api/GATEWAY-API.md`](./GATEWAY-API.md).
+Machine-readable contract (OpenAPI 3.1, implemented endpoints only):
+[`docs/api/openapi.yaml`](./openapi.yaml).
+
+| Method | Path | Auth | Notes |
+| --- | --- | --- | --- |
+| GET | `/api/v1/health` | public | Gateway liveness + measured probes per model class. |
+| GET | `/api/v1/models` | session or key (`models:read`) | Unified model catalogue (public-safe projection). |
+| GET | `/api/v1/providers` | session or key (`providers:read`) | Provider overview with measured health. |
+| GET | `/api/v1/usage` | session or key (`usage:read`) | 30-day usage rollups; admin sessions get gateway-wide aggregates. Cost always `null` (never invented). |
+| POST | `/api/v1/chat/completions` | session or key (`chat:completions`) | JSON or SSE (`stream:true`). OpenAI-style field names accepted. |
+| POST | `/api/v1/keys` | 🛡️ admin session only | Create key — complete key shown EXACTLY once. |
+| GET | `/api/v1/keys` | 🛡️ admin session only | Key list (fingerprint + metadata only, no secrets). |
+| DELETE | `/api/v1/keys/:id` | 🛡️ admin session (owner) | Revoke — immediate and permanent. |
+| POST | `/api/v1/keys/:id/rotate` | 🛡️ admin session (owner) | Rotate — old key dies, new key shown exactly once. |
+
+Rate limiting: 30 req/min per principal (sliding window), 500 req/day per
+principal (durable daily quota), plus each key's own per-min limit. Applicable
+`429` responses carry truthful rate-limit headers — `Retry-After` (integer
+seconds), `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`
+(epoch seconds) — derived from the real limiter, quota or breaker state; any
+value that is not known is omitted, never fabricated. See
+[`GATEWAY-API.md` §Rate-limit response headers](./GATEWAY-API.md).
 
 ---
 
