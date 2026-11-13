@@ -55,6 +55,21 @@ export interface RiisheStreamEvent {
     corrections: number
     issuesFound: number
   } | null
+  /** Frontend Intelligence summary + checks on the terminal done frame
+   *  (ADDITIVE, CODE GIFTZ frontend turns only — structured view type). */
+  frontend?: {
+    enabled: true
+    target: 'static' | 'react'
+    reason: string
+    components: Array<{ id: string; name: string; category: string; sourceUrl: string; license: string; installed: boolean }>
+    animations: string[]
+    background: { id: string; label: string; fallback: string } | null
+    responsive: boolean
+    engineFiles: string[]
+    dependencies: Array<{ name: string; version: string; license: string; reason: string }>
+    notices: string
+    checks: { passed: boolean; blocking: number; warnings: number; issues: Array<{ id: string; severity: 'blocking' | 'warning'; message: string }> }
+  }
 }
 
 export type StreamFailureKind =

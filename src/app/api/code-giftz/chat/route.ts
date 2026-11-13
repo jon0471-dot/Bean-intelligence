@@ -31,6 +31,8 @@ import { verificationConfig } from '@/lib/verification/config'
 import { publicVerificationSummary, type VerificationOutcome } from '@/lib/verification/pipeline'
 import { filterConversationsByTitle } from '@/lib/riishe/conversation-view'
 import { buildTechDocsContext } from '@/lib/intel/techdocs'
+import { resolveFrontendPlan } from '@/lib/frontend-intel/engine'
+import type { FrontendSelection, FrontendTurnResult } from '@/lib/frontend-intel/types'
 
 const MAX_HISTORY = 12
 const MAX_FILE_CONTEXT_CHARS = 24_000
@@ -41,6 +43,17 @@ const schema = z.object({
   message: z.string().min(1, 'Describe what you want to build or change.').max(12000),
   /** Files uploaded through the capability pipeline (ownership enforced). */
   fileIds: z.array(z.string().min(1)).max(3).optional(),
+  /** Frontend Intelligence toolkit selection — ADDITIVE, optional. When
+   *  absent the turn is resolved (and detected) exactly as before. */
+  frontend: z
+    .object({
+      target: z.enum(['auto', 'static', 'react']).optional(),
+      components: z.array(z.string().min(1).max(64)).max(12).optional(),
+      animations: z.array(z.union([z.literal('auto'), z.string().min(1).max(64)])).max(8).optional(),
+      background: z.enum(['none', 'auto', 'birds', 'waves', 'net', 'globe', 'fog', 'clouds', 'rings']).optional(),
+      responsive: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 /**
@@ -130,12 +143,35 @@ export async function POST(request: Request) {
         logger.info('giftz.techdocs_degraded', { projectId, degraded: techDocs.degraded })
       }
 
+      // BEAN Intelligence — Frontend Intelligence Toolkit (opt-in): resolve the
+      // generation plan (target, catalogue components, GSAP patterns, optional
+      // Vanta background, pinned dependencies) BEFORE building the prompt. The
+      // bounded brief rides in the turn context like the tech-docs block.
+      const frontendSelection: FrontendSelection | undefined = body.frontend
+      const frontendPlan = resolveFrontendPlan({
+        message: body.message,
+        selection: frontendSelection,
+        existingFilePaths: files.map((f) => f.path),
+      })
+      if (frontendPlan.enabled) {
+        logger.info('giftz.frontend_plan', {
+          projectId,
+          target: frontendPlan.target,
+          components: frontendPlan.componentIds,
+          animations: frontendPlan.animationIds,
+          background: frontendPlan.vantaEffect,
+        })
+      }
+
       const userContent = [
         attachmentBlock,
         buildProjectContext(files),
         techDocs?.block ?? '',
+        frontendPlan.enabled ? frontendPlan.brief : '',
         body.message,
-      ].filter((s) => s.length > 0).join('\n\n')
+      ]
+        .filter((s) => s.length > 0)
+        .join('\n\n')
 
       if (!collapseDuplicate) {
         await db.codeMessage.create({
@@ -186,6 +222,7 @@ export async function POST(request: Request) {
           verifyCfg,
           onEvent,
           guard,
+          ...(frontendPlan.enabled ? { frontend: { plan: frontendPlan } } : {}),
         })
 
       // ---- JSON path (API/testing) -----------------------------------------
@@ -200,6 +237,7 @@ export async function POST(request: Request) {
               metaJson: JSON.stringify({
                 changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
                 continuations: result.continuationCount, // honest record of provider passes
+                ...(result.frontend ? { frontend: result.frontend } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
                   ? {
                       verification: {
@@ -234,6 +272,7 @@ export async function POST(request: Request) {
             changes: result.changes,
             durationMs: result.durationMs,
             verification: publicVerificationSummary(result.verification),
+            ...(result.frontend ? { frontend: result.frontend } : {}),
           })
         } catch (e) {
           // Typed upstream failures keep their honest class (a 429 stays a
@@ -273,6 +312,7 @@ export async function POST(request: Request) {
               metaJson: JSON.stringify({
                 changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
                 continuations: result.continuationCount, // honest record of provider passes
+                ...(result.frontend ? { frontend: result.frontend } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
                   ? {
                       verification: {

@@ -23,6 +23,8 @@ import {
   type GenerationGuard,
 } from './chat-stream'
 import { parseFiles, applyFiles } from './workspace'
+import { finalizeFrontendTurn } from '@/lib/frontend-intel/engine'
+import type { FrontendPlan, FrontendTurnResult } from '@/lib/frontend-intel/types'
 import { verifyAndCorrect, type VerificationOutcome } from '@/lib/verification/pipeline'
 import type { VerificationConfig } from '@/lib/verification/config'
 import { BeanApiError } from '@/lib/api/errors'
@@ -94,6 +96,9 @@ export interface GiftzTurnCoreInput {
   maxPromptChars: number
   projectId: string
   verifyCfg: VerificationConfig
+  /** Optional Frontend Intelligence plan (resolved by the caller). When
+   *  absent the turn behaves EXACTLY as before — the toolkit is opt-in. */
+  frontend?: { plan: FrontendPlan }
   /** Stream sink (background worker / SSE); omit for a fully buffered turn. */
   onEvent?: (e: { delta?: string; stage?: string }) => void
   guard?: GenerationGuard
@@ -108,6 +113,8 @@ export interface GiftzTurnCoreResult {
   continuationCount: number
   verification: VerificationOutcome | null
   draftCharCount: number
+  /** Frontend Intelligence summary + deterministic checks (frontend turns only). */
+  frontend?: FrontendTurnResult
 }
 
 /**
@@ -244,7 +251,21 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
   // Persist the FINAL (verified/corrected when applicable) output, then the
   // real changes extracted from it.
   const extracted = parseFiles(content)
-  const changes = await applyFiles(projectId, extracted)
+  let changes = await applyFiles(projectId, extracted)
+
+  // ---- Frontend Intelligence (opt-in) ------------------------------------
+  // Engine-attached files (vendored runtimes, kit component sources,
+  // package.json, NOTICES) are persisted through the SAME applyFiles path
+  // (path-safe, deduped, honest diffs), then the deterministic generation
+  // checks run over the full file set. The result rides on the turn result
+  // as an additive field — the model's own files are never rewritten here.
+  let frontend: FrontendTurnResult | undefined
+  if (input.frontend?.plan.enabled) {
+    const engineChanges = await applyFiles(projectId, input.frontend.plan.engineFiles)
+    frontend = finalizeFrontendTurn([...extracted, ...input.frontend.plan.engineFiles], input.frontend.plan)
+    changes = [...changes, ...engineChanges]
+  }
+
   const durationMs = Date.now() - t0
   // Verification overhead is metered as honest ESTIMATES — never exact counts.
   let verificationTokensEst = 0
@@ -265,6 +286,7 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
     continuationCount,
     verification,
     draftCharCount,
+    ...(frontend ? { frontend } : {}),
   }
 }
 
