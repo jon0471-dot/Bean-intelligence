@@ -31,6 +31,7 @@ model User {
   apiKeys             ApiKey[]
   laxiiConversations  LaxiiConversation[]
   jazmiiConversations JazmiiConversation[]
+  projects            Project[]
 }
 
 model Session {
@@ -300,12 +301,29 @@ model ProviderCredential {
   @@index([provider, status])
 }
 
+// DEVELOPER PORTAL PROJECTS (Phase 1, 2026-11-13) — additive tenancy model.
+// Single-owner: each Project belongs to exactly one user. Organizations,
+// teams and shared ownership are deliberately deferred (Phase 1 scope).
+model Project {
+  id        String   @id @default(cuid())
+  userId    String // owning user (single-owner tenancy)
+  name      String
+  status    String   @default("active") // active | archived
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKeys   ApiKey[]
+
+  @@index([userId, updatedAt])
+  @@index([userId, status])
+}
+
 // CODE GIFTZ APPLICATION API keys (secret type B): gateway access tokens for
 // BEAN products and third-party integrations. Only a SHA-256 hash is stored;
 // the complete key is shown exactly once at creation.
 model ApiKey {
   id              String    @id @default(cuid())
-  userId          String // owning administrator
+  userId          String // owning administrator (usage attribution)
   name            String
   prefix          String // first chars (e.g. "bgk_abcd") — lookup + masked display
   keyHash         String    @unique // SHA-256 hex of the FULL key; raw key never stored
@@ -318,9 +336,17 @@ model ApiKey {
   createdAt       DateTime  @default(now())
   revokedAt       DateTime?
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // PHASE 1 (2026-11-13) — ADDITIVE project scoping. NULL = legacy
+  // administrator key with unchanged platform-wide behavior; a non-null
+  // projectId binds the key to that single Project (its grants can never
+  // reach another project's resources). Cascade: deleting a project removes
+  // its keys — a project key must never silently widen into a legacy key.
+  projectId       String?
+  project         Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([keyHash])
   @@index([userId, status])
+  @@index([projectId])
 }
 
 // Per-request gateway diagnostics (admin-facing; no prompts, no secrets).

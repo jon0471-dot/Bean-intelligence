@@ -1,0 +1,31 @@
+backup: backup/db-phase1-pre-migration-20261113.db
+integrity_check: ok
+backup_tables (22): ApiKey, AuditLog, CodeFile, CodeMessage, CodeProject, Conversation, Document, GatewayRequestLog, GenerationJob, ImageAsset, JazmiiConversation, JazmiiMessage, JobEvent, LaxiiConversation, LaxiiMessage, Message, ProviderCredential, RiisheMemory, Session, SystemSetting, UsageRecord, User
+--- row counts (backup snapshot) ---
+ApiKey: 0
+AuditLog: 0
+CodeFile: 0
+CodeMessage: 0
+CodeProject: 0
+Conversation: 0
+Document: 0
+GatewayRequestLog: 0
+GenerationJob: 0
+ImageAsset: 0
+JazmiiConversation: 0
+JazmiiMessage: 0
+JobEvent: 0
+LaxiiConversation: 0
+LaxiiMessage: 0
+Message: 0
+ProviderCredential: 0
+RiisheMemory: 0
+Session: 0
+SystemSetting: 0
+UsageRecord: 0
+User: 0
+--- live source counts (affected tables) ---
+User: 0
+ApiKey: 0
+Project: TABLE_ABSENT
+snapshot_utc: 2026-11-13T14:19:58.929204+00:00

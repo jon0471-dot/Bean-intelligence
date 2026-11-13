@@ -73,6 +73,23 @@ export async function requireAdminPrincipal(request: Request): Promise<GatewayPr
   return principal
 }
 
+/**
+ * PHASE 1 — authenticated-session gate for the developer self-service
+ * portal: ANY signed-in user (member or admin) may manage THEIR OWN
+ * projects/keys here. API-key principals are rejected with FORBIDDEN (the
+ * caller is authenticated but keys never manage keys — the same invariant
+ * as the admin gate); requests with no principal at all stay 401 via
+ * requireGatewayPrincipal. Ownership of every nested resource is enforced
+ * separately (src/lib/security/portal.ts).
+ */
+export async function requireSessionPrincipal(request: Request): Promise<GatewayPrincipal & { kind: 'session' }> {
+  const principal = await requireGatewayPrincipal(request)
+  if (principal.kind !== 'session') {
+    throw new BeanApiError('FORBIDDEN', 'The developer portal is restricted to authenticated BEAN sessions — application API keys cannot manage projects or keys.')
+  }
+  return principal
+}
+
 /** Attribute gateway usage to the principal's user id (key owner or user). */
 export function principalUserId(principal: GatewayPrincipal): string {
   return principal.userId

@@ -6,11 +6,15 @@
 # src/lib/security/api-keys.ts, src/lib/ai-gateway/gateway.ts).
 #
 # Scope discipline:
-#   - Only implemented endpoints are documented here. Planned future surfaces
-#     (image generation/edit, background removal, video jobs, external code
-#     generation, webhooks, developer portal, subscriptions/billing) are
+#   - Only implemented /api/v1 endpoints are documented here. Planned future
+#     GATEWAY surfaces (image generation/edit, background removal, video jobs,
+#     external code generation, webhooks, subscriptions/billing) are
 #     deliberately ABSENT — they do not exist yet and must not be integrated
-#     against.
+#     against. PHASE 1 (2026-11-13): the developer portal exists as
+#     session-authenticated application routes under /api/portal/** — it is
+#     NOT part of this v1 gateway contract (like every /api/admin/** surface);
+#     project-scoped API keys minted there authenticate against /api/v1 with
+#     the same bgk_ format and scope gate documented below.
 #   - Header values (Retry-After, X-RateLimit-*) are emitted by the server ONLY
 #     when the real limiter/quota/breaker state provides them; the server never
 #     fabricates a value, so any of these headers may be absent on a 429.
@@ -30,6 +34,11 @@ info:
        when present (machine clients send no cookies). Keys carry permission
        scopes enforced per endpoint; key management itself is admin-session
        only and can never be performed by an API key.
+
+    Phase 1 tenancy: keys may be bound to a single developer-portal Project
+    (`projectId`). A bound key is minted through the portal (session of its
+    owning user) and can never act outside that project; `projectId: null`
+    legacy administrator keys keep platform-wide behavior.
 
     All responses use the BEAN envelope. Success: `{ "ok": true, …payload }`.
     Failure: `{ "ok": false, "error": { "code", "message", "detail" } }` with a
@@ -401,7 +410,7 @@ paths:
               schema: { $ref: '#/components/schemas/KeyListResponse' }
               example:
                 ok: true
-                scopes: [chat:completions, models:read, providers:read, usage:read]
+                scopes: [chat:completions, models:read, providers:read, usage:read, images:generate, videos:generate, code:generate, files:read]
                 keys:
                   - id: key_example
                     name: BEAN integration
@@ -434,6 +443,14 @@ paths:
         `permissions` 1–16 entries from the scope list (or `*` for the admin
         wildcard); `rateLimitPerMin` 1–600 (default 60); `expiresAt` ISO
         date-time or null. Every creation is audit-logged.
+
+        Phase 1 scope note: the product scopes (`images:generate`,
+        `videos:generate`, `code:generate`, `files:read`) are REAL registered
+        grants validated here and enforced by the central scope gate; no
+        /api/v1 endpoint REQUIRES them yet (those product endpoints arrive in
+        a later phase). Project-scoped keys (with a `projectId` binding and
+        without the `*` wildcard) are created through the developer portal,
+        not through this admin endpoint.
       security:
         - sessionCookie: []
       requestBody:
@@ -994,7 +1011,7 @@ components:
           type: array
           minItems: 1
           maxItems: 16
-          items: { type: string, enum: [chat:completions, models:read, providers:read, usage:read, '*'] }
+          items: { type: string, enum: [chat:completions, models:read, providers:read, usage:read, images:generate, videos:generate, code:generate, files:read, '*'] }
         rateLimitPerMin: { type: integer, minimum: 1, maximum: 600, default: 60 }
         expiresAt: { type: [string, 'null'], format: date-time, description: ISO date-time with offset, or null for never-expires. }
 
@@ -1041,7 +1058,7 @@ components:
         ok: { type: boolean, const: true }
         scopes:
           type: array
-          items: { type: string, enum: [chat:completions, models:read, providers:read, usage:read] }
+          items: { type: string, enum: [chat:completions, models:read, providers:read, usage:read, images:generate, videos:generate, code:generate, files:read] }
         keys:
           type: array
           maxItems: 100

@@ -12,6 +12,7 @@ import { Riishe } from '@/components/bean/riishe'
 import { Laxii } from '@/components/bean/laxii'
 import { Jazmii } from '@/components/bean/jazmii'
 import { CodeGiftz } from '@/components/bean/code-giftz'
+import { Portal } from '@/components/bean/portal'
 import { Usage } from '@/components/bean/usage'
 import { Settings } from '@/components/bean/settings'
 import { Admin } from '@/components/bean/admin'
@@ -94,6 +95,7 @@ export default function Home() {
       {view === 'laxii' && <Laxii sizes={sizes} />}
       {view === 'jazmii' && <Jazmii />}
       {view === 'code-giftz' && <CodeGiftz />}
+      {view === 'portal' && <Portal />}
       {view === 'usage' && <Usage />}
       {view === 'settings' && <Settings user={user} onUserChanged={() => void refresh()} />}
       {view === 'admin' && user.role === 'admin' && <Admin />}

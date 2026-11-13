@@ -99,6 +99,30 @@ seconds), `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`
 value that is not known is omitted, never fabricated. See
 [`GATEWAY-API.md` §Rate-limit response headers](./GATEWAY-API.md).
 
+### Developer portal (`/api/portal`) — Phase 1 self-service
+
+Session-authenticated (any signed-in user), single-owner Projects with
+project-scoped API keys. Ownership is enforced on every operation
+(cross-user access → 404; API-key principals → 403; signed-out → 401).
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/api/portal/projects` 🔒 | Create an owned project. |
+| GET | `/api/portal/projects` 🔒 | List the caller's own projects. |
+| GET | `/api/portal/projects/:id` 🔒 | Read an owned project. |
+| PATCH | `/api/portal/projects/:id` 🔒 | Rename / archive / reactivate. |
+| POST | `/api/portal/projects/:id/keys` 🔒 | Create a project-scoped key (portal scope subset; complete key shown EXACTLY once). |
+| GET | `/api/portal/projects/:id/keys` 🔒 | Key metadata for the project (fingerprints only). |
+| DELETE | `/api/portal/projects/:id/keys/:keyId` 🔒 | Revoke an owned project key. |
+| POST | `/api/portal/projects/:id/keys/:keyId/rotate` 🔒 | Rotate — binding preserved, new key shown once. |
+| GET | `/api/portal/projects/:id/usage` 🔒 | Real per-key usage + request-log aggregates. |
+| GET | `/api/portal/projects/:id/logs` 🔒 | Real gateway request records + portal activity. |
+
+Scope identifiers: `chat:completions`, `models:read`, `usage:read` (live v1
+scopes) plus the registered product scopes `images:generate`, `videos:generate`,
+`code:generate`, `files:read` — real grants enforced by the gateway's central
+scope gate; the product endpoints that consume them are future phases.
+
 ---
 
 ## Planned endpoints (NOT implemented — listed for contract stability)
