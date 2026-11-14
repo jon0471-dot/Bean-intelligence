@@ -9,6 +9,7 @@ import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { recordAudit } from '@/lib/observability/metering'
 import { ensureVideoPoller } from '@/lib/jobs/video-worker'
 import { jazmiiTitleFromText, serializeJazmiiMessages } from '@/lib/jazmii/chat'
+import { validateVideoReferenceImage } from '@/lib/jazmii/reference-image'
 
 /**
  * JAZMII — one conversational turn (2026-11-12 unified studio).
@@ -61,6 +62,15 @@ export async function POST(request: Request) {
     }
     const settings = body.settings ?? {}
 
+    // LAXII-JAZMII RESTORATION (2026-11-14, defect D3): same server-side
+    // reference-image validation as POST /api/jazmii/generate — identical
+    // semantics on both submit paths (decodable still image, format,
+    // dimensions, byte cap, SSRF-guarded fetch), before any job row exists.
+    const imageValidation = body.imageUrl ? await validateVideoReferenceImage(body.imageUrl) : null
+    if (imageValidation && !imageValidation.ok) {
+      throw new BeanApiError('VALIDATION_ERROR', imageValidation.reason ?? 'The reference image is not usable.')
+    }
+
     // ---- conversation (create when absent) --------------------------------
     let conversationId = body.conversationId
     if (conversationId) {
@@ -105,6 +115,9 @@ export async function POST(request: Request) {
           paramsJson: JSON.stringify({
             prompt: text,
             ...(body.imageUrl ? { imageUrl: body.imageUrl } : {}),
+            // Additive measured validation summary (identical to the generate
+            // route; never substitutes the original reference).
+            ...(imageValidation ? { imageValidation: { format: imageValidation.format, width: imageValidation.width, height: imageValidation.height, bytes: imageValidation.bytes } } : {}),
             ...(settings.quality ? { quality: settings.quality } : {}),
             ...(settings.withAudio !== undefined ? { withAudio: settings.withAudio } : {}),
             ...(settings.size ? { size: settings.size } : {}),

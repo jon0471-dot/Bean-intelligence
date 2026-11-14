@@ -96,3 +96,12 @@ dev.log*
 
 # Local history backups (never commit)
 backup/
+
+# LAXII/JAZMII restoration live-run artifacts: session cookie, generated
+# media and DB runtime files are never committed (harness + evidence text only)
+scripts/laxii-jazmii-restore-out/cookie.txt
+scripts/laxii-jazmii-restore-out/*.mp4
+scripts/laxii-jazmii-restore-out/*.png
+scripts/laxii-jazmii-restore-out/*.jpg
+scripts/laxii-jazmii-restore-out/*.db
+__pycache__/

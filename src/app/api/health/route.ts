@@ -12,11 +12,11 @@ import { lastRealAttempt, recentUpstreamFailure, type AttemptTask } from '@/lib/
 import {
   persistedAttempt,
   persistedLastAttempt,
-  persistedUpstreamFailure,
   recentPersistedUpstreamFailure,
 } from '@/lib/adapters/persisted-attempts'
 import { db } from '@/lib/db'
 import { runningPools } from '@/lib/ai-engine/runner'
+import { probeFfprobe } from '@/lib/media/ffprobe-health'
 import { probeResearchHealth } from '@/lib/research/provider'
 import { probeSandboxHealth } from '@/lib/sandbox/runner'
 import { getBackendsForProduct } from '@/lib/registry/backends'
@@ -370,39 +370,63 @@ export async function GET() {
       }),
     ]
     const jazmiiCapabilities: CapabilityHealth[] = [
+      // LAXII-JAZMII RESTORATION (2026-11-14, defect D1): both video rows now
+      // read the SAME freshness/supersession contract the T2I row has used
+      // since its hotfix — the persisted failure is FRESH evidence only
+      // inside ATTEMPT_FRESHNESS_MS AND while no newer attempt record
+      // supersedes it. The previous UNGUARDED persistedUpstreamFailure let a
+      // stale-but-upstream failed row outrank a newer success after restart
+      // (and, because the lookup reads only the single newest failed row,
+      // let a newer CANCELLED/GENERATION_FAILED row mask an older
+      // RATE_LIMITED one and vice versa). The RESTART-PROOF intent is
+      // preserved: a genuinely fresh failure that predates this process
+      // still holds its state until a newer real attempt supersedes it.
       generationCapability('text-to-video', 'Text-to-video', true, {
         probe: video,
+        lastAttempt:
+          lastRealAttempt('video-generation-t2v') ?? (await persistedLastAttempt('video-generation-t2v')),
         freshUpstreamFailure:
           recentUpstreamFailure('video-generation-t2v') ??
-          // RESTART-PROOF EVIDENCE (2026-11-11): the measured 01:14Z 401 must
-          // survive a server restart instead of evaporating into an old
-          // success.
-          (await persistedUpstreamFailure('video-generation-t2v')),
+          (await recentPersistedUpstreamFailure('video-generation-t2v', {
+            supersededBy:
+              lastRealAttempt('video-generation-t2v') ?? (await persistedLastAttempt('video-generation-t2v')),
+          })),
         // FINAL CAPABILITY FIX (2026-11-07): persisted real completions
         // (T2V and I2V alike) stay the capability evidence across restarts.
         // 2026-11-11: the persisted fallback carries FAILED attempts too —
         // newest record wins, a success can never whitewash a newer failure.
-        lastAttempt: lastRealAttempt('video-generation-t2v') ?? (await persistedLastAttempt('video-generation-t2v')),
         ownBreaker: upstreamBreakerState('video'),
         sharedThrottle: sharedThrottleEvidence
           ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
           : null,
       }),
-      // EVIDENCE-PARITY FIX (2026-11-11): image-to-video now reads the SAME
+      // EVIDENCE-PARITY FIX (2026-11-11): image-to-video reads the SAME
       // evidence chain as text-to-video. Both ride the shared gateway
       // account — measured 2026-11-11 01:14Z, a credential rejection 401'd
       // every submission while I2V kept reading "operational" from a 4-day-
       // old persisted success. Fresh upstream failures, the video-class
-      // breaker and the labeled shared throttle now outrank old successes.
+      // breaker and the labeled shared throttle outrank old successes.
+      // LAXII-JAZMII RESTORATION (2026-11-14, defects D1+D2): the persisted
+      // failure is now freshness/supersession-guarded like every other row,
+      // and hasCompletedRun is WIRED from the persisted completed-job table —
+      // the previous omission made any fresh failure render the factually
+      // false "attempted live but never completed a real run" blocked state
+      // even when real completed i2v runs existed on record.
       unverifiedCapability('image-to-video', 'Image-to-video', false, {
         probe: video,
-        lastAttempt: lastRealAttempt('video-generation-i2v') ?? (await persistedLastAttempt('video-generation-i2v')),
+        lastAttempt:
+          lastRealAttempt('video-generation-i2v') ?? (await persistedLastAttempt('video-generation-i2v')),
         freshUpstreamFailure:
-          recentUpstreamFailure('video-generation-i2v') ?? (await persistedUpstreamFailure('video-generation-i2v')),
+          recentUpstreamFailure('video-generation-i2v') ??
+          (await recentPersistedUpstreamFailure('video-generation-i2v', {
+            supersededBy:
+              lastRealAttempt('video-generation-i2v') ?? (await persistedLastAttempt('video-generation-i2v')),
+          })),
         ownBreaker: upstreamBreakerState('video'),
         sharedThrottle: sharedThrottleEvidence
           ? { last429At: sharedThrottleEvidence.checkedAt ?? null, note: sharedThrottleEvidence.note! }
           : null,
+        hasCompletedRun: (await persistedAttempt('video-generation-i2v')) !== null,
       }),
     ]
 
@@ -416,6 +440,15 @@ export async function GET() {
       db.generationJob.count({ where: { product: 'code-giftz', status: { in: ['queued', 'retry_wait'] } } }),
     ])
     const engine = { embeddedPools: runningPools(), kind: 'embedded' as const }
+
+    // LAXII-JAZMII RESTORATION (2026-11-14, defect D5): ffprobe is the HARD
+    // completion gate for every video job (codec + duration + frame checks in
+    // media/ffprobe.ts) — with the binary missing, every video download
+    // terminates ARTIFACT_INVALID while nothing reported why. Availability is
+    // now MEASURED (real `ffprobe -version` execution, briefly cached) and
+    // surfaced on the JAZMII entry, so backend/worker availability reporting
+    // covers the local pipeline dependency too.
+    const ffprobe = await probeFfprobe()
 
     const riisheEntry: ProductEntry = {
       status: productStatus(registryEnabled('riishe'), {
@@ -498,6 +531,14 @@ export async function GET() {
       capabilities: jazmiiCapabilities,
       queueDepth: queueJazmii,
       engine,
+      // LAXII-JAZMII RESTORATION (defect D5): measured local ffprobe
+      // availability — the binary the video completion gate hard-depends on.
+      ffprobe: {
+        available: ffprobe.available,
+        version: ffprobe.version,
+        ...(ffprobe.detail ? { detail: ffprobe.detail } : {}),
+        checkedAt: ffprobe.checkedAt,
+      },
     }
 
     return ok({

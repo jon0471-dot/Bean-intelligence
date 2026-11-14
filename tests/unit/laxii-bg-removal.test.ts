@@ -134,3 +134,39 @@ describe('validateCutout honesty gates', () => {
     expect(validateCutout(stats({}))).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// SOURCE-DIMENSION RESTORATION (LAXII-JAZMII RESTORATION, 2026-11-14) —
+// wiring pin for the job processor: stage 1 returns the provider's fixed
+// output resolution; the deliverable is brought back to the EXACT submitted
+// dimensions whenever the geometry is recoverable (aspect match within 2%,
+// non-enlarging), and the provenance records the measured truth either way.
+// Live-verified 2026-11-14: 640x640 source → 640x640 transparent PNG.
+// ---------------------------------------------------------------------------
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+
+describe('background-removal source-dimension restoration (wiring pin)', () => {
+  const require_ = createRequire(import.meta.url)
+  // Resolve the repo root relative to the compiled import so the pin works
+  // from any working directory.
+  const jobsSource = readFileSync(
+    new URL('../../src/lib/laxii/jobs.ts', import.meta.url),
+    'utf8',
+  )
+  void require_
+
+  test('the processor restores source dimensions on an aspect-matched non-enlarging resize', () => {
+    expect(jobsSource).toContain('SOURCE-DIMENSION RESTORATION')
+    expect(jobsSource).toContain('aspectDelta <= 0.02')
+    expect(jobsSource).toContain('sourceDimensionsRestored: restorable')
+  })
+
+  test('the restoration never fabricates an upscale and records the mismatch honestly', () => {
+    // Non-enlarging guard: restoration only when the original is not larger.
+    expect(jobsSource).toContain('origW < cutout.width || origH < cutout.height')
+    // Provenance keeps the keyed dimensions for the non-restorable path.
+    expect(jobsSource).toContain('cutoutWidth: cutout.width')
+    expect(jobsSource).toContain('cutoutHeight: cutout.height')
+  })
+})

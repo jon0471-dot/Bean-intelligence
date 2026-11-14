@@ -9,6 +9,7 @@
  * thread without touching any job row.
  */
 import { describe, test, expect, mock, beforeEach } from 'bun:test'
+import sharp from 'sharp'
 
 const USER = { id: 'user-1' }
 
@@ -153,7 +154,15 @@ describe('chat route: one turn → one REAL video job', () => {
   })
 
   test('image-to-video: reference image + settings ride into paramsJson verbatim', async () => {
-    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=='
+    // LAXII-JAZMII RESTORATION (defect D3): the chat route now validates the
+    // reference image server-side BEFORE queueing, so this fixture is a REAL
+    // decodable still image (a truncated fake payload is rejected with 400 —
+    // pinned by the next test). The measured validation summary rides into
+    // paramsJson ADDITIVELY; the original reference string is untouched.
+    const png = await sharp({ create: { width: 256, height: 256, channels: 3, background: { r: 90, g: 140, b: 200 } } })
+      .png()
+      .toBuffer()
+    const dataUrl = `data:image/png;base64,${png.toString('base64')}`
     await chatPost(
       jsonRequest('http://localhost:3000/api/jazmii/chat', {
         text: 'Animate this scene with slow camera drift.',
@@ -168,8 +177,25 @@ describe('chat route: one turn → one REAL video job', () => {
     expect(params.durationSec).toBe(10)
     expect(params.quality).toBe('speed')
     expect(params.withAudio).toBe(true)
+    const validation = params.imageValidation as Record<string, unknown>
+    expect(validation).toMatchObject({ format: 'png', width: 256, height: 256 })
     const userMeta = JSON.parse((createdMessages[0].metaJson as string) ?? '{}') as Record<string, unknown>
     expect(userMeta.hasReferenceImage).toBe(true)
+  })
+
+  test('a non-decodable reference image is rejected BEFORE any job exists (defect D3)', async () => {
+    const jobsBefore = createdJobs.length
+    const res = await chatPost(
+      jsonRequest('http://localhost:3000/api/jazmii/chat', {
+        text: 'Animate this scene with slow camera drift.',
+        // Syntactically valid data-URL shape, garbage image payload.
+        imageUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+      }),
+    )
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error?: { message?: string } }
+    expect(body.error?.message).toContain('not a decodable image')
+    expect(createdJobs.length).toBe(jobsBefore)
   })
 
   test('out-of-bounds settings are rejected BEFORE any job exists', async () => {

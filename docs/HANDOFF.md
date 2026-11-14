@@ -22,6 +22,16 @@
 
 **Authorization:** established once via the persistent repo-local git credential store (2026-11-12; account pinned `jon0471-dot`; `credential.helper = store --file=<repo>/.git/git-credentials`, mode 0600, git-internal and never committed) and reused across sessions — pushes resolve automatically with no per-push login. Never re-ask while valid; if verification fails (`scripts/gh-credential-verify.py`, git-excluded, reports identity + push permission without ever displaying the token), stop and report; never ask the owner to paste tokens/passwords into chat. The GitHub CLI device flow is a FALLBACK for genuine authentication failure only (`scripts/sync-policy.md` §3.3, git-excluded).
 
+**§0.1 Current sync state (2026-11-14 — supersedes the historical §1 table below for anything it contradicts):**
+
+| Item | Measured 2026-11-14 |
+| --- | --- |
+| `origin/main` | `6c280e4` (frontend intelligence toolkit) — the §1 reconciliation push and all later verified work are PUBLISHED |
+| Working clone | the full clone inside the sandbox workspace, branch `feat/agent-reach-integration` at `d33e530` (Agent Reach integration, parent `6c280e4`) — `origin/main` is a verified strict ancestor, so any commit on top fast-forwards `main` |
+| LAXII/JAZMII restoration | built and verified on top of `d33e530` — see `docs/LAXII-JAZMII-RESTORATION-AUDIT.md`, `docs/LAXII-JAZMII-RESTORATION-REPORT.md`, `scripts/laxii-jazmii-restore-out/EVIDENCE.md`; commit `feat(bean): restore LAXII and JAZMII capabilities` pushed to `main` as a fast-forward (remote SHA verified with `git ls-remote`) |
+| Dashboard truth after restoration | LAXII operational (t2i / conversational-editing / background-removal / deterministic enhancement all real-attempt-evidenced; local Diffusers worker honestly `not-configured` — no GPU host); JAZMII operational (t2v + i2v real-attempt-evidenced; ffprobe availability reported) |
+| Sandbox workspace note | `/home/z/my-project` (the sandbox root) holds a STALE parallel checkout on a junk local commit (`5246b52`: embedded-repo gitlinks + ~229 MB Obscura reference binaries) — it is NOT the delivery vehicle; the nested full clone is authoritative. Any session finding this layout should sync the outer workspace from `origin/main` (backup branch first) or simply work inside the nested clone |
+
 ## 1. Repository & Sync State
 
 | Item | Value |

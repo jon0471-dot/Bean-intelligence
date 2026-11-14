@@ -10,6 +10,7 @@ import { enqueueJob } from '@/lib/jobs/queue'
 import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { ensureVideoPoller } from '@/lib/jobs/video-worker'
 import { upstreamBreakerState, type UpstreamEndpointClass } from '@/lib/upstream/gateway'
+import { validateVideoReferenceImage } from '@/lib/jazmii/reference-image'
 
 /**
  * JAZMII — submit a REAL video-generation job (async; no HTTP request is
@@ -49,6 +50,17 @@ export async function POST(request: Request) {
     const user = await requireUser()
     const body = await parseBody(request, schema)
 
+    // LAXII-JAZMII RESTORATION (2026-11-14, defect D3): the reference image
+    // is validated SERVER-SIDE (decodable still image, format, dimensions,
+    // byte cap, SSRF-guarded fetch) BEFORE the preflight and any job row —
+    // a corrupt or hostile payload now fails fast with a precise reason
+    // instead of consuming a real generation submission and polluting the
+    // capability evidence chain with a provider-side rejection.
+    const imageValidation = body.imageUrl ? await validateVideoReferenceImage(body.imageUrl) : null
+    if (imageValidation && !imageValidation.ok) {
+      throw new BeanApiError('VALIDATION_ERROR', imageValidation.reason ?? 'The reference image is not usable.')
+    }
+
     // Routing rules 1–5: availability, rate limit, quota, concurrency, backend.
     const { backend, release } = await preflight(user.id, 'jazmii', 'video-generation')
     try {
@@ -81,6 +93,9 @@ export async function POST(request: Request) {
           paramsJson: JSON.stringify({
             prompt: body.prompt,
             ...(body.imageUrl ? { imageUrl: body.imageUrl } : {}),
+            // Additive measured validation summary (never substitutes the
+            // original reference — the provider receives the exact input).
+            ...(imageValidation ? { imageValidation: { format: imageValidation.format, width: imageValidation.width, height: imageValidation.height, bytes: imageValidation.bytes } } : {}),
             ...(body.quality ? { quality: body.quality } : {}),
             ...(body.withAudio !== undefined ? { withAudio: body.withAudio } : {}),
             ...(body.size ? { size: body.size } : {}),
