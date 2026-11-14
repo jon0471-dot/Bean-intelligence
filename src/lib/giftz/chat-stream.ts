@@ -92,6 +92,8 @@ export interface GiftzTurnResult {
   } | null
   /** Frontend Intelligence summary + checks (ADDITIVE; frontend turns only). */
   frontend?: import('@/lib/frontend-intel/types').FrontendTurnResult
+  /** ADDITIVE (shared research gateway): research provenance artifact. */
+  research?: import('@/lib/intel/techdocs-reach').GiftzResearchArtifact
 }
 
 export interface GiftzChatStreamDeps {
@@ -252,6 +254,7 @@ export function createGiftzChatStream(deps: GiftzChatStreamDeps): ReadableStream
             files,
             verification: result.verification ?? null,
             ...(result.frontend ? { frontend: result.frontend } : {}),
+            ...(result.research ? { research: result.research } : {}),
           })
         } catch (e) {
           if (isClientDisconnected(e) || clientGone) {

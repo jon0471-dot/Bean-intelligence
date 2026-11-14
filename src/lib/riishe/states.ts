@@ -30,6 +30,11 @@ export interface EvidenceSourceView {
   /** True when the source is a social/video platform (shown as provenance). */
   social: boolean
   pageRead: boolean
+  /** ADDITIVE (shared research gateway): provenance when this source was
+   *  retrieved — or full-read — through Agent Reach / Obscura. */
+  reach?: { channel: string; backend: string | null; engine: string }
+  /** ADDITIVE: which engine performed the full-page read, when it did. */
+  readEngine?: string
 }
 
 export interface VerificationCheckView {
@@ -87,6 +92,15 @@ export interface MessageMetadata {
   independent?: string[]
   /** Wall time spent in the independent lane (0/unset when it never ran). */
   independentMs?: number
+  /** ADDITIVE (shared research gateway): honest Agent Reach lane provenance
+   *  (channels used, invocation count, degraded notes, wall time). Absent
+   *  when the lane never ran. */
+  reach?: {
+    channelsUsed: string[]
+    invocations: number
+    degraded: string[]
+    durationMs: number
+  }
   /** Real provider call counts for this turn's research (observability,
    *  cache hits excluded). Absent when research never ran. */
   searchCalls?: number

@@ -67,6 +67,16 @@ API keys (`Authorization: Bearer bgk_…`) where noted below.
 | GET | `/api/code-giftz/tasks/:id` 🔒 | One task (owner-only). |
 | POST | `/api/code-giftz/run` 🔒 | `{taskId, approval:true}` — explicit approval REQUIRED. Returns real `stdout/stderr/exitCode/timedOut/durationMs`. |
 
+### Shared research gateway (Agent Reach + Obscura)
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/research/status` 🔒 | MEASURED availability of the shared research gateway: Agent Reach runtime (version probe), per-source states (`available · requires_configuration · requires_login · experimental · unavailable · disabled`), optional Obscura backend. No secrets, no binary paths. |
+
+Additive response fields elsewhere (no existing field changed):
+- `GET /api/riishe/chat/[id]` messages' `metadata.sources[]` may carry `reach: {channel, backend, engine}` (source retrieved through Agent Reach) and `readEngine` (`agent-reach | obscura | direct | gateway`); `metadata.reach` carries the lane provenance (`channelsUsed`, `invocations`, `degraded`, `durationMs`).
+- CODE GIFTZ `POST /api/code-giftz/chat` responses, the SSE `done` frame and persisted `metaJson` may carry additive `research: {sources:[{host,url,title,channel,backend,engine}], degraded:[]}` (technical references actually used).
+- Retrieval never fabricates: sources that failed to load appear only in the honest `degraded` notes.
+
 ### Usage & admin
 | Method | Path | Notes |
 | --- | --- | --- |

@@ -131,14 +131,18 @@ Total ≈ 159 MB of the 169 MB `.git`. After purge: repo shrinks to ~10 MB of re
 4. Health fan-out can transiently trip the provider's authoritative 2-QPS limit (finding F1, 2026-11-10) — staggered probes shipped; keep probe concurrency low.
 5. Provider rate limits are account-level and time-windowed (real 2h+ 429 window observed 2026-11-11 05:14→07:17Z); LAXII bounded chain behaved correctly throughout.
 
-## 7. Test Results (executed 2026-11-12, this exact tree)
+## 7. Test Results
+
+**Executed 2026-11-14 (Agent Reach integration tree, branch `feat/agent-reach-integration`):**
 
 | Suite | Command | Result |
 | --- | --- | --- |
-| Full | `bun test --isolate tests/` | **1367 pass / 0 fail** (92 files, 32,240 expect calls, 32.87s) |
-| Targeted LAXII | recovery + hosted-edit files | **33/33 pass** |
-| TypeScript | `tsc --noEmit` | **0 errors in `src/` and `tests/`** (142 pre-existing in `scripts/` one-offs) |
-| Lint | `eslint .` | **clean** (fixed `scripts/hotfix-poster-probe.ts` require→import) |
+| Baseline (pre-integration, `main` @ `6c280e4`) | `bun test --isolate tests/` | **1579 pass / 0 fail** (110 files) |
+| Final (integration) | `bun test --isolate tests/` | **1657 pass / 0 fail** (119 files, +78 new reach/browser tests, zero regressions) |
+| TypeScript | `tsc --noEmit` | **0 errors in `src/` and `tests/`** (135 pre-existing in `scripts/` one-offs) |
+| Lint | `eslint .` | 0 errors / 2 pre-existing warnings (unused eslint-disable in vendored giftz-kit) |
+
+**Executed 2026-11-12 (previous tree):** full 1367/0 (92 files); tsc 0 in src/tests (142 pre-existing in scripts/); lint clean.
 
 Historical baselines for reference only (older trees): full 1389/0, operational acceptance 26/26, JAZMII 8/8, LAXII 33/33.
 
@@ -173,6 +177,11 @@ bun run start                  # standalone server on :3000
 
 **Tuning knobs (optional, all timeout/budget/limit overrides):**
 - `BEAN_IMAGE_PROBE_TIMEOUT_MS`, `BEAN_INTEL_CROSSLINGUAL_TIMEOUT_MS`, `BEAN_INTEL_GROUNDING_TIMEOUT_MS`, `BEAN_INTEL_TECHDOCS_TIMEOUT_MS`, `BEAN_VERIFY_MAX_ATTEMPTS`, `BEAN_VERIFY_MAX_INPUT_CHARS`, `BEAN_VERIFY_MIN_CONFIDENCE`, `BEAN_VERIFY_MODEL`, `BEAN_VERIFY_REGENERATIONS`, `BEAN_VERIFY_TIMEOUT_MS`, `JAZMII_VIDEO_DOWNLOAD_RETRY_MS`, `JAZMII_VIDEO_MAX_POLL_MS`, `JAZMII_VIDEO_POLL_INTERVAL_MS`, `RIISHE_MAX_OUTPUT_TOKENS`, `BEAN_LOG_LEVEL`, `BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS`
+
+**Shared research gateway (optional; Agent Reach + Obscura, all names only):**
+- `BEAN_RESEARCH_AGENT_REACH_BIN`, `BEAN_RESEARCH_REACH_DISABLED`, `BEAN_RESEARCH_REACH_DISABLED_CHANNELS`, `BEAN_RESEARCH_REACH_TIMEOUT_MS`, `BEAN_RESEARCH_REACH_LANE_BUDGET_MS`, `BEAN_RESEARCH_REACH_MAX_ITEMS`, `BEAN_RESEARCH_REACH_MAX_TEXT_CHARS`, `BEAN_RESEARCH_REACH_MAX_STDOUT_BYTES`, `BEAN_RESEARCH_REACH_RATE_PER_MIN`, `BEAN_RESEARCH_REACH_CONCURRENCY`
+- `BEAN_RESEARCH_OBSCURA_BIN`, `BEAN_RESEARCH_OBSCURA_TIMEOUT_MS`, `BEAN_RESEARCH_URL_GUARD_DNS`
+- Agent Reach install (operator, on the host): `uv tool install https://github.com/Panniantong/Agent-Reach/releases/latest/download/agent-reach.zip && agent-reach setup` — BEAN never runs login/configure commands; login-gated channels stay `requires_login` until the owner logs in interactively. Obscura (optional): pin a release asset for the target platform (v0.2.7 for Linux/macOS; v0.2.5 is the most recent release shipping Windows x86-64 zips) or the verified distroless container with `OBSCURA_CDP_TOKEN`, loopback-only publishing.
 
 ## 10. Security Rules (standing)
 

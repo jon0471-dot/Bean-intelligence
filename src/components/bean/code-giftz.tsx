@@ -29,6 +29,7 @@ import {
   type SidebarActionResult,
 } from './code-giftz-sidebar'
 import { cn } from '@/lib/utils'
+import { ResearchStatusStrip } from './research-status'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
@@ -57,6 +58,7 @@ import {
   MessageSquareCode,
   Save,
   BadgeCheck,
+  ExternalLink,
 } from 'lucide-react'
 
 interface ChatMessage {
@@ -77,6 +79,11 @@ interface ChatMessage {
   } | null
   /** Frontend Intelligence summary + checks (frontend turns only, ADDITIVE). */
   frontend?: FrontendSummaryView
+  /** ADDITIVE (shared research gateway): honest research provenance. */
+  research?: {
+    sources: Array<{ host: string; url: string; title: string; channel: string; backend?: string | null; engine?: string }>
+    degraded: string[]
+  }
 }
 interface ProjectFile { path: string; content: string; origin: 'generated' | 'modified' }
 interface FileChange {
@@ -677,6 +684,41 @@ export function CodeGiftz() {
                         </div>
                       ) : null}
                       {m.frontend ? <FrontendSummary data={m.frontend} /> : null}
+                      {/* ADDITIVE (shared research gateway): clickable technical
+                          references actually used by this turn — never fabricated. */}
+                      {m.research && m.research.sources.length > 0 ? (
+                        <details className="group mt-2 border-t border-[rgba(212,175,55,0.12)] pt-2">
+                          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[10.5px] text-white/40 hover:text-white/65">
+                            <ExternalLink className="h-3 w-3" />
+                            Technical references ({m.research.sources.length})
+                          </summary>
+                          <ul className="mt-1.5 space-y-1 pl-3">
+                            {m.research.sources.map((r, i) => (
+                              <li key={`${r.url}-${i}`} className="break-words text-[10.5px] leading-snug">
+                                <a
+                                  href={r.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[#f0c75e] hover:underline"
+                                >
+                                  {r.title.slice(0, 90)}
+                                </a>
+                                <span className="text-white/35"> — {r.host}</span>
+                                {r.channel !== 'gateway' ? (
+                                  <span className="ml-1 text-[10px] text-sky-300/60" title={`Retrieved via the ${r.channel} channel of the BEAN research gateway`}>
+                                    · via {r.channel}
+                                  </span>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                          {m.research.degraded.length > 0 ? (
+                            <p className="mt-1 pl-3 text-[10px] leading-snug text-white/25">
+                              Some references could not be retrieved: {m.research.degraded.slice(0, 3).join('; ')}
+                            </p>
+                          ) : null}
+                        </details>
+                      ) : null}
                     </>
                   ) : thinking || verifying ? (
                     <span className="inline-flex items-center gap-2 text-xs text-white/40"><Spinner /> {verifying ? 'Verifying answer…' : 'Thinking…'}</span>
@@ -727,6 +769,10 @@ export function CodeGiftz() {
       <div className="border-t border-[rgba(212,175,55,0.1)] p-4">
         <div className="mx-auto max-w-2xl">
           <GiftzFrontendPanel selection={frontendSel} onChange={setFrontendSel} />
+          {/* ADDITIVE (shared research gateway): honest source availability. */}
+          <div className="mb-1.5">
+            <ResearchStatusStrip product="code-giftz" />
+          </div>
           <div className="mb-2 flex items-center gap-2">
             <button
               onClick={() => fileInputRef.current?.click()}

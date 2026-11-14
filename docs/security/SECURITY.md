@@ -93,6 +93,52 @@ seccomp profiles, and deny network egress by default. The capability is labeled
   the first layer; this guard is the deterministic backstop. Eval evidence: baseline
   still fails this attack (1/2), upgraded passes (2/2).
 
+### 7.1 Shared research gateway (Agent Reach + Obscura) — security boundaries
+
+The shared research gateway (`src/lib/research/reach/`, `src/lib/research/browser/`)
+retrieves EXTERNAL content. Its invariants:
+
+- **Read-only tool surface.** The only executable surface is a fixed,
+  allowlisted argv interface (`reach/allowlist.ts`) to the operator-installed
+  Agent Reach CLI (and the Obscura CLI for optional rendering). Channels,
+  actions and parameter names are a static inventory; model output and user
+  input can never construct a command. Execution is argv-array `spawn` — no
+  shell, no interpolation — with a minimal child environment (PATH, HOME,
+  locale; never `DATABASE_URL`, provider keys, cookies or session tokens).
+- **SSRF defense on every URL.** `reach/url-safety.ts` validates scheme,
+  userinfo, control characters, literal private/loopback/link-local/CGNAT
+  addresses (IPv4 + IPv6 incl. IPv4-mapped), metadata hostnames
+  (`metadata.google.internal`, `instance-data`, `*.internal`, `*.local`,
+  `*.lan`, …), and — outside hermetic tests — resolves hostnames and refuses
+  any resolution to a private address (DNS-rebinding safe). Redirects are
+  followed MANUALLY with every hop revalidated (`guardedFetch`). This guard
+  also now protects the pre-existing direct lane (`research/direct.ts`).
+  Obscura additionally enforces its own deny-list; `--allow-private-network`
+  and `--stealth` are never passed.
+- **Prompt-injection defense.** Retrieved text is sanitized (control
+  characters stripped), mimicked internal control syntax is neutered
+  (`TOOL_CALL:`, path-tagged fences, `<system>` markers), matches are
+  flagged as provenance, and every evidence block stays framed as UNTRUSTED
+  DATA (RIISHE `INJECTION_GUARD`, GIFTZ docs framing). Content is never
+  treated as instructions and never executed.
+- **Bounds everywhere.** Per-call wall-clock timeouts with SIGKILL (child
+  pipe holders destroyed so wrapped grandchildren cannot stall `close`),
+  hard stdout caps, item/text caps, ≤3 reach invocations per research turn,
+  a process-wide concurrency limit (children in flight), and a per-user
+  sliding-window rate limit (`research:reach:<userId>`).
+- **Login-gated sources stay owner-controlled.** BEAN never runs
+  `agent-reach login`, `login --import-existing`, `browser profiles/use` or
+  `configure`, and never copies primary browser sessions or cookie stores.
+  Sources that need a session report `requires_login` until the operator
+  performs an interactive login on the host.
+- **Honest errors, no secrets.** Client-facing failures are stable kinds
+  (`needs-setup`, `needs-login`, `timeout`, `rate-limited`, …); binary
+  paths, argv and stack traces stay server-side. Every reach invocation is
+  audit-logged (`research.reach`) and browser renderings (`research.browser`).
+- **No new persistence surface.** Research artifacts ride the existing
+  `Message.metadata` / `CodeMessage.metaJson` JSON columns — ownership
+  checks and account deletion inherit the products' existing behavior.
+
 ## 8. Data retention & deletion
 
 - Account deletion (Settings → Delete account) requires password confirmation, deletes

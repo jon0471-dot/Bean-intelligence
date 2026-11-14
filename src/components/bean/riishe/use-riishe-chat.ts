@@ -36,6 +36,9 @@ export interface SourceView {
   official: boolean
   social?: boolean
   pageRead: boolean
+  /** ADDITIVE (shared research gateway): Agent Reach / Obscura provenance. */
+  reach?: { channel: string; backend: string | null; engine: string }
+  readEngine?: string
 }
 
 export interface MsgMeta {
@@ -44,6 +47,8 @@ export interface MsgMeta {
   degraded: string[]
   retrievedAt?: string
   verificationNote?: string
+  /** ADDITIVE (shared research gateway): Agent Reach lane provenance. */
+  reach?: { channelsUsed: string[]; invocations: number; degraded: string[]; durationMs: number }
 }
 
 export interface FileMeta {

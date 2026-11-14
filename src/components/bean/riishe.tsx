@@ -31,6 +31,7 @@ import type { BeanUser } from '@/components/bean/shared'
 import { RiisheSidebarDesktop, RiisheSidebarMobile } from './riishe/riishe-sidebar'
 import { RiisheThread } from './riishe/riishe-messages'
 import { RiisheComposer } from './riishe/riishe-composer'
+import { ResearchStatusStrip } from './research-status'
 import { useRiisheChat } from './riishe/use-riishe-chat'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import { PanelLeft } from 'lucide-react'
@@ -127,6 +128,11 @@ export function Riishe({ user, onOpenSettings }: { user: BeanUser; onOpenSetting
 
         <div ref={scrollRef} className="bean-scroll relative min-h-0 flex-1 overflow-y-auto">
           <RiisheThread chat={chat} endRef={endRef} />
+        </div>
+
+        {/* ADDITIVE (shared research gateway): honest source availability. */}
+        <div className="mx-auto w-full max-w-3xl px-4 pb-1 sm:px-6">
+          <ResearchStatusStrip product="riishe" />
         </div>
 
         {chat.error ? (

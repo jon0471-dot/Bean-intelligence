@@ -244,7 +244,39 @@ function AnswerMeta({
                 {s.social ? (
                   <span className="ml-1 text-amber-300/50">· social-media post (unverified provenance)</span>
                 ) : null}
+                {/* ADDITIVE (shared research gateway): honest channel provenance. */}
+                {s.reach ? (
+                  <span
+                    className="ml-1 text-[10px] text-sky-300/60"
+                    title={`Retrieved via the ${s.reach.channel} channel${s.reach.backend ? ` (${s.reach.backend})` : ''} of the BEAN research gateway`}
+                  >
+                    · via {s.reach.channel}
+                  </span>
+                ) : null}
+                {s.readEngine === 'obscura' ? (
+                  <span className="ml-1 text-[10px] text-sky-300/60" title="Full page rendered with a headless browser (JavaScript page)">
+                    · browser-rendered
+                  </span>
+                ) : null}
                 <SourceClaimLine content={claims.get(s.id)} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {/* ADDITIVE (shared research gateway): honest retrieval limitations —
+          shown only when the Agent Reach lane actually reported failures. */}
+      {(meta?.reach?.degraded?.length ?? 0) > 0 ? (
+        <details className="group mt-1">
+          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11px] text-white/35 hover:text-white/60">
+            <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+            Retrieval limitations ({meta?.reach?.degraded.length})
+          </summary>
+          <ul className="mt-1.5 space-y-1 pl-4">
+            {(meta?.reach?.degraded ?? []).map((d, i) => (
+              <li key={i} className="break-words text-[10.5px] leading-snug text-white/30">
+                {d}
               </li>
             ))}
           </ul>

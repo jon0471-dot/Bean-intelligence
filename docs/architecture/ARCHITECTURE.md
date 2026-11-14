@@ -88,6 +88,32 @@ truthful statuses) · `UsageRecord` (metering; cost null when unreported) ·
 - Partial SSE streams are labeled "Incomplete" in the UI.
 - Sandbox output is shown verbatim, pass or fail.
 
+## 6a. Shared research gateway (Agent Reach + Obscura — additive, 2026-11-14)
+
+One server-only research gateway, two products consume it:
+
+- `src/lib/research/reach/` — the Agent Reach adapter (typed envelope, allowlisted
+  commands, per-user rate limiting, audit, health probes), the source capability
+  registry (`available / requires_configuration / requires_login / experimental /
+  unavailable / disabled` — measured, never assumed from source presence), the
+  deterministic invocation planner (≤3 per research turn, channel-relevance gated),
+  the URL-safety/SSRF guard and the prompt-injection scanner for retrieved content.
+- `src/lib/research/browser/obscura.ts` — the OPTIONAL JavaScript-rendering backend
+  (CLI mode; text/links/HTML extraction, screenshots). Every operation honestly
+  reports unavailability; the gateway keeps working without it.
+- RIISHE: the reach lane merges into the existing research pipeline AFTER the
+  gateway search volley (same ranking, per-source provenance stamped post-rank);
+  page reads gain an Agent Reach → Obscura fallback BETWEEN the gateway reader and
+  the direct fetch. Evidence framing, citation auditing and the SSE contract are
+  unchanged (additive metadata only).
+- CODE GIFTZ: `src/lib/intel/techdocs-reach.ts` enriches the existing bounded
+  tech-docs lane with allowlisted GitHub reads/searches when the request references
+  repositories; artifacts persist additively in `CodeMessage.metaJson.research`.
+  The sandbox approval gate and task modes are untouched.
+
+Agent Reach is a retrieval toolkit, NOT a model or provider: model selection,
+inference, fallbacks and verification remain entirely with the BEAN model gateway.
+
 ## 7. Deployment modes
 
 - **Mode A (self-hosted inference):** planned path documented in the model evaluation

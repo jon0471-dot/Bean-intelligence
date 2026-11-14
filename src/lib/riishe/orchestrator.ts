@@ -105,6 +105,10 @@ export interface OrchestrationInput {
   /** User-approved memory facts (most recent first; already owner-isolated
    *  and sensitive-filtered by the route). Injected as bounded context. */
   memories?: ReadonlyArray<string>
+  /** ADDITIVE (shared research gateway): authenticated user id. Forwarded to
+   *  the research pipeline so the Agent Reach lane can run rate-limited and
+   *  audited. Optional; absent in tests (lane stays off). */
+  userId?: string | null
   /**
    * Test seam for the research boundary. When `runResearch` is provided it
    * replaces the real pipeline call EXACTLY at the boundary (same signature,
@@ -462,7 +466,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     const tSearch = Date.now()
     pack = input.hooks?.runResearch
       ? await input.hooks.runResearch(userMessage, decision)
-      : await runResearch(userMessage, decision)
+      : await runResearch(userMessage, decision, { userId: input.userId ?? null })
     stages.push({ stage: 'researching', durationMs: Date.now() - tSearch })
     degraded.push(...pack.degraded)
     onEvent?.({ type: 'research', queries: pack.queries })
@@ -721,6 +725,10 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     official: boolean
     social: boolean
     pageRead: boolean
+    /** ADDITIVE (shared research gateway): Agent Reach / Obscura provenance. */
+    reach?: { channel: string; backend: string | null; engine: string }
+    /** ADDITIVE: which engine performed the full-page read, when it did. */
+    readEngine?: string
     /** Search snippet — the name-grounding corpus. */
     snippet: string
     /** Full-page excerpt when the page was successfully read. */
@@ -737,6 +745,8 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     pageRead: s.pageRead,
     snippet: s.snippet,
     excerpt: s.excerpt,
+    ...(s.reach ? { reach: { channel: s.reach.channel, backend: s.reach.backend, engine: s.reach.engine } } : {}),
+    ...(s.readEngine ? { readEngine: s.readEngine } : {}),
   }))
   // Tool sources continue the evidence-pack numbering (their tool outputs were
   // shown to the model with these ids, so citations resolve deterministically).
@@ -1312,6 +1322,8 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       official: s.official,
       social: s.social,
       pageRead: s.pageRead,
+      ...(s.reach ? { reach: s.reach } : {}),
+      ...(s.readEngine ? { readEngine: s.readEngine } : {}),
     })),
     verification: verification.filter((v) => v.status !== 'not_applicable'),
     stages,
@@ -1326,6 +1338,19 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
           ...(pack.independentMs && pack.independentMs > 0 ? { independentMs: pack.independentMs } : {}),
           searchCalls: pack.searchCalls,
           pageReadCalls: pack.pageReadCalls,
+          // ADDITIVE (shared research gateway): honest Agent Reach lane
+          // provenance — persists with the message so the sources panel can
+          // show channel chips and retrieval limitations after a reload.
+          ...(pack.reach
+            ? {
+                reach: {
+                  channelsUsed: pack.reach.channelsUsed,
+                  invocations: pack.reach.invocations,
+                  degraded: pack.reach.degraded,
+                  durationMs: pack.reach.durationMs,
+                },
+              }
+            : {}),
         }
       : {}),
     ...(toolExecutions.length > 0

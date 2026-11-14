@@ -46,6 +46,13 @@ import {
   PAGE_MIN_USEFUL_CHARS,
   type DirectOutcome,
 } from './direct'
+import {
+  planReachInvocations,
+  runReachRetrieval,
+  reachPageReadFallback,
+} from './reach/gateway'
+import { describeInjectionFlags } from './reach/injection'
+import type { ReachProvenance, ReachRetrievalOutcome } from './reach/types'
 
 // Page-content validation has a single home in ./direct (it validates both
 // gateway reads and direct fetches); re-exported here for existing callers.
@@ -68,6 +75,12 @@ export interface EvidenceSource extends RankedSource {
   pageRead: boolean
   /** Excerpt used as grounding when the page was read. */
   excerpt: string | null
+  /** ADDITIVE (shared research gateway): provenance when this source came
+   *  from — or was full-read through — Agent Reach / Obscura. Absent for
+   *  gateway/direct-lane sources. */
+  reach?: ReachProvenance
+  /** ADDITIVE: which engine performed the FULL-PAGE read (provenance). */
+  readEngine?: 'gateway' | 'agent-reach' | 'obscura' | 'direct'
 }
 
 export interface EvidencePack {
@@ -98,6 +111,15 @@ export interface EvidencePack {
   /** Wall time spent in the independent lane (runs parallel to the gateway
    *  search volley; 0/unset when it did not run). */
   independentMs?: number
+  /** ADDITIVE (shared research gateway): honest provenance of the Agent
+   *  Reach lane — channels used, invocation count, degraded notes and wall
+   *  time. Optional so hand-built test packs stay valid. */
+  reach?: {
+    channelsUsed: string[]
+    invocations: number
+    degraded: string[]
+    durationMs: number
+  }
 }
 
 const QUERY_SYSTEM =
@@ -382,6 +404,13 @@ export interface RunResearchOptions {
   maxSources?: number
   /** How many top sources to read in full (0 disables page reading). */
   readTopN?: number
+  /** ADDITIVE (shared research gateway): authenticated user id. When the
+   *  caller supplies it, the Agent Reach lane runs (channel-relevance
+   *  gated, per-user rate-limited, audited) and page-read fallbacks may use
+   *  Agent Reach / Obscura. When it is absent the lane is skipped entirely
+   *  and behavior is byte-identical to pre-integration (tests, internal
+   *  callers). */
+  userId?: string | null
 }
 
 /**
@@ -756,6 +785,39 @@ export async function runResearch(
   }
   const searchMs = Date.now() - tSearchStart
 
+  // --- AGENT REACH LANE (additive shared research gateway) ------------------
+  // Runs ONLY when the caller supplied a user identity (product turns do;
+  // tests and internal callers omit it → behavior is byte-identical to the
+  // pre-integration pipeline). Deterministically planned from the message,
+  // channel-relevance gated, per-user rate-limited, wall-clock budgeted and
+  // audited. Results enter the SAME ranking; provenance is stamped onto the
+  // surviving sources after ranking (see below). A failure here degrades to
+  // one honest note — the gateway lane above is never affected.
+  let reachOutcome: ReachRetrievalOutcome | null = null
+  if (opts.userId !== undefined) {
+    try {
+      const reachPlan = planReachInvocations(message)
+      if (reachPlan.length > 0) {
+        reachOutcome = await runReachRetrieval(reachPlan, { userId: opts.userId ?? null })
+        for (const note of reachOutcome.degraded) degraded.push(`reach: ${note}`)
+        // Merge into the SAME ranking pool (dedup keeps the first copy of a
+        // URL — gateway results keep priority; reach-only URLs survive).
+        rawResults.push(
+          ...reachOutcome.results.map((r) => ({
+            url: r.url,
+            title: r.title,
+            snippet: r.snippet,
+            hostName: r.hostName,
+            rank: r.rank,
+            date: r.date,
+          })),
+        )
+      }
+    } catch (e) {
+      degraded.push(`reach: agent reach lane failed: ${e instanceof Error ? e.message.slice(0, 120) : 'unavailable'}`)
+    }
+  }
+
   if (rawResults.length === 0) {
     return {
       sources: [],
@@ -772,6 +834,16 @@ export async function runResearch(
       fetchedAt: new Date(oldestFetchAt ?? Date.now()).toISOString(),
       independent,
       independentMs: directLaneMs,
+      ...(reachOutcome
+        ? {
+            reach: {
+              channelsUsed: reachOutcome.channelsUsed,
+              invocations: reachOutcome.invocations,
+              degraded: reachOutcome.degraded,
+              durationMs: reachOutcome.durationMs,
+            },
+          }
+        : {}),
     }
   }
 
@@ -851,6 +923,15 @@ export async function runResearch(
   // before any gateway read so their content is never confused with snippets
   // and never re-fetched through the throttled reader.
   const sources: EvidenceSource[] = ranked.map((r) => ({ ...r, pageRead: false, excerpt: null }))
+  // Stamp reach provenance onto the surviving ranked sources (post-rank: the
+  // ranker constructs fresh objects, so provenance travels by URL match).
+  if (reachOutcome && reachOutcome.results.length > 0) {
+    const reachByUrl = new Map(reachOutcome.results.map((r) => [r.url, r.provenance]))
+    for (const s of sources) {
+      const provenance = reachByUrl.get(s.url)
+      if (provenance) s.reach = provenance
+    }
+  }
   if (directOut && directOut.pages.length > 0) {
     for (const page of directOut.pages) {
       const match = sources.find((s) => samePage(s.url, page.url))
@@ -870,28 +951,52 @@ export async function runResearch(
     // Sources already grounded on independent-lane page content need no read.
     const unread = sources.filter((s) => !s.pageRead)
     const toRead = officialFirstReads(unread, readCount)
-    const readResults = await mapWithConcurrency(toRead, PAGE_READ_CONCURRENCY, (s) => {
+    const readResults = await mapWithConcurrency(
+      toRead,
+      PAGE_READ_CONCURRENCY,
+      (s): Promise<{ url: string; text: string; publishedTime: string | null; readEngine?: 'agent-reach' | 'obscura' | 'direct' }> => {
       const cached = getPageCache<{ url: string; text: string; publishedTime: string | null }>(s.url)
       if (cached.hit) {
         oldestFetchAt = oldestFetchAt === null
           ? Date.parse(cached.fetchedAt)
           : Math.min(oldestFetchAt, Date.parse(cached.fetchedAt))
-        return Promise.resolve(cached.value)
+        return Promise.resolve({ ...cached.value, readEngine: undefined })
       }
       pageReadCalls += 1
-      // Gateway reader first; on ANY failure ONE bounded DIRECT fetch of the
-      // same URL (no gateway involved) before the source is given up on.
+      // Gateway reader first; on ANY failure the ADDITIVE reach chain runs
+      // (Agent Reach native read → Obscura ONLY when JS rendering is actually
+      // needed — see reachPageReadFallback), and only when the caller
+      // supplied a user identity. The pre-existing ONE bounded DIRECT fetch
+      // stays the final fallback (and the only fallback for internal/test
+      // callers without a userId), so legacy behavior is preserved.
       return runSharedPageRead(s.url)
         .catch(async (gatewayError) => {
+          if (opts.userId !== undefined) {
+            const viaReach = await reachPageReadFallback(s.url, { userId: opts.userId ?? null })
+            if (viaReach) {
+              independent.push(
+                `page read via ${viaReach.engine} after gateway reader failure: ${s.hostName.replace(/^www\./, '')} (${gatewayError instanceof Error ? gatewayError.message.slice(0, 120) : 'error'})`,
+              )
+              const injectionNote = describeInjectionFlags(viaReach.injectionFlags)
+              if (injectionNote) independent.push(`page read (${viaReach.engine}): ${injectionNote}`)
+              return {
+                url: s.url,
+                text: viaReach.text,
+                publishedTime: null,
+                readEngine: viaReach.engine,
+              }
+            }
+          }
           const direct = await directFetchPage(s.url)
           independent.push(`page read via direct fetch after gateway reader failure: ${s.hostName.replace(/^www\./, '')} (${gatewayError instanceof Error ? gatewayError.message.slice(0, 120) : 'error'})`)
-          return direct
+          return { ...direct, readEngine: 'direct' as const }
         })
         .then((page) => {
           const value = { url: page.url, text: page.text.slice(0, 6_000), publishedTime: page.publishedTime }
           cached.put(value)
           oldestFetchAt = oldestFetchAt === null ? Date.now() : Math.min(oldestFetchAt, Date.now())
-          return value
+          const readEngine = (page as { readEngine?: 'agent-reach' | 'obscura' | 'direct' }).readEngine
+          return { ...value, readEngine }
         })
     })
     readResults.forEach((res) => {
@@ -901,6 +1006,8 @@ export async function runResearch(
           if (isUsablePageText(res.value.text)) {
             match.pageRead = true
             match.excerpt = res.value.text
+            // ADDITIVE provenance: which engine actually fetched the page.
+            if (res.value.readEngine) match.readEngine = res.value.readEngine
             // Publication-date verification: the page's own structured
             // metadata (JSON-LD/meta) is the authoritative publication date —
             // it OVERRIDES the search-engine-supplied date (often a crawl or
@@ -947,6 +1054,16 @@ export async function runResearch(
     fetchedAt: new Date(oldestFetchAt ?? Date.now()).toISOString(),
     independent,
     independentMs: directLaneMs,
+    ...(reachOutcome
+      ? {
+          reach: {
+            channelsUsed: reachOutcome.channelsUsed,
+            invocations: reachOutcome.invocations,
+            degraded: reachOutcome.degraded,
+            durationMs: reachOutcome.durationMs,
+          },
+        }
+      : {}),
   }
 }
 
