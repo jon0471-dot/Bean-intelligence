@@ -63,13 +63,16 @@ describe('frontend plan resolution', () => {
   test('explicit selection wins: components are honored, unknown/not-installed ids ignored with a note', () => {
     const selection: FrontendSelection = {
       target: 'static',
-      components: ['split-text', 'aurora', 'no-such-component'],
+      // aurora was not-installed at the original pin but IS installed now —
+      // honoring it is correct; grid-scan remains excluded (CDN runtime).
+      components: ['split-text', 'aurora', 'grid-scan', 'no-such-component'],
       background: 'none',
     }
     const plan = resolveFrontendPlan({ message: 'anything', selection })
     expect(plan.enabled).toBe(true)
     expect(plan.target).toBe('static')
-    expect(plan.componentIds).toEqual(['split-text'])
+    expect(plan.componentIds).toEqual(['split-text', 'aurora'])
+    expect(plan.reason).toContain('grid-scan')
     expect(plan.reason).toContain('no-such-component')
     expect(plan.vantaEffect).toBeNull()
   })
@@ -125,6 +128,78 @@ describe('frontend plan resolution', () => {
     expect(detectBackgroundEffect('add a vanta background with waves')).toBe('waves')
     expect(detectBackgroundEffect('3d globe background for the hero')).toBe('globe')
     expect(detectBackgroundEffect('the birds argument in my javascript function is wrong')).toBeNull()
+  })
+
+  test('SITE PROFILE: dashboard-type requests suppress auto backgrounds and stay animation-minimal', () => {
+    const plan = resolveFrontendPlan({
+      message: 'Build an analytics dashboard UI with birds flying in the background',
+    })
+    expect(plan.enabled).toBe(true)
+    expect(plan.vantaEffect).toBeNull() // dashboard profile suppresses AUTO backgrounds
+    expect(plan.animationIds).toEqual(['entrance-timeline', 'scroll-reveal-batch'])
+    expect(plan.brief).toContain('Dashboard/data UI: data density and legibility first')
+  })
+
+  test('SITE PROFILE: performance budgets drop HEAVY auto backgrounds (globe) but keep explicit requests flagged', () => {
+    const auto = resolveFrontendPlan({ message: 'Build a lightweight landing page with a globe background, performance matters' })
+    expect(auto.vantaEffect).toBeNull() // heavy effect dropped under the stated budget
+    const explicit = resolveFrontendPlan({ message: 'Build a lightweight landing page with a hero', selection: { background: 'globe' } })
+    expect(explicit.vantaEffect).toBe('globe') // explicit requests are honored…
+    expect(explicit.brief).toContain('Performance note: globe is one of the heavier effects') // …and honestly flagged
+  })
+
+  test('SITE PROFILE: showpiece intensity scales the pattern set within the library (never unbounded)', () => {
+    const plan = resolveFrontendPlan({ message: 'Build an immersive cinematic landing page, animation-heavy showcase' })
+    expect(plan.enabled).toBe(true)
+    expect(plan.animationIds).toContain('entrance-timeline')
+    expect(plan.animationIds).toContain('text-reveal')
+    expect(plan.animationIds).toContain('custom-ease')
+    expect(plan.animationIds.length).toBeLessThanOrEqual(6)
+    expect(plan.brief).toContain('SHOWPIECE')
+  })
+
+  test('SITE PROFILE: new-plugin patterns carry their plugin vendor builds (offline contract)', () => {
+    const plan = resolveFrontendPlan({
+      message: 'Landing page with hero',
+      selection: { animations: ['split-text', 'draggable'] },
+    })
+    const paths = plan.engineFiles.map((f) => f.path)
+    expect(paths).toContain('vendor/SplitText.min.js')
+    expect(paths).toContain('vendor/Draggable.min.js')
+    expect(paths).toContain('vendor/gsap.min.js')
+    // The brief orders plugin tags after the core, before app.js.
+    const core = plan.brief.indexOf('vendor/gsap.min.js')
+    const split = plan.brief.indexOf('vendor/SplitText.min.js')
+    const app = plan.brief.indexOf('<script src="app.js"></script>')
+    expect(core).toBeGreaterThan(-1)
+    expect(split).toBeGreaterThan(core)
+    expect(app).toBeGreaterThan(split)
+  })
+
+  test('p5-based Vanta effects (trunk/topology) vendor p5 and pin it for React projects', () => {
+    const staticPlan = resolveFrontendPlan({
+      message: 'Landing page with a topology background animation',
+      selection: { background: 'topology' },
+    })
+    const paths = staticPlan.engineFiles.map((f) => f.path)
+    expect(paths).toContain('vendor/p5.min.js')
+    expect(paths).toContain('vendor/vanta.topology.min.js')
+    expect(paths).not.toContain('vendor/three.min.js')
+    const p5 = staticPlan.engineFiles.find((f) => f.path === 'vendor/p5.min.js')
+    expect(p5?.content).toContain('p5.js v0.6.1')
+    const deps = staticPlan.summary.dependencies
+    expect(deps.find((d) => d.name === 'p5')?.license).toContain('LGPL-2.1')
+
+    const reactPlan = resolveFrontendPlan({
+      message: 'React landing page with a trunk background',
+      selection: { background: 'trunk' },
+    })
+    const pkg = JSON.parse(reactPlan.engineFiles.find((f) => f.path === 'package.json')!.content) as {
+      dependencies: Record<string, string>
+    }
+    expect(pkg.dependencies['p5']).toBe('0.6.1')
+    expect(pkg.dependencies['three']).toBeUndefined()
+    expect(pkg.dependencies['vanta']).toBe('0.5.24')
   })
 })
 

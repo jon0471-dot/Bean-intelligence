@@ -15,6 +15,8 @@
  */
 import { assertSafeProjectPath } from '@/lib/giftz/workspace'
 import { PINNED_DEPENDENCIES } from './catalog'
+import { requiredPluginBuilds } from './gsap-patterns'
+import { VANTA_P5_EFFECTS } from './vendor'
 import type { FrontendCheck, FrontendCheckReport, FrontendPlan } from './types'
 
 export interface FrontendOutputFile {
@@ -100,16 +102,22 @@ export function validateFrontendOutput(files: FrontendOutputFile[], plan: Fronte
   if (plan.target === 'static') {
     // ---- vendor script tags for the runtimes the plan promises ----------
     const needsGsap = plan.animationIds.length > 0
-    const needsScrollTrigger = plan.animationIds.some((id) => id === 'scroll-reveal-batch' || id === 'svg-draw')
+    const requiredPlugins = needsGsap ? requiredPluginBuilds(plan.animationIds) : []
     if (needsGsap && html.length > 0 && !htmlText.includes('vendor/gsap.min.js')) {
       add('vendor-script-tags', 'blocking', 'GSAP animations are planned but index.html never loads <script src="vendor/gsap.min.js"> — the animation code would throw ReferenceError in the preview.')
     }
-    if (needsScrollTrigger && html.length > 0 && !htmlText.includes('vendor/ScrollTrigger.min.js')) {
-      add('vendor-script-tags', 'blocking', 'ScrollTrigger-based patterns are planned but index.html never loads <script src="vendor/ScrollTrigger.min.js"> before app.js.')
+    for (const plugin of requiredPlugins) {
+      if (html.length > 0 && !htmlText.includes(`vendor/${plugin}.min.js`)) {
+        add('vendor-script-tags', 'blocking', `The ${plugin} plugin is required by the planned animation patterns but index.html never loads <script src="vendor/${plugin}.min.js"> before app.js.`)
+      }
     }
     if (plan.vantaEffect) {
+      const runtimeFile = VANTA_P5_EFFECTS.has(plan.vantaEffect) ? 'vendor/p5.min.js' : 'vendor/three.min.js'
       if (html.length > 0 && !htmlText.includes(`vendor/vanta.${plan.vantaEffect}.min.js`)) {
-        add('vendor-script-tags', 'blocking', `The ${plan.vantaEffect} background is planned but index.html never loads <script src="vendor/vanta.${plan.vantaEffect}.min.js"> and vendor/three.min.js before app.js.`)
+        add('vendor-script-tags', 'blocking', `The ${plan.vantaEffect} background is planned but index.html never loads <script src="vendor/vanta.${plan.vantaEffect}.min.js"> and ${runtimeFile} before app.js.`)
+      }
+      if (html.length > 0 && !htmlText.includes(runtimeFile)) {
+        add('vendor-script-tags', 'blocking', `The ${plan.vantaEffect} background needs its runtime (${runtimeFile}) loaded before the effect bundle and app.js.`)
       }
       // ---- vanta fallback + cleanup markers ----------------------------
       const hasDestroy = /\.destroy\(/.test(allText)

@@ -1,0 +1,15 @@
+/* ElectricBorder.css — React Bits (https://reactbits.dev) — MIT + Commons Clause v1.0.
+ * Upstream: https://github.com/DavidHDev/react-bits/blob/cf2801031f07f53d4684e65b961bde7c2e2a6921/src/ts-default/Animations/ElectricBorder/ElectricBorder.css — Copyright (c) 2026 David Haz.
+ * Included by BEAN Intelligence; notices: docs/THIRD-PARTY-NOTICES.md. */
+
+.electric-border {
+  position: relative;
+  isolation: isolate;
+}
+
+.electric-border__canvas {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+}

@@ -1,0 +1,813 @@
+{
+  "generatedBy": "scripts/kit-ssr-probe.tsx",
+  "components": {
+    "ASCIIText": {
+      "ssr": true,
+      "props": {}
+    },
+    "AccordionGallery": {
+      "ssr": true,
+      "props": {}
+    },
+    "AcidSquares": {
+      "ssr": true,
+      "props": {}
+    },
+    "AnimatedContent": {
+      "ssr": true,
+      "props": {}
+    },
+    "Antigravity": {
+      "ssr": true,
+      "props": {}
+    },
+    "Aurora": {
+      "ssr": true,
+      "props": {}
+    },
+    "Balatro": {
+      "ssr": true,
+      "props": {}
+    },
+    "Ballpit": {
+      "ssr": true,
+      "props": {}
+    },
+    "Beams": {
+      "ssr": true,
+      "props": {}
+    },
+    "BlurText": {
+      "ssr": true,
+      "props": {}
+    },
+    "BorderGlow": {
+      "ssr": true,
+      "props": {}
+    },
+    "BounceCards": {
+      "ssr": true,
+      "props": {}
+    },
+    "BubbleMenu": {
+      "ssr": true,
+      "props": {}
+    },
+    "CRTWarp": {
+      "ssr": true,
+      "props": {}
+    },
+    "ChromaGrid": {
+      "ssr": true,
+      "props": {}
+    },
+    "CircularCarousel": {
+      "ssr": true,
+      "props": {}
+    },
+    "CircularGallery": {
+      "ssr": true,
+      "props": {}
+    },
+    "CircularText": {
+      "ssr": true,
+      "props": {}
+    },
+    "ClickSpark": {
+      "ssr": true,
+      "props": {}
+    },
+    "CometDial": {
+      "ssr": true,
+      "props": {}
+    },
+    "CountUp": {
+      "ssr": true,
+      "props": {
+        "text": "Hello BEAN",
+        "children": "Hi",
+        "items": [],
+        "images": [],
+        "links": [],
+        "to": 100,
+        "color": "#d4af37",
+        "className": "",
+        "title": "BEAN",
+        "label": "BEAN",
+        "value": 50,
+        "options": [
+          "a",
+          "b"
+        ],
+        "tabs": [
+          "a",
+          "b"
+        ],
+        "items2": [],
+        "content": "Hi",
+        "src": "",
+        "href": "#",
+        "logos": [
+          {
+            "name": "BEAN",
+            "url": "#",
+            "id": "bean"
+          }
+        ],
+        "texts": [
+          "BEAN"
+        ]
+      }
+    },
+    "Counter": {
+      "ssr": true,
+      "props": {}
+    },
+    "Crosshair": {
+      "ssr": true,
+      "props": {}
+    },
+    "Cubes": {
+      "ssr": true,
+      "props": {}
+    },
+    "CursorGrid": {
+      "ssr": true,
+      "props": {}
+    },
+    "CurvedInput": {
+      "ssr": true,
+      "props": {}
+    },
+    "CurvedLoop": {
+      "ssr": true,
+      "props": {}
+    },
+    "DarkVeil": {
+      "ssr": true,
+      "props": {}
+    },
+    "DecayCard": {
+      "ssr": true,
+      "props": {}
+    },
+    "DecryptedText": {
+      "ssr": true,
+      "props": {}
+    },
+    "DepthCarousel": {
+      "ssr": true,
+      "props": {}
+    },
+    "DepthText": {
+      "ssr": true,
+      "props": {}
+    },
+    "Dither": {
+      "ssr": true,
+      "props": {}
+    },
+    "Dock": {
+      "ssr": true,
+      "props": {}
+    },
+    "DodgeField": {
+      "ssr": true,
+      "props": {}
+    },
+    "DotField": {
+      "ssr": true,
+      "props": {}
+    },
+    "DotGrid": {
+      "ssr": true,
+      "props": {}
+    },
+    "DriftWall": {
+      "ssr": true,
+      "props": {}
+    },
+    "EchoText": {
+      "ssr": true,
+      "props": {}
+    },
+    "ElasticMesh": {
+      "ssr": true,
+      "props": {}
+    },
+    "ElectricBorder": {
+      "ssr": true,
+      "props": {}
+    },
+    "FadeContent": {
+      "ssr": true,
+      "props": {}
+    },
+    "FaultyTerminal": {
+      "ssr": true,
+      "props": {}
+    },
+    "Ferrofluid": {
+      "ssr": true,
+      "props": {}
+    },
+    "FlipCard": {
+      "ssr": true,
+      "props": {}
+    },
+    "FloatingLines": {
+      "ssr": true,
+      "props": {}
+    },
+    "FluidGlass": {
+      "ssr": true,
+      "props": {}
+    },
+    "FluxLines": {
+      "ssr": true,
+      "props": {}
+    },
+    "FlyingButton": {
+      "ssr": true,
+      "props": {}
+    },
+    "FlyingPosters": {
+      "ssr": true,
+      "props": {}
+    },
+    "FoldText": {
+      "ssr": true,
+      "props": {}
+    },
+    "Folder": {
+      "ssr": true,
+      "props": {}
+    },
+    "FuzzyText": {
+      "ssr": true,
+      "props": {}
+    },
+    "Galaxy": {
+      "ssr": true,
+      "props": {}
+    },
+    "GhostCursor": {
+      "ssr": true,
+      "props": {}
+    },
+    "GhostFibers": {
+      "ssr": true,
+      "props": {}
+    },
+    "GlareHover": {
+      "ssr": true,
+      "props": {}
+    },
+    "GlassIcons": {
+      "ssr": true,
+      "props": {}
+    },
+    "GlassSurface": {
+      "ssr": true,
+      "props": {}
+    },
+    "GlitchText": {
+      "ssr": true,
+      "props": {}
+    },
+    "GlowCursor": {
+      "ssr": true,
+      "props": {}
+    },
+    "GooeyNav": {
+      "ssr": true,
+      "props": {}
+    },
+    "GradientASCII": {
+      "ssr": true,
+      "props": {}
+    },
+    "GradientBlinds": {
+      "ssr": true,
+      "props": {}
+    },
+    "GradientText": {
+      "ssr": true,
+      "props": {}
+    },
+    "GradientWaves": {
+      "ssr": true,
+      "props": {}
+    },
+    "GradualBlur": {
+      "ssr": true,
+      "props": {}
+    },
+    "Grainient": {
+      "ssr": true,
+      "props": {}
+    },
+    "GridDistortion": {
+      "ssr": true,
+      "props": {}
+    },
+    "GridMotion": {
+      "ssr": true,
+      "props": {}
+    },
+    "HalftoneReveal": {
+      "ssr": true,
+      "props": {}
+    },
+    "HoldButton": {
+      "ssr": true,
+      "props": {}
+    },
+    "HoloCard": {
+      "ssr": true,
+      "props": {}
+    },
+    "ImageTrail": {
+      "ssr": true,
+      "props": {}
+    },
+    "InfiniteMenu": {
+      "ssr": true,
+      "props": {}
+    },
+    "InfiniteSpiral": {
+      "ssr": true,
+      "props": {}
+    },
+    "Iridescence": {
+      "ssr": true,
+      "props": {}
+    },
+    "JellyRadio": {
+      "ssr": true,
+      "props": {}
+    },
+    "LaserFlow": {
+      "ssr": true,
+      "props": {}
+    },
+    "LatticeLoader": {
+      "ssr": true,
+      "props": {}
+    },
+    "LetterGlitch": {
+      "ssr": true,
+      "props": {}
+    },
+    "LightPillar": {
+      "ssr": true,
+      "props": {}
+    },
+    "LightRays": {
+      "ssr": true,
+      "props": {}
+    },
+    "LightTunnel": {
+      "ssr": true,
+      "props": {}
+    },
+    "Lightfall": {
+      "ssr": true,
+      "props": {}
+    },
+    "Lightning": {
+      "ssr": true,
+      "props": {}
+    },
+    "LineSidebar": {
+      "ssr": true,
+      "props": {}
+    },
+    "LineWaves": {
+      "ssr": true,
+      "props": {}
+    },
+    "LiquidChrome": {
+      "ssr": true,
+      "props": {}
+    },
+    "LiquidEther": {
+      "ssr": true,
+      "props": {}
+    },
+    "LogoLoop": {
+      "ssr": true,
+      "props": {
+        "text": "Hello BEAN",
+        "children": "Hi",
+        "items": [],
+        "images": [],
+        "links": [],
+        "to": 100,
+        "color": "#d4af37",
+        "className": "",
+        "title": "BEAN",
+        "label": "BEAN",
+        "value": 50,
+        "options": [
+          "a",
+          "b"
+        ],
+        "tabs": [
+          "a",
+          "b"
+        ],
+        "items2": [],
+        "content": "Hi",
+        "src": "",
+        "href": "#",
+        "logos": [
+          {
+            "name": "BEAN",
+            "url": "#",
+            "id": "bean"
+          }
+        ],
+        "texts": [
+          "BEAN"
+        ]
+      }
+    },
+    "MagicRings": {
+      "ssr": true,
+      "props": {}
+    },
+    "Magnet": {
+      "ssr": true,
+      "props": {}
+    },
+    "MagnetLines": {
+      "ssr": true,
+      "props": {}
+    },
+    "MaskedHeading": {
+      "ssr": true,
+      "props": {}
+    },
+    "MetaBalls": {
+      "ssr": true,
+      "props": {}
+    },
+    "MetallicPaint": {
+      "ssr": true,
+      "props": {}
+    },
+    "MoltenMetal": {
+      "ssr": true,
+      "props": {}
+    },
+    "Noise": {
+      "ssr": true,
+      "props": {}
+    },
+    "OptionWheel": {
+      "ssr": true,
+      "props": {}
+    },
+    "Orb": {
+      "ssr": true,
+      "props": {}
+    },
+    "OrbitImages": {
+      "ssr": true,
+      "props": {}
+    },
+    "ParticleText": {
+      "ssr": true,
+      "props": {}
+    },
+    "Particles": {
+      "ssr": true,
+      "props": {}
+    },
+    "PillNav": {
+      "ssr": true,
+      "props": {}
+    },
+    "PixelBlast": {
+      "ssr": true,
+      "props": {}
+    },
+    "PixelCard": {
+      "ssr": true,
+      "props": {}
+    },
+    "PixelSnow": {
+      "ssr": true,
+      "props": {}
+    },
+    "PixelSwap": {
+      "ssr": true,
+      "props": {}
+    },
+    "PixelTrail": {
+      "ssr": true,
+      "props": {}
+    },
+    "PixelTransition": {
+      "ssr": true,
+      "props": {}
+    },
+    "Plasma": {
+      "ssr": true,
+      "props": {}
+    },
+    "PlasmaWave": {
+      "ssr": true,
+      "props": {}
+    },
+    "Prism": {
+      "ssr": true,
+      "props": {}
+    },
+    "PrismaticBurst": {
+      "ssr": true,
+      "props": {}
+    },
+    "Radar": {
+      "ssr": true,
+      "props": {}
+    },
+    "Ribbons": {
+      "ssr": true,
+      "props": {}
+    },
+    "RippleGrid": {
+      "ssr": true,
+      "props": {}
+    },
+    "RotatingText": {
+      "ssr": true,
+      "props": {
+        "text": "Hello BEAN",
+        "children": "Hi",
+        "items": [],
+        "images": [],
+        "links": [],
+        "to": 100,
+        "color": "#d4af37",
+        "className": "",
+        "title": "BEAN",
+        "label": "BEAN",
+        "value": 50,
+        "options": [
+          "a",
+          "b"
+        ],
+        "tabs": [
+          "a",
+          "b"
+        ],
+        "items2": [],
+        "content": "Hi",
+        "src": "",
+        "href": "#",
+        "logos": [
+          {
+            "name": "BEAN",
+            "url": "#",
+            "id": "bean"
+          }
+        ],
+        "texts": [
+          "BEAN"
+        ]
+      }
+    },
+    "RubberSegment": {
+      "ssr": true,
+      "props": {
+        "text": "Hello BEAN",
+        "children": "Hi",
+        "items": [],
+        "images": [],
+        "links": [],
+        "to": 100,
+        "color": "#d4af37",
+        "className": "",
+        "title": "BEAN",
+        "label": "BEAN",
+        "value": 50,
+        "options": [
+          "a",
+          "b"
+        ],
+        "tabs": [
+          "a",
+          "b"
+        ],
+        "items2": [],
+        "content": "Hi",
+        "src": "",
+        "href": "#",
+        "logos": [
+          {
+            "name": "BEAN",
+            "url": "#",
+            "id": "bean"
+          }
+        ],
+        "texts": [
+          "BEAN"
+        ]
+      }
+    },
+    "Scanner": {
+      "ssr": true,
+      "props": {}
+    },
+    "ScrambledText": {
+      "ssr": true,
+      "props": {}
+    },
+    "ScrollExpand": {
+      "ssr": true,
+      "props": {}
+    },
+    "ScrollFloat": {
+      "ssr": true,
+      "props": {}
+    },
+    "ScrollReveal": {
+      "ssr": true,
+      "props": {}
+    },
+    "ScrollStack": {
+      "ssr": true,
+      "props": {}
+    },
+    "ScrollVelocity": {
+      "ssr": true,
+      "props": {}
+    },
+    "ScrubField": {
+      "ssr": true,
+      "props": {}
+    },
+    "ShapeBlur": {
+      "ssr": true,
+      "props": {}
+    },
+    "ShapeGrid": {
+      "ssr": true,
+      "props": {}
+    },
+    "ShinyText": {
+      "ssr": true,
+      "props": {}
+    },
+    "Shredder": {
+      "ssr": true,
+      "props": {}
+    },
+    "Shuffle": {
+      "ssr": true,
+      "props": {}
+    },
+    "SideRays": {
+      "ssr": true,
+      "props": {}
+    },
+    "Silk": {
+      "ssr": true,
+      "props": {}
+    },
+    "SlicedWaves": {
+      "ssr": true,
+      "props": {}
+    },
+    "SloshGauge": {
+      "ssr": true,
+      "props": {}
+    },
+    "SoftAurora": {
+      "ssr": true,
+      "props": {}
+    },
+    "SpecularButton": {
+      "ssr": true,
+      "props": {}
+    },
+    "SplashCursor": {
+      "ssr": true,
+      "props": {}
+    },
+    "SplitFlapText": {
+      "ssr": true,
+      "props": {}
+    },
+    "SplitText": {
+      "ssr": true,
+      "props": {}
+    },
+    "SpotlightCard": {
+      "ssr": true,
+      "props": {}
+    },
+    "SquishSwitch": {
+      "ssr": true,
+      "props": {}
+    },
+    "Stack": {
+      "ssr": true,
+      "props": {}
+    },
+    "StaggeredMenu": {
+      "ssr": true,
+      "props": {}
+    },
+    "StarBorder": {
+      "ssr": true,
+      "props": {}
+    },
+    "StatusMark": {
+      "ssr": true,
+      "props": {}
+    },
+    "StickerPeel": {
+      "ssr": true,
+      "props": {}
+    },
+    "Strands": {
+      "ssr": true,
+      "props": {}
+    },
+    "StrokeText": {
+      "ssr": true,
+      "props": {}
+    },
+    "SwarmCursor": {
+      "ssr": true,
+      "props": {}
+    },
+    "TargetCursor": {
+      "ssr": true,
+      "props": {}
+    },
+    "TearTicket": {
+      "ssr": true,
+      "props": {}
+    },
+    "TechText": {
+      "ssr": true,
+      "props": {}
+    },
+    "TextCursor": {
+      "ssr": true,
+      "props": {}
+    },
+    "TextLoop": {
+      "ssr": true,
+      "props": {}
+    },
+    "TextPressure": {
+      "ssr": true,
+      "props": {}
+    },
+    "TextType": {
+      "ssr": true,
+      "props": {}
+    },
+    "Threads": {
+      "ssr": true,
+      "props": {}
+    },
+    "TiltedCard": {
+      "ssr": true,
+      "props": {}
+    },
+    "Topography": {
+      "ssr": true,
+      "props": {}
+    },
+    "TrueFocus": {
+      "ssr": true,
+      "props": {}
+    },
+    "VariableProximity": {
+      "ssr": true,
+      "props": {}
+    },
+    "WakeSlider": {
+      "ssr": true,
+      "props": {}
+    },
+    "WarmTooltip": {
+      "ssr": false,
+      "props": {}
+    },
+    "Waves": {
+      "ssr": true,
+      "props": {}
+    },
+    "WebThreads": {
+      "ssr": true,
+      "props": {}
+    }
+  }
+}

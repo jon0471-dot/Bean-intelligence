@@ -47,14 +47,24 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
   // Third-party React Bits implementations (src/components/giftz-kit) are
   // vendored VERBATIM with attribution headers — rewriting upstream code to
   // satisfy these rules would corrupt the supply chain (exact sources are
-  // pinned in docs/CODE-GIFTZ-FRONTEND-INTELLIGENCE-AUDIT.md). The repo
-  // already declines these rules globally (see above); the rule ids changed
-  // in eslint-plugin-react-hooks v6, so they are re-disabled here by scope.
+  // pinned in docs/CODE-GIFTZ-FRONTEND-INTELLIGENCE-AUDIT.md and the
+  // expansion report). The repo already declines these rules globally (see
+  // above); the rule ids changed in eslint-plugin-react-hooks v6, so they
+  // are re-disabled here by scope. The 2026-11 expansion vendored the full
+  // compatible free collection, which additionally trips rules-of-hooks
+  // (upstream helper functions calling React 19 `use`), immutability and
+  // preserve-manual-memoization (compiler diagnostics under their v6 rule
+  // ids), and carries upstream `eslint-disable` directives that are no-ops
+  // under this config — suppressed via reportUnusedDisableDirectives.
   files: ["src/components/giftz-kit/**"],
+  linterOptions: { reportUnusedDisableDirectives: "off" },
   rules: {
     "react-hooks/refs": "off",
     "react-hooks/set-state-in-effect": "off",
     "react-hooks/purity": "off",
+    "react-hooks/rules-of-hooks": "off",
+    "react-hooks/immutability": "off",
+    "react-hooks/preserve-manual-memoization": "off",
     "react-compiler/react-compiler": "off",
   },
 }, {

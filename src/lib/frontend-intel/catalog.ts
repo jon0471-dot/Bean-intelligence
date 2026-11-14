@@ -1,22 +1,29 @@
 /**
- * BEAN Intelligence — curated React Bits component catalogue (Phase 1 of the
- * Frontend Intelligence Toolkit work order).
+ * BEAN Intelligence — curated React Bits component catalogue.
  *
  * Registry truth: a component is `installed: true` ONLY when its implementation
  * exists in `src/components/giftz-kit/` AND passed validation (repo tsc, lint,
- * render smoke tests). Components known upstream but deliberately not installed
- * are recorded with an honest `notInstalledReason` and are never advertised as
- * available.
+ * render/SSR validation). Components known upstream but deliberately not
+ * installed are recorded with an honest `notInstalledReason` and are never
+ * advertised as available.
  *
- * Sources: React Bits free collection at upstream commit
- * 4e0d091d3b1ea8b7aadef33716a8d99d164ae4ce (MIT + Commons Clause — see
- * docs/THIRD-PARTY-NOTICES.md). No React Bits Pro content or assets.
- * Two components were adapted: import source 'motion/react' -> 'framer-motion'
- * (recorded per entry in `adaptedFrom`).
+ * Two upstream generations live in the kit, both recorded per entry:
+ *  - The ORIGINAL 17 integrations, vendored verbatim from the free collection
+ *    at commit 4e0d091d3b1ea8b7aadef33716a8d99d164ae4ce (preserved untouched).
+ *  - The EXPANSION set (all remaining compatible free components), vendored
+ *    from commit cf2801031f07f53d4684e65b961bde7c2e2a6921 — see
+ *    catalog-expansion.ts (auto-derived by scripts/kit-expansion-curation.ts;
+ *    descriptions/tags curated by BEAN).
+ *
+ * License: React Bits — MIT + Commons Clause v1.0 (see docs/THIRD-PARTY-NOTICES.md).
+ * No React Bits Pro content or assets. Components importing `motion/react` are
+ * adapted to `framer-motion` (recorded per entry in `adaptedFrom`).
  */
 import type { FrontendComponentMeta, PinnedDependency } from './types'
+import { EXPANSION_ENTRIES, EXPANSION_EXCLUSIONS, EXPANSION_COMMIT, type ExpansionEntry, type ExcludedEntry } from './catalog-expansion'
 
 export const REACT_BITS_COMMIT = '4e0d091d3b1ea8b7aadef33716a8d99d164ae4ce'
+export const REACT_BITS_EXPANSION_COMMIT = EXPANSION_COMMIT
 export const REACT_BITS_REPO = 'https://github.com/DavidHDev/react-bits'
 export const REACT_BITS_LICENSE = 'MIT + Commons Clause v1.0'
 const RB_BASE = `${REACT_BITS_REPO}/blob/${REACT_BITS_COMMIT}/src/ts-default`
@@ -55,12 +62,19 @@ export const PINNED_DEPENDENCIES: Record<string, PinnedDependency> = {
     license: 'MIT',
     licenseUrl: 'https://github.com/mrdoob/three.js/blob/r134/LICENSE',
   },
+  p5: {
+    name: 'p5',
+    version: '0.6.1',
+    license: 'LGPL-2.1 (vendored with notices; source: https://github.com/processing/p5.js/tree/v0.6.1)',
+    licenseUrl: 'https://github.com/processing/p5.js/blob/v0.6.1/LICENSE',
+  },
 }
 
 function entry(
   e: Omit<FrontendComponentMeta, 'sourceRepository' | 'license' | 'attribution' | 'upstreamCommit' | 'installed'> & {
     installed?: boolean
     notInstalledReason?: string
+    upstreamCommit?: string
   },
 ): FrontendComponentMeta {
   return {
@@ -68,13 +82,14 @@ function entry(
     sourceRepository: REACT_BITS_REPO,
     license: REACT_BITS_LICENSE,
     attribution: RB_ATTR,
-    upstreamCommit: REACT_BITS_COMMIT,
+    upstreamCommit: e.upstreamCommit ?? REACT_BITS_COMMIT,
     installed: e.installed ?? true,
   }
 }
 
-/** The curated, installed catalogue (implementation in src/components/giftz-kit). */
-export const COMPONENT_CATALOG: FrontendComponentMeta[] = [
+/** The ORIGINAL curated catalogue (implementation in src/components/giftz-kit,
+ *  preserved verbatim from the first integration). */
+const ORIGINAL_CATALOG: FrontendComponentMeta[] = [
   entry({
     id: 'split-text',
     name: 'SplitText',
@@ -301,55 +316,53 @@ export const COMPONENT_CATALOG: FrontendComponentMeta[] = [
   }),
 ]
 
+/** Expansion entry -> registry entry. Descriptions stay pure; provenance
+ *  notes ride in `compatibility` so the UI summary stays one-line honest. */
+function expansionEntry(e: ExpansionEntry): FrontendComponentMeta {
+  const depText = e.dependencies.length > 0 ? e.dependencies.join(', ') : 'no JavaScript dependencies'
+  const stylingText = e.styling === 'css-file' ? 'ships its own CSS file' : 'uses inline styles'
+  return entry({
+    id: e.id,
+    name: e.name,
+    category: e.category,
+    description: e.description,
+    sourceUrl: `${REACT_BITS_REPO}/blob/${EXPANSION_COMMIT}/src/ts-default/${e.sourceDir}`,
+    dependencies: e.dependencies,
+    compatibility: `React 18/19 client component (${stylingText}); requires ${depText}.${e.note ? ` Note: ${e.note}` : ''}`,
+    styling: e.styling,
+    variants: ['ts-default'],
+    kitFiles: e.kitFiles,
+    adaptedFrom: e.adaptedFrom,
+    upstreamCommit: EXPANSION_COMMIT,
+    tags: e.tags,
+  })
+}
+
 /** Known upstream components deliberately NOT installed — recorded honestly
- *  (never advertised as available in BEAN). */
-export const NOT_INSTALLED_CATALOG: FrontendComponentMeta[] = [
+ *  (never advertised as available in BEAN). Every exclusion states its
+ *  verified reason (extra dependencies, remote-runtime requirements). */
+const NOT_INSTALLED: FrontendComponentMeta[] = EXPANSION_EXCLUSIONS.map((e: ExcludedEntry) =>
   entry({
-    id: 'aurora',
-    name: 'Aurora',
-    category: 'Background effect',
-    description: 'Silk-like WebGL gradient background.',
-    sourceUrl: `${RB_BASE}/Backgrounds/Aurora/Aurora.tsx`,
-    dependencies: ['ogl'],
-    compatibility: 'Requires the ogl WebGL library.',
-    styling: 'inline',
-    variants: ['ts-default', 'ts-tailwind', 'js-default', 'js-tailwind'],
-    kitFiles: [],
-    installed: false,
-    notInstalledReason: 'Requires the extra `ogl` dependency, which was not approved for installation in this integration.',
-    tags: [],
-  }),
-  entry({
-    id: 'particles',
-    name: 'Particles',
-    category: 'Background effect',
-    description: 'Interactive particle field background.',
-    sourceUrl: `${RB_BASE}/Backgrounds/Particles/Particles.tsx`,
-    dependencies: ['ogl'],
-    compatibility: 'Requires the ogl WebGL library.',
-    styling: 'inline',
-    variants: ['ts-default', 'ts-tailwind', 'js-default', 'js-tailwind'],
-    kitFiles: [],
-    installed: false,
-    notInstalledReason: 'Requires the extra `ogl` dependency, which was not approved for installation in this integration.',
-    tags: [],
-  }),
-  entry({
-    id: 'lanyard',
-    name: 'Lanyard',
-    category: '3D component',
-    description: 'Physics-simulated 3D lanyard badge.',
-    sourceUrl: `${RB_BASE}/Components/Lanyard/Lanyard.tsx`,
-    dependencies: ['@react-three/fiber', '@react-three/drei', 'three'],
-    compatibility: 'Requires react-three-fiber stack.',
+    id: e.id,
+    name: e.name,
+    category: e.category,
+    description: `Upstream React Bits component (${e.category.toLowerCase()}) that BEAN does NOT install.`,
+    sourceUrl: `${REACT_BITS_REPO}/blob/${EXPANSION_COMMIT}/src/ts-default/${e.sourceDir}`,
+    dependencies: e.dependencies,
+    compatibility: 'Not installed in BEAN — see the recorded exclusion reason.',
     styling: 'inline',
     variants: ['ts-default'],
     kitFiles: [],
     installed: false,
-    notInstalledReason: 'Requires the @react-three/fiber + drei stack, not approved for installation in this integration.',
+    notInstalledReason: e.reason,
+    upstreamCommit: EXPANSION_COMMIT,
     tags: [],
   }),
-]
+)
+
+export const COMPONENT_CATALOG: FrontendComponentMeta[] = [...ORIGINAL_CATALOG, ...EXPANSION_ENTRIES.map(expansionEntry)]
+
+export const NOT_INSTALLED_CATALOG: FrontendComponentMeta[] = NOT_INSTALLED
 
 export const FULL_CATALOG: FrontendComponentMeta[] = [...COMPONENT_CATALOG, ...NOT_INSTALLED_CATALOG]
 

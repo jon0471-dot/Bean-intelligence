@@ -36,6 +36,9 @@ const sdkState = {
   visionImpl: (() => {
     throw new Error('visionImpl not scripted')
   }) as (body: Record<string, unknown>) => unknown,
+  queryImpl: (() => {
+    throw new Error('queryImpl not scripted')
+  }) as (taskId: string) => unknown,
 }
 
 const scriptedZai = {
