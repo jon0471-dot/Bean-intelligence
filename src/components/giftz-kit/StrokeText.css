@@ -1,0 +1,27 @@
+/* StrokeText.css — React Bits (https://reactbits.dev) — MIT + Commons Clause v1.0.
+ * Upstream: https://github.com/DavidHDev/react-bits/blob/cf2801031f07f53d4684e65b961bde7c2e2a6921/src/ts-default/TextAnimations/StrokeText/StrokeText.css — Copyright (c) 2026 David Haz.
+ * Included by BEAN Intelligence; notices: docs/THIRD-PARTY-NOTICES.md. */
+
+.stroke-text {
+  display: block;
+  width: 100%;
+  line-height: 0;
+}
+
+.stroke-text--hover {
+  cursor: pointer;
+}
+
+.stroke-text__svg {
+  display: block;
+  width: 100%;
+  max-width: var(--stroke-text-width, 600px);
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.stroke-text__stroke,
+.stroke-text__fill {
+  user-select: none;
+}

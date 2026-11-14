@@ -32,7 +32,7 @@ import { publicVerificationSummary, type VerificationOutcome } from '@/lib/verif
 import { filterConversationsByTitle } from '@/lib/riishe/conversation-view'
 import { buildTechDocsWithReach } from '@/lib/intel/techdocs-reach'
 import { resolveFrontendPlan } from '@/lib/frontend-intel/engine'
-import type { FrontendSelection, FrontendTurnResult } from '@/lib/frontend-intel/types'
+import type { FrontendTurnResult } from '@/lib/frontend-intel/types'
 
 const MAX_HISTORY = 12
 const MAX_FILE_CONTEXT_CHARS = 24_000
@@ -43,17 +43,10 @@ const schema = z.object({
   message: z.string().min(1, 'Describe what you want to build or change.').max(12000),
   /** Files uploaded through the capability pipeline (ownership enforced). */
   fileIds: z.array(z.string().min(1)).max(3).optional(),
-  /** Frontend Intelligence toolkit selection — ADDITIVE, optional. When
-   *  absent the turn is resolved (and detected) exactly as before. */
-  frontend: z
-    .object({
-      target: z.enum(['auto', 'static', 'react']).optional(),
-      components: z.array(z.string().min(1).max(64)).max(12).optional(),
-      animations: z.array(z.union([z.literal('auto'), z.string().min(1).max(64)])).max(8).optional(),
-      background: z.enum(['none', 'auto', 'birds', 'waves', 'net', 'globe', 'fog', 'clouds', 'rings']).optional(),
-      responsive: z.boolean().optional(),
-    })
-    .optional(),
+  // NOTE (UI/API restriction): the frontend intelligence library is INTERNAL.
+  // There is deliberately NO frontend selection parameter here — the engine
+  // resolves target/components/animations/background automatically from the
+  // request text and the project state.
 })
 
 /**
@@ -143,14 +136,13 @@ export async function POST(request: Request) {
         logger.info('giftz.techdocs_degraded', { projectId, degraded: techDocs.degraded })
       }
 
-      // BEAN Intelligence — Frontend Intelligence Toolkit (opt-in): resolve the
-      // generation plan (target, catalogue components, GSAP patterns, optional
-      // Vanta background, pinned dependencies) BEFORE building the prompt. The
+      // BEAN Intelligence — Frontend Intelligence Toolkit (internal): resolve
+      // the generation plan (target, catalogue components, GSAP patterns,
+      // optional Vanta background, pinned dependencies) BEFORE building the
+      // prompt. Fully automatic — there is no UI/API selection surface. The
       // bounded brief rides in the turn context like the tech-docs block.
-      const frontendSelection: FrontendSelection | undefined = body.frontend
       const frontendPlan = resolveFrontendPlan({
         message: body.message,
-        selection: frontendSelection,
         existingFilePaths: files.map((f) => f.path),
       })
       if (frontendPlan.enabled) {

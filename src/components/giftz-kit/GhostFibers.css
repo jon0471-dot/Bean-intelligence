@@ -1,0 +1,18 @@
+/* GhostFibers.css — React Bits (https://reactbits.dev) — MIT + Commons Clause v1.0.
+ * Upstream: https://github.com/DavidHDev/react-bits/blob/cf2801031f07f53d4684e65b961bde7c2e2a6921/src/ts-default/Backgrounds/GhostFibers/GhostFibers.css — Copyright (c) 2026 David Haz.
+ * Included by BEAN Intelligence; notices: docs/THIRD-PARTY-NOTICES.md. */
+
+.ghost-fibers-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ghost-fibers-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}

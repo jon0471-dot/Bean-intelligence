@@ -1,0 +1,40 @@
+/* Noise.css — React Bits (https://reactbits.dev) — MIT + Commons Clause v1.0.
+ * Upstream: https://github.com/DavidHDev/react-bits/blob/cf2801031f07f53d4684e65b961bde7c2e2a6921/src/ts-default/Animations/Noise/Noise.css — Copyright (c) 2026 David Haz.
+ * Included by BEAN Intelligence; notices: docs/THIRD-PARTY-NOTICES.md. */
+
+.noise {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.noise--fixed {
+  position: fixed;
+}
+
+.noise__grain {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  image-rendering: pixelated;
+}
+
+.noise__dust {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.noise__lines {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.55) 0,
+    rgba(0, 0, 0, 0.55) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}

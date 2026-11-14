@@ -33,14 +33,6 @@ import { ResearchStatusStrip } from './research-status'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
-  GiftzFrontendPanel,
-  FrontendSummary,
-  DEFAULT_FRONTEND_SELECTION,
-  isFrontendEngaged,
-  type FrontendSelectionState,
-  type FrontendSummaryView,
-} from './giftz-frontend-panel'
-import {
   Code2,
   Send,
   Square,
@@ -77,8 +69,6 @@ interface ChatMessage {
     corrections: number
     issuesFound: number
   } | null
-  /** Frontend Intelligence summary + checks (frontend turns only, ADDITIVE). */
-  frontend?: FrontendSummaryView
   /** ADDITIVE (shared research gateway): honest research provenance. */
   research?: {
     sources: Array<{ host: string; url: string; title: string; channel: string; backend?: string | null; engine?: string }>
@@ -175,9 +165,9 @@ export function CodeGiftz() {
   const lastPromptRef = useRef<string | null>(null)
   // The assistant bubble currently being streamed (for the fence fix).
   const streamingAsstIdRef = useRef<string | null>(null)
-  // Frontend Intelligence toolkit selection (Phase 6 UI — additive; the
-  // payload rides only when the user actually engaged the toolkit).
-  const [frontendSel, setFrontendSel] = useState<FrontendSelectionState>({ ...DEFAULT_FRONTEND_SELECTION })
+  // NOTE (UI restriction): the frontend intelligence library is INTERNAL.
+  // There is deliberately NO Frontend Toolkit selector or summary in the UI —
+  // the engine resolves everything automatically from the user's request.
 
   const hasHtml = files.some((f) => f.path === 'index.html' || f.path === 'main.html')
 
@@ -231,12 +221,12 @@ export function CodeGiftz() {
         project: {
           id: string
           title: string
-          messages: Array<{ id: string; role: string; content: string; changes: Array<{ path: string; change: string }>; frontend?: FrontendSummaryView }>
+          messages: Array<{ id: string; role: string; content: string; changes: Array<{ path: string; change: string }> }>
           files: ProjectFile[]
         }
       }>(`/api/code-giftz/chat/${id}`)
       setProjectId(d.project.id)
-      setMessages(d.project.messages.map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, changes: m.changes ?? [], ...(m.frontend ? { frontend: m.frontend } : {}) })))
+      setMessages(d.project.messages.map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, changes: m.changes ?? [] })))
       setFiles(d.project.files)
       const first = d.project.files[0]
       setOpenTabs(first ? [first.path] : [])
@@ -425,18 +415,6 @@ export function CodeGiftz() {
           message,
           projectId: projectId ?? undefined,
           fileIds: readyFiles.length > 0 ? readyFiles.map((f) => f.id) : undefined,
-          // Frontend Intelligence toolkit (additive; only when engaged).
-          ...(isFrontendEngaged(frontendSel)
-            ? {
-                frontend: {
-                  target: frontendSel.target,
-                  components: frontendSel.components,
-                  animations: frontendSel.animations,
-                  background: frontendSel.background,
-                  responsive: frontendSel.responsive,
-                },
-              }
-            : {}),
         }),
         signal: controller.signal,
       })
@@ -480,7 +458,6 @@ export function CodeGiftz() {
             setVerifying(false)
             const wireChanges = evt.changes ?? []
             const wireVerification = evt.verification ?? null
-            const wireFrontend = evt.frontend ?? null
             setLastChanges(
               wireChanges.map((c) => ({ path: c.path, change: c.change === 'modified' ? 'modified' : 'added', diff: c.diff ?? [] })) as FileChange[],
             )
@@ -493,7 +470,6 @@ export function CodeGiftz() {
                       changes: wireChanges.map((c) => ({ path: c.path, change: c.change })),
                       incomplete: false,
                       verification: wireVerification,
-                      ...(wireFrontend ? { frontend: wireFrontend } : {}),
                     }
                   : m,
               ),
@@ -683,7 +659,6 @@ export function CodeGiftz() {
                           ))}
                         </div>
                       ) : null}
-                      {m.frontend ? <FrontendSummary data={m.frontend} /> : null}
                       {/* ADDITIVE (shared research gateway): clickable technical
                           references actually used by this turn — never fabricated. */}
                       {m.research && m.research.sources.length > 0 ? (
@@ -768,7 +743,9 @@ export function CodeGiftz() {
 
       <div className="border-t border-[rgba(212,175,55,0.1)] p-4">
         <div className="mx-auto max-w-2xl">
-          <GiftzFrontendPanel selection={frontendSel} onChange={setFrontendSel} />
+          {/* NOTE: the Frontend Toolkit panel was deliberately removed — the
+              frontend intelligence library is internal-only; the user just
+              describes what they want to build. */}
           {/* ADDITIVE (shared research gateway): honest source availability. */}
           <div className="mb-1.5">
             <ResearchStatusStrip product="code-giftz" />

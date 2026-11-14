@@ -21,10 +21,15 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/code-giftz/**": [
       "./src/components/giftz-kit/**/*",
-      "./node_modules/gsap/dist/gsap.min.js",
-      "./node_modules/gsap/dist/ScrollTrigger.min.js",
+      // GSAP core + the full free plugin set (ScrollTrigger, SplitText,
+      // MorphSVGPlugin, MotionPathPlugin, Flip, Draggable, Observer,
+      // CustomEase, DrawSVGPlugin, ScrambleTextPlugin).
+      "./node_modules/gsap/dist/*.min.js",
       "./node_modules/three/build/three.min.js",
       "./node_modules/vanta/dist/*.min.js",
+      // p5.js 0.6.1, vendored INSIDE the vanta package — the runtime for the
+      // p5-based Vanta effects (trunk, topology).
+      "./node_modules/vanta/vendor/p5.min.js",
     ],
   },
   // W6 security review (SEC-W6-02): app-level security headers.

@@ -18,14 +18,22 @@
  */
 import type { FrontendBackgroundMeta, FrontendTarget } from './types'
 
-/** The seven effects the work order requires. All ship in vanta 0.5.24 dist. */
+/**
+ * The effects BEAN supports. All ship in vanta 0.5.24 dist AND work with the
+ * vendored runtimes (three.js for the WebGL effects; p5.js — vendored from the
+ * vanta package itself — for trunk/topology, which extend _p5Base).
+ * NOT included: `clouds2` — it fetches an external noise texture
+ * (defaultOptions.texturePath = './gallery/noise.png') that is not shipped in
+ * the vanta package and cannot be vendored offline; supporting it would break
+ * the no-remote-fetch contract inside the CSP-restricted preview.
+ */
 export const VANTA_EFFECTS: FrontendBackgroundMeta[] = [
   {
     id: 'birds',
     label: 'Birds',
     description: 'Flocking birds wheeling behind the content; reacts to pointer.',
     vendorFiles: ['vendor/three.min.js', 'vendor/vanta.birds.min.js'],
-    note: 'Most performant of the seven; good hero default.',
+    note: 'Most performant of the three.js effects; good hero default.',
   },
   {
     id: 'waves',
@@ -69,6 +77,48 @@ export const VANTA_EFFECTS: FrontendBackgroundMeta[] = [
     vendorFiles: ['vendor/three.min.js', 'vendor/vanta.rings.min.js'],
     note: 'Cheap to render; good accent for CTAs.',
   },
+  {
+    id: 'cells',
+    label: 'Cells',
+    description: 'Worley-noise cell shader background (organic blobs).',
+    vendorFiles: ['vendor/three.min.js', 'vendor/vanta.cells.min.js'],
+    note: 'GPU shader effect; organic/bio feel; cheap on modern GPUs.',
+  },
+  {
+    id: 'dots',
+    label: 'Dots',
+    description: 'Field of spaced dots with connecting-line option (three.js points).',
+    vendorFiles: ['vendor/three.min.js', 'vendor/vanta.dots.min.js'],
+    note: 'Calm and sparse; good behind dashboards and heroes.',
+  },
+  {
+    id: 'halo',
+    label: 'Halo',
+    description: 'Glowing halo ring shader with ring/rotation factors.',
+    vendorFiles: ['vendor/three.min.js', 'vendor/vanta.halo.min.js'],
+    note: 'Centered glow; best on dark hero sections.',
+  },
+  {
+    id: 'ripple',
+    label: 'Ripple',
+    description: 'Concentric ripple shader pulsing through the background.',
+    vendorFiles: ['vendor/three.min.js', 'vendor/vanta.ripple.min.js'],
+    note: 'Subtle motion; keep amplitude low behind text.',
+  },
+  {
+    id: 'trunk',
+    label: 'Trunk',
+    description: 'Organic branching trunk/branches drawn with p5.js.',
+    vendorFiles: ['vendor/p5.min.js', 'vendor/vanta.trunk.min.js'],
+    note: 'p5.js-based (vendored from the vanta package); calmer and CPU-bound — fine for small heroes.',
+  },
+  {
+    id: 'topology',
+    label: 'Topology',
+    description: 'Animated topology/contour flow-field drawn with p5.js.',
+    vendorFiles: ['vendor/p5.min.js', 'vendor/vanta.topology.min.js'],
+    note: 'p5.js-based (vendored from the vanta package); distinctive technical look.',
+  },
 ]
 
 const EFFECTS_BY_ID = new Map(VANTA_EFFECTS.map((e) => [e.id, e]))
@@ -99,9 +149,10 @@ export const DEFAULT_VANTA_CONFIG: VantaConfig = {
 }
 
 /**
- * Per-effect option names follow Vanta's documented API (effect option keys
- * differ between effects; unknown keys are ignored gracefully by Vanta at
- * runtime). Only whitelisted keys are ever emitted.
+ * Per-effect option names follow Vanta's documented API (verified against
+ * each effect's defaultOptions in the vanta sources; option keys differ
+ * between effects; unknown keys are ignored gracefully by Vanta at runtime).
+ * Only whitelisted keys are ever emitted.
  */
 const EFFECT_OPTION_KEYS: Record<string, { colors: string[]; supportsSpeed: boolean; supportsZoom: boolean }> = {
   birds: { colors: ['color1', 'color2'], supportsSpeed: true, supportsZoom: false },
@@ -111,6 +162,12 @@ const EFFECT_OPTION_KEYS: Record<string, { colors: string[]; supportsSpeed: bool
   fog: { colors: ['highlightColor', 'midtoneColor', 'lowlightColor'], supportsSpeed: true, supportsZoom: true },
   clouds: { colors: ['highlightColor', 'midtoneColor', 'lowlightColor'], supportsSpeed: true, supportsZoom: false },
   rings: { colors: ['color'], supportsSpeed: false, supportsZoom: false },
+  cells: { colors: ['color1', 'color2'], supportsSpeed: true, supportsZoom: false },
+  dots: { colors: ['color', 'color2'], supportsSpeed: false, supportsZoom: false },
+  halo: { colors: ['baseColor', 'color2'], supportsSpeed: true, supportsZoom: false },
+  ripple: { colors: ['color1', 'color2'], supportsSpeed: true, supportsZoom: false },
+  trunk: { colors: ['color'], supportsSpeed: false, supportsZoom: false },
+  topology: { colors: ['color'], supportsSpeed: false, supportsZoom: false },
 }
 
 export function vantaOptionsFor(effectId: string, config: VantaConfig): Record<string, unknown> {
@@ -140,25 +197,30 @@ export const VANTA_FALLBACK_CSS = `.vanta-fallback {
   background: linear-gradient(160deg, #0b0d12 0%, #16203a 55%, #0b0d12 100%);
 }`
 
-/** STATIC TARGET — complete guarded init for the generated app.js. */
+/** STATIC TARGET — complete guarded init for the generated app.js. The
+ *  runtime guard and constructor option match the effect family: three.js
+ *  effects need window.THREE (+ a WebGL context); p5-based effects
+ *  (trunk/topology) need window.p5 and render without WebGL. */
 export function buildStaticVantaTemplate(effectId: string, config: VantaConfig): string {
   const options = vantaOptionsFor(effectId, config)
+  const isP5 = effectId === 'trunk' || effectId === 'topology'
+  const runtimeGlobal = isP5 ? 'p5' : 'THREE'
   return `// Vanta background (BEAN pattern: vanta-static) — effect: ${effectId}
 // Contract: init once after DOM ready, destroy before re-init and on pagehide,
-// static gradient fallback when WebGL is unavailable or reduced motion is set.
+// static gradient fallback when the runtime is unavailable or reduced motion is set.
 (function () {
   var el = document.getElementById('vanta-bg')
   if (!el) return
   var armFallback = function () { el.classList.add('vanta-fallback') }
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduceMotion || !window.VANTA || !window.THREE) { armFallback(); return }
-  var hasWebGL = false
+  if (reduceMotion || !window.VANTA || !window.${runtimeGlobal}) { armFallback(); return }
+  var hasRuntime = true
   try {
-    hasWebGL = !!window.WebGLRenderingContext && !!document.createElement('canvas').getContext('webgl')
-  } catch (err) { hasWebGL = false }
-  if (!hasWebGL) { armFallback(); return }
+    hasRuntime = ${isP5 ? 'true' : '!!window.WebGLRenderingContext && !!document.createElement(\'canvas\').getContext(\'webgl\')'}
+  } catch (err) { hasRuntime = false }
+  if (!hasRuntime) { armFallback(); return }
   if (window.__beanVanta) { window.__beanVanta.destroy(); window.__beanVanta = null }
-  window.__beanVanta = VANTA.${effectId.toUpperCase()}(Object.assign({ el: el, THREE: window.THREE }, ${JSON.stringify(options)}))
+  window.__beanVanta = VANTA.${effectId.toUpperCase()}(Object.assign({ el: el, ${isP5 ? 'p5: window.p5' : 'THREE: window.THREE'} }, ${JSON.stringify(options)}))
   window.addEventListener('pagehide', function () {
     if (window.__beanVanta) { window.__beanVanta.destroy(); window.__beanVanta = null }
   })
@@ -178,7 +240,20 @@ export const VANTA_REACT_COMPONENT_SOURCE = `/**
 'use client'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
-export type VantaEffectName = 'birds' | 'waves' | 'net' | 'globe' | 'fog' | 'clouds' | 'rings'
+export type VantaEffectName =
+  | 'birds'
+  | 'waves'
+  | 'net'
+  | 'globe'
+  | 'fog'
+  | 'clouds'
+  | 'rings'
+  | 'cells'
+  | 'dots'
+  | 'halo'
+  | 'ripple'
+  | 'trunk'
+  | 'topology'
 
 export interface VantaBackgroundProps {
   effect: VantaEffectName
@@ -198,7 +273,9 @@ interface VantaInstance {
 }
 
 // Bundler-friendly lazy loaders: ONE static import specifier per effect, so
-// only the selected bundle is fetched at runtime.
+// only the selected bundle is fetched at runtime. trunk/topology are p5-based:
+// their host app must import 'p5' BEFORE loading the effect bundle (Vanta
+// reads the global p5); the engine pins p5@0.6.1 in package.json for them.
 const EFFECT_LOADERS: Record<VantaEffectName, () => Promise<unknown>> = {
   birds: () => import('vanta/dist/vanta.birds.min.js'),
   waves: () => import('vanta/dist/vanta.waves.min.js'),
@@ -207,6 +284,12 @@ const EFFECT_LOADERS: Record<VantaEffectName, () => Promise<unknown>> = {
   fog: () => import('vanta/dist/vanta.fog.min.js'),
   clouds: () => import('vanta/dist/vanta.clouds.min.js'),
   rings: () => import('vanta/dist/vanta.rings.min.js'),
+  cells: () => import('vanta/dist/vanta.cells.min.js'),
+  dots: () => import('vanta/dist/vanta.dots.min.js'),
+  halo: () => import('vanta/dist/vanta.halo.min.js'),
+  ripple: () => import('vanta/dist/vanta.ripple.min.js'),
+  trunk: () => import('vanta/dist/vanta.trunk.min.js'),
+  topology: () => import('vanta/dist/vanta.topology.min.js'),
 }
 
 const FALLBACK_STYLE: CSSProperties = {
@@ -239,21 +322,27 @@ export default function VantaBackground({
       setFallback(true)
       return
     }
-    // WebGL capability check with an honest fallback path.
-    let hasWebGL = false
-    try {
-      hasWebGL = !!window.WebGLRenderingContext && !!document.createElement('canvas').getContext('webgl')
-    } catch {
-      hasWebGL = false
-    }
-    if (!hasWebGL) {
-      setFallback(true)
-      return
+    // Runtime family: p5-based effects (trunk/topology) render through p5
+    // (no WebGL probe needed); every other effect is a three.js WebGL effect
+    // and falls back honestly when WebGL is unavailable.
+    const isP5 = effect === 'trunk' || effect === 'topology'
+    if (!isP5) {
+      let hasWebGL = false
+      try {
+        hasWebGL = !!window.WebGLRenderingContext && !!document.createElement('canvas').getContext('webgl')
+      } catch {
+        hasWebGL = false
+      }
+      if (!hasWebGL) {
+        setFallback(true)
+        return
+      }
     }
 
     void (async () => {
       try {
-        const THREE = await import('three')
+        const THREE = isP5 ? undefined : await import('three')
+        const P5 = isP5 ? await import('p5') : undefined
         const bundle = (await EFFECT_LOADERS[effect]()) as Record<string, unknown>
         const VANTA = ((bundle as { default?: Record<string, unknown> }).default ?? bundle) as Record<string, unknown>
         const ctor = VANTA[effect.toUpperCase()] as
@@ -271,6 +360,9 @@ export default function VantaBackground({
         instanceRef.current = ctor({
           el: hostRef.current,
           THREE,
+          // Vanta's p5 effects read the p5 constructor from options or the
+          // global; bundlers do not set window.p5, so pass it explicitly.
+          p5: isP5 ? ((P5 as { default?: unknown }).default ?? P5) : undefined,
           mouseControls,
           touchControls,
           gyroControls: false,
@@ -279,9 +371,20 @@ export default function VantaBackground({
           backgroundColor: background,
           speed,
           zoom,
-          ...(effect === 'birds' ? { color1: colors[0] ?? '#d4af37', color2: colors[1] ?? colors[0] ?? '#8a6d1f' } : {}),
-          ...(effect !== 'birds' && effect !== 'globe' && effect !== 'fog' && effect !== 'clouds' ? { color: colors[0] ?? '#d4af37' } : {}),
+          ...(effect === 'birds' || effect === 'cells' || effect === 'ripple'
+            ? { color1: colors[0] ?? '#d4af37', color2: colors[1] ?? colors[0] ?? '#8a6d1f' }
+            : {}),
+          ...(effect !== 'birds' &&
+          effect !== 'globe' &&
+          effect !== 'fog' &&
+          effect !== 'clouds' &&
+          effect !== 'cells' &&
+          effect !== 'ripple' &&
+          effect !== 'halo'
+            ? { color: colors[0] ?? '#d4af37' }
+            : {}),
           ...(effect === 'globe' ? { color: colors[0] ?? '#d4af37', color2: colors[1] ?? colors[0] ?? '#8a6d1f' } : {}),
+          ...(effect === 'halo' ? { baseColor: colors[0] ?? '#d4af37', color2: colors[1] ?? colors[0] ?? '#8a6d1f' } : {}),
           ...(effect === 'fog' || effect === 'clouds'
             ? {
                 highlightColor: colors[0] ?? '#d4af37',
@@ -331,12 +434,14 @@ export function buildVantaBrief(target: FrontendTarget, effectId: string, config
   const effect = getVantaEffect(effectId)
   if (!effect) return ''
   if (target === 'static') {
+    const scriptTags = (effect.vendorFiles ?? ['vendor/three.min.js', `vendor/vanta.${effectId}.min.js`])
+      .map((f) => `<script src="${f}"></script>`)
+      .join('\n')
     return [
       `## VANTA BACKGROUND (${effect.label})`,
       `Reference the vendor bundles IN THIS ORDER in index.html, before app.js:`,
       '```html',
-      `<script src="vendor/three.min.js"></script>`,
-      `<script src="vendor/vanta.${effectId}.min.js"></script>`,
+      scriptTags,
       '```',
       `Add <div id="vanta-bg" ...> behind the content (position fixed/absolute, full size) and ${VANTA_FALLBACK_CSS}`,
       'Initialize with this exact pattern in app.js:',
