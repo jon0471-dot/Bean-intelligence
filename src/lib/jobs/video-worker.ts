@@ -251,8 +251,10 @@ export async function processVideoJob(job: JobRow): Promise<void> {
 
   try {
     // Cancellation is honored FIRST — including the enqueue/cancel race where
-    // the owner cancels between row creation and worker pickup.
-    if (cancelRequested.has(job.id)) {
+    // the owner cancels between row creation and worker pickup. The durable
+    // row flag (defect D4) is checked alongside the in-process Set so a
+    // cancel recorded by ANY process stops tracking before any submission.
+    if (cancelRequested.has(job.id) || (await durableCancelRequested(job.id))) {
       await markCancelled(job.id)
       return
     }
@@ -272,7 +274,7 @@ export async function processVideoJob(job: JobRow): Promise<void> {
       // claim path is already scheduled by claimNextJob — claimed rows carry
       // no nextRunAt).
       await waitForDue(job, job.id)
-      if (cancelRequested.has(job.id)) {
+      if (cancelRequested.has(job.id) || (await durableCancelRequested(job.id))) {
         await markCancelled(job.id)
         return
       }
@@ -383,12 +385,12 @@ export async function processVideoJob(job: JobRow): Promise<void> {
     let lastTrackingFailure: { kind: string; at: string } | null = null
 
     while (Date.now() < deadline) {
-      if (cancelRequested.has(job.id)) {
+      if (cancelRequested.has(job.id) || (await durableCancelRequested(job.id))) {
         await markCancelled(job.id)
         return
       }
       await sleep(pollIntervalMs)
-      if (cancelRequested.has(job.id)) {
+      if (cancelRequested.has(job.id) || (await durableCancelRequested(job.id))) {
         await markCancelled(job.id)
         return
       }
@@ -552,6 +554,22 @@ export async function processVideoJob(job: JobRow): Promise<void> {
       kind: 'video-generation',
       durationMs: Date.now() - startedAt.getTime(),
       success: true,
+    })
+    // LAXII-JAZMII RESTORATION (2026-11-14, SSE-log parity): video jobs used
+    // to persist ONLY on the row — the JobEvent log (the jobs drawer's event
+    // stream) stayed empty for jazmii while chat/coding jobs streamed events.
+    // A single artifact event at completion records the delivery facts
+    // (measured stream summary, never provider internals).
+    await appendJobEventSafe(job.id, 'artifact', {
+      video: {
+        url: result.videoUrl ?? null,
+        format: dl.format,
+        bytes: dl.bytesLength,
+        width: streamProbe.video.width,
+        height: streamProbe.video.height,
+        durationSec: streamProbe.video.durationSec,
+        validatedBy: 'ffprobe',
+      },
     })
     logger.info('jazmii.job_completed', { jobId: job.id, bytes: dl.bytesLength, format: dl.format })
     // REAL-attempt evidence: a genuine completion is the capability proof.
@@ -850,6 +868,26 @@ async function markCancelled(jobId: string): Promise<void> {
 }
 
 /**
+ * LAXII-JAZMII RESTORATION (2026-11-14, defect D4): durable cancel read for
+ * the poll loop. Cancellation used to live ONLY in this process's Set — a
+ * standalone worker (or a poller re-attached after a restart) never saw a
+ * server-side cancel, and the owner's DELETE appeared to do nothing while
+ * tracking continued. The durable `GenerationJob.cancelRequested` column the
+ * engine claim protocol already honors is now written by requestVideoCancel
+ * AND re-read every poll iteration here; the semantics stay stop-tracking
+ * (the provider exposes no cancel API) — this only makes the request visible
+ * across processes.
+ */
+async function durableCancelRequested(jobId: string): Promise<boolean> {
+  try {
+    const row = await db.generationJob.findUnique({ where: { id: jobId }, select: { cancelRequested: true } })
+    return row?.cancelRequested === true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Re-attach a poller to a video job with no live poller in this process
  * (restart/recovery). Called from the jobs-list path so a browser refresh
  * reconnects tracking without any user action.
@@ -894,6 +932,15 @@ export async function requestVideoCancel(jobId: string): Promise<boolean> {
   if (!job || job.product !== 'jazmii' || job.task !== 'video-generation') return false
   const queuedOrRunning = ['queued', 'running', 'starting', 'streaming', 'finalizing', 'retry_wait'].includes(job.status)
   if (!queuedOrRunning) return false
+  // DURABLE REQUEST (defect D4): the cancel is persisted on the row FIRST so
+  // every executor observes it — the engine claim protocol settles
+  // queued/retry_wait rows from this column, and the poll loop re-reads it
+  // for running rows (cross-process: standalone workers and restarted
+  // servers now honor it too). The in-process Set keeps its role for the
+  // live poller's immediate wake-up.
+  await db.generationJob
+    .update({ where: { id: jobId }, data: { cancelRequested: true } })
+    .catch(() => undefined)
   if (activePollers.has(jobId)) {
     cancelRequested.add(jobId)
     return true

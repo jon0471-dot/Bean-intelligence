@@ -784,21 +784,39 @@ async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Pro
       // usable transparency. HONEST failure with the measured reason.
       throw new LaxiiImageError(`Background removal failed validation: ${rejection}. Your original image was not modified.`)
     }
-    const png = await sharp(cutout.rgba, {
+    // SOURCE-DIMENSION RESTORATION (LAXII-JAZMII RESTORATION, 2026-11-14):
+    // stage 1 returns the provider's own fixed output resolution (measured:
+    // 1312x1312 regardless of the ≤1024 prepared input), which previously
+    // became the deliverable's dimensions. Where the original's geometry is
+    // recoverable — an aspect-ratio match within 2% and a non-enlarging
+    // resize — the transparent PNG is brought back to the EXACT submitted
+    // pixel dimensions; otherwise the keyed dimensions stand and the
+    // mismatch is recorded honestly in the provenance (never fabricated).
+    const origW = inputAsset.width ?? cutout.width
+    const origH = inputAsset.height ?? cutout.height
+    const aspectDelta = Math.abs(cutout.width / cutout.height - origW / origH) / (origW / origH)
+    const restorable = aspectDelta <= 0.02 && (origW < cutout.width || origH < cutout.height)
+    const finalW = restorable ? origW : cutout.width
+    const finalH = restorable ? origH : cutout.height
+    const rawPipe = sharp(cutout.rgba, {
       raw: { width: cutout.width, height: cutout.height, channels: 4 },
     })
-      .png({ compressionLevel: 6 })
-      .toBuffer()
+    const sized =
+      finalW !== cutout.width || finalH !== cutout.height
+        ? rawPipe.resize(finalW, finalH, { fit: 'fill' }) // alpha channel is resized with the pixels
+        : rawPipe
+    const png = await sized.png({ compressionLevel: 6 }).toBuffer()
     await progress(ctx, 90)
 
-    const resultAsset = await storeResultAsset(job.userId, 'result', png, cutout.width, cutout.height, {
+    const resultAsset = await storeResultAsset(job.userId, 'result', png, finalW, finalH, {
       jobId: job.id,
       provenance: {
         engine: 'hosted-edit+chroma-cutout',
         pipeline: 'two-stage-bg-removal',
         mode: 'background-removal',
         note:
-          'Stage 1 (provider): background replaced with uniform chroma-key green. Stage 2 (deterministic): key measured from the border ring and cut out to true alpha. Transparent PNG.',
+          'Stage 1 (provider): background replaced with uniform chroma-key green. Stage 2 (deterministic): key measured from the border ring and cut out to true alpha. Transparent PNG.' +
+          (restorable ? ' Output restored to the submitted source dimensions.' : ''),
       },
     })
 
@@ -812,8 +830,8 @@ async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Pro
         resultJson: JSON.stringify({
           imageUrl: resultAsset.url,
           originalUrl: inputAsset.url,
-          width: cutout.width,
-          height: cutout.height,
+          width: finalW,
+          height: finalH,
           format: 'png',
           transparent: true,
           bytes: png.length,
@@ -824,6 +842,11 @@ async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Pro
             pipeline: 'two-stage-bg-removal',
             mode: 'background-removal',
             inputPreparedMaxSidePx: 1024,
+            sourceWidth: origW,
+            sourceHeight: origH,
+            cutoutWidth: cutout.width,
+            cutoutHeight: cutout.height,
+            sourceDimensionsRestored: restorable,
           },
         }),
       },

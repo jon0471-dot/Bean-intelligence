@@ -1,0 +1,12 @@
+{
+  "bgrem": {
+    "format": "png",
+    "width": 1312,
+    "height": 1312,
+    "bytes": 196503,
+    "transparentFraction": 0.8983,
+    "opaqueFraction": 0.0494,
+    "hasAlphaChannel": true
+  },
+  "cancelProbe": null
+}

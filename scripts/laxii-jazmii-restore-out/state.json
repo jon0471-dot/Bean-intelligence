@@ -1,0 +1,262 @@
+{
+  "userEmail": "laxii-jazmii-restore-1794628285879@bean-evidence.local",
+  "laxii": {
+    "assets": {
+      "editAsset": "cmwfvclqn0008qeczahhyhpri",
+      "bgAsset": "cmwfvclr4000bqecztw3gbugg",
+      "enhAsset": "cmwfvclrk000eqecz8sdr6nv0"
+    },
+    "t2iSubmit": {
+      "status": 202,
+      "body": {
+        "ok": true,
+        "job": {
+          "id": "cmwfvclye000hqecz7dwf1q2h",
+          "status": "queued",
+          "progress": 0,
+          "size": "1024x1024"
+        }
+      }
+    },
+    "editSubmit": {
+      "status": 202,
+      "body": {
+        "ok": true,
+        "job": {
+          "id": "cmwfvcm6b000kqecz70nnpps6",
+          "status": "queued",
+          "progress": 0,
+          "mode": "conversational-edit",
+          "engine": "bean-image-hosted-edit"
+        }
+      }
+    },
+    "bgrSubmit": {
+      "status": 202,
+      "body": {
+        "ok": true,
+        "job": {
+          "id": "cmwfvcm6u000nqeczlgcvspjh",
+          "status": "queued",
+          "progress": 0,
+          "mode": "background-removal",
+          "engine": "bean-image-hosted-edit"
+        }
+      }
+    },
+    "enhSubmit": {
+      "status": 202,
+      "body": {
+        "ok": true,
+        "job": {
+          "id": "cmwfvcmb2000qqeczhoaglbxq",
+          "status": "queued",
+          "progress": 0,
+          "engine": "deterministic-sharp"
+        }
+      }
+    },
+    "jobIds": {
+      "t2i": "cmwfvclye000hqecz7dwf1q2h",
+      "edit": "cmwfvcm6b000kqecz70nnpps6",
+      "bgr": "cmwfvcm6u000nqeczlgcvspjh",
+      "enh": "cmwfvcmb2000qqeczhoaglbxq"
+    },
+    "results": {
+      "t2i": {
+        "id": "cmwfvclye000hqecz7dwf1q2h",
+        "status": "completed",
+        "progress": 100,
+        "errorCode": null,
+        "errorMessage": null,
+        "imageUrl": "/api/laxii/assets/cmwfvdcct0017qecz4kpsbm8v",
+        "width": 1024,
+        "height": 1024,
+        "generation": {
+          "requested": "1024x1024",
+          "generated": "1024x1024",
+          "strategy": "native",
+          "note": "generated at the exact requested resolution by the provider"
+        },
+        "format": "jpeg",
+        "bytes": 92743,
+        "durationMs": 32384,
+        "queuedAt": "2026-11-14T03:51:33.926Z",
+        "startedAt": "2026-11-14T03:51:33.945Z",
+        "finishedAt": "2026-11-14T03:52:08.142Z"
+      },
+      "edit": {
+        "id": "cmwfvcm6b000kqecz70nnpps6",
+        "status": "completed",
+        "progress": 100,
+        "errorCode": null,
+        "errorMessage": null,
+        "imageUrl": "/api/laxii/assets/cmwfvcxpf000tqeczsdegtjii",
+        "width": 1024,
+        "height": 1024,
+        "generation": null,
+        "format": "png",
+        "bytes": 1082941,
+        "durationMs": 13698,
+        "queuedAt": "2026-11-14T03:51:34.212Z",
+        "startedAt": "2026-11-14T03:51:35.454Z",
+        "finishedAt": "2026-11-14T03:51:49.156Z"
+      },
+      "bgr": {
+        "id": "cmwfvcm6u000nqeczlgcvspjh",
+        "status": "completed",
+        "progress": 100,
+        "errorCode": null,
+        "errorMessage": null,
+        "imageUrl": "/api/laxii/assets/cmwfvdakh000xqeczqsx30dck",
+        "width": 1312,
+        "height": 1312,
+        "generation": null,
+        "format": "png",
+        "bytes": 196503,
+        "durationMs": 16664,
+        "queuedAt": "2026-11-14T03:51:34.231Z",
+        "startedAt": "2026-11-14T03:51:49.160Z",
+        "finishedAt": "2026-11-14T03:52:05.826Z"
+      },
+      "enh": {
+        "id": "cmwfvcmb2000qqeczhoaglbxq",
+        "status": "completed",
+        "progress": 100,
+        "errorCode": null,
+        "errorMessage": null,
+        "imageUrl": "/api/laxii/assets/cmwfvday10011qecz0h1ti1vt",
+        "width": 1024,
+        "height": 1024,
+        "generation": null,
+        "format": "png",
+        "bytes": 178467,
+        "durationMs": 484,
+        "queuedAt": "2026-11-14T03:51:34.383Z",
+        "startedAt": "2026-11-14T03:52:05.829Z",
+        "finishedAt": "2026-11-14T03:52:06.315Z"
+      }
+    }
+  },
+  "bgrRerun": {
+    "jobId": "cmwfvf1pz0001qesstyhka1f1",
+    "result": {
+      "id": "cmwfvf1pz0001qesstyhka1f1",
+      "status": "completed",
+      "progress": 100,
+      "errorCode": null,
+      "errorMessage": null,
+      "imageUrl": "/api/laxii/assets/cmwfvfffy0004qess7ilfooz9",
+      "width": 640,
+      "height": 640,
+      "generation": null,
+      "format": "png",
+      "bytes": 34066,
+      "durationMs": 17334,
+      "queuedAt": "2026-11-14T03:53:27.672Z",
+      "startedAt": "2026-11-14T03:53:28.108Z",
+      "finishedAt": "2026-11-14T03:53:45.455Z"
+    }
+  },
+  "jazmii": {
+    "t2vSubmit": {
+      "status": 202,
+      "body": {
+        "ok": true,
+        "job": {
+          "id": "cmwfvfqsw0008qessxsnfkq9c",
+          "status": "queued",
+          "progress": 0,
+          "queuedAt": "2026-11-14T03:54:00.176Z"
+        }
+      }
+    },
+    "i2vSubmit": {
+      "status": 202,
+      "body": {
+        "ok": true,
+        "job": {
+          "id": "cmwfvfqtg000aqess6ej1n4z6",
+          "status": "queued",
+          "progress": 0,
+          "queuedAt": "2026-11-14T03:54:00.196Z"
+        }
+      }
+    },
+    "badRefProbe": {
+      "status": 400,
+      "body": {
+        "ok": false,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "The reference image is not a decodable image (png/jpeg/webp required)."
+        }
+      }
+    },
+    "jobIds": {
+      "t2v": "cmwfvfqsw0008qessxsnfkq9c",
+      "i2v": "cmwfvfqtg000aqess6ej1n4z6"
+    },
+    "i2vResult": {
+      "id": "cmwfvfqtg000aqess6ej1n4z6",
+      "status": "completed",
+      "progress": 100,
+      "errorCode": null,
+      "errorMessage": null,
+      "videoUrl": "/api/jazmii/jobs/cmwfvfqtg000aqess6ej1n4z6/media",
+      "format": "mp4",
+      "bytes": 1278155,
+      "queuedAt": "2026-11-14T03:54:00.196Z",
+      "startedAt": "2026-11-14T04:01:09.322Z",
+      "finishedAt": "2026-11-14T04:05:16.541Z"
+    },
+    "results": {
+      "t2v": {
+        "id": "cmwfvfqsw0008qessxsnfkq9c",
+        "status": "completed",
+        "progress": 100,
+        "errorCode": null,
+        "errorMessage": null,
+        "videoUrl": "/api/jazmii/jobs/cmwfvfqsw0008qessxsnfkq9c/media",
+        "format": "mp4",
+        "bytes": 3626952,
+        "queuedAt": "2026-11-14T03:54:00.176Z",
+        "startedAt": "2026-11-14T03:54:01.181Z",
+        "finishedAt": "2026-11-14T03:58:27.857Z"
+      },
+      "i2v": {
+        "id": "cmwfvfqtg000aqess6ej1n4z6",
+        "status": "completed",
+        "progress": 100,
+        "errorCode": null,
+        "errorMessage": null,
+        "videoUrl": "/api/jazmii/jobs/cmwfvfqtg000aqess6ej1n4z6/media",
+        "format": "mp4",
+        "bytes": 1278155,
+        "queuedAt": "2026-11-14T03:54:00.196Z",
+        "startedAt": "2026-11-14T04:01:09.322Z",
+        "finishedAt": "2026-11-14T04:05:16.541Z"
+      }
+    },
+    "cancelProbe": {
+      "jobId": "cmwfvwlgu000tqessy8sd8r5v",
+      "deleteStatus": 200,
+      "settledAfterRetryWindow": {
+        "cancelRequested": true,
+        "status": "cancelled",
+        "errorCode": "CANCELLED",
+        "errorMessage": "Cancelled before processing started."
+      }
+    },
+    "badRefProbeResult": {
+      "status": 400,
+      "message": "The reference image is not a decodable image (png/jpeg/webp required)."
+    },
+    "t2vFinalRegression": {
+      "jobId": "cmwfvylpt000zqessqkq4g0l0",
+      "status": "completed",
+      "bytes": 10785929,
+      "durationMs": 234900
+    }
+  }
+}
