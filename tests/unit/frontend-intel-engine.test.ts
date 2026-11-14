@@ -140,6 +140,32 @@ describe('frontend plan resolution', () => {
     expect(plan.brief).toContain('Dashboard/data UI: data density and legibility first')
   })
 
+  // M21 repair R-B1: data-first site types also suppress decorative
+  // BACKGROUND-effect catalogue components on the AUTO path (their profile
+  // guidance forbids exactly that), while other site types and explicit
+  // selections keep them.
+  test('SITE PROFILE: dashboard auto-selection excludes Background-effect components (R-B1)', () => {
+    const plan = resolveFrontendPlan({
+      message: 'Build an analytics dashboard with KPI stat cards, charts, radar and playful game cards in a React app',
+    })
+    expect(plan.enabled).toBe(true)
+    for (const id of plan.componentIds) {
+      expect(id).not.toBe('radar')
+      expect(id).not.toBe('balatro')
+    }
+    // the same cues OUTSIDE a data-first profile still auto-select them
+    const landing = resolveFrontendPlan({
+      message: 'Build an immersive landing page with radar and playful game cards in a React app',
+    })
+    expect(landing.componentIds).toContain('radar')
+    // explicit selections are never touched
+    const explicit = resolveFrontendPlan({
+      message: 'Build an analytics dashboard',
+      selection: { components: ['radar'] },
+    })
+    expect(explicit.componentIds).toContain('radar')
+  })
+
   test('SITE PROFILE: performance budgets drop HEAVY auto backgrounds (globe) but keep explicit requests flagged', () => {
     const auto = resolveFrontendPlan({ message: 'Build a lightweight landing page with a globe background, performance matters' })
     expect(auto.vantaEffect).toBeNull() // heavy effect dropped under the stated budget

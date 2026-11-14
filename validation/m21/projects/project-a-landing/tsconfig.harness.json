@@ -1,0 +1,4 @@
+{
+  "extends": "../../harness/tsconfig.base.json",
+  "include": ["index.tsx", "App.tsx", "components/**/*.tsx", "components/**/*.ts", "lib/**/*.ts", "lib/**/*.tsx", "types/**/*.d.ts", "pages/**/*.tsx", "data/**/*.ts", "harness-env.d.ts", "main.tsx"]
+}

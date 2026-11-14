@@ -14,6 +14,8 @@ import {
   buildVantaBrief,
   getVantaEffect,
   vantaOptionsFor,
+  vantaReactComponentSource,
+  resolveVantaEffectCtor,
   VANTA_REACT_COMPONENT_SOURCE,
   VANTA_AMBIENT_TYPES_SOURCE,
   VANTA_FALLBACK_CSS,
@@ -163,6 +165,58 @@ describe('Vanta background engine registry (expanded)', () => {
 
     test('ambient type declaration covers all effect bundle specifiers', () => {
       expect(VANTA_AMBIENT_TYPES_SOURCE).toContain("declare module 'vanta/dist/*'")
+    })
+  })
+
+  // M21 repair R-A2: family-aware emission — a three-family project must not
+  // emit a reference to the 'p5' module (bundlers resolve every dynamic
+  // specifier; p5 is not in that project's dependency set) and vice versa.
+  describe('family-aware React component emission (M21 R-A2)', () => {
+    test('three-family effects emit NO p5 module reference', () => {
+      for (const id of ALL_EFFECTS.filter((e) => !VANTA_P5_EFFECTS.has(e))) {
+        const src = vantaReactComponentSource(id)
+        expect(src).not.toContain("import('p5')")
+        expect(src).toContain("await import('three')")
+        expect(src).toContain('p5: undefined,')
+        // lifecycle + fallback contract intact
+        expect(src).toContain('instanceRef.current.destroy()')
+        expect(src).toContain('prefers-reduced-motion')
+        expect(src).toContain('setFallback(true)')
+      }
+    })
+
+    test('p5-family effects keep the shared source unchanged', () => {
+      for (const id of VANTA_P5_EFFECTS) {
+        expect(vantaReactComponentSource(id)).toBe(VANTA_REACT_COMPONENT_SOURCE)
+        expect(vantaReactComponentSource(id)).toContain("const P5 = isP5 ? await import('p5') : undefined")
+      }
+    })
+
+    test('emitted source resolves BOTH bundler interop shapes (R-A2b)', () => {
+      // the emitted three-family and p5-family sources both carry the dual-shape ctor branch
+      expect(vantaReactComponentSource('birds')).toContain("typeof VANTA === 'function'")
+      expect(VANTA_REACT_COMPONENT_SOURCE).toContain('VANTA[effect.toUpperCase()]')
+    })
+  })
+
+  describe('resolveVantaEffectCtor (R-A2b runtime contract, mirrors the emitted branch)', () => {
+    const effect = 'birds'
+    test('webpack esModule namespace: { default: factory }', () => {
+      const factory = (o: Record<string, unknown>) => o
+      expect(resolveVantaEffectCtor({ default: factory }, effect)).toBe(factory)
+    })
+    test('raw VANTA registry object keyed by the global effect name', () => {
+      const factory = (o: Record<string, unknown>) => o
+      expect(resolveVantaEffectCtor({ BIRDS: factory }, effect)).toBe(factory)
+    })
+    test('nested registry under default', () => {
+      const factory = (o: Record<string, unknown>) => o
+      expect(resolveVantaEffectCtor({ default: { BIRDS: factory } }, effect)).toBe(factory)
+    })
+    test('missing constructor resolves to null (honest fallback path)', () => {
+      expect(resolveVantaEffectCtor({}, effect)).toBeNull()
+      expect(resolveVantaEffectCtor(null, effect)).toBeNull()
+      expect(resolveVantaEffectCtor({ default: 42 }, effect)).toBeNull()
     })
   })
 

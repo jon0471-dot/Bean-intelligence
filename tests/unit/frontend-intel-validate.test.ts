@@ -197,6 +197,34 @@ describe('react-target generation checks', () => {
     expect(report.issues.some((i) => i.id === 'invalid-component-name' && i.severity === 'blocking')).toBe(true)
   })
 
+  // M21 finding F-2 / repair R-C1: the kit-import check must also match
+  // PARENT-relative specifiers ('../components/kit/…'), which real multi-page
+  // apps (pages/*.tsx) produce — a ghost import via '../' must stay blocking,
+  // and a real emitted component referenced via '../' must stay accepted.
+  test('parent-relative kit imports are checked the same as ./ ones (R-C1)', () => {
+    const emitted = { path: 'components/kit/SplitText.tsx', content: 'export default function SplitText() { return null }' }
+    // ghost import through '../' → still blocking
+    const ghost = validateFrontendOutput(
+      [
+        { path: 'package.json', content: goodPkg },
+        emitted,
+        { ...goodApp, path: 'pages/home.jsx', content: goodApp.content.replace("'./components/kit/SplitText'", "'../components/kit/Lanyard'") },
+      ],
+      reactPlan,
+    )
+    expect(ghost.issues.some((i) => i.id === 'invalid-component-name' && i.severity === 'blocking')).toBe(true)
+    // real component through '../' → accepted
+    const ok = validateFrontendOutput(
+      [
+        { path: 'package.json', content: goodPkg },
+        emitted,
+        { ...goodApp, path: 'pages/home.jsx', content: goodApp.content.replace("'./components/kit/SplitText'", "'../components/kit/SplitText'") },
+      ],
+      reactPlan,
+    )
+    expect(ok.issues.some((i) => i.id === 'invalid-component-name')).toBe(false)
+  })
+
   test('undeclared bare import → blocking missing-imports', () => {
     const report = validateFrontendOutput(
       [

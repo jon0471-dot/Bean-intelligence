@@ -42,10 +42,10 @@ import {
 } from './gsap-patterns'
 import {
   DEFAULT_VANTA_CONFIG,
-  VANTA_REACT_COMPONENT_SOURCE,
   VANTA_AMBIENT_TYPES_SOURCE,
   buildVantaBrief,
   getVantaEffect,
+  vantaReactComponentSource,
   type VantaConfig,
 } from './vanta'
 import { buildNoticesMarkdown, reactPackageJson, vendorProjectFiles, VANTA_P5_EFFECTS } from './vendor'
@@ -270,6 +270,15 @@ export function resolveFrontendPlan(args: ResolveFrontendPlanArgs): FrontendPlan
     else if (!componentIds.includes(id)) componentIds.push(id)
   }
   if (componentIds.length === 0 && (selectionEngaged ? true : autoComponents.length > 0)) {
+    // Data-first site types suppress decorative BACKGROUND-effect components
+    // on the auto path (M21 repair R-B1, narrowly scoped): the dashboard/docs
+    // profiles mandate "data density and legibility first — NO WebGL
+    // backgrounds, motion limited to feedback transitions", so handing the
+    // model an animated background component contradicts the plan's own
+    // guidance. Mirrors the existing Vanta auto-suppression; explicit
+    // selections are never touched.
+    const suppressBackgrounds =
+      !selectionEngaged && (profile.typeId === 'dashboard' || profile.typeId === 'docs')
     for (const id of autoComponents) {
       const entry = getCatalogEntry(id)
       if (!entry) continue
@@ -280,6 +289,9 @@ export function resolveFrontendPlan(args: ResolveFrontendPlanArgs): FrontendPlan
         !/\b(playful|fun|cursor)\b/i.test(message) &&
         /cursor|pointer|swarm|trail/i.test(entry.description)
       ) {
+        continue
+      }
+      if (suppressBackgrounds && entry.category === 'Background effect') {
         continue
       }
       if (!componentIds.includes(id)) componentIds.push(id)
@@ -364,7 +376,10 @@ export function resolveFrontendPlan(args: ResolveFrontendPlanArgs): FrontendPlan
       for (const dep of entry.dependencies) reactDeps.add(dep)
     }
     if (vantaEffect) {
-      engineFiles.push({ path: 'components/kit/VantaBackground.tsx', content: VANTA_REACT_COMPONENT_PLACEHOLDER })
+      // Family-aware emission (M21 R-A2): a three-family project must not
+      // reference the 'p5' module (bundlers resolve every dynamic specifier,
+      // and p5 is not in this project's dependency set).
+      engineFiles.push({ path: 'components/kit/VantaBackground.tsx', content: vantaReactComponentSource(vantaEffect) })
       engineFiles.push({ path: 'types/vanta.d.ts', content: VANTA_AMBIENT_PLACEHOLDER })
       reactDeps.add('vanta')
       if (VANTA_P5_EFFECTS.has(vantaEffect)) {
@@ -618,7 +633,6 @@ function readKitFile(file: string): string {
   return content
 }
 
-const VANTA_REACT_COMPONENT_PLACEHOLDER = VANTA_REACT_COMPONENT_SOURCE
 const VANTA_AMBIENT_PLACEHOLDER = VANTA_AMBIENT_TYPES_SOURCE
 
 /** Re-export for tests + internal consumers. */
