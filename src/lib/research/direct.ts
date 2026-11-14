@@ -25,6 +25,7 @@
  * touches the gateway, so a 429 window cannot starve it.
  */
 import { htmlToText, extractPublishedTime, ResearchToolError, type WebSearchResult } from './provider'
+import { assertPublicHttpUrl, guardedFetch } from './reach/url-safety'
 
 /** Overall wall-time budget for one independent-lane run (brief: 3–8s discovery). */
 export const DIRECT_LANE_BUDGET_MS = 8_000
@@ -82,25 +83,32 @@ const WIKI_POLICY_HEADERS = {
 /**
  * Plain bounded HTTP GET — completely independent of the gateway. Throws
  * ResearchToolError('direct_fetch') on every failure mode (invalid URL,
- * non-2xx, timeout, empty/error body). No retries here: the caller owns the
- * time budget and the fallback chain.
+ * blocked URL, non-2xx, timeout, empty/error body). No retries here: the
+ * caller owns the time budget and the fallback chain.
+ *
+ * SECURITY (shared research gateway): the URL passes the SSRF guard first
+ * (scheme, userinfo, literal private/metadata IPs, metadata hostnames, and —
+ * outside hermetic tests — DNS resolution), and redirects are followed
+ * MANUALLY with every hop revalidated (redirect-SSRF safe).
  */
 export async function directFetch(
   url: string,
   timeoutMs = DIRECT_FETCH_TIMEOUT_MS,
   extraHeaders: Record<string, string> = {},
 ): Promise<DirectFetchResult> {
+  const t0 = Date.now()
+  const guard = await assertPublicHttpUrl(url)
+  if (!guard.ok) {
+    throw new ResearchToolError('direct_fetch', `Blocked URL: ${guard.reason}`)
+  }
   let parsed: URL
   try {
-    parsed = new URL(url)
+    parsed = new URL(guard.url)
   } catch {
     throw new ResearchToolError('direct_fetch', `Invalid URL: ${url.slice(0, 100)}`)
   }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new ResearchToolError('direct_fetch', 'Only http(s) URLs are supported.')
-  }
-  const t0 = Date.now()
   let res: Response
+  let finalUrl: string
   try {
     // Wikimedia properties reject generic client UAs (measured: HTTP 403
     // from this runtime) — apply the policy-compliant headers for their
@@ -109,16 +117,17 @@ export async function directFetch(
     const policy = /(^|\.)wikipedia\.org$/.test(host) || /(^|\.)wikimedia\.org$/.test(host) || /(^|\.)wiktionary\.org$/.test(host)
       ? WIKI_POLICY_HEADERS
       : {}
-    res = await fetch(parsed.toString(), {
+    const fetched = await guardedFetch(guard.url, {
+      timeoutMs,
       headers: {
         'user-agent': DIRECT_UA,
         accept: 'text/html,application/json;q=0.9,*/*;q=0.8',
         ...policy,
         ...extraHeaders,
       },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(timeoutMs),
     })
+    res = fetched.res
+    finalUrl = fetched.finalUrl
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e)
     throw new ResearchToolError('direct_fetch', `direct fetch of ${parsed.host} failed after ${Date.now() - t0}ms: ${reason.slice(0, 160)}`)
@@ -138,7 +147,7 @@ export async function directFetch(
   const title = isJson ? '' : (/<title[^>]*>([^<]{1,300})<\/title>/i.exec(body)?.[1] ?? '').replace(/\s+/g, ' ').trim()
   const text = isJson ? body : htmlToText(body)
   return {
-    finalUrl: res.url || parsed.toString(),
+    finalUrl: res.url || finalUrl || parsed.toString(),
     status: res.status,
     title,
     text,

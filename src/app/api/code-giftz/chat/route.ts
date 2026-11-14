@@ -30,7 +30,7 @@ import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
 import { verificationConfig } from '@/lib/verification/config'
 import { publicVerificationSummary, type VerificationOutcome } from '@/lib/verification/pipeline'
 import { filterConversationsByTitle } from '@/lib/riishe/conversation-view'
-import { buildTechDocsContext } from '@/lib/intel/techdocs'
+import { buildTechDocsWithReach } from '@/lib/intel/techdocs-reach'
 import { resolveFrontendPlan } from '@/lib/frontend-intel/engine'
 import type { FrontendSelection, FrontendTurnResult } from '@/lib/frontend-intel/types'
 
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
       // degrades to null and the turn proceeds on model knowledge with NO
       // source claimed (never a fabricated citation). The block is untrusted
       // REFERENCE DATA for the coding model — never executable instructions.
-      const techDocs = await buildTechDocsContext(body.message)
+      const { techDocs, research } = await buildTechDocsWithReach(body.message, user.id)
       if (techDocs?.degraded.length) {
         logger.info('giftz.techdocs_degraded', { projectId, degraded: techDocs.degraded })
       }
@@ -223,6 +223,7 @@ export async function POST(request: Request) {
           onEvent,
           guard,
           ...(frontendPlan.enabled ? { frontend: { plan: frontendPlan } } : {}),
+          ...(research.sources.length > 0 || research.degraded.length > 0 ? { research } : {}),
         })
 
       // ---- JSON path (API/testing) -----------------------------------------
@@ -238,6 +239,7 @@ export async function POST(request: Request) {
                 changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
                 continuations: result.continuationCount, // honest record of provider passes
                 ...(result.frontend ? { frontend: result.frontend } : {}),
+                ...(result.research ? { research: result.research } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
                   ? {
                       verification: {
@@ -273,6 +275,7 @@ export async function POST(request: Request) {
             durationMs: result.durationMs,
             verification: publicVerificationSummary(result.verification),
             ...(result.frontend ? { frontend: result.frontend } : {}),
+            ...(result.research ? { research: result.research } : {}),
           })
         } catch (e) {
           // Typed upstream failures keep their honest class (a 429 stays a
@@ -313,6 +316,7 @@ export async function POST(request: Request) {
                 changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
                 continuations: result.continuationCount, // honest record of provider passes
                 ...(result.frontend ? { frontend: result.frontend } : {}),
+                ...(result.research ? { research: result.research } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
                   ? {
                       verification: {

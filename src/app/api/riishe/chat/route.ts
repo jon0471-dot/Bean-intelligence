@@ -314,6 +314,7 @@ export async function POST(request: Request) {
           documents,
           digest,
           memories,
+          userId: user.id,
         })
         await db.message.create({
           data: {
@@ -408,6 +409,7 @@ export async function POST(request: Request) {
             documents,
             digest,
             memories,
+            userId: user.id,
             onEvent: (e) => {
               if (e.type === 'delta') {
                 if (firstTokenAt === null) firstTokenAt = Date.now()

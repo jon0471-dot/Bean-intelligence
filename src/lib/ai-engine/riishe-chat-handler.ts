@@ -42,6 +42,9 @@ interface RiisheJobParams {
   /** The user row persisted at submission — excluded from history window. */
   userMessageId: string
   documentIds?: string[]
+  /** ADDITIVE (shared research gateway): the job owner, forwarded to the
+   *  research pipeline for rate-limited, audited Agent Reach retrieval. */
+  userId?: string
 }
 
 export async function handleRiisheChatJob(
@@ -234,6 +237,7 @@ export async function handleRiisheChatJob(
       documents,
       digest,
       memories,
+      userId: params.userId ?? job.userId,
       onEvent,
     })
 

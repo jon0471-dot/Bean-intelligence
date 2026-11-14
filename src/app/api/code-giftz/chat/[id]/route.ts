@@ -36,7 +36,7 @@ export async function GET(
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
         messages: messages.map((m) => {
-          const meta = m.metaJson ? (JSON.parse(m.metaJson) as { changes?: Array<{ path: string; change: string }>; frontend?: unknown }) : {}
+          const meta = m.metaJson ? (JSON.parse(m.metaJson) as { changes?: Array<{ path: string; change: string }>; frontend?: unknown; research?: { sources?: Array<{ host: string; url: string; title: string; channel: string; backend?: string | null; engine?: string }>; degraded?: string[] } }) : {}
           return {
             id: m.id,
             role: m.role,
@@ -44,6 +44,8 @@ export async function GET(
             changes: meta.changes ?? [],
             // ADDITIVE: Frontend Intelligence summary (frontend turns only).
             ...(meta.frontend ? { frontend: meta.frontend } : {}),
+            // ADDITIVE (shared research gateway): research provenance.
+            ...(meta.research ? { research: meta.research } : {}),
           }
         }),
         files: files.map((f) => ({ path: f.path, content: f.content, origin: f.origin })),

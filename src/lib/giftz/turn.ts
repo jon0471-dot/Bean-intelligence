@@ -99,6 +99,10 @@ export interface GiftzTurnCoreInput {
   /** Optional Frontend Intelligence plan (resolved by the caller). When
    *  absent the turn behaves EXACTLY as before — the toolkit is opt-in. */
   frontend?: { plan: FrontendPlan }
+  /** ADDITIVE (shared research gateway): honest research artifact (sources
+   *  actually used + degraded notes) persisted on the message metadata and
+   *  returned on the turn result. Absent when no research ran. */
+  research?: import('@/lib/intel/techdocs-reach').GiftzResearchArtifact
   /** Stream sink (background worker / SSE); omit for a fully buffered turn. */
   onEvent?: (e: { delta?: string; stage?: string }) => void
   guard?: GenerationGuard
@@ -115,6 +119,8 @@ export interface GiftzTurnCoreResult {
   draftCharCount: number
   /** Frontend Intelligence summary + deterministic checks (frontend turns only). */
   frontend?: FrontendTurnResult
+  /** ADDITIVE (shared research gateway): research provenance artifact. */
+  research?: import('@/lib/intel/techdocs-reach').GiftzResearchArtifact
 }
 
 /**
@@ -287,6 +293,7 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
     verification,
     draftCharCount,
     ...(frontend ? { frontend } : {}),
+    ...(input.research ? { research: input.research } : {}),
   }
 }
 
@@ -307,6 +314,7 @@ export async function persistGiftzAssistantTurn(
       metaJson: JSON.stringify({
         changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
         continuations: result.continuationCount,
+        ...(result.research ? { research: result.research } : {}),
         ...(result.verification && result.verification.status !== 'skipped'
           ? {
               verification: {
