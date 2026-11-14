@@ -1,0 +1,42 @@
+{
+  "project": "project-b-dashboard",
+  "url": "http://127.0.0.1:4612/",
+  "heading": "Platform overview",
+  "kpiCards": 4,
+  "charts": 2,
+  "tableRows": 8,
+  "sidebarItems": 6,
+  "searchFilters": {
+    "before": 8,
+    "after": 1
+  },
+  "sortChangesOrder": true,
+  "dateRangeSelect": 2,
+  "loadingStateVisible": true,
+  "emptyStateVisible": true,
+  "errorStateVisible": true,
+  "sampleDataLabeled": 7,
+  "horizontalOverflowMobile": false,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "reducedMotion": {
+    "vantaCanvasUnderReducedMotion": 0,
+    "contentVisible": true,
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  "webglBlocked": {
+    "fallbackUsed": "no-host",
+    "contentStillLegible": true,
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  "mobile": {
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  "mobileNavOnFreshLoad": {
+    "navButtons": 3,
+    "navButtonVisible": true
+  }
+}

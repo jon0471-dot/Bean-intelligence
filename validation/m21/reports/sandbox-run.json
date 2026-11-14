@@ -1,0 +1,27 @@
+{
+  "runId": "f87f0cca-80b7-467e-8c32-67595d10a7c1",
+  "exitCode": 0,
+  "timedOut": false,
+  "durationMs": 18,
+  "isolation": {
+    "networkNamespace": true,
+    "rlimits": true,
+    "processSeparation": true
+  },
+  "stdout": [
+    "PASS sample rows: 8 regions",
+    "PASS date ranges: 3 windows",
+    "PASS rowsForRange(7d) scales all 8 rows",
+    "PASS kpisForRange(7d) yields 4 KPIs",
+    "PASS rowsForRange(30d) scales all 8 rows",
+    "PASS kpisForRange(30d) yields 4 KPIs",
+    "PASS rowsForRange(90d) scales all 8 rows",
+    "PASS kpisForRange(90d) yields 4 KPIs",
+    "PASS trend: 12 weeks, all positive",
+    "PASS statuses within enum",
+    "ALL CHECKS PASSED",
+    ""
+  ],
+  "stderr": ""
+}
+SANDBOX CHECK PASSED

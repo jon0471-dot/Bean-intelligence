@@ -1,0 +1,6 @@
+# M21 validation artifacts — build/install outputs are never committed
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+package-lock.json

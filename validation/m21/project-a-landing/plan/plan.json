@@ -1,0 +1,67 @@
+{
+  "message": "Build a modern immersive dark-themed technology landing page for \"Nebula\", a fictional AI infrastructure platform, as a React app: professional hero section with strong typography, navigation with a mobile menu, feature cards, product showcase, testimonials, pricing, FAQ and footer, rich entrance and scroll animations, animated headings, count-up stats and an interactive animated background. Accessible controls, responsive on mobile.",
+  "target": "react",
+  "reason": "Auto-detected frontend generation request",
+  "componentIds": [
+    "split-text",
+    "blur-text",
+    "count-up",
+    "scroll-reveal",
+    "animated-content"
+  ],
+  "animationIds": [
+    "entrance-timeline",
+    "scroll-reveal-batch",
+    "text-reveal",
+    "hover-lift",
+    "scroll-scrub",
+    "custom-ease"
+  ],
+  "vantaEffect": "birds",
+  "responsive": true,
+  "dependencies": [
+    {
+      "name": "gsap",
+      "version": "3.13.0",
+      "license": "Standard 'No Charge' GSAP License (free incl. commercial use)",
+      "reason": "required by the selected toolkit (gsap)"
+    },
+    {
+      "name": "@gsap/react",
+      "version": "2.1.2",
+      "license": "Standard 'No Charge' GSAP License",
+      "reason": "required by the selected toolkit (@gsap/react)"
+    },
+    {
+      "name": "framer-motion",
+      "version": "12.26.2",
+      "license": "MIT",
+      "reason": "required by the selected toolkit (framer-motion)"
+    },
+    {
+      "name": "vanta",
+      "version": "0.5.24",
+      "license": "MIT",
+      "reason": "required by the selected toolkit (vanta)"
+    },
+    {
+      "name": "three",
+      "version": "0.134.0",
+      "license": "MIT",
+      "reason": "required by the selected toolkit (three)"
+    }
+  ],
+  "engineFilePaths": [
+    "components/kit/SplitText.tsx",
+    "components/kit/BlurText.tsx",
+    "components/kit/CountUp.tsx",
+    "components/kit/ScrollReveal.tsx",
+    "components/kit/ScrollReveal.css",
+    "components/kit/AnimatedContent.tsx",
+    "components/kit/VantaBackground.tsx",
+    "types/vanta.d.ts",
+    "package.json",
+    "NOTICES.md"
+  ],
+  "notices": "GSAP 3.13.0 — Standard No-Charge License · Vanta 0.5.24 & three 0.134.0 — MIT · p5 0.6.1 — LGPL-2.1 (p5-based effects) · React Bits — MIT + Commons Clause (attribution preserved; see NOTICES.md in the project and docs/THIRD-PARTY-NOTICES.md)"
+}

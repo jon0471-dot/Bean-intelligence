@@ -154,8 +154,10 @@ export function validateFrontendOutput(files: FrontendOutputFile[], plan: Fronte
     const emittedKit = new Set(files.filter((f) => f.path.startsWith('components/kit/')).map((f) => f.path))
 
     // 1. kit imports must resolve to engine-emitted files (no ghost components)
+    // (M21 R-C1: parent-relative '../components/kit/…' specifiers are matched
+    // too — real multi-page apps import kit files from pages/*.tsx.)
     for (const f of files.filter((x) => /\.(tsx|jsx|ts|js)$/.test(x.path) && !isEngineManaged(x.path))) {
-      const re = /['"]\.\/?components\/kit\/([^'"]+)['"]/g
+      const re = /['"](?:\.{1,2}\/)?components\/kit\/([^'"]+)['"]/g
       let m: RegExpExecArray | null
       while ((m = re.exec(f.content)) !== null) {
         const ref = m[1]

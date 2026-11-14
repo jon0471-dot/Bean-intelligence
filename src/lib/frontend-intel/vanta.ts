@@ -17,6 +17,7 @@
  * its own Vanta lifecycle.
  */
 import type { FrontendBackgroundMeta, FrontendTarget } from './types'
+import { VANTA_P5_EFFECTS } from './vendor'
 
 /**
  * The effects BEAN supports. All ship in vanta 0.5.24 dist AND work with the
@@ -344,10 +345,17 @@ export default function VantaBackground({
         const THREE = isP5 ? undefined : await import('three')
         const P5 = isP5 ? await import('p5') : undefined
         const bundle = (await EFFECT_LOADERS[effect]()) as Record<string, unknown>
-        const VANTA = ((bundle as { default?: Record<string, unknown> }).default ?? bundle) as Record<string, unknown>
-        const ctor = VANTA[effect.toUpperCase()] as
-          | ((options: Record<string, unknown>) => VantaInstance)
-          | undefined
+        // Bundler CJS interop can expose the effect factory in EITHER shape:
+        // a default export holding the factory (webpack esModule namespace
+        // under vite/rollup) or the VANTA registry object keyed by the global
+        // effect name (VANTA.BIRDS, ... — the raw-namespace shape). Both are
+        // supported; a missing constructor falls back honestly.
+        // (M21 repair R-A2b — recorded in the validation report; unit-tested
+        // by resolveVantaEffectCtor which mirrors this branch structure.)
+        const VANTA = ((bundle as { default?: unknown }).default ?? bundle) as Record<string, unknown>
+        const ctor = (
+          typeof VANTA === 'function' ? VANTA : VANTA[effect.toUpperCase()]
+        ) as ((options: Record<string, unknown>) => VantaInstance) | undefined
         if (cancelled || !hostRef.current || typeof ctor !== 'function') {
           if (!cancelled) setFallback(true)
           return
@@ -428,6 +436,53 @@ declare module 'vanta/dist/*' {
   export default VantaBundle
 }
 `
+
+/**
+ * Family-aware emission of the React background component (M21 repair R-A2,
+ * narrowly scoped): the base source above handles BOTH runtimes with one
+ * dynamic import per family, but bundlers statically resolve EVERY dynamic
+ * specifier — so a three-family project emitted with a reference to the 'p5'
+ * module cannot build (p5 is not in that project's pinned dependency set, and
+ * vice versa for a p5 project). For three-family effects the emitted source
+ * therefore drops the p5 branch entirely; p5-family effects keep the shared
+ * source unchanged. Recorded in docs/M21-GENERATION-VALIDATION-REPORT.md.
+ */
+export function vantaReactComponentSource(effect: string): string {
+  if (VANTA_P5_EFFECTS.has(effect)) return VANTA_REACT_COMPONENT_SOURCE
+  return VANTA_REACT_COMPONENT_SOURCE.replace(
+    "const P5 = isP5 ? await import('p5') : undefined",
+    "// This project's effect is three-based (family-aware emission): the p5\n" +
+      '        // module is never referenced here, so bundlers do not resolve it.',
+  ).replace(
+    'p5: isP5 ? ((P5 as { default?: unknown }).default ?? P5) : undefined,',
+    'p5: undefined,',
+  )
+}
+
+/**
+ * Runtime effect-ctor resolution for the emitted React component (M21
+ * R-A2b). Mirrors — verbatim in branch structure — the extraction inside
+ * VANTA_REACT_COMPONENT_SOURCE / vantaReactComponentSource so the two
+ * interop shapes can be unit-tested without a bundler:
+ *   - `{ default: factory }`  (webpack esModule namespace under vite/rollup)
+ *   - registry object keyed by the global effect name (VANTA.BIRDS, ...)
+ */
+export function resolveVantaEffectCtor(
+  bundle: unknown,
+  effect: string,
+): ((options: Record<string, unknown>) => unknown) | null {
+  const mod = ((bundle ?? {}) as { default?: unknown }) as Record<string, unknown>
+  const candidate: unknown = mod.default ?? mod
+  if (typeof candidate === 'function') return candidate as (options: Record<string, unknown>) => unknown
+  if (candidate && typeof candidate === 'object') {
+    const byKey = (candidate as Record<string, unknown>)[effect.toUpperCase()]
+    if (typeof byKey === 'function') return byKey as (options: Record<string, unknown>) => unknown
+  }
+  if (typeof mod[effect.toUpperCase()] === 'function') {
+    return mod[effect.toUpperCase()] as (options: Record<string, unknown>) => unknown
+  }
+  return null
+}
 
 /** Brief section for the requested effect. */
 export function buildVantaBrief(target: FrontendTarget, effectId: string, config: VantaConfig): string {

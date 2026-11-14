@@ -1,0 +1,41 @@
+{
+  "message": "Build a professional analytics dashboard as a React app: sidebar navigation, header, KPI stat cards, charts, a data table with search and filtering, date-range controls, loading and empty states, error states, responsive layout for tablet and phone. Use clearly labeled sample data, no live data. Performance matters: fast initial rendering.",
+  "target": "react",
+  "reason": "Auto-detected frontend generation request",
+  "componentIds": [
+    "spotlight-card",
+    "dock",
+    "lattice-loader"
+  ],
+  "animationIds": [
+    "entrance-timeline",
+    "scroll-reveal-batch"
+  ],
+  "vantaEffect": null,
+  "responsive": true,
+  "dependencies": [
+    {
+      "name": "gsap",
+      "version": "3.13.0",
+      "license": "Standard 'No Charge' GSAP License (free incl. commercial use)",
+      "reason": "required by the selected toolkit (gsap)"
+    },
+    {
+      "name": "@gsap/react",
+      "version": "2.1.2",
+      "license": "Standard 'No Charge' GSAP License",
+      "reason": "required by the selected toolkit (@gsap/react)"
+    }
+  ],
+  "engineFilePaths": [
+    "components/kit/SpotlightCard.tsx",
+    "components/kit/SpotlightCard.css",
+    "components/kit/Dock.tsx",
+    "components/kit/Dock.css",
+    "components/kit/LatticeLoader.tsx",
+    "components/kit/LatticeLoader.css",
+    "package.json",
+    "NOTICES.md"
+  ],
+  "notices": "GSAP 3.13.0 — Standard No-Charge License · Vanta 0.5.24 & three 0.134.0 — MIT · p5 0.6.1 — LGPL-2.1 (p5-based effects) · React Bits — MIT + Commons Clause (attribution preserved; see NOTICES.md in the project and docs/THIRD-PARTY-NOTICES.md)"
+}

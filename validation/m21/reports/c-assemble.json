@@ -1,0 +1,70 @@
+{
+  "project": "project-c-portfolio",
+  "modelFiles": [
+    "index.html",
+    "index.tsx",
+    "data/projects.ts",
+    "App.tsx",
+    "components/quick-nav.tsx",
+    "pages/home.tsx",
+    "pages/about.tsx",
+    "pages/projects.tsx",
+    "pages/project-detail.tsx",
+    "pages/contact.tsx",
+    "pages/not-found.tsx",
+    "lib/motion.ts",
+    "styles.css"
+  ],
+  "engineFiles": [
+    "components/kit/SplitText.tsx",
+    "components/kit/BlurText.tsx",
+    "components/kit/SpotlightCard.tsx",
+    "components/kit/SpotlightCard.css",
+    "components/kit/GlareHover.tsx",
+    "components/kit/GlareHover.css",
+    "components/kit/Dock.tsx",
+    "components/kit/Dock.css",
+    "package.json",
+    "NOTICES.md"
+  ],
+  "checks": {
+    "passed": true,
+    "blocking": 0,
+    "warnings": 0,
+    "issues": []
+  },
+  "dependencies": [
+    {
+      "name": "gsap",
+      "version": "3.13.0",
+      "license": "Standard 'No Charge' GSAP License (free incl. commercial use)",
+      "reason": "required by the selected toolkit (gsap)"
+    },
+    {
+      "name": "@gsap/react",
+      "version": "2.1.2",
+      "license": "Standard 'No Charge' GSAP License",
+      "reason": "required by the selected toolkit (@gsap/react)"
+    },
+    {
+      "name": "framer-motion",
+      "version": "12.26.2",
+      "license": "MIT",
+      "reason": "required by the selected toolkit (framer-motion)"
+    }
+  ],
+  "selectedComponents": [
+    "split-text",
+    "blur-text",
+    "spotlight-card",
+    "glare-hover",
+    "dock"
+  ],
+  "selectedAnimations": [
+    "entrance-timeline",
+    "scroll-reveal-batch",
+    "text-reveal",
+    "hover-lift"
+  ],
+  "selectedBackground": null
+}

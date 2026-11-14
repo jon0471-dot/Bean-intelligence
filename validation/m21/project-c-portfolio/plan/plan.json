@@ -1,0 +1,53 @@
+{
+  "message": "Build a multi-page React developer portfolio site for a fictional developer: Home, About, Projects, project detail pages and Contact, with working internal navigation between the pages. Animated typography on headings, a projects gallery with interactive project cards and hover effects, elegant dark style, responsive navigation on mobile, accessible links.",
+  "target": "react",
+  "reason": "Auto-detected frontend generation request",
+  "componentIds": [
+    "split-text",
+    "blur-text",
+    "spotlight-card",
+    "glare-hover",
+    "dock"
+  ],
+  "animationIds": [
+    "entrance-timeline",
+    "scroll-reveal-batch",
+    "text-reveal",
+    "hover-lift"
+  ],
+  "vantaEffect": null,
+  "responsive": true,
+  "dependencies": [
+    {
+      "name": "gsap",
+      "version": "3.13.0",
+      "license": "Standard 'No Charge' GSAP License (free incl. commercial use)",
+      "reason": "required by the selected toolkit (gsap)"
+    },
+    {
+      "name": "@gsap/react",
+      "version": "2.1.2",
+      "license": "Standard 'No Charge' GSAP License",
+      "reason": "required by the selected toolkit (@gsap/react)"
+    },
+    {
+      "name": "framer-motion",
+      "version": "12.26.2",
+      "license": "MIT",
+      "reason": "required by the selected toolkit (framer-motion)"
+    }
+  ],
+  "engineFilePaths": [
+    "components/kit/SplitText.tsx",
+    "components/kit/BlurText.tsx",
+    "components/kit/SpotlightCard.tsx",
+    "components/kit/SpotlightCard.css",
+    "components/kit/GlareHover.tsx",
+    "components/kit/GlareHover.css",
+    "components/kit/Dock.tsx",
+    "components/kit/Dock.css",
+    "package.json",
+    "NOTICES.md"
+  ],
+  "notices": "GSAP 3.13.0 — Standard No-Charge License · Vanta 0.5.24 & three 0.134.0 — MIT · p5 0.6.1 — LGPL-2.1 (p5-based effects) · React Bits — MIT + Commons Clause (attribution preserved; see NOTICES.md in the project and docs/THIRD-PARTY-NOTICES.md)"
+}

@@ -1,0 +1,18 @@
+{
+  "name": "m21-validation-harness",
+  "private": true,
+  "description": "M21 validator tooling ONLY (vite/tsc/eslint/playwright). Never part of any generated deliverable.",
+  "devDependencies": {
+    "@eslint/js": "9.39.2",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.4",
+    "eslint": "9.39.2",
+    "eslint-plugin-react-hooks": "7.0.1",
+    "playwright": "1.57.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.50.1",
+    "vite": "7.3.0",
+    "@types/three": "0.134.0"
+  }
+}
