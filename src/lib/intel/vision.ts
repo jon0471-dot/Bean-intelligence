@@ -21,12 +21,42 @@
 
 import ZAI from 'z-ai-web-dev-sdk'
 import { withTimeout } from '@/lib/adapters/hosted-llm'
-import { classifyUpstreamError, noteUpstream429, noteUpstreamSuccess, upstreamCoolingDown } from '@/lib/upstream/gateway'
+import { classifyUpstreamError, healthFailureCategory, noteUpstream429, noteUpstreamSuccess, upstreamCoolingDown } from '@/lib/upstream/gateway'
+import { noteRealAttempt, UPSTREAM_FAILURE_CATEGORIES } from '@/lib/adapters/last-attempts'
 import { automatedQuotaState, automatedSkipReason } from '@/lib/providers/account-quota'
+
+/**
+ * The vision lane rides the SAME chat endpoint class (and the same hosted
+ * LLM backend) as RIISHE/CODE GIFTZ chat — `chat.completions.createVision`
+ * is a chat-class completion on the shared provider account. Its real
+ * outcomes are therefore recorded as `chat-completion` attempt evidence
+ * (SHARED-RATE-LIMIT REPAIR, 2026-11-14, defect D2): measured live, nine
+ * consecutive vision 429s opened the chat breaker but left NO attempt
+ * record, so the health probe fell through to "no attempt evidence" and
+ * rendered the chat capability Operational minutes after real class-429s —
+ * violating "never display Operational while real requests are failing".
+ * The records use the same shape createWithGatewayGuard writes (in-memory,
+ * 15-minute freshness, superseded by any newer real attempt).
+ */
 
 /** Upstream vision model id (server-only constant; matches files/media.ts). */
 const VISION_MODEL = 'glm-4.5v'
 const DEFAULT_TIMEOUT_MS = 20_000
+/** Same chat backend id hosted-llm records — the vision lane IS that class. */
+const CHAT_BACKEND_ID = 'bean-llm-hosted-primary'
+
+/** Record the vision call's real outcome as chat-class attempt evidence. */
+function recordVisionAttempt(ok: boolean, failure: ReturnType<typeof classifyUpstreamError> | null): void {
+  const category = ok || !failure ? null : healthFailureCategory(failure.kind)
+  noteRealAttempt('chat-completion', {
+    at: new Date().toISOString(),
+    ok,
+    backendId: CHAT_BACKEND_ID,
+    failureCategory: category,
+    httpStatus: ok || !failure ? null : failure.status,
+    upstream: ok || !failure ? false : category !== null && UPSTREAM_FAILURE_CATEGORIES.has(category),
+  })
+}
 
 export interface VisionOutcome {
   /** Model text when the call succeeded; null when it did not. */
@@ -82,12 +112,16 @@ export async function analyzeImageOnce(dataUrl: string, instruction: string, tim
       'vision',
     )
     noteUpstreamSuccess('chat')
+    recordVisionAttempt(true, null)
     const text = (completion as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content ?? ''
     if (!text.trim()) return { text: null, reason: 'vision model returned an empty description', durationMs: Date.now() - t0, skipped: false }
     return { text: text.trim(), reason: null, durationMs: Date.now() - t0, skipped: false }
   } catch (e) {
     const failure = classifyUpstreamError(e)
     if (failure.kind === 'rate_limited') noteUpstream429('chat')
+    // D2: upstream-class failures (throttle included) are real chat-class
+    // evidence — the capability rows must see them, not just the breaker.
+    if (failure.kind !== 'other' || failure.status !== null) recordVisionAttempt(false, failure)
     return {
       text: null,
       reason: `vision analysis failed (${failure.kind}): ${e instanceof Error ? e.message.slice(0, 200) : 'unknown error'}`,
