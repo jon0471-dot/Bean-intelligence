@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Markdown, Spinner, beanFetch } from './shared'
+import { Markdown, Spinner, beanFetch, timeAgo } from './shared'
 import { consumeRiisheStream, streamFailureMessage, type StreamFailureInfo } from '@/lib/riishe/sse-client'
 import {
   GiftzSidebarBody,
@@ -30,6 +30,7 @@ import {
 } from './code-giftz-sidebar'
 import { cn } from '@/lib/utils'
 import { ResearchStatusStrip } from './research-status'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
@@ -51,6 +52,18 @@ import {
   Save,
   BadgeCheck,
   ExternalLink,
+  History,
+  Download,
+  AlertTriangle,
+  Undo2,
+  Smartphone,
+  Monitor,
+  RefreshCw,
+  Wrench,
+  MinusCircle,
+  PlusCircle,
+  FileMinus2,
+  Copy as CopyIcon,
 } from 'lucide-react'
 
 interface ChatMessage {
@@ -75,7 +88,7 @@ interface ChatMessage {
     degraded: string[]
   }
 }
-interface ProjectFile { path: string; content: string; origin: 'generated' | 'modified' }
+interface ProjectFile { path: string; content: string; origin: 'generated' | 'modified'; updatedAt?: string }
 interface FileChange {
   path: string
   change: 'added' | 'modified'
@@ -91,6 +104,44 @@ interface RunResult {
   durationMs: number
 }
 interface FileMeta { id: string; name: string; kind: string; size: number; status: 'ready' | 'unsupported' | 'failed'; note?: string }
+
+/** M22 — project version summary from /versions. */
+interface VersionSummary {
+  id: string
+  seq: number
+  kind: 'initial' | 'turn' | 'manual' | 'rollback' | 'file-save' | 'file-delete'
+  summary: string | null
+  fileCount: number
+  changedFiles: Array<{ path: string; change: 'added' | 'modified' | 'deleted' | 'renamed'; previousPath?: string }>
+  createdAt: string
+}
+/** M22 — comparison payload from /versions/<seq>/compare. */
+interface VersionComparison {
+  from: { seq: number | null; label: string }
+  to: { seq: number | null; label: string }
+  added: string[]
+  deleted: string[]
+  renamed: Array<{ path: string; previousPath: string }>
+  modified: Array<{ path: string; added: number; removed: number }>
+  diffs: Record<string, Array<{ type: 'add' | 'del' | 'ctx'; text: string }>>
+  truncated: boolean
+}
+/** M22 — preview audit payload from /preview-check. */
+interface PreviewAuditData {
+  entry: string | null
+  missingAssets: Array<{ file: string; reference: string; resolved: string }>
+  brokenInternalLinks: Array<{ file: string; target: string }>
+  externalReferences: Array<{ file: string; url: string }>
+  notes: string[]
+  scope: string[]
+}
+/** A REAL console/runtime observation collected from the preview iframe. */
+interface PreviewObservation {
+  type: 'console-error' | 'console-warn' | 'pageerror' | 'unhandledrejection'
+  message: string
+  detail: string
+  at: number
+}
 
 const WELCOME =
   "Hi! I'm CODE GIFTZ, your coding assistant. Describe what you want to build, debug, refactor or review — I'll write the files, and you can run them in the sandbox or open a live preview."
@@ -152,6 +203,21 @@ export function CodeGiftz() {
   const [searching, setSearching] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  // M22 — persistence & versioning UI state.
+  const [showArchived, setShowArchived] = useState(false)
+  const [versionsOpen, setVersionsOpen] = useState(false)
+  const [versions, setVersions] = useState<VersionSummary[]>([])
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  const [versionCompare, setVersionCompare] = useState<{ seq: number; data: VersionComparison } | null>(null)
+  const [versionBusy, setVersionBusy] = useState(false)
+  const [restoringVersion, setRestoringVersion] = useState<number | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [previewObservations, setPreviewObservations] = useState<PreviewObservation[]>([])
+  const [previewAudit, setPreviewAudit] = useState<PreviewAuditData | null>(null)
+  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop')
+  // Cache-buster: bumped after accepted changes so the iframe re-fetches the
+  // fresh preview (the route serves no-store; this also forces a re-render).
+  const [previewKey, setPreviewKey] = useState(0)
   const endRef = useRef<HTMLDivElement>(null)
   const streamedRef = useRef('')
   const abortRef = useRef<AbortController | null>(null)
@@ -173,7 +239,11 @@ export function CodeGiftz() {
 
   const loadProjects = useCallback(async (q?: string) => {
     try {
-      const query = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''
+      // M22: the sidebar fetch now always carries includeArchived=1 (each row
+      // carries its status; the archived view's restore lives there). The
+      // pinned search contract (?q= + encodeURIComponent + shared filter) is
+      // unchanged.
+      const query = q?.trim() ? `?q=${encodeURIComponent(q.trim())}&includeArchived=1` : '?includeArchived=1'
       const d = await beanFetch<{ projects: ProjectSummary[] }>(`/api/code-giftz/chat${query}`)
       setProjects(d.projects)
     } catch { /* non-fatal */ }
@@ -194,7 +264,9 @@ export function CodeGiftz() {
     const t = setTimeout(() => {
       void (async () => {
         try {
-          const d = await beanFetch<{ projects: ProjectSummary[] }>(`/api/code-giftz/chat?q=${encodeURIComponent(q)}`)
+          const d = await beanFetch<{ projects: ProjectSummary[] }>(
+            `/api/code-giftz/chat?q=${encodeURIComponent(q)}&includeArchived=1`,
+          )
           setProjects(d.projects)
         } catch { /* non-fatal — the last list stays visible */ }
         setSearching(false)
@@ -216,23 +288,31 @@ export function CodeGiftz() {
     setError(null)
     setRun(null)
     setShowPreview(false)
+    setVersionsOpen(false)
+    setVersionCompare(null)
+    setPreviewObservations([])
+    setPreviewAudit(null)
     try {
       const d = await beanFetch<{
         project: {
           id: string
           title: string
           messages: Array<{ id: string; role: string; content: string; changes: Array<{ path: string; change: string }> }>
-          files: ProjectFile[]
+          files: Array<{ path: string; content: string; origin: 'generated' | 'modified'; updatedAt?: string }>
         }
       }>(`/api/code-giftz/chat/${id}`)
       setProjectId(d.project.id)
       setMessages(d.project.messages.map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, changes: m.changes ?? [] })))
-      setFiles(d.project.files)
+      setFiles(d.project.files.map((f) => ({ path: f.path, content: f.content, origin: f.origin, updatedAt: f.updatedAt })))
       const first = d.project.files[0]
       setOpenTabs(first ? [first.path] : [])
       setActiveFile(first?.path ?? null)
       setFileView('code')
       setEditing(false)
+      // M22: record the open (lastOpenedAt metadata) + refresh the preview
+      // audit so the workspace shows honest structural evidence immediately.
+      void beanFetch(`/api/code-giftz/projects/${id}/open`, { method: 'POST' }).catch(() => undefined)
+      void refreshPreviewAudit(id)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -248,6 +328,10 @@ export function CodeGiftz() {
     setError(null)
     setAttachments([])
     setShowPreview(false)
+    setVersionsOpen(false)
+    setVersionCompare(null)
+    setPreviewObservations([])
+    setPreviewAudit(null)
   }
 
   /** Sidebar rename (owner-checked server-side; sanitizer is the same pure
@@ -273,6 +357,173 @@ export function CodeGiftz() {
     } catch (e) {
       return { ok: false, error: (e as Error).message }
     }
+  }
+
+  // ---- M22 project lifecycle handlers (duplicate / archive / restore) ----
+
+  async function duplicateProject(id: string): Promise<SidebarActionResult> {
+    try {
+      await beanFetch(`/api/code-giftz/projects/${id}/duplicate`, { method: 'POST' })
+      await loadProjects(searchQuery)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+
+  async function archiveProject(id: string): Promise<SidebarActionResult> {
+    try {
+      await beanFetch(`/api/code-giftz/projects/${id}/archive`, { method: 'POST' })
+      if (projectId === id) newProject() // an archived project leaves the editor
+      await loadProjects(searchQuery)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+
+  async function restoreProject(id: string): Promise<SidebarActionResult> {
+    try {
+      await beanFetch(`/api/code-giftz/projects/${id}/restore`, { method: 'POST' })
+      await loadProjects(searchQuery)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+
+  // ---- M22 version history handlers ----
+
+  async function openVersions() {
+    if (!projectId) return
+    setVersionsOpen(true)
+    setVersionsLoading(true)
+    setVersionCompare(null)
+    try {
+      const d = await beanFetch<{ versions: VersionSummary[] }>(`/api/code-giftz/projects/${projectId}/versions`)
+      setVersions(d.versions)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setVersionsLoading(false)
+    }
+  }
+
+  async function compareVersion(seq: number) {
+    if (!projectId || versionBusy) return
+    setVersionBusy(true)
+    setError(null)
+    try {
+      const d = await beanFetch<{ comparison: VersionComparison }>(
+        `/api/code-giftz/projects/${projectId}/versions/${seq}/compare?target=current`,
+      )
+      setVersionCompare({ seq, data: d.comparison })
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setVersionBusy(false)
+    }
+  }
+
+  /** Rollback = restore = create a NEW version (history never rewritten). */
+  async function restoreVersion(seq: number) {
+    if (!projectId || versionBusy) return
+    setVersionBusy(true)
+    setRestoringVersion(seq)
+    setError(null)
+    try {
+      await beanFetch(`/api/code-giftz/projects/${projectId}/versions/${seq}/rollback`, { method: 'POST' })
+      // The workspace changed on the server — reload it and the preview.
+      await openProject(projectId)
+      setPreviewKey((k) => k + 1)
+      await openVersions()
+      void loadProjects()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setVersionBusy(false)
+      setRestoringVersion(null)
+    }
+  }
+
+  // ---- M22 export handler (browser download) ----
+
+  async function exportProject() {
+    if (!projectId || exporting) return
+    setExporting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/code-giftz/projects/${projectId}/export`)
+      if (res.status === 401) window.dispatchEvent(new Event('bean:unauthorized'))
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new Error(text || `Export failed (${res.status})`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'project.zip'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // ---- M22 preview evidence (REAL observations only) ----
+
+  // In-browser observations from the sandboxed preview iframe arrive via
+  // postMessage with the `giftz-preview` source marker. Anything else is
+  // ignored — this strip never shows invented errors.
+  useEffect(() => {
+    function onMessage(ev: MessageEvent) {
+      const d = ev.data as { source?: string; type?: string; message?: string; detail?: string }
+      if (!d || d.source !== 'giftz-preview' || !d.type) return
+      if (d.type !== 'console-error' && d.type !== 'console-warn' && d.type !== 'pageerror' && d.type !== 'unhandledrejection') return
+      setPreviewObservations((prev) => [
+        ...prev.slice(-49),
+        { type: d.type as PreviewObservation['type'], message: d.message ?? '', detail: d.detail ?? '', at: Date.now() },
+      ])
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [])
+
+  // Deterministic preview audit (missing assets / broken links) — refreshed
+  // with the workspace files.
+  const refreshPreviewAudit = useCallback(async (pid: string | null) => {
+    if (!pid) {
+      setPreviewAudit(null)
+      return
+    }
+    try {
+      const d = await beanFetch<{ audit: PreviewAuditData }>(`/api/code-giftz/projects/${pid}/preview-check`)
+      setPreviewAudit(d.audit)
+    } catch {
+      setPreviewAudit(null) // non-fatal — the audit is advisory evidence
+    }
+  }, [])
+
+  /** Compose a repair request from REAL preview evidence (user still sends it
+   *  through the normal chat turn — approval flows stay intact). */
+  function repairFromEvidence() {
+    const lines: string[] = []
+    for (const o of previewObservations.slice(-6)) {
+      lines.push(`- ${o.type}: ${o.message}${o.detail ? ` (${o.detail})` : ''}`)
+    }
+    if (previewAudit) {
+      for (const m of previewAudit.missingAssets.slice(0, 4)) lines.push(`- missing asset: ${m.reference} referenced from ${m.file}`)
+      for (const l of previewAudit.brokenInternalLinks.slice(0, 4)) lines.push(`- broken internal link: ${l.target} referenced from ${l.file}`)
+    }
+    if (lines.length === 0) return
+    setInput(
+      `The preview shows real problems — please repair them with targeted edits:\n${lines.join('\n')}\n\nFix only what is needed to resolve these problems and keep the rest of the project unchanged.`,
+    )
   }
 
   async function uploadFile(file: File) {
@@ -317,16 +568,48 @@ export function CodeGiftz() {
     setSaving(true)
     setError(null)
     try {
-      await beanFetch(`/api/code-giftz/projects/${projectId}/files`, {
+      const activeRow = files.find((f) => f.path === activeFile)
+      await beanFetch<{ versionSeq: number | null }>(`/api/code-giftz/projects/${projectId}/files`, {
         method: 'POST',
-        json: { path: activeFile, content: editBuffer },
+        json: {
+          path: activeFile,
+          content: editBuffer,
+          // M22 optimistic concurrency: refuse the save when the file changed
+          // elsewhere since it was loaded (honest conflict, no silent clobber).
+          ...(activeRow?.updatedAt ? { expectedUpdatedAt: activeRow.updatedAt } : {}),
+        },
       })
-      setFiles((prev) => prev.map((f) => (f.path === activeFile ? { ...f, content: editBuffer, origin: 'modified' } : f)))
+      const savedAt = new Date().toISOString()
+      setFiles((prev) => prev.map((f) => (f.path === activeFile ? { ...f, content: editBuffer, origin: 'modified', updatedAt: savedAt } : f)))
       setEditing(false)
+      setPreviewKey((k) => k + 1)
+      void refreshPreviewAudit(projectId)
+      void loadProjects(searchQuery)
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  /** M22 — delete the active workspace file (records a file-delete version). */
+  async function deleteActiveFile() {
+    if (!activeFile || !projectId) return
+    setError(null)
+    try {
+      await beanFetch(`/api/code-giftz/projects/${projectId}/files`, {
+        method: 'DELETE',
+        json: { path: activeFile },
+      })
+      setOpenTabs((prev) => prev.filter((p) => p !== activeFile))
+      const remaining = files.filter((f) => f.path !== activeFile)
+      setFiles(remaining)
+      setActiveFile(remaining[0]?.path ?? null)
+      setPreviewKey((k) => k + 1)
+      void refreshPreviewAudit(projectId)
+      void loadProjects(searchQuery)
+    } catch (e) {
+      setError((e as Error).message)
     }
   }
 
@@ -476,6 +759,13 @@ export function CodeGiftz() {
             )
             // Refresh from the server on every completed turn in a project.
             refreshFiles(newProjectId)
+            // M22: a completed turn with changes recorded a project version —
+            // refresh the preview evidence + list metadata (version badge).
+            if (wireChanges.length > 0 && newProjectId) {
+              setPreviewKey((k) => k + 1)
+              void refreshPreviewAudit(newProjectId)
+              void loadProjects(searchQuery)
+            }
             const changes = evt.changes ?? []
             if (changes.length > 0) {
               setShowPreview((v) => v)
@@ -805,6 +1095,23 @@ export function CodeGiftz() {
           {files.length > 0 ? <span className="text-white/30">· {files.length} file{files.length > 1 ? 's' : ''}</span> : null}
         </div>
         <div className="flex items-center gap-1.5">
+          {/* M22: version history + complete ZIP export (owner, existing project). */}
+          <button
+            onClick={() => void openVersions()}
+            disabled={!projectId}
+            className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-[11px] text-white/50 transition-colors hover:border-[rgba(212,175,55,0.3)] hover:text-white/80 disabled:opacity-40"
+            title="Version history: compare and restore earlier versions"
+          >
+            <History className="h-3 w-3" /> Versions
+          </button>
+          <button
+            onClick={() => void exportProject()}
+            disabled={!projectId || exporting || files.length === 0}
+            className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-[11px] text-white/50 transition-colors hover:border-[rgba(212,175,55,0.3)] hover:text-white/80 disabled:opacity-40"
+            title="Download the complete project as a ZIP (secrets, dependencies and build outputs excluded)"
+          >
+            {exporting ? <Spinner className="h-3 w-3" /> : <Download className="h-3 w-3" />} Export
+          </button>
           {hasHtml ? (
             <button
               onClick={() => setShowPreview((v) => !v)}
@@ -898,15 +1205,202 @@ export function CodeGiftz() {
               ))}
             </div>
 
-            {/* Editor / diff / preview */}
+            {/* Editor / diff / preview / versions */}
             <div className="flex min-w-0 flex-1 flex-col">
-              {showPreview && hasHtml ? (
-                <iframe
-                  title="Project preview (isolated)"
-                  sandbox="allow-scripts"
-                  src={`/api/code-giftz/projects/${projectId}/preview`}
-                  className="min-h-0 w-full flex-1 border-0 bg-white"
-                />
+              {versionsOpen ? (
+                /* M22 VERSIONS PANEL — real recorded history, honest compare,
+                   rollback-through-new-version. */
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="flex items-center justify-between border-b border-[rgba(212,175,55,0.08)] px-3 py-1.5">
+                    <div className="flex items-center gap-1.5 text-[11px] text-white/70">
+                      <History className="h-3.5 w-3.5 text-[#d4af37]" /> Version history
+                      {versions.length > 0 ? <span className="text-white/30">· {versions.length} recorded</span> : null}
+                    </div>
+                    <button onClick={() => { setVersionsOpen(false); setVersionCompare(null) }} className="rounded px-1.5 py-0.5 text-[10px] text-white/45 hover:text-white/80" aria-label="Close version history">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="bean-scroll min-h-0 flex-1 overflow-auto px-3 py-2">
+                    {versionsLoading ? (
+                      <p className="flex items-center gap-2 py-6 text-xs text-white/40"><Spinner /> Loading versions…</p>
+                    ) : versions.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-white/35">
+                        No versions recorded yet. Every accepted change, manual snapshot and rollback is recorded here.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {versions.map((v) => (
+                          <div key={v.id} className="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded border border-[rgba(212,175,55,0.4)] bg-[rgba(212,175,55,0.08)] px-1.5 py-0.5 text-[10px] text-[#f0c75e]">v{v.seq}</span>
+                              <span className="rounded border border-white/12 px-1 py-0.5 text-[9px] uppercase tracking-wide text-white/40">{v.kind}</span>
+                              <span className="text-[10px] text-white/30">{timeAgo(v.createdAt)}</span>
+                              <span className="text-[10px] text-white/30">· {v.fileCount} file{v.fileCount === 1 ? '' : 's'}</span>
+                              <span className="ml-auto flex items-center gap-1.5">
+                                <button
+                                  onClick={() => void compareVersion(v.seq)}
+                                  disabled={versionBusy}
+                                  className="inline-flex items-center gap-1 rounded border border-white/12 px-1.5 py-0.5 text-[10px] text-white/55 hover:border-[rgba(212,175,55,0.3)] hover:text-white/85 disabled:opacity-40"
+                                >
+                                  <GitCompareArrows className="h-3 w-3" /> Compare with current
+                                </button>
+                                <button
+                                  onClick={() => setRestoringVersion(v.seq)}
+                                  disabled={versionBusy}
+                                  className="inline-flex items-center gap-1 rounded border border-amber-500/40 px-1.5 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/10 disabled:opacity-40"
+                                  title="Restore this version — creates a new version (history is never rewritten)"
+                                >
+                                  <Undo2 className="h-3 w-3" /> Restore
+                                </button>
+                              </span>
+                            </div>
+                            {v.summary ? <p className="mt-1 truncate text-[11px] text-white/60" title={v.summary}>{v.summary}</p> : null}
+                            {v.changedFiles.length > 0 ? (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {v.changedFiles.map((c) => (
+                                  <span
+                                    key={c.path}
+                                    className={cn(
+                                      'inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9.5px]',
+                                      c.change === 'added' && 'bg-emerald-500/10 text-emerald-300',
+                                      c.change === 'modified' && 'bg-[rgba(212,175,55,0.1)] text-[#f0c75e]',
+                                      c.change === 'deleted' && 'bg-red-500/10 text-red-300',
+                                      c.change === 'renamed' && 'bg-sky-500/10 text-sky-300',
+                                    )}
+                                  >
+                                    {c.change === 'added' ? <PlusCircle className="h-2.5 w-2.5" /> : c.change === 'deleted' ? <MinusCircle className="h-2.5 w-2.5" /> : c.change === 'renamed' ? <CopyIcon className="h-2.5 w-2.5" /> : <FilePlus2 className="h-2.5 w-2.5" />}
+                                    {c.change === 'renamed' ? `${c.previousPath} → ${c.path}` : c.path}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {versionCompare ? (
+                      <div className="mt-3 rounded-lg border border-[rgba(212,175,55,0.2)] bg-black/30">
+                        <div className="flex items-center justify-between border-b border-[rgba(212,175,55,0.15)] px-3 py-1.5">
+                          <span className="text-[11px] text-white/70">
+                            {versionCompare.data.from.label} → {versionCompare.data.to.label}
+                            {versionCompare.data.truncated ? <span className="ml-2 text-[10px] text-amber-300">(diff truncated at payload budget)</span> : null}
+                          </span>
+                          <button onClick={() => setVersionCompare(null)} className="text-[10px] text-white/40 hover:text-white/75" aria-label="Close comparison">close</button>
+                        </div>
+                        <div className="px-3 py-2 text-[11px]">
+                          {versionCompare.data.added.length > 0 ? (
+                            <p className="mb-1 text-emerald-300">Added: {versionCompare.data.added.join(', ')}</p>
+                          ) : null}
+                          {versionCompare.data.deleted.length > 0 ? (
+                            <p className="mb-1 text-red-300">Deleted: {versionCompare.data.deleted.join(', ')}</p>
+                          ) : null}
+                          {versionCompare.data.renamed.length > 0 ? (
+                            <p className="mb-1 text-sky-300">Renamed: {versionCompare.data.renamed.map((r) => `${r.previousPath} → ${r.path}`).join(', ')}</p>
+                          ) : null}
+                          {versionCompare.data.modified.map((m) => (
+                            <div key={m.path} className="mb-2">
+                              <p className="text-[#f0c75e]">Modified: {m.path} <span className="text-white/35">(+{m.added} / -{m.removed})</span></p>
+                              {versionCompare.data.diffs[m.path] ? (
+                                <pre className="mt-0.5 font-mono text-[10.5px] leading-relaxed">
+                                  {versionCompare.data.diffs[m.path].map((l, i) => (
+                                    <div key={i} className={cn('px-2', l.type === 'add' && 'bg-emerald-500/10 text-emerald-300', l.type === 'del' && 'bg-red-500/10 text-red-300', l.type === 'ctx' && 'text-white/40')}>
+                                      <span className="mr-2 inline-block w-3 select-none">{l.type === 'add' ? '+' : l.type === 'del' ? '-' : ' '}</span>
+                                      {l.text || ' '}
+                                    </div>
+                                  ))}
+                                </pre>
+                              ) : null}
+                            </div>
+                          ))}
+                          {versionCompare.data.added.length === 0 && versionCompare.data.deleted.length === 0 && versionCompare.data.renamed.length === 0 && versionCompare.data.modified.length === 0 ? (
+                            <p className="text-white/40">No differences — the workspace matches this version.</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : showPreview && hasHtml ? (
+                /* M22 PREVIEW — viewport toggle, refresh, REAL evidence strip. */
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {(previewObservations.length > 0 || (previewAudit && (previewAudit.missingAssets.length > 0 || previewAudit.brokenInternalLinks.length > 0))) ? (
+                    <div className="shrink-0 border-b border-amber-500/25 bg-amber-500/5 px-3 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] text-amber-300">
+                          <AlertTriangle className="h-3 w-3" />
+                          Preview evidence: {previewObservations.length} runtime observation{previewObservations.length === 1 ? '' : 's'}
+                          {previewAudit && previewAudit.missingAssets.length + previewAudit.brokenInternalLinks.length > 0
+                            ? ` · ${previewAudit.missingAssets.length} missing asset${previewAudit.missingAssets.length === 1 ? '' : 's'} · ${previewAudit.brokenInternalLinks.length} broken link${previewAudit.brokenInternalLinks.length === 1 ? '' : 's'}`
+                            : ''}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <button
+                            onClick={repairFromEvidence}
+                            className="inline-flex items-center gap-1 rounded border border-amber-500/40 px-1.5 py-0.5 text-[10px] text-amber-200 hover:bg-amber-500/10"
+                            title="Prefill a targeted repair request from this real evidence"
+                          >
+                            <Wrench className="h-3 w-3" /> Draft repair
+                          </button>
+                          <button onClick={() => setPreviewObservations([])} className="text-[10px] text-white/40 hover:text-white/75" aria-label="Clear observations">clear</button>
+                        </span>
+                      </div>
+                      <ul className="mt-1 max-h-24 space-y-0.5 overflow-auto">
+                        {previewObservations.slice(-6).map((o, i) => (
+                          <li key={o.at + '-' + i} className={cn('truncate font-mono text-[10px]', o.type === 'console-warn' ? 'text-amber-200/70' : 'text-red-300/90')} title={`${o.message}${o.detail ? ` — ${o.detail}` : ''}`}>
+                            [{o.type}] {o.message}
+                          </li>
+                        ))}
+                        {previewAudit?.missingAssets.slice(0, 3).map((m, i) => (
+                          <li key={'ma' + i} className="truncate font-mono text-[10px] text-amber-200/80" title={`${m.file} references ${m.reference}`}>
+                            [missing asset] {m.reference} (from {m.file})
+                          </li>
+                        ))}
+                        {previewAudit?.brokenInternalLinks.slice(0, 3).map((l, i) => (
+                          <li key={'bl' + i} className="truncate font-mono text-[10px] text-amber-200/80" title={`${l.file} links to ${l.target}`}>
+                            [broken link] {l.target} (from {l.file})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between border-b border-[rgba(212,175,55,0.08)] px-3 py-1">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setPreviewViewport('desktop')}
+                        className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]', previewViewport === 'desktop' ? 'bg-[rgba(212,175,55,0.14)] text-[#f0c75e]' : 'text-white/45 hover:text-white/75')}
+                        aria-pressed={previewViewport === 'desktop'}
+                      >
+                        <Monitor className="h-3 w-3" /> Desktop
+                      </button>
+                      <button
+                        onClick={() => setPreviewViewport('mobile')}
+                        className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]', previewViewport === 'mobile' ? 'bg-[rgba(212,175,55,0.14)] text-[#f0c75e]' : 'text-white/45 hover:text-white/75')}
+                        aria-pressed={previewViewport === 'mobile'}
+                      >
+                        <Smartphone className="h-3 w-3" /> Mobile width
+                      </button>
+                      <span className="ml-1 text-[9px] text-white/25">real rendering · isolated iframe</span>
+                    </div>
+                    <button
+                      onClick={() => setPreviewKey((k) => k + 1)}
+                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white/45 hover:text-white/80"
+                      title="Reload the preview with the latest saved files"
+                    >
+                      <RefreshCw className="h-3 w-3" /> Refresh
+                    </button>
+                  </div>
+                  <div className="flex min-h-0 flex-1 justify-center overflow-auto bg-black/30">
+                    <iframe
+                      key={previewKey}
+                      title="Project preview (isolated)"
+                      sandbox="allow-scripts"
+                      src={`/api/code-giftz/projects/${projectId}/preview?v=${previewKey}`}
+                      className={cn('h-full border-0 bg-white', previewViewport === 'mobile' ? 'max-w-full' : 'w-full')}
+                      style={previewViewport === 'mobile' ? { width: 390 } : undefined}
+                    />
+                  </div>
+                </div>
               ) : active ? (
                 <>
                   <div className="flex items-center justify-between border-b border-[rgba(212,175,55,0.08)] px-3 py-1.5">
@@ -929,7 +1423,17 @@ export function CodeGiftz() {
                         {active.origin === 'modified' ? 'modified' : 'generated'}
                       </span>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-1.5">
+                      {/* M22: honest workspace file deletion (records a version). */}
+                      {!editing ? (
+                        <button
+                          onClick={() => { if (window.confirm(`Delete ${active.path} from this project? This records a version and cannot be undone.`)) void deleteActiveFile() }}
+                          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-red-300/80 hover:bg-red-500/10 hover:text-red-300"
+                          title="Delete this file from the project (records a version)"
+                        >
+                          <FileMinus2 className="h-3 w-3" /> Delete file
+                        </button>
+                      ) : null}
                       {editing ? (
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => { setEditing(false); setEditBuffer('') }} className="rounded px-1.5 py-0.5 text-[10px] text-white/45 hover:text-white/80">Cancel</button>
@@ -1036,7 +1540,7 @@ export function CodeGiftz() {
       ) : (
         <aside className="hidden flex-col border-r border-[rgba(212,175,55,0.1)] lg:flex">
           <GiftzSidebarBody
-            projects={projects}
+            projects={showArchived ? projects : projects.filter((p) => p.status !== 'archived')}
             activeId={projectId}
             searching={searching}
             searchQuery={searchQuery}
@@ -1045,6 +1549,11 @@ export function CodeGiftz() {
             onNew={newProject}
             onRename={renameProject}
             onDelete={deleteProject}
+            onDuplicate={duplicateProject}
+            onArchive={archiveProject}
+            onRestore={restoreProject}
+            showArchived={showArchived}
+            onToggleArchived={() => setShowArchived((v) => !v)}
             onCollapse={() => setSidebarCollapsed(true)}
           />
         </aside>
@@ -1070,7 +1579,7 @@ export function CodeGiftz() {
       <GiftzSidebarMobile
         open={sidebarOpen}
         onOpenChange={setSidebarOpen}
-        projects={projects}
+        projects={showArchived ? projects : projects.filter((p) => p.status !== 'archived')}
         activeId={projectId}
         searching={searching}
         searchQuery={searchQuery}
@@ -1079,7 +1588,46 @@ export function CodeGiftz() {
         onNew={newProject}
         onRename={renameProject}
         onDelete={deleteProject}
+        onDuplicate={duplicateProject}
+        onArchive={archiveProject}
+        onRestore={restoreProject}
+        showArchived={showArchived}
+        onToggleArchived={() => setShowArchived((v) => !v)}
       />
+
+      {/* M22 — restore-version confirmation: the rollback is real and
+          consequential (workspace files change), so it never runs from one
+          click, and the dialog explains the honest semantics. */}
+      <AlertDialog
+        open={restoringVersion !== null}
+        onOpenChange={(open) => {
+          if (!open) setRestoringVersion(null)
+        }}
+      >
+        <AlertDialogContent className="border-[rgba(212,175,55,0.25)] bg-[#141416]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white/90">Restore version {restoringVersion}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The workspace files will be restored to this recorded state. This creates a NEW version — nothing is deleted from history, and you can restore again at any time. Unsaved file changes in the workspace will be replaced.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-white/15 bg-transparent text-white/70 hover:bg-white/5 hover:text-white">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                const seq = restoringVersion
+                setRestoringVersion(null)
+                if (seq !== null) void restoreVersion(seq)
+              }}
+              disabled={versionBusy}
+              className="bg-[#d4af37] text-black hover:bg-[#e6c25a]"
+            >
+              {versionBusy ? <Spinner className="h-3.5 w-3.5" /> : null} Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -13,6 +13,7 @@
  */
 
 import { db } from '@/lib/db'
+import { logger } from '@/lib/observability/logger'
 import { withTimeout } from '@/lib/adapters/hosted-llm'
 import type { TaskAdapter } from '@/lib/adapters/types'
 import { solveWithContinuation, MAX_SOLVE_CONTINUATIONS } from '@/lib/riishe/continuation'
@@ -23,6 +24,7 @@ import {
   type GenerationGuard,
 } from './chat-stream'
 import { parseFiles, applyFiles } from './workspace'
+import { snapshotProjectVersion } from '@/lib/code/versioning'
 import { finalizeFrontendTurn } from '@/lib/frontend-intel/engine'
 import type { FrontendPlan, FrontendTurnResult } from '@/lib/frontend-intel/types'
 import { verifyAndCorrect, type VerificationOutcome } from '@/lib/verification/pipeline'
@@ -121,6 +123,9 @@ export interface GiftzTurnCoreResult {
   frontend?: FrontendTurnResult
   /** ADDITIVE (shared research gateway): research provenance artifact. */
   research?: import('@/lib/intel/techdocs-reach').GiftzResearchArtifact
+  /** M22 ADDITIVE: seq of the project version recorded for this turn's
+   *  accepted changes (null/absent when nothing changed or snapshot skipped). */
+  versionSeq?: number
 }
 
 /**
@@ -272,6 +277,28 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
     changes = [...changes, ...engineChanges]
   }
 
+  // ---- M22 project versioning (automatic, after accepted changes) --------
+  // Every turn that actually changed files records a project version. Files
+  // are already persisted at this point; a versioning failure is logged and
+  // NEVER fails the turn (the workspace stays correct, only the snapshot is
+  // missing and the next change will snapshot the full state).
+  let versionSeq: number | undefined
+  if (changes.length > 0) {
+    try {
+      const snapshot = await snapshotProjectVersion({
+        projectId,
+        kind: 'turn',
+        summary: requestText,
+      })
+      versionSeq = snapshot.version?.seq
+    } catch (snapshotError) {
+      logger.warn('giftz.version_snapshot_failed', {
+        projectId,
+        message: snapshotError instanceof Error ? snapshotError.message : String(snapshotError),
+      })
+    }
+  }
+
   const durationMs = Date.now() - t0
   // Verification overhead is metered as honest ESTIMATES — never exact counts.
   let verificationTokensEst = 0
@@ -294,6 +321,7 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
     draftCharCount,
     ...(frontend ? { frontend } : {}),
     ...(input.research ? { research: input.research } : {}),
+    ...(versionSeq !== undefined ? { versionSeq } : {}),
   }
 }
 
@@ -314,6 +342,7 @@ export async function persistGiftzAssistantTurn(
       metaJson: JSON.stringify({
         changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
         continuations: result.continuationCount,
+        ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
         ...(result.research ? { research: result.research } : {}),
         ...(result.verification && result.verification.status !== 'skipped'
           ? {

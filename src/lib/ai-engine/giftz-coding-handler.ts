@@ -179,6 +179,9 @@ export async function handleGiftzCodingJob(
       changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
       contentChars: result.content.length,
       continuations: result.continuationCount,
+      // M22 ADDITIVE: seq of the version recorded for this turn (absent when
+      // nothing changed or the snapshot was skipped).
+      ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
       verification: publicVerificationSummary(result.verification),
       durationMs: Date.now() - startedAt,
     })

@@ -94,6 +94,8 @@ export interface GiftzTurnResult {
   frontend?: import('@/lib/frontend-intel/types').FrontendTurnResult
   /** ADDITIVE (shared research gateway): research provenance artifact. */
   research?: import('@/lib/intel/techdocs-reach').GiftzResearchArtifact
+  /** M22 ADDITIVE: seq of the project version recorded for this turn. */
+  versionSeq?: number
 }
 
 export interface GiftzChatStreamDeps {
@@ -255,6 +257,7 @@ export function createGiftzChatStream(deps: GiftzChatStreamDeps): ReadableStream
             verification: result.verification ?? null,
             ...(result.frontend ? { frontend: result.frontend } : {}),
             ...(result.research ? { research: result.research } : {}),
+            ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
           })
         } catch (e) {
           if (isClientDisconnected(e) || clientGone) {

@@ -24,7 +24,7 @@ import type { TaskAdapter } from '@/lib/adapters/types'
 import { upstreamErrorCode, upstreamStreamErrorPayload, UpstreamRateLimitError, UpstreamAuthError, UpstreamBillingError } from '@/lib/upstream/gateway'
 import { createGiftzChatStream, type GenerationGuard } from '@/lib/giftz/chat-stream'
 import { runGiftzTurnCore } from '@/lib/giftz/turn'
-import { SYSTEM_PROMPT, buildProjectContext } from '@/lib/giftz/prompts'
+import { SYSTEM_PROMPT, buildProjectContext, buildTargetedEditBrief } from '@/lib/giftz/prompts'
 import { applyFiles } from '@/lib/giftz/workspace'
 import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
 import { verificationConfig } from '@/lib/verification/config'
@@ -91,6 +91,13 @@ export async function POST(request: Request) {
     const { backend, adapter, release, servedBy } = await preflight(user.id, 'code-giftz', 'coding-task')
 
     try {
+      // M22 metadata only (a NEW project has zero files, so resolving the
+      // plan with an empty existing-file list here is exact): the frontend
+      // engine's target becomes the recorded framework. The authoritative
+      // plan for the turn itself is re-resolved below with the REAL file
+      // paths, preserving existing behavior bit-for-bit.
+      const createPlanMeta = resolveFrontendPlan({ message: body.message, existingFilePaths: [] })
+
       // Resolve or create the project (ownership enforced).
       let projectId = body.projectId
       if (projectId) {
@@ -100,7 +107,11 @@ export async function POST(request: Request) {
         }
       } else {
         const project = await db.codeProject.create({
-          data: { userId: user.id, title: body.message.slice(0, 60) },
+          data: {
+            userId: user.id,
+            title: body.message.slice(0, 60),
+            ...(createPlanMeta.enabled ? { framework: createPlanMeta.target } : {}),
+          },
         })
         projectId = project.id
       }
@@ -125,6 +136,12 @@ export async function POST(request: Request) {
 
       const files = await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } })
       const attachmentBlock = await loadAttachments(user.id, body.fileIds)
+
+      // M22 TARGETED EDITING: when the project already has files, the turn is
+      // a MODIFICATION — inject the additive brief that demands re-emitting
+      // only changed files (never the whole project). Pure additive context;
+      // generation on an empty project behaves exactly as before.
+      const targetedEditBrief = files.length > 0 ? buildTargetedEditBrief(files.length) : ''
 
       // BEAN Intelligence: live official-documentation retrieval for the
       // libraries/frameworks this request touches. Bounded; any failure
@@ -160,6 +177,7 @@ export async function POST(request: Request) {
         buildProjectContext(files),
         techDocs?.block ?? '',
         frontendPlan.enabled ? frontendPlan.brief : '',
+        targetedEditBrief,
         body.message,
       ]
         .filter((s) => s.length > 0)
@@ -230,6 +248,7 @@ export async function POST(request: Request) {
               metaJson: JSON.stringify({
                 changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
                 continuations: result.continuationCount, // honest record of provider passes
+                ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
                 ...(result.frontend ? { frontend: result.frontend } : {}),
                 ...(result.research ? { research: result.research } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
@@ -266,6 +285,7 @@ export async function POST(request: Request) {
             changes: result.changes,
             durationMs: result.durationMs,
             verification: publicVerificationSummary(result.verification),
+            ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
             ...(result.frontend ? { frontend: result.frontend } : {}),
             ...(result.research ? { research: result.research } : {}),
           })
@@ -307,6 +327,7 @@ export async function POST(request: Request) {
               metaJson: JSON.stringify({
                 changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
                 continuations: result.continuationCount, // honest record of provider passes
+                ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
                 ...(result.frontend ? { frontend: result.frontend } : {}),
                 ...(result.research ? { research: result.research } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
@@ -375,14 +396,35 @@ export async function POST(request: Request) {
  *  itself is capped, but a search must still find older threads (the exact
  *  RIISHE conversation-search semantics, reusing the same pure filter so
  *  both products behave identically). Filtering happens in JS because
- *  SQLite's LIKE is only ASCII-case-aware. */
+ *  SQLite's LIKE is only ASCII-case-aware.
+ *  M22 ADDITIVE: `?includeArchived=1` includes archived projects (each row
+ *  carries its `status`); the default list stays active-only so the sidebar
+ *  is unchanged for existing users. */
 export async function GET(request: Request) {
   return handle(async () => {
     const user = await requireUser()
     const q = new URL(request.url).searchParams.get('q')?.trim() ?? ''
+    const includeArchived = new URL(request.url).searchParams.get('includeArchived') === '1'
+    const statusFilter = includeArchived ? undefined : 'active'
+    const projectMeta = (p: {
+      id: string
+      title: string
+      status: string
+      currentVersion: number
+      updatedAt: Date
+      _count: { messages: number; files: number }
+    }) => ({
+      id: p.id,
+      title: p.title,
+      status: p.status,
+      currentVersion: p.currentVersion,
+      messages: p._count.messages,
+      files: p._count.files,
+      updatedAt: p.updatedAt,
+    })
     if (q.length > 0) {
       const candidates = await db.codeProject.findMany({
-        where: { userId: user.id },
+        where: { userId: user.id, ...(statusFilter ? { status: statusFilter } : {}) },
         orderBy: { updatedAt: 'desc' },
         take: 200,
         include: { _count: { select: { messages: true, files: true } } },
@@ -391,6 +433,8 @@ export async function GET(request: Request) {
         candidates.map((p) => ({
           id: p.id,
           title: p.title,
+          status: p.status,
+          currentVersion: p.currentVersion,
           messages: p._count.messages,
           files: p._count.files,
           updatedAt: p.updatedAt.toISOString(),
@@ -400,19 +444,13 @@ export async function GET(request: Request) {
       return ok({ projects, query: q })
     }
     const projects = await db.codeProject.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, ...(statusFilter ? { status: statusFilter } : {}) },
       orderBy: { updatedAt: 'desc' },
       take: 50,
       include: { _count: { select: { messages: true, files: true } } },
     })
     return ok({
-      projects: projects.map((p) => ({
-        id: p.id,
-        title: p.title,
-        messages: p._count.messages,
-        files: p._count.files,
-        updatedAt: p.updatedAt,
-      })),
+      projects: projects.map((p) => projectMeta(p)),
     })
   })
 }

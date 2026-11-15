@@ -105,3 +105,7 @@ scripts/laxii-jazmii-restore-out/*.png
 scripts/laxii-jazmii-restore-out/*.jpg
 scripts/laxii-jazmii-restore-out/*.db
 __pycache__/
+
+# M22 acceptance harness runtime DB (never commit the verification database)
+scripts/m22-out/*.db
+scripts/m22-out/*.db-*

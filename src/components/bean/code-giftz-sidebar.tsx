@@ -47,7 +47,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Spinner, timeAgo } from './shared'
 import { cn } from '@/lib/utils'
 import { conversationSidebarSections } from '@/lib/riishe/conversation-view'
-import { Code2, MessageSquareCode, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Code2, MessageSquareCode, MoreHorizontal, Pencil, Plus, Search, Trash2, X, Copy, Archive, ArchiveRestore } from 'lucide-react'
 
 export interface ProjectSummary {
   id: string
@@ -55,6 +55,9 @@ export interface ProjectSummary {
   messages: number
   files: number
   updatedAt: string
+  /** M22 ADDITIVE persistence metadata (honest values from the API). */
+  status?: 'active' | 'archived'
+  currentVersion?: number
 }
 
 export interface SidebarActionResult {
@@ -88,6 +91,9 @@ function ProjectRow({
   onOpen,
   onRename,
   onDelete,
+  onDuplicate,
+  onArchive,
+  onRestore,
   closeAfterAction,
 }: {
   project: ProjectSummary
@@ -95,6 +101,9 @@ function ProjectRow({
   onOpen: (id: string) => void
   onRename: (p: ProjectSummary) => void
   onDelete: (p: ProjectSummary) => void
+  onDuplicate?: (p: ProjectSummary) => void
+  onArchive?: (p: ProjectSummary) => void
+  onRestore?: (p: ProjectSummary) => void
   closeAfterAction?: () => void
 }) {
   return (
@@ -125,7 +134,9 @@ function ProjectRow({
           {project.title}
         </span>
         <span className="block text-[10px] text-white/30">
-          {project.messages} message{project.messages === 1 ? '' : 's'} · {project.files} file{project.files === 1 ? '' : 's'} · {timeAgo(project.updatedAt)}
+          {project.messages} message{project.messages === 1 ? '' : 's'} · {project.files} file{project.files === 1 ? '' : 's'}
+          {typeof project.currentVersion === 'number' && project.currentVersion > 0 ? ` · v${project.currentVersion}` : ''}
+          {project.status === 'archived' ? ' · archived' : ''} · {timeAgo(project.updatedAt)}
         </span>
       </span>
 
@@ -171,7 +182,7 @@ function ProjectRow({
             <MoreHorizontal className="h-4 w-4" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-40 border-[rgba(212,175,55,0.2)] bg-[#141416]">
+        <DropdownMenuContent align="start" className="w-44 border-[rgba(212,175,55,0.2)] bg-[#141416]">
           <DropdownMenuItem
             className="gap-2 text-white/70 focus:bg-white/10 focus:text-white"
             onClick={(e) => e.stopPropagation()}
@@ -179,6 +190,32 @@ function ProjectRow({
           >
             <Pencil className="h-3.5 w-3.5" /> Rename
           </DropdownMenuItem>
+          {onDuplicate ? (
+            <DropdownMenuItem
+              className="gap-2 text-white/70 focus:bg-white/10 focus:text-white"
+              onClick={(e) => e.stopPropagation()}
+              onSelect={() => onDuplicate(project)}
+            >
+              <Copy className="h-3.5 w-3.5" /> Duplicate
+            </DropdownMenuItem>
+          ) : null}
+          {project.status === 'archived' && onRestore ? (
+            <DropdownMenuItem
+              className="gap-2 text-white/70 focus:bg-white/10 focus:text-white"
+              onClick={(e) => e.stopPropagation()}
+              onSelect={() => onRestore(project)}
+            >
+              <ArchiveRestore className="h-3.5 w-3.5" /> Restore
+            </DropdownMenuItem>
+          ) : onArchive ? (
+            <DropdownMenuItem
+              className="gap-2 text-white/70 focus:bg-white/10 focus:text-white"
+              onClick={(e) => e.stopPropagation()}
+              onSelect={() => onArchive(project)}
+            >
+              <Archive className="h-3.5 w-3.5" /> Archive
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem
             className="gap-2 text-red-300/90 focus:bg-red-500/10 focus:text-red-300"
             onClick={(e) => e.stopPropagation()}
@@ -202,6 +239,11 @@ export function GiftzSidebarBody({
   onNew,
   onRename,
   onDelete,
+  onDuplicate,
+  onArchive,
+  onRestore,
+  showArchived,
+  onToggleArchived,
   onCollapse,
   closeAfterAction,
 }: {
@@ -214,6 +256,13 @@ export function GiftzSidebarBody({
   onNew: () => void
   onRename: (id: string, title: string) => Promise<SidebarActionResult>
   onDelete: (id: string) => Promise<SidebarActionResult>
+  /** M22 ADDITIVE project lifecycle actions. */
+  onDuplicate?: (id: string) => Promise<SidebarActionResult>
+  onArchive?: (id: string) => Promise<SidebarActionResult>
+  onRestore?: (id: string) => Promise<SidebarActionResult>
+  /** M22: show archived projects in the list (restore lives there). */
+  showArchived?: boolean
+  onToggleArchived?: () => void
   /** Desktop only — collapse the inline rail. */
   onCollapse?: () => void
   /** Mobile only — close the Sheet drawer AFTER a successful action. */
@@ -226,6 +275,7 @@ export function GiftzSidebarBody({
   const [deleteTarget, setDeleteTarget] = useState<ProjectSummary | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null)
 
   // Rename/delete dialogs render INSIDE this body (which is mounted under
   // SheetContent on mobile) — closing the Sheet early would unmount the
@@ -239,6 +289,18 @@ export function GiftzSidebarBody({
   function askDelete(p: ProjectSummary) {
     setDeleteError(null)
     setDeleteTarget(p)
+  }
+
+  /** M22 lifecycle actions (duplicate/archive/restore) — one honest shared
+   *  runner: failures stay visible in the sidebar, successes refresh upstream. */
+  async function runLifecycle(kind: 'duplicate' | 'archive' | 'restore', p: ProjectSummary) {
+    if (!onDuplicate || !onArchive || !onRestore) return
+    setLifecycleError(null)
+    const action = kind === 'duplicate' ? onDuplicate : kind === 'archive' ? onArchive : onRestore
+    const result = await action(p.id)
+    if (!result.ok) {
+      setLifecycleError(result.error ?? `${kind} failed. Please try again.`)
+    }
   }
 
   async function submitRename() {
@@ -342,7 +404,23 @@ export function GiftzSidebarBody({
             </button>
           ) : null}
         </div>
+        {onToggleArchived ? (
+          <button
+            onClick={onToggleArchived}
+            className={cn(
+              'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-[11px] transition-colors',
+              showArchived ? 'text-[#f0c75e]' : 'text-white/35 hover:text-white/70',
+            )}
+            aria-pressed={showArchived}
+          >
+            <Archive className="h-3 w-3" />
+            {showArchived ? 'Hide archived projects' : 'Show archived projects'}
+          </button>
+        ) : null}
       </div>
+      {lifecycleError ? (
+        <p className="mx-3 mb-1 rounded border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] text-red-300">{lifecycleError}</p>
+      ) : null}
 
       <ScrollArea className="min-h-0 flex-1 px-2 pb-3">
         {projects.length === 0 ? (
@@ -361,6 +439,9 @@ export function GiftzSidebarBody({
                   onOpen={onOpen}
                   onRename={askRename}
                   onDelete={askDelete}
+                  onDuplicate={onDuplicate ? (x) => void runLifecycle('duplicate', x) : undefined}
+                  onArchive={onArchive ? (x) => void runLifecycle('archive', x) : undefined}
+                  onRestore={onRestore ? (x) => void runLifecycle('restore', x) : undefined}
                   closeAfterAction={closeAfterAction}
                 />
               ))}
