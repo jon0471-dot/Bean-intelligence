@@ -112,3 +112,10 @@ scripts/m22-out/*.db-*
 # M23 acceptance harness runtime DB (never commit the verification database)
 scripts/m23-out/*.db
 scripts/m23-out/*.db-*
+
+# M24 validation runtime artifacts: fixture build outputs and extracted
+# evidence copies stay out of git (the verified ZIPs and screenshots are
+# committed as evidence instead)
+validation/m24/fixtures/*/dist/
+validation/m24/evidence/extracted/
+validation/m24/evidence/independent-build/

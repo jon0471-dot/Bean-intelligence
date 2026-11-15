@@ -1,8 +1,8 @@
 {
-  "runAt": "2026-11-15T02:13:37.141Z",
+  "runAt": "2026-11-15T03:46:06.339Z",
   "database": "isolated verification DB (scripts/m22-out/verify.db) — never the runtime DB",
   "method": "recorded model-response fixtures through the REAL product modules (parseFiles/applyFiles/versioning/compare/rollback/audit/dependencies/export) — the external LLM hop is not exercised (no provider credentials in this sandbox); identical substitution policy to M21",
-  "projectId": "cmwh7ahyz0002ss3ar04i58gu",
+  "projectId": "cmwhalfs70002ss79deue2lc5",
   "acceptanceSteps": 11,
   "passed": 11,
   "failed": 0,
@@ -157,7 +157,7 @@
           "index.html",
           "styles.css"
         ],
-        "newProjectId": "cmwh7ai26001iss3aygjg5vly",
+        "newProjectId": "cmwhalfuj001iss79nwx93h0c",
         "byteIdenticalToProject": true
       }
     },

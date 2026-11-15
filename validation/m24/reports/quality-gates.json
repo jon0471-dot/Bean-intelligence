@@ -1,0 +1,57 @@
+{
+  "recordedAt": "2026-11-15T03:45:00Z",
+  "gates": {
+    "fullTestSuite": {
+      "command": "bun run test (bun test --isolate tests/)",
+      "result": "PASS",
+      "tests": 1885,
+      "failed": 0,
+      "files": 133,
+      "expectCalls": 38649
+    },
+    "typescript": {
+      "command": "bunx tsc --noEmit",
+      "result": "PASS (product scope)",
+      "detail": "0 errors in src/, tests/, prisma/, and all M24-added files. 137 pre-existing errors remain in unrelated one-off tooling scripts (scripts/fulltest, scripts/ai-engine, scripts/hotfix-*, evals) — none touched by M24 and outside the Next.js build include path. Error count reduced vs baseline (154 with probe file present) because M24 files were written type-clean."
+    },
+    "eslint": {
+      "command": "bunx eslint src/ tests/unit/code-preview-inline.test.ts tests/unit/frontend-intel-engine.test.ts",
+      "result": "PASS",
+      "detail": "0 problems in product code and new tests. Repo-wide `bun run lint` remains red on BOTH baseline and M24 tree with the same class of pre-existing findings inside generated validation fixtures (validation/m21, validation/m24 fixture copies, sandbox-runs) — unchanged by M24."
+    },
+    "productionBuild": {
+      "command": "bun run build",
+      "result": "PASS",
+      "detail": "next build exit 0"
+    },
+    "securityTests": {
+      "result": "PASS",
+      "detail": "23/23 checks in validation/m24/reports/security.json (IDOR, preview isolation, prompt injection, secret leakage, malicious paths, sandbox isolation) + full suite security suites (code-file-ops-security, code-projects-security, api-keys, url-guard, sandbox) green inside the 1885-test run."
+    },
+    "m21FixtureRegression": {
+      "result": "PASS",
+      "detail": "30/30 checks in validation/m24/reports/fixtures-regression.json — Nebula/Pulse/Nova Reyes isolated copies build (pins→tsc→vite), render in real Chromium (desktop/mobile/reduced-motion, zero page errors) and export through the real ZIP exporter; originals hash-verified untouched."
+    },
+    "m22PersistenceRegression": {
+      "result": "PASS",
+      "detail": "scripts/m22/acceptance.ts re-run: 11/11 steps passed on a real isolated SQLite database (scripts/m22-out/acceptance.json)."
+    },
+    "m23FileOperationRegression": {
+      "result": "PASS",
+      "detail": "scripts/m23/acceptance.ts re-run: 16/16 steps passed (scripts/m23-out/acceptance.json) PLUS 33/33 live-API file-operation checks in validation/m24/reports/fileops-regression.json with zero provider calls."
+    },
+    "realSqliteIntegration": {
+      "result": "PASS",
+      "detail": "M22 acceptance (isolated verify.db), M23 acceptance (isolated DB), and every M24 live-API run persisted through the real Prisma/SQLite database (db/custom.db) — reopen/hash/integrity/rollback all verified against real rows."
+    },
+    "realBrowserTests": {
+      "result": "PASS",
+      "detail": "Real Chromium (Playwright 1.57): product previews (desktop 1440x900, mobile 390x844, reducedMotion:'reduce'), interaction, defect detection, repair verification, independent-build load, and all three fixture copies. Screenshots in validation/m24/evidence/."
+    },
+    "zipIntegritySecretScan": {
+      "result": "PASS",
+      "detail": "unzip -t integrity pass on m24-final-export.zip + 3 fixture exports; secret content scan clean; node_modules/.env excluded; manifest.json per-file sha256 verified; extracted project served/loaded independently."
+    }
+  },
+  "noCoverageReductions": "No existing tests were deleted, skipped or weakened. M24 added: tests/unit/code-preview-inline.test.ts (5 tests) and 4 new frontend-intel-engine tests (24 total in that file, up from 20)."
+}

@@ -23,6 +23,53 @@ describe('frontend plan resolution', () => {
     expect(plan.vantaEffect).toBeNull()
   })
 
+  // M24 regression (measured live): on an EXISTING project the AUTO keyword
+  // path used to engage on incidental words in modification messages
+  // ("ScrollTrigger.min.js" → scroll-stack, "text" → split-text …) and
+  // mandated the animation library on one-line targeted edits, which the
+  // provider then followed INSTEAD of the user's requested change.
+  describe('M24: existing-project turns are not hijacked by the AUTO catalogue path', () => {
+    const EDIT_MSG =
+      'Narrowly scoped change — one line only. The file main.html currently contains <h1>FocusBoard</h1>. Change that line to <h1>FocusBoard Pro</h1>. Keep every other line byte-identical. Note: the vendor/ folder (gsap.min.js, ScrollTrigger.min.js) and NOTICES.md are intentional — do not modify them.'
+
+    test('a targeted edit mentioning catalogue keywords does NOT mandate animations', () => {
+      const plan = resolveFrontendPlan({
+        message: EDIT_MSG,
+        existingFilePaths: ['main.html', 'NOTICES.md', 'vendor/gsap.min.js', 'vendor/ScrollTrigger.min.js'],
+      })
+      expect(plan.enabled).toBe(false)
+      expect(plan.brief).toBe('')
+      expect(plan.animationIds).toEqual([])
+      expect(plan.engineFiles).toEqual([])
+    })
+
+    test('explicit kit selection on an existing project still engages the full brief', () => {
+      const plan = resolveFrontendPlan({
+        message: 'Update my site',
+        existingFilePaths: ['index.html', 'app.js'],
+        selection: { animations: ['entrance-timeline'] },
+      })
+      expect(plan.enabled).toBe(true)
+      expect(plan.animationIds).toContain('entrance-timeline')
+    })
+
+    test('a message naming new frontend work on an existing project still engages', () => {
+      const plan = resolveFrontendPlan({
+        message: 'Add a new hero section with a waves background to my existing landing page',
+        existingFilePaths: ['index.html', 'app.js'],
+      })
+      expect(plan.enabled).toBe(true)
+    })
+
+    test('fresh generations (no existing files) keep the old AUTO behavior', () => {
+      const plan = resolveFrontendPlan({
+        message: 'Build a task tracker web app with scroll animations and a folder gallery',
+      })
+      expect(plan.enabled).toBe(true)
+      expect(plan.componentIds.length).toBeGreaterThan(0)
+    })
+  })
+
   test('a frontend request auto-detects: static target + minimal default animations, NO vanta, NO forced components', () => {
     const plan = resolveFrontendPlan({ message: 'Build a landing page for a coffee shop with a hero section.' })
     expect(plan.enabled).toBe(true)

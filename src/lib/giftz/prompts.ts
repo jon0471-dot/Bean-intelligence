@@ -52,18 +52,35 @@ LAST CHECK BEFORE ANSWERING (for any output-order question): keep a RUNNING OUTP
 // Context budget mirrored from the route's original constant.
 const MAX_FILE_CONTEXT_CHARS = 24_000
 
+/**
+ * Builds the CURRENT PROJECT FILES block.
+ *
+ * M24 hardening (measured live): the original linear order let huge
+ * engine-injected vendor bundles consume the budget BEFORE small source
+ * files, and a partial dump of minified library code — presented as "the
+ * code the user sees and will run" — repeatedly derailed targeted edits
+ * (the model tried to "fix" the project instead of applying the requested
+ * one-line change). Two changes, both consistent with the existing
+ * smallest-first budget in src/lib/code/files.ts:
+ *   1. files are served smallest-first, so source files always make it in;
+ *   2. a file larger than the remaining budget is omitted WHOLE with an
+ *      honest asset note — half a minified bundle is worse than none, and
+ *      a file the model cannot see in full must never be re-emitted anyway.
+ * Pinned contract preserved: omitted files keep their PATH listed and the
+ * phrase "omitted from context: file budget reached".
+ */
 export function buildProjectContext(files: Array<{ path: string; content: string }>): string {
   if (files.length === 0) return ''
   let budget = MAX_FILE_CONTEXT_CHARS
   const parts: string[] = ['CURRENT PROJECT FILES (this is the code the user sees and will run):']
-  for (const f of files) {
-    if (budget <= 0) {
-      parts.push(`- ${f.path} (omitted from context: file budget reached)`)
+  const ordered = [...files].sort((a, b) => a.content.length - b.content.length)
+  for (const f of ordered) {
+    if (budget <= 0 || f.content.length > budget) {
+      parts.push(`- ${f.path} (omitted from context: file budget reached — large asset/library file; do NOT modify, re-emit or delete it)`)
       continue
     }
-    const content = f.content.length > budget ? `${f.content.slice(0, budget)}\n…(truncated for context)` : f.content
-    budget -= content.length
-    parts.push(`--- ${f.path} ---\n${content}`)
+    budget -= f.content.length
+    parts.push(`--- ${f.path} ---\n${f.content}`)
   }
   return parts.join('\n\n')
 }
