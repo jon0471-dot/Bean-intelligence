@@ -22,11 +22,13 @@ import { recordUsage, recordAudit } from '@/lib/observability/metering'
 import { logger } from '@/lib/observability/logger'
 import type { TaskAdapter } from '@/lib/adapters/types'
 import { upstreamErrorCode, upstreamStreamErrorPayload, UpstreamRateLimitError, UpstreamAuthError, UpstreamBillingError } from '@/lib/upstream/gateway'
-import { createGiftzChatStream, type GenerationGuard } from '@/lib/giftz/chat-stream'
+import { createGiftzChatStream, type GenerationGuard, type GiftzTurnResult } from '@/lib/giftz/chat-stream'
 import { runGiftzTurnCore } from '@/lib/giftz/turn'
 import { SYSTEM_PROMPT, buildProjectContext, buildTargetedEditBrief } from '@/lib/giftz/prompts'
 import { applyFiles } from '@/lib/giftz/workspace'
 import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
+import { detectFileOperation } from '@/lib/code/file-ops/detect'
+import { performDetectedFileOperation } from '@/lib/code/file-ops/execute'
 import { verificationConfig } from '@/lib/verification/config'
 import { publicVerificationSummary, type VerificationOutcome } from '@/lib/verification/pipeline'
 import { filterConversationsByTitle } from '@/lib/riishe/conversation-view'
@@ -123,6 +125,8 @@ export async function POST(request: Request) {
       })
       const orderedHistory = history.reverse()
 
+      const wantsStream = new URL(request.url).searchParams.get('stream') !== '0'
+
       // Retry idempotency: a client Retry of a FAILED turn re-sends the same
       // prompt verbatim. The failed turn left a trailing user message with no
       // answer after it — collapse that ONE duplicate instead of storing it
@@ -135,6 +139,105 @@ export async function POST(request: Request) {
       const collapseDuplicate = shouldCollapseDuplicateUserMessage(lastMessage, body.message)
 
       const files = await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } })
+
+      // ---- M23: deterministic file-operation turn ----------------------------
+      // A detected rename/move/delete/create request NEVER reaches the model:
+      // it is planned against the REAL project files, validated server-side,
+      // shown to the user as a structured plan and executed through the
+      // confirmation-bound executor (destructive plans require explicit
+      // confirmation; non-destructive ones execute immediately with full
+      // transparency). The provider slot taken by preflight is released
+      // right away — no model tokens are consumed for a file operation.
+      const fileOpDetection = body.projectId ? detectFileOperation(body.message, files) : { detected: false as const }
+      if (fileOpDetection.detected) {
+        if (!collapseDuplicate) {
+          await db.codeMessage.create({
+            data: { projectId, role: 'user', content: body.message },
+          })
+        }
+        const t0 = Date.now()
+        const flow = await performDetectedFileOperation({ projectId, detection: fileOpDetection, files })
+        const fileOpTurnResult = (): GiftzTurnResult => ({
+          content: flow.assistantText,
+          changes: [],
+          durationMs: Date.now() - t0,
+          tokensInEst: 0, // honest: no model call happens for a file operation
+          tokensOutEst: 0,
+          continuationCount: 0,
+          verification: null,
+          ...(flow.payload.versionSeq != null ? { versionSeq: flow.payload.versionSeq } : {}),
+          fileOp: flow.payload,
+        })
+        const persistFileOpAssistant = async (result: GiftzTurnResult) => {
+          const assistant = await db.codeMessage.create({
+            data: {
+              projectId,
+              role: 'assistant',
+              content: result.content,
+              metaJson: JSON.stringify({
+                changes: [],
+                continuations: 0,
+                ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
+                ...(result.fileOp ? { fileOp: result.fileOp } : {}),
+              }),
+            },
+          })
+          return { messageId: assistant.id }
+        }
+        if (!wantsStream) {
+          try {
+            const result = fileOpTurnResult()
+            const assistant = await persistFileOpAssistant(result)
+            await recordAudit({
+              actorId: user.id,
+              action: 'code-giftz.chat_file_op',
+              target: projectId,
+              meta: { status: flow.payload.status, kind: flow.payload.kind, opId: flow.payload.opId },
+            })
+            return ok({
+              projectId,
+              messageId: assistant.messageId,
+              content: result.content,
+              changes: result.changes,
+              durationMs: result.durationMs,
+              verification: null,
+              ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
+              fileOp: result.fileOp,
+            })
+          } finally {
+            release()
+          }
+        }
+        const stream = createGiftzChatStream({
+          projectId,
+          runTurn: async () => fileOpTurnResult(),
+          persistAssistant: persistFileOpAssistant,
+          afterPersist: async (result) => {
+            await recordAudit({
+              actorId: user.id,
+              action: 'code-giftz.chat_file_op',
+              target: projectId,
+              meta: { status: result.fileOp?.status, kind: result.fileOp?.kind, opId: result.fileOp?.opId },
+            })
+            const projectFiles = await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } })
+            return { files: projectFiles.map((f) => ({ path: f.path, origin: f.origin })) }
+          },
+          failurePayload: upstreamStreamErrorPayload,
+          release,
+          disconnectSignal: request.signal,
+          log: (event, data) => {
+            if (event === 'codegiftz.chat_failed' || event === 'codegiftz.persist_failed') logger.warn(event, data)
+            else logger.info(event, data)
+          },
+        })
+        return new Response(stream, {
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache, no-transform',
+            connection: 'keep-alive',
+          },
+        })
+      }
       const attachmentBlock = await loadAttachments(user.id, body.fileIds)
 
       // M22 TARGETED EDITING: when the project already has files, the turn is
@@ -192,7 +295,6 @@ export async function POST(request: Request) {
       // is dropped from the PROMPT so the model sees the message once.
       const promptHistory = collapseDuplicate ? orderedHistory.slice(0, -1) : orderedHistory
 
-      const wantsStream = new URL(request.url).searchParams.get('stream') !== '0'
       const maxPromptChars = Number(backend.limits.maxPromptChars ?? 12_000)
 
       const buildTurnMessages = () => [

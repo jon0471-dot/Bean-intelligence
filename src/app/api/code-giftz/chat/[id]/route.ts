@@ -36,7 +36,7 @@ export async function GET(
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
         messages: messages.map((m) => {
-          const meta = m.metaJson ? (JSON.parse(m.metaJson) as { changes?: Array<{ path: string; change: string }>; frontend?: unknown; research?: { sources?: Array<{ host: string; url: string; title: string; channel: string; backend?: string | null; engine?: string }>; degraded?: string[] } }) : {}
+          const meta = m.metaJson ? (JSON.parse(m.metaJson) as { changes?: Array<{ path: string; change: string }>; frontend?: unknown; research?: { sources?: Array<{ host: string; url: string; title: string; channel: string; backend?: string | null; engine?: string }>; degraded?: string[] }; fileOp?: import('@/lib/code/file-ops/types').FileOpTurnPayload }) : {}
           return {
             id: m.id,
             role: m.role,
@@ -46,6 +46,9 @@ export async function GET(
             ...(meta.frontend ? { frontend: meta.frontend } : {}),
             // ADDITIVE (shared research gateway): research provenance.
             ...(meta.research ? { research: meta.research } : {}),
+            // M23 ADDITIVE: file-operation payload (pending confirmations
+            // stay actionable after reload; executed ops keep their card).
+            ...(meta.fileOp ? { fileOp: meta.fileOp } : {}),
           }
         }),
         files: files.map((f) => ({ path: f.path, content: f.content, origin: f.origin })),

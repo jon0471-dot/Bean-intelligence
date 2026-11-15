@@ -23,7 +23,16 @@ export const MAX_SUMMARY_CHARS = 500
 /** Total diff payload budget for a version comparison (characters). */
 export const MAX_COMPARE_DIFF_CHARS = 40_000
 
-export type VersionKind = 'initial' | 'turn' | 'manual' | 'rollback' | 'file-save' | 'file-delete'
+export type VersionKind =
+  | 'initial'
+  | 'turn'
+  | 'manual'
+  | 'rollback'
+  | 'file-save'
+  | 'file-delete'
+  // M23: chat-driven file operations and separately-approved reference repairs.
+  | 'file-op'
+  | 'repair'
 
 export interface VersionFileEntry {
   path: string

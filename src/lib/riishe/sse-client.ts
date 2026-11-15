@@ -70,6 +70,9 @@ export interface RiisheStreamEvent {
     notices: string
     checks: { passed: boolean; blocking: number; warnings: number; issues: Array<{ id: string; severity: 'blocking' | 'warning'; message: string }> }
   }
+  /** M23 ADDITIVE: structured file-operation payload on the terminal done
+   *  frame (rename/move/delete/create/repair — see code-giftz.tsx). */
+  fileOp?: import('@/lib/code/file-ops/types').FileOpTurnPayload
 }
 
 export type StreamFailureKind =

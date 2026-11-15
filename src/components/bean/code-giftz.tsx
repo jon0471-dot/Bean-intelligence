@@ -87,6 +87,37 @@ interface ChatMessage {
     sources: Array<{ host: string; url: string; title: string; channel: string; backend?: string | null; engine?: string }>
     degraded: string[]
   }
+  /** M23 ADDITIVE: structured file-operation payload (rename/move/delete/
+   *  create/repair executed or proposed server-side — never simulated). */
+  fileOp?: FileOpView
+}
+
+/** M23 — file-operation card payload (mirrors the server contract). */
+interface FileOpView {
+  status: 'executed' | 'awaiting_confirmation' | 'clarification' | 'rejected' | 'explained' | 'failed'
+  kind?: string
+  opId?: string
+  planHash?: string
+  source?: string[]
+  destination?: string
+  affectedFiles?: string[]
+  conflicts?: string[]
+  referenceImpact?: Array<{ path: string; lines: number[]; sample: string }>
+  question?: string
+  reason?: string
+  consequence?: string
+  versionSeq?: number | null
+  result?: FileOpResultView
+}
+interface FileOpResultView {
+  opId: string
+  kind: string
+  applied: Array<{ from?: string; to?: string; path?: string; action: string }>
+  failed: Array<{ path: string; action: string; reason: string }>
+  versionSeq: number | null
+  verification: { contentsPreserved: boolean; remainingReferences: number; detail: string }
+  replayed?: boolean
+  repairOffered?: { opId: string; planHash: string; affectedFiles: Array<{ path: string; lines: number[]; sample: string }>; consequence: string } | null
 }
 interface ProjectFile { path: string; content: string; origin: 'generated' | 'modified'; updatedAt?: string }
 interface FileChange {
@@ -109,7 +140,7 @@ interface FileMeta { id: string; name: string; kind: string; size: number; statu
 interface VersionSummary {
   id: string
   seq: number
-  kind: 'initial' | 'turn' | 'manual' | 'rollback' | 'file-save' | 'file-delete'
+  kind: 'initial' | 'turn' | 'manual' | 'rollback' | 'file-save' | 'file-delete' | 'file-op' | 'repair'
   summary: string | null
   fileCount: number
   changedFiles: Array<{ path: string; change: 'added' | 'modified' | 'deleted' | 'renamed'; previousPath?: string }>
@@ -145,6 +176,144 @@ interface PreviewObservation {
 
 const WELCOME =
   "Hi! I'm CODE GIFTZ, your coding assistant. Describe what you want to build, debug, refactor or review — I'll write the files, and you can run them in the sandbox or open a live preview."
+
+const FILE_OP_KIND_LABEL: Record<string, string> = {
+  rename: 'Rename',
+  move: 'Move',
+  delete: 'Delete',
+  create: 'Create',
+  'batch-move': 'Batch move',
+  'batch-rename': 'Batch rename',
+  repair: 'Reference repair',
+}
+
+const FILE_OP_STATUS_STYLE: Record<FileOpView['status'], string> = {
+  executed: 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  awaiting_confirmation: 'border border-amber-500/40 bg-amber-500/10 text-amber-300',
+  clarification: 'border border-white/12 bg-white/5 text-white/50',
+  rejected: 'border border-red-500/30 bg-red-500/10 text-red-300',
+  explained: 'border border-white/12 bg-white/5 text-white/50',
+  failed: 'border border-red-500/30 bg-red-500/10 text-red-300',
+}
+
+/** M23 — the transcript card for one structured file operation. Shows the
+ *  detected operation, every affected path, conflicts, reference impact, the
+ *  confirmation action (destructive ops), the execution progress and the
+ *  truthful final result with its recorded version. Same visual language as
+ *  the versions panel (gold-on-dark, semantic badge colors). */
+function FileOpCard(props: {
+  op: FileOpView
+  disabled: boolean
+  busy: boolean
+  onConfirm: () => void
+  onCancel: () => void
+  onRepair: () => void
+}) {
+  const { op, disabled, busy, onConfirm, onCancel, onRepair } = props
+  if (op.status === 'clarification') return null // the question text is the answer
+  const kindLabel = FILE_OP_KIND_LABEL[op.kind ?? ''] ?? 'File operation'
+  return (
+    <div className="mt-2 rounded-lg border border-[rgba(212,175,55,0.25)] bg-black/20 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <FileMinus2 className="h-3.5 w-3.5 text-[#f0c75e]" />
+        <span className="text-[11px] font-medium text-white/85">{kindLabel}</span>
+        <span className={cn('rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide', FILE_OP_STATUS_STYLE[op.status])}>
+          {op.status === 'awaiting_confirmation' ? 'needs confirmation' : op.status.replace('_', ' ')}
+        </span>
+        {op.result?.replayed ? (
+          <span className="rounded border border-white/12 px-1 py-0.5 text-[9px] text-white/40">replayed — already executed</span>
+        ) : null}
+        {op.versionSeq ? (
+          <span className="rounded border border-[rgba(212,175,55,0.4)] bg-[rgba(212,175,55,0.08)] px-1.5 py-0.5 text-[9px] text-[#f0c75e]">v{op.versionSeq}</span>
+        ) : null}
+      </div>
+
+      {(op.source?.length ?? 0) > 0 || op.destination ? (
+        <div className="mt-1.5 space-y-0.5 font-mono text-[10.5px] leading-snug text-white/60">
+          {(op.source ?? []).map((s) => (
+            <div key={s} className="break-all">
+              <span className="text-white/40">from</span> {s}
+              {op.destination ? <span className="text-white/40"> → {op.destination}</span> : null}
+            </div>
+          ))}
+          {(op.source?.length ?? 0) === 0 && op.destination ? (
+            <div className="break-all">
+              <span className="text-white/40">path</span> {op.destination}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {(op.affectedFiles?.length ?? 0) > 0 ? (
+        <div className="mt-1.5">
+          <p className="text-[10px] uppercase tracking-wide text-white/35">Affected ({op.affectedFiles?.length})</p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {(op.affectedFiles ?? []).map((f) => (
+              <span key={f} className="max-w-full break-all rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-white/55">
+                {f}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {(op.conflicts?.length ?? 0) > 0 ? (
+        <p className="mt-1.5 text-[10.5px] leading-snug text-red-300">Conflict: {(op.conflicts ?? []).join(', ')} already exist(s) — nothing was changed.</p>
+      ) : null}
+      {(op.referenceImpact?.length ?? 0) > 0 ? (
+        <p className="mt-1.5 text-[10.5px] leading-snug text-amber-300">
+          {op.referenceImpact?.length} file(s) reference the affected path(s) and may break: {op.referenceImpact?.map((r) => r.path).slice(0, 4).join(', ')}
+          {(op.referenceImpact?.length ?? 0) > 4 ? '…' : ''} — a separate reviewable repair is offered after execution.
+        </p>
+      ) : null}
+      {op.consequence ? <p className="mt-1.5 text-[10.5px] leading-snug text-white/45">{op.consequence}</p> : null}
+      {op.reason ? <p className="mt-1.5 text-[10.5px] leading-snug text-red-300">{op.reason}</p> : null}
+
+      {op.status === 'awaiting_confirmation' ? (
+        <div className="mt-2 flex items-center gap-1.5">
+          <button
+            onClick={onConfirm}
+            disabled={disabled}
+            className={cn(
+              'inline-flex items-center gap-1 rounded px-2 py-1 text-[10.5px] font-medium disabled:opacity-40',
+              op.kind === 'delete' ? 'bg-red-600 text-white hover:bg-red-500' : 'bg-[#d4af37] text-black hover:bg-[#e6c25a]',
+            )}
+          >
+            {busy ? <Spinner className="h-3 w-3" /> : null} Confirm {kindLabel.toLowerCase()}
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={disabled}
+            className="rounded border border-white/10 px-2 py-1 text-[10.5px] text-white/50 hover:border-[rgba(212,175,55,0.3)] hover:text-white/80 disabled:opacity-40"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
+      {op.status === 'executed' && op.result ? (
+        <div className="mt-1.5 border-t border-[rgba(212,175,55,0.12)] pt-1.5">
+          <p className={cn('text-[10.5px] leading-snug', op.result.verification.contentsPreserved ? 'text-white/45' : 'text-red-300')}>
+            {op.result.verification.detail}
+          </p>
+          {op.result.failed.length > 0 ? (
+            <p className="mt-1 text-[10.5px] leading-snug text-red-300">{op.result.failed[0].reason}</p>
+          ) : null}
+          {op.result.repairOffered ? (
+            <button
+              onClick={onRepair}
+              disabled={disabled}
+              className="mt-1.5 inline-flex items-center gap-1 rounded border border-amber-500/40 px-1.5 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/10 disabled:opacity-40"
+            >
+              <Wrench className="h-3 w-3" />
+              Review repair ({op.result.repairOffered.affectedFiles.length} file{op.result.repairOffered.affectedFiles.length === 1 ? '' : 's'})
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 function langOf(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase() ?? ''
@@ -215,6 +384,10 @@ export function CodeGiftz() {
   const [previewObservations, setPreviewObservations] = useState<PreviewObservation[]>([])
   const [previewAudit, setPreviewAudit] = useState<PreviewAuditData | null>(null)
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop')
+  // M23 — file-operation cards: busy op (spinner on its buttons) and the
+  // pending destructive confirmation (deletion / reference repair).
+  const [fileOpBusy, setFileOpBusy] = useState<string | null>(null)
+  const [confirmingFileOp, setConfirmingFileOp] = useState<{ messageId: string; opId: string; title: string; detail: string; destructive: boolean } | null>(null)
   // Cache-buster: bumped after accepted changes so the iframe re-fetches the
   // fresh preview (the route serves no-store; this also forces a re-render).
   const [previewKey, setPreviewKey] = useState(0)
@@ -297,12 +470,12 @@ export function CodeGiftz() {
         project: {
           id: string
           title: string
-          messages: Array<{ id: string; role: string; content: string; changes: Array<{ path: string; change: string }> }>
+          messages: Array<{ id: string; role: string; content: string; changes: Array<{ path: string; change: string }>; fileOp?: FileOpView }>
           files: Array<{ path: string; content: string; origin: 'generated' | 'modified'; updatedAt?: string }>
         }
       }>(`/api/code-giftz/chat/${id}`)
       setProjectId(d.project.id)
-      setMessages(d.project.messages.map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, changes: m.changes ?? [] })))
+      setMessages(d.project.messages.map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, changes: m.changes ?? [], ...(m.fileOp ? { fileOp: m.fileOp as FileOpView } : {}) })))
       setFiles(d.project.files.map((f) => ({ path: f.path, content: f.content, origin: f.origin, updatedAt: f.updatedAt })))
       const first = d.project.files[0]
       setOpenTabs(first ? [first.path] : [])
@@ -356,6 +529,68 @@ export function CodeGiftz() {
       return { ok: true }
     } catch (e) {
       return { ok: false, error: (e as Error).message }
+    }
+  }
+
+  // ---- M23 file-operation handlers (confirm/cancel from the chat cards) ----
+
+  /** Refresh the workspace files from the server (same semantics as the
+   *  in-turn helper; usable outside a streaming turn). */
+  function refreshWorkspaceFiles(pid: string) {
+    void (async () => {
+      try {
+        const d = await beanFetch<{ project: { files: ProjectFile[] } }>(`/api/code-giftz/chat/${pid}`)
+        setFiles(d.project.files)
+        setOpenTabs((prev) => {
+          const merged = [...prev]
+          for (const f of d.project.files) if (!merged.includes(f.path)) merged.push(f.path)
+          return merged
+        })
+      } catch { /* non-fatal */ }
+    })()
+  }
+
+  async function executeFileOp(pid: string, opId: string, messageId: string) {
+    setFileOpBusy(opId)
+    try {
+      const d = await beanFetch<{ result: FileOpResultView }>(
+        `/api/code-giftz/projects/${pid}/file-ops/execute`,
+        { method: 'POST', json: { opId } },
+      )
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId && msg.fileOp
+            ? { ...msg, fileOp: { ...msg.fileOp, status: 'executed' as const, result: d.result, versionSeq: d.result.versionSeq } }
+            : msg,
+        ),
+      )
+      refreshWorkspaceFiles(pid)
+      setPreviewKey((k) => k + 1)
+      void refreshPreviewAudit(pid)
+      void loadProjects(searchQuery)
+      if (versionsOpen) void openVersions()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setFileOpBusy(null)
+    }
+  }
+
+  async function cancelFileOp(pid: string, opId: string, messageId: string) {
+    setFileOpBusy(opId)
+    try {
+      await beanFetch(`/api/code-giftz/projects/${pid}/file-ops/cancel`, { method: 'POST', json: { opId } })
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId && msg.fileOp
+            ? { ...msg, fileOp: { ...msg.fileOp, status: 'rejected' as const, reason: 'Cancelled — nothing was changed.' } }
+            : msg,
+        ),
+      )
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setFileOpBusy(null)
     }
   }
 
@@ -753,6 +988,7 @@ export function CodeGiftz() {
                       changes: wireChanges.map((c) => ({ path: c.path, change: c.change })),
                       incomplete: false,
                       verification: wireVerification,
+                      ...(evt.fileOp ? { fileOp: evt.fileOp as FileOpView } : {}),
                     }
                   : m,
               ),
@@ -765,6 +1001,14 @@ export function CodeGiftz() {
               setPreviewKey((k) => k + 1)
               void refreshPreviewAudit(newProjectId)
               void loadProjects(searchQuery)
+            }
+            // M23: an executed file operation changed the workspace — same
+            // honest refresh semantics as any other accepted change.
+            if (evt.fileOp?.status === 'executed' && newProjectId) {
+              setPreviewKey((k) => k + 1)
+              void refreshPreviewAudit(newProjectId)
+              void loadProjects(searchQuery)
+              if (versionsOpen) void openVersions()
             }
             const changes = evt.changes ?? []
             if (changes.length > 0) {
@@ -948,6 +1192,56 @@ export function CodeGiftz() {
                             </button>
                           ))}
                         </div>
+                      ) : null}
+                      {/* M23 — file-operation card: the real structured plan/result
+                          of a chat-driven rename/move/delete/create/repair. The
+                          server executed (or proposed) it; this card never shows
+                          a simulated outcome. */}
+                      {m.fileOp ? (
+                        <FileOpCard
+                          op={m.fileOp}
+                          disabled={fileOpBusy !== null}
+                          busy={fileOpBusy !== null && fileOpBusy === m.fileOp.opId}
+                          onConfirm={() => {
+                            const op = m.fileOp
+                            if (!op?.opId) return
+                            const destructive = op.kind === 'delete' || op.kind === 'repair'
+                            if (destructive) {
+                              setConfirmingFileOp({
+                                messageId: m.id,
+                                opId: op.opId,
+                                title: op.kind === 'delete' ? 'Confirm deletion' : 'Confirm reference repair',
+                                detail:
+                                  (op.consequence ?? '') +
+                                  (op.affectedFiles && op.affectedFiles.length > 0
+                                    ? ` Affected: ${op.affectedFiles.slice(0, 6).join(', ')}${op.affectedFiles.length > 6 ? ` and ${op.affectedFiles.length - 6} more` : ''}.`
+                                    : ''),
+                                destructive: true,
+                              })
+                            } else if (projectId) {
+                              void executeFileOp(projectId, op.opId, m.id)
+                            }
+                          }}
+                          onCancel={() => {
+                            const op = m.fileOp
+                            if (op?.opId && projectId) void cancelFileOp(projectId, op.opId, m.id)
+                          }}
+                          onRepair={() => {
+                            const offered = m.fileOp?.result?.repairOffered
+                            if (!offered) return
+                            setConfirmingFileOp({
+                              messageId: m.id,
+                              opId: offered.opId,
+                              title: 'Confirm reference repair',
+                              detail:
+                                offered.consequence +
+                                (offered.affectedFiles.length > 0
+                                  ? ` Files: ${offered.affectedFiles.map((f) => f.path).slice(0, 6).join(', ')}${offered.affectedFiles.length > 6 ? ` and ${offered.affectedFiles.length - 6} more` : ''}.`
+                                  : ''),
+                              destructive: true,
+                            })
+                          }}
+                        />
                       ) : null}
                       {/* ADDITIVE (shared research gateway): clickable technical
                           references actually used by this turn — never fabricated. */}
@@ -1624,6 +1918,39 @@ export function CodeGiftz() {
               className="bg-[#d4af37] text-black hover:bg-[#e6c25a]"
             >
               {versionBusy ? <Spinner className="h-3.5 w-3.5" /> : null} Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* M23 — destructive file-operation confirmation: deletion and reference
+          repair never run from one click. The dialog states the exact plan the
+          server recorded (bound to it by the operation id) and the honest
+          recovery semantics (version history). */}
+      <AlertDialog
+        open={confirmingFileOp !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmingFileOp(null)
+        }}
+      >
+        <AlertDialogContent className="border-[rgba(212,175,55,0.25)] bg-[#141416]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white/90">{confirmingFileOp?.title ?? 'Confirm'}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmingFileOp?.detail}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-white/15 bg-transparent text-white/70 hover:bg-white/5 hover:text-white">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                const pending = confirmingFileOp
+                setConfirmingFileOp(null)
+                if (pending && projectId) void executeFileOp(projectId, pending.opId, pending.messageId)
+              }}
+              disabled={fileOpBusy !== null}
+              className={confirmingFileOp?.destructive ? 'bg-red-600 text-white hover:bg-red-500' : 'bg-[#d4af37] text-black hover:bg-[#e6c25a]'}
+            >
+              {fileOpBusy ? <Spinner className="h-3.5 w-3.5" /> : null} Confirm
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
