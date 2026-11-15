@@ -1,0 +1,192 @@
+{
+  "ranAt": "2026-11-15T03:32:02.461Z",
+  "finishedAt": "2026-11-15T03:34:10.459Z",
+  "fixtures": [
+    "Nebula landing page",
+    "Pulse analytics dashboard",
+    "Nova Reyes portfolio"
+  ],
+  "note": "Original M21 fixtures are hash-verified untouched; all validation happens on isolated copies under validation/m24/fixtures/. Browser rendering uses real Chromium against each copy's production build.",
+  "steps": [
+    {
+      "id": "fixtures-isolation",
+      "title": "M21 fixtures copied to isolated validation dirs; originals untouched",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "Nebula landing page: original fixture byte-for-byte untouched after copy",
+          "passed": true,
+          "detail": "22 files hashed"
+        },
+        {
+          "name": "Pulse analytics dashboard: original fixture byte-for-byte untouched after copy",
+          "passed": true,
+          "detail": "22 files hashed"
+        },
+        {
+          "name": "Nova Reyes portfolio: original fixture byte-for-byte untouched after copy",
+          "passed": true,
+          "detail": "26 files hashed"
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "fixtures-build",
+      "title": "Each isolated fixture copy builds through the real pipeline (pins → tsc → vite)",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "Nebula landing page: copy builds (install + tsc + vite)",
+          "passed": true,
+          "detail": "npm install + tsc 0 errors + vite build ok"
+        },
+        {
+          "name": "Pulse analytics dashboard: copy builds (install + tsc + vite)",
+          "passed": true,
+          "detail": "npm install + tsc 0 errors + vite build ok"
+        },
+        {
+          "name": "Nova Reyes portfolio: copy builds (install + tsc + vite)",
+          "passed": true,
+          "detail": "npm install + tsc 0 errors + vite build ok"
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "fixtures-browser",
+      "title": "Each built fixture copy renders in real Chromium (content, errors, navigation, mobile, reduced motion)",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "Nebula landing page: key content renders (\"Nebula\")",
+          "passed": true
+        },
+        {
+          "name": "Nebula landing page: internal navigation works without errors",
+          "passed": true,
+          "detail": "http://127.0.0.1:4311/ → http://127.0.0.1:4311/"
+        },
+        {
+          "name": "Nebula landing page: no console/page errors on load",
+          "passed": true,
+          "detail": "{\"consoleErrors\":[],\"pageErrors\":[]}"
+        },
+        {
+          "name": "Nebula landing page: mobile viewport renders without horizontal overflow",
+          "passed": true,
+          "detail": "scrollWidth=390"
+        },
+        {
+          "name": "Nebula landing page: mobile load produces no page errors",
+          "passed": true
+        },
+        {
+          "name": "Nebula landing page: reduced-motion load produces no page errors",
+          "passed": true
+        },
+        {
+          "name": "Pulse analytics dashboard: key content renders (\"Pulse\")",
+          "passed": true
+        },
+        {
+          "name": "Pulse analytics dashboard: internal navigation works without errors",
+          "passed": true,
+          "detail": "http://127.0.0.1:4312/ → http://127.0.0.1:4312/"
+        },
+        {
+          "name": "Pulse analytics dashboard: no console/page errors on load",
+          "passed": true,
+          "detail": "{\"consoleErrors\":[],\"pageErrors\":[]}"
+        },
+        {
+          "name": "Pulse analytics dashboard: mobile viewport renders without horizontal overflow",
+          "passed": true,
+          "detail": "scrollWidth=390"
+        },
+        {
+          "name": "Pulse analytics dashboard: mobile load produces no page errors",
+          "passed": true
+        },
+        {
+          "name": "Pulse analytics dashboard: reduced-motion load produces no page errors",
+          "passed": true
+        },
+        {
+          "name": "Nova Reyes portfolio: key content renders (\"Nova\")",
+          "passed": true
+        },
+        {
+          "name": "Nova Reyes portfolio: internal navigation works without errors",
+          "passed": true,
+          "detail": "http://127.0.0.1:4313/ → http://127.0.0.1:4313/"
+        },
+        {
+          "name": "Nova Reyes portfolio: no console/page errors on load",
+          "passed": true,
+          "detail": "{\"consoleErrors\":[],\"pageErrors\":[]}"
+        },
+        {
+          "name": "Nova Reyes portfolio: mobile viewport renders without horizontal overflow",
+          "passed": true,
+          "detail": "scrollWidth=390"
+        },
+        {
+          "name": "Nova Reyes portfolio: mobile load produces no page errors",
+          "passed": true
+        },
+        {
+          "name": "Nova Reyes portfolio: reduced-motion load produces no page errors",
+          "passed": true
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "fixtures-export",
+      "title": "Each fixture copy exports through the REAL ZIP exporter (integrity + secret scan)",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "Nebula landing page: exporter archive verifies (entry count, safe names, manifest hashes)",
+          "passed": true,
+          "detail": "{\"ok\":true,\"entries\":23,\"issues\":[]}"
+        },
+        {
+          "name": "Nebula landing page: export excludes secret/unsafe entries (fail-closed filter)",
+          "passed": true,
+          "detail": "excluded=0 included=21"
+        },
+        {
+          "name": "Pulse analytics dashboard: exporter archive verifies (entry count, safe names, manifest hashes)",
+          "passed": true,
+          "detail": "{\"ok\":true,\"entries\":23,\"issues\":[]}"
+        },
+        {
+          "name": "Pulse analytics dashboard: export excludes secret/unsafe entries (fail-closed filter)",
+          "passed": true,
+          "detail": "excluded=0 included=21"
+        },
+        {
+          "name": "Nova Reyes portfolio: exporter archive verifies (entry count, safe names, manifest hashes)",
+          "passed": true,
+          "detail": "{\"ok\":true,\"entries\":27,\"issues\":[]}"
+        },
+        {
+          "name": "Nova Reyes portfolio: export excludes secret/unsafe entries (fail-closed filter)",
+          "passed": true,
+          "detail": "excluded=0 included=25"
+        }
+      ],
+      "data": {}
+    }
+  ],
+  "totals": {
+    "steps": 4,
+    "verified": 4,
+    "failed": 0,
+    "checks": 30,
+    "checksPassed": 30
+  }
+}

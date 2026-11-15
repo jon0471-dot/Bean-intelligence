@@ -204,10 +204,22 @@ function buildSiteProfile(message: string, existing: string[]): SiteProfile {
 }
 
 /** Resolve the plan for one turn. Returns `enabled: false` when the turn is
- *  not a frontend turn — the generation path is then untouched. */
+ *  not a frontend turn — the generation path is then untouched.
+ *
+ *  M24 hardening (measured live, 5 consecutive failed targeted edits): on an
+ *  EXISTING project (existingFilePaths non-empty) the AUTO keyword path
+ *  engaged on incidental words in modification messages ("ScrollTrigger" →
+ *  scroll-stack, "text" → split-text …) and mandated the animation pattern
+ *  library on a one-line edit, which the provider then followed INSTEAD of
+ *  the user's request. The AUTO catalogue/background heuristics are a
+ *  GENERATION signal — on an existing project the plan engages only when the
+ *  message explicitly names frontend work (FRONTEND_INTENT_RE) or an
+ *  operator/kit selection is present. Fresh generations (no existing files)
+ *  behave exactly as before. */
 export function resolveFrontendPlan(args: ResolveFrontendPlanArgs): FrontendPlan {
   const { message, selection } = args
   const existing = args.existingFilePaths ?? []
+  const existingProject = existing.length > 0
 
   const selectionEngaged =
     !!selection &&
@@ -217,8 +229,8 @@ export function resolveFrontendPlan(args: ResolveFrontendPlanArgs): FrontendPlan
       (selection.target !== undefined && selection.target !== 'auto'))
 
   const profile = buildSiteProfile(message, existing)
-  const autoComponents = selectionEngaged ? [] : autoSelectComponents(message)
-  const autoBackground = selectionEngaged ? null : detectBackgroundEffect(message)
+  const autoComponents = selectionEngaged || existingProject ? [] : autoSelectComponents(message)
+  const autoBackground = selectionEngaged || existingProject ? null : detectBackgroundEffect(message)
   const detected =
     selectionEngaged ||
     FRONTEND_INTENT_RE.test(message) ||

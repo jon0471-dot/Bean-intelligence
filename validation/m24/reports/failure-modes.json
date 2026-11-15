@@ -1,0 +1,188 @@
+{
+  "ranAt": "2026-11-15T03:47:11.713Z",
+  "finishedAt": "2026-11-15T03:47:13.709Z",
+  "note": "STEP 1 injects controlled failures at the upstream boundary (local mock server) while the REAL adapter/breaker/classification code reacts — labelled OFFLINE_VERIFIED. STEP 2/3 make real calls to the running gateway — labelled LIVE_VERIFIED when all checks pass.",
+  "steps": [
+    {
+      "id": "upstream-failures",
+      "title": "Controlled upstream failures handled by the real adapter/breaker code",
+      "status": "OFFLINE_VERIFIED",
+      "checks": [
+        {
+          "name": "SSRF guard: cloud-metadata endpoint refused even under the local-rig hatch",
+          "passed": true,
+          "detail": "{\"ok\":false,\"reason\":\"Base URL must not point at a link-local address (cloud metadata range 169.254.0.0/16).\"}"
+        },
+        {
+          "name": "SSRF guard: loopback admitted only under the documented local-rig hatch",
+          "passed": true,
+          "detail": "{\"ok\":true}"
+        },
+        {
+          "name": "happy path through real adapter reaches the upstream (no simulation)",
+          "passed": true,
+          "detail": "{\"ok\":true,\"content\":\"MOCK-OK\"}"
+        },
+        {
+          "name": "429 classified as UpstreamRateLimitError (never retried blindly)",
+          "passed": true,
+          "detail": "{\"ok\":false,\"errorName\":\"UpstreamRateLimitError\",\"message\":\"fallback chat completion is rate-limited upstream (HTTP 429): status 429: {\\\"error\\\":{\\\"message\\\":\\\"Rate limited\\\"}}\",\"retryAfterMs\":12000}"
+        },
+        {
+          "name": "Retry-After from the provider is honored (parsed into the typed error, clamped 5s-600s)",
+          "passed": true,
+          "detail": "retryAfterMs=12000 (provider sent 12s)"
+        },
+        {
+          "name": "consecutive 429s open the chat-fallback breaker (fail-fast, no retry storm)",
+          "passed": true,
+          "detail": "{\"coolingDown\":true,\"remainingMs\":11998,\"consecutive429s\":1,\"currentCooldownMs\":12000,\"last429At\":\"2026-11-15T03:47:11.924Z\",\"skippedCalls\":2}"
+        },
+        {
+          "name": "upstream 5xx → typed failure (non-rate-limit class), process healthy",
+          "passed": true,
+          "detail": "{\"ok\":false,\"errorName\":\"Error\",\"message\":\"fallback chat completion failed (HTTP 500): status 500: {\\\"error\\\":{\\\"message\\\":\\\"upstream exploded\\\"}}\",\"retryAfterMs\":null}"
+        },
+        {
+          "name": "malformed provider response → typed error, never fabricated output",
+          "passed": true,
+          "detail": "{\"ok\":false,\"errorName\":\"SyntaxError\",\"message\":\"Failed to parse JSON\",\"retryAfterMs\":null}"
+        },
+        {
+          "name": "interrupted stream: partial provider text delivered verbatim, nothing fabricated, process healthy",
+          "passed": true,
+          "detail": "{\"deltas\":1,\"partial\":\"par\",\"error\":null}"
+        },
+        {
+          "name": "provider recovery: adapter returns a real completion again after the failure window",
+          "passed": true,
+          "detail": "{\"ok\":true,\"content\":\"MOCK-OK\"}"
+        }
+      ],
+      "data": {
+        "rateLimitedError": {
+          "ok": false,
+          "errorName": "UpstreamRateLimitError",
+          "message": "fallback chat completion is rate-limited upstream (HTTP 429): status 429: {\"error\":{\"message\":\"Rate limited\"}}",
+          "retryAfterMs": 12000
+        },
+        "breakerAfter429": {
+          "coolingDown": true,
+          "remainingMs": 11998,
+          "consecutive429s": 1,
+          "currentCooldownMs": 12000,
+          "last429At": "2026-11-15T03:47:11.924Z",
+          "skippedCalls": 2
+        },
+        "interruptedStream": {
+          "deltaCount": 1,
+          "partialText": "par",
+          "error": null
+        },
+        "mockRequests": 6
+      },
+      "startedAt": "2026-11-15T03:47:11.713Z"
+    },
+    {
+      "id": "gateway-failures",
+      "title": "Live unified /api/v1 gateway: unknown model, real completion, usage truthfulness",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "unsupported model rejected with a typed 404 (never forwarded upstream)",
+          "passed": true,
+          "detail": "HTTP 404 code=NOT_FOUND"
+        },
+        {
+          "name": "real hosted completion through the unified gateway (LIVE)",
+          "passed": true,
+          "detail": "{\"status\":200,\"model\":\"bean-code-hosted\"}"
+        },
+        {
+          "name": "usage is reported with an honesty flag (exact or estimated)",
+          "passed": true,
+          "detail": "{\"tokensIn\":12,\"tokensOut\":1,\"exact\":false}"
+        },
+        {
+          "name": "usage metering recorded the live gateway calls (byProduct rollup, cost honestly null)",
+          "passed": true,
+          "detail": "{\"byProduct\":[{\"product\":\"api-gateway\",\"requests\":1,\"tokensIn\":12,\"tokensOut\":1,\"durationMs\":352}],\"totals\":{\"tokensIn\":12,\"tokensOut\":1,\"cost\":null,\"costNote\":\"cost data not reported by providers\"}}"
+        }
+      ],
+      "data": {
+        "liveGatewayCall": {
+          "status": 200,
+          "model": "bean-code-hosted",
+          "usage": {
+            "tokensIn": 12,
+            "tokensOut": 1,
+            "exact": false
+          },
+          "durationMs": 352,
+          "contentLen": 2
+        },
+        "usageByProduct": [
+          {
+            "product": "api-gateway",
+            "requests": 1,
+            "tokensIn": 12,
+            "tokensOut": 1,
+            "durationMs": 352
+          }
+        ]
+      },
+      "startedAt": "2026-11-15T03:47:11.994Z"
+    },
+    {
+      "id": "job-lifecycle",
+      "title": "Background job states: queued, cancelled — failed never becomes completed",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "background task accepted into the durable queue",
+          "passed": true,
+          "detail": "HTTP 202 status=queued"
+        },
+        {
+          "name": "queued job can be cancelled by its owner",
+          "passed": true,
+          "detail": "HTTP 200"
+        },
+        {
+          "name": "cancelled job is recorded honestly (cancelled/cancel-requested, never completed)",
+          "passed": true,
+          "detail": "{\"id\":\"cmwhamuzc00f9ssbppjbiod1y\",\"product\":\"code-giftz\",\"task\":\"coding-task\",\"capability\":\"coding-task\",\"status\":\"running\",\"legacyStatus\":\"running\",\""
+        }
+      ],
+      "data": {
+        "jobAfterCancel": {
+          "id": "cmwhamuzc00f9ssbppjbiod1y",
+          "product": "code-giftz",
+          "task": "coding-task",
+          "capability": "coding-task",
+          "status": "running",
+          "legacyStatus": "running",
+          "terminal": false,
+          "progress": 0,
+          "errorCode": null,
+          "errorMessage": null,
+          "errorClass": null,
+          "cancelRequested": true,
+          "result": null,
+          "eventCount": 2,
+          "queuedAt": "2026-11-15T03:47:12.600Z",
+          "startedAt": "2026-11-15T03:47:12.737Z",
+          "finishedAt": null
+        }
+      },
+      "startedAt": "2026-11-15T03:47:12.524Z"
+    }
+  ],
+  "totals": {
+    "steps": 3,
+    "verified": 2,
+    "failed": 0,
+    "checks": 17,
+    "checksPassed": 17
+  }
+}

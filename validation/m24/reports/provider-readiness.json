@@ -1,0 +1,115 @@
+prisma:query SELECT `main`.`ProviderCredential`.`id`, `main`.`ProviderCredential`.`provider`, `main`.`ProviderCredential`.`label`, `main`.`ProviderCredential`.`encrypted`, `main`.`ProviderCredential`.`maskedHint`, `main`.`ProviderCredential`.`status`, `main`.`ProviderCredential`.`keyVersion`, `main`.`ProviderCredential`.`baseUrl`, `main`.`ProviderCredential`.`createdBy`, `main`.`ProviderCredential`.`createdAt`, `main`.`ProviderCredential`.`updatedAt`, `main`.`ProviderCredential`.`lastUsedAt` FROM `main`.`ProviderCredential` WHERE (`main`.`ProviderCredential`.`provider` = ? AND `main`.`ProviderCredential`.`status` = ?) ORDER BY `main`.`ProviderCredential`.`updatedAt` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`UsageRecord`.`id`, `main`.`UsageRecord`.`createdAt`, `main`.`UsageRecord`.`success`, `main`.`UsageRecord`.`errorCode` FROM `main`.`UsageRecord` WHERE (`main`.`UsageRecord`.`kind` = ? AND `main`.`UsageRecord`.`product` IN (?,?)) ORDER BY `main`.`UsageRecord`.`createdAt` DESC LIMIT ? OFFSET ?
+{
+  "checkedAt": "2026-11-15T03:35:02.878Z",
+  "credential": {},
+  "gatewayModels": [
+    {
+      "id": "bean-chat-hosted",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ]
+    },
+    {
+      "id": "bean-llm-openai-compatible",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ]
+    },
+    {
+      "id": "bean-chat-local-llamacpp",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ]
+    },
+    {
+      "id": "bean-image-hosted",
+      "capabilities": [
+        "image-generation"
+      ]
+    },
+    {
+      "id": "bean-image-hosted-edit",
+      "capabilities": [
+        "image-editing"
+      ]
+    },
+    {
+      "id": "bean-image-enhance-local",
+      "capabilities": [
+        "image-enhancement"
+      ]
+    },
+    {
+      "id": "bean-image-edit-local",
+      "capabilities": [
+        "image-editing"
+      ]
+    },
+    {
+      "id": "bean-video-hosted-primary",
+      "capabilities": [
+        "video-generation"
+      ]
+    },
+    {
+      "id": "bean-video-selfhosted-candidate",
+      "capabilities": [
+        "video-generation"
+      ]
+    },
+    {
+      "id": "bean-code-hosted",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ]
+    },
+    {
+      "id": "bean-external-openai-compatible",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ]
+    }
+  ],
+  "codeBackend": {
+    "id": "bean-code-llm-hosted-primary",
+    "task": "coding-task",
+    "enabled": true,
+    "retries": {
+      "maxAttempts": 1,
+      "backoffMs": 0
+    },
+    "sandbox": {
+      "maxPromptChars": 12000,
+      "sandbox": {
+        "engine": "child-process isolate",
+        "timeoutMs": 15000,
+        "maxOutputBytes": 64000,
+        "network": "not restricted at process level (documented limitation; containerize in production)"
+      }
+    }
+  },
+  "adapterHealth": {
+    "backendId": "bean-llm-hosted-primary",
+    "healthy": true,
+    "latencyMs": 22,
+    "probeLatencyMs": 22,
+    "httpStatus": null,
+    "failureCategory": null,
+    "detail": "Gateway host reachable (free liveness check, HTTP 404) and configuration valid; no real chat attempt evidence yet in this process. Status is from reachability + config ONLY — no completion was fired (health never consumes inference quota).",
+    "wallMs": 26
+  },
+  "breaker": {
+    "coolingDown": false,
+    "remainingMs": 0,
+    "consecutive429s": 0,
+    "currentCooldownMs": 60000,
+    "last429At": null,
+    "skippedCalls": 0
+  }
+}
