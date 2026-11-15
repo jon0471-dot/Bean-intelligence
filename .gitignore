@@ -109,3 +109,6 @@ __pycache__/
 # M22 acceptance harness runtime DB (never commit the verification database)
 scripts/m22-out/*.db
 scripts/m22-out/*.db-*
+# M23 acceptance harness runtime DB (never commit the verification database)
+scripts/m23-out/*.db
+scripts/m23-out/*.db-*

@@ -96,6 +96,10 @@ export interface GiftzTurnResult {
   research?: import('@/lib/intel/techdocs-reach').GiftzResearchArtifact
   /** M22 ADDITIVE: seq of the project version recorded for this turn. */
   versionSeq?: number
+  /** M23 ADDITIVE: structured file-operation payload (chat-driven rename /
+   *  move / delete / create turns — the operation ran server-side, no model
+   *  output was involved; content === the truthful deterministic summary). */
+  fileOp?: import('@/lib/code/file-ops/types').FileOpTurnPayload
 }
 
 export interface GiftzChatStreamDeps {
@@ -258,6 +262,7 @@ export function createGiftzChatStream(deps: GiftzChatStreamDeps): ReadableStream
             ...(result.frontend ? { frontend: result.frontend } : {}),
             ...(result.research ? { research: result.research } : {}),
             ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
+            ...(result.fileOp ? { fileOp: result.fileOp } : {}),
           })
         } catch (e) {
           if (isClientDisconnected(e) || clientGone) {

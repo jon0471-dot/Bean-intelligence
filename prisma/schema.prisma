@@ -241,6 +241,7 @@ model CodeProject {
   files     CodeFile[]
   blobs     CodeBlob[]
   versions  CodeVersion[]
+  fileOperations CodeFileOperation[]
 
   @@index([userId, updatedAt])
   @@index([userId, status, updatedAt])
@@ -322,6 +323,29 @@ model CodeFile {
 
   @@unique([projectId, path])
   @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// M23 (2026-11-15) — ADDITIVE file-operation ledger. One row per structured
+// operation plan (rename/move/delete/create/batch/repair). Carries the exact
+// plan (planJson) and its integrity hash (planHash) so a confirmation is
+// bound to the plan the user saw; the status lifecycle (awaiting_confirmation
+// → executed | cancelled | failed | stale) makes execution replay-safe.
+// Cascades with the project; no existing table or column is touched.
+// ---------------------------------------------------------------------------
+model CodeFileOperation {
+  id         String      @id @default(cuid())
+  projectId  String
+  kind       String // rename | move | delete | create | batch-move | batch-rename | repair
+  status     String      @default("awaiting_confirmation") // awaiting_confirmation | executed | cancelled | failed | stale
+  planJson   String // the exact structured plan the user was shown
+  planHash   String // sha-256 over the canonical plan JSON — binds the confirmation
+  resultJson String? // truthful execution result (recorded once, replayed verbatim)
+  createdAt  DateTime    @default(now())
+  executedAt DateTime?
+  project    CodeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
 }
 
 // RIISHE user-approved memory (explicit facts the user asked RIISHE to keep;
