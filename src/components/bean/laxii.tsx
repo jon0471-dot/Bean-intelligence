@@ -26,6 +26,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { beanFetch, GoldBadge, Spinner, timeAgo } from './shared'
 import { useToast } from '@/hooks/use-toast'
+import { getClientCompute } from '@/lib/client-compute'
+import { scheduleImagePreprocess } from '@/lib/client-compute/adapters/laxii'
 import { cn } from '@/lib/utils'
 import {
   Wand2,
@@ -121,6 +123,17 @@ interface Caps {
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 const CUSTOM_MIN_PX = 256
 const CUSTOM_MAX_PX = 4096
+// Client compute (opt-in): only images above this size are preprocessed on
+// the device (fit ≤2048 px, JPEG) before upload — smaller originals upload
+// unchanged, and the server still re-validates every upload.
+const DEVICE_PREPROCESS_MIN_BYTES = 4 * 1024 * 1024
+
+function fmtBytes(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return '?'
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+}
 
 const EXAMPLE_PROMPTS: Array<{ text: string; needsImage: boolean }> = [
   { text: 'Create a cinematic perfume advertisement.', needsImage: false },
@@ -179,6 +192,42 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
   const [uploading, setUploading] = useState(false)
   const [sourceRef, setSourceRef] = useState<{ assetId: string; url: string; label: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // ---- client compute (additive, opt-in, explicit consent) ----------------------
+  // The shared BEAN client-compute engine can downscale/compress large images
+  // on THIS DEVICE before upload. Off by default; the toggle below writes the
+  // engine's persisted consent. Nothing runs without it, and the server route
+  // re-validates every upload regardless.
+  const [devicePreconsent, setDevicePreconsent] = useState(false)
+  const [devicePreNote, setDevicePreNote] = useState<string | null>(null)
+  const [devicePreBusy, setDevicePreBusy] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const cc = getClientCompute()
+        await cc.init()
+        if (!cancelled) setDevicePreconsent(cc.consent.get()?.granted === true)
+      } catch {
+        /* detection failure keeps the feature off honestly */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function toggleDevicePreprocess() {
+    const cc = getClientCompute()
+    const next = !devicePreconsent
+    cc.consent.set(next, false)
+    setDevicePreconsent(next)
+    setDevicePreNote(
+      next
+        ? 'On — images over 4 MB are downscaled/compressed on this device before upload. The server still validates every upload.'
+        : null,
+    )
+  }
 
   // ---- size control (generation only; NL hints win when typed) ---------------
   const [sizeMode, setSizeMode] = useState<'auto' | 'preset' | 'custom'>('auto')
@@ -316,7 +365,32 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
     }
     setUploading(true)
     try {
-      const a = await uploadAsset(file, 'original')
+      let uploadFile: File = file
+      if (devicePreconsent && file.size > DEVICE_PREPROCESS_MIN_BYTES) {
+        setDevicePreBusy(true)
+        try {
+          const result = await scheduleImagePreprocess(getClientCompute(), {
+            blob: file,
+            maxWidth: 2048,
+            maxHeight: 2048,
+            quality: 0.92,
+          })
+          if (result.phase === 'completed' && result.output) {
+            const name = file.name.replace(/\.[^.]+$/, '') + '.jpg'
+            uploadFile = new File([result.output.blob], name, { type: 'image/jpeg' })
+            setDevicePreNote(
+              `Processed on device: ${fmtBytes(result.output.originalBytes)} → ${fmtBytes(result.output.bytes)} (fit ≤2048 px).`
+            )
+          } else {
+            setDevicePreNote(`Device processing skipped (${result.reason ?? result.state}) — original uploaded.`)
+          }
+        } catch {
+          setDevicePreNote('Device processing failed — original uploaded unchanged.')
+        } finally {
+          setDevicePreBusy(false)
+        }
+      }
+      const a = await uploadAsset(uploadFile, 'original')
       setSourceRef({ assetId: a.id, url: a.url, label: `Uploaded · ${a.width ?? '?'}×${a.height ?? '?'}` })
     } catch (e) {
       toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' })
@@ -612,6 +686,37 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
+            ) : null}
+
+            {/* Client compute (opt-in): explicit consent toggle for on-device
+                preprocessing of large images before upload. Hidden behind the
+                existing composer; no other UI is changed. */}
+            <div className="mb-2 flex items-center gap-2 rounded-lg border border-[rgba(212,175,55,0.12)] bg-black/20 px-2 py-1">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={devicePreconsent}
+                onClick={toggleDevicePreprocess}
+                disabled={devicePreBusy}
+                className={cn(
+                  'flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors',
+                  devicePreconsent ? 'border-[#d4af37]/60 bg-[#d4af37]/30' : 'border-white/15 bg-white/5',
+                )}
+                aria-label="Process large images on this device before upload"
+              >
+                <span
+                  className={cn(
+                    'h-3.5 w-3.5 rounded-full transition-transform',
+                    devicePreconsent ? 'translate-x-5 bg-[#f0c75e]' : 'translate-x-0.5 bg-white/40',
+                  )}
+                />
+              </button>
+              <span className="min-w-0 flex-1 truncate text-[11px] text-white/45">
+                {devicePreBusy ? 'Processing on device…' : 'Process large images on this device before upload (optional)'}
+              </span>
+            </div>
+            {devicePreNote ? (
+              <div className="mb-2 text-[11px] leading-snug text-white/40">{devicePreNote}</div>
             ) : null}
 
             <div className="flex items-end gap-1.5 rounded-xl border border-[rgba(212,175,55,0.25)] bg-black/40 p-2">
