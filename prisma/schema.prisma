@@ -32,6 +32,7 @@ model User {
   laxiiConversations  LaxiiConversation[]
   jazmiiConversations JazmiiConversation[]
   projects            Project[]
+  clientComputeReports ClientComputeReport[]
 }
 
 model Session {
@@ -538,4 +539,25 @@ model JazmiiMessage {
   conversation   JazmiiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+// CLIENT COMPUTE (2026-11-16) — additive, sanitized capability-report
+// persistence for the shared client-first hybrid compute engine. Rows carry
+// ONLY the sanitized report (booleans, coarse numbers, tier) defined by
+// src/lib/client-compute/telemetry.ts — never vendor/architecture strings,
+// user agents, task payloads or prompt text. Reports are per-user evidence
+// for the existing health/diagnostics systems; a client can never
+// self-attest completion of server-authoritative work.
+model ClientComputeReport {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier        Int
+  conservative Boolean
+  // Full sanitized CapabilityReport (JSON, bounded shape — validated by the
+  // route's zod schema before storage).
+  reportJson  String
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
