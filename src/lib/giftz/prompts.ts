@@ -67,3 +67,22 @@ export function buildProjectContext(files: Array<{ path: string; content: string
   }
   return parts.join('\n\n')
 }
+
+/**
+ * M22 TARGETED EDITING — injected ONLY when the project already has files
+ * (a modification context). Sharpens the response contract for localized
+ * changes: re-emit ONLY the files actually being changed (complete content
+ * per path-tagged fence), never the whole project, so an unchanged file can
+ * never churn. Additive context — no existing prompt text is altered.
+ */
+export function buildTargetedEditBrief(fileCount: number): string {
+  return [
+    `TARGETED EDIT MODE — this is an EXISTING project with ${fileCount} file(s).`,
+    'You are modifying it, not regenerating it:',
+    '- Re-emit ONLY the files you actually change this turn, each as a complete path-tagged fence. NEVER re-emit a file whose content stays the same — an unchanged re-emission is treated as no change, but re-emitting everything wastes the turn and risks accidental regressions.',
+    '- Keep every other file exactly as it is in the CURRENT PROJECT FILES context above. If your change needs a new file, add it with a path-tagged fence.',
+    '- Do not rename, move or delete files through this channel: state the request in prose and the user will apply it in the workspace if needed.',
+    '- After the code, give a short summary of exactly which files changed and why (the workspace records it as the version change summary).',
+    '- If the request is genuinely ambiguous about WHERE or WHAT to change, ask one clarifying question instead of guessing.',
+  ].join('\n')
+}
