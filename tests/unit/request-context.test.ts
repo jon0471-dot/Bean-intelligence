@@ -30,11 +30,11 @@ describe('M26 O-1 — request correlation ids', () => {
   test('nested async work inside the scope keeps the id', async () => {
     let seen: string | null = null
     await withRequestContext({ requestId: 'req-nested' }, async () => {
-      await new Promise((r) => setTimeout(r, 5))
+      await new Promise<void>((resolve) => { globalThis.setTimeout(() => resolve(), 5) })
       seen = currentRequestId()
     })
-    expect(seen).toBe('req-nested')
-    expect(currentRequestId()).toBeNull()
+    expect(seen === 'req-nested').toBe(true)
+    expect(currentRequestId() === null).toBe(true)
   })
 
   test('outside a scope there is no id (worker logs unchanged)', () => {

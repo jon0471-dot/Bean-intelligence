@@ -142,6 +142,7 @@ export async function executeRefactorOperation(opId: string, projectId: string):
   // content-preservation check.
   const beforeByPath = new Map(fileRows.map((f) => [f.path, f.content] as const))
 
+  let versionSeq: number | null = null
   try {
     await db.$transaction(async (tx) => {
       // Re-validate inside the transaction (SQLite + connection_limit=1 makes
@@ -187,6 +188,30 @@ export async function executeRefactorOperation(opId: string, projectId: string):
           await tx.codeFile.update({ where: { id: row0.id }, data: { path: move.to } })
         }
       }
+
+      // M26 (audit R-6): the version snapshot is created INSIDE the
+      // transaction — a crash between commit and snapshot previously left a
+      // mutated workspace with NO restore point. At the 200-version history
+      // cap the snapshot is skipped gracefully (disclosed via versionSeq null
+      // — the same unversioned-mutation state as before, but never silent and
+      // the workspace is never bricked); ANY other snapshot failure rolls the
+      // whole refactor back.
+      let snapshotResult: Awaited<ReturnType<typeof snapshotProjectVersion>> | null = null
+      try {
+        snapshotResult = await snapshotProjectVersion(
+          {
+            projectId,
+            kind: 'refactor',
+            summary: `${plan.title} — ${plan.edits.length} file(s)${plan.moves.length > 0 ? `, ${plan.moves.length} move(s)` : ''}`,
+          },
+          tx,
+        )
+      } catch (snapshotError) {
+        const isCap = snapshotError instanceof Error && /history limit/i.test(snapshotError.message)
+        if (!isCap) throw snapshotError
+        logger.warn('giftz.refactor_snapshot_skipped_at_cap', { projectId, opId })
+      }
+      versionSeq = snapshotResult?.version?.seq ?? null
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
@@ -194,23 +219,6 @@ export async function executeRefactorOperation(opId: string, projectId: string):
       .update({ where: { id: row.id }, data: { status: 'failed', resultJson: JSON.stringify({ error: message }) } })
       .catch(() => undefined)
     throw e instanceof FileOpError ? e : new FileOpError('INVALID', `The refactoring failed and was rolled back completely: ${message}`)
-  }
-
-  // ONE version snapshot AFTER the verified transaction.
-  let versionSeq: number | null = null
-  try {
-    const snapshot = await snapshotProjectVersion({
-      projectId,
-      kind: 'refactor',
-      summary: `${plan.title} — ${plan.edits.length} file(s)${plan.moves.length > 0 ? `, ${plan.moves.length} move(s)` : ''}`,
-    })
-    versionSeq = snapshot.version?.seq ?? null
-  } catch (snapshotError) {
-    logger.warn('giftz.refactor_snapshot_failed', {
-      projectId,
-      opId,
-      message: snapshotError instanceof Error ? snapshotError.message : String(snapshotError),
-    })
   }
 
   // ---- post-execution verification -----------------------------------------

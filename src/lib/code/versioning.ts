@@ -14,6 +14,7 @@
  * SERVER-ONLY. The Prisma boundary is the only side effect; all pure helpers
  * are exported for tests.
  */
+import { Prisma } from '@prisma/client'
 import { createHash } from 'crypto'
 import { db } from '@/lib/db'
 import { diffLines, diffStats } from './diff'
@@ -216,11 +217,20 @@ interface SnapshotInput {
  * A no-op when the set is identical to the latest version (duplicate-version
  * protection) or when the project has no files yet.
  */
-export async function snapshotProjectVersion(input: SnapshotInput): Promise<SnapshotResult> {
+/**
+ * M26 (audit R-6): the snapshot can run INSIDE a caller's transaction —
+ * pass `tx` to bind every read/write to the caller's transactional client.
+ * Without `tx` the behavior is byte-identical to before (global db client).
+ */
+export async function snapshotProjectVersion(
+  input: SnapshotInput,
+  tx?: Prisma.TransactionClient,
+): Promise<SnapshotResult> {
+  const dbc = tx ?? db
   const { projectId } = input
   const rows =
     input.files ??
-    (await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } }))
+    (await dbc.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } }))
   const entries = rows
     .map((f) => ({ path: f.path, content: f.content }))
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
@@ -231,7 +241,7 @@ export async function snapshotProjectVersion(input: SnapshotInput): Promise<Snap
   const hashes = entries.map((e) => ({ path: e.path, blobHash: hashContent(e.content) }))
   const setHash = computeSetHash(hashes)
 
-  const latest = await db.codeVersion.findFirst({
+  const latest = await dbc.codeVersion.findFirst({
     where: { projectId },
     orderBy: { seq: 'desc' },
     include: { files: { orderBy: { path: 'asc' } } },
@@ -251,16 +261,19 @@ export async function snapshotProjectVersion(input: SnapshotInput): Promise<Snap
   const kind: VersionKind = seq === 1 ? 'initial' : input.kind
   const summary = clampSummary(input.summary)
 
-  const created = await db.$transaction(async (tx) => {
+  // M26 (audit R-6): when a caller's transaction is supplied, the writes run
+  // ON that client directly (no nested $transaction — SQLite has no
+  // savepoints); the caller's own transaction provides the atomicity.
+  const writeSnapshot = async (txn: Prisma.TransactionClient) => {
     for (const e of entries) {
       const hash = hashContent(e.content)
-      await tx.codeBlob.upsert({
+      await txn.codeBlob.upsert({
         where: { projectId_hash: { projectId, hash } },
         create: { projectId, hash, content: e.content, size: e.content.length },
         update: {}, // content is immutable once stored — never rewritten
       })
     }
-    const version = await tx.codeVersion.create({
+    const version = await txn.codeVersion.create({
       data: {
         projectId,
         seq,
@@ -283,12 +296,13 @@ export async function snapshotProjectVersion(input: SnapshotInput): Promise<Snap
         },
       },
     })
-    await tx.codeProject.update({
+    await txn.codeProject.update({
       where: { id: projectId },
       data: { currentVersion: seq },
     })
     return version
-  })
+  }
+  const created = tx ? await writeSnapshot(tx) : await db.$transaction(writeSnapshot)
 
   return {
     created: true,
@@ -570,30 +584,38 @@ export async function rollbackToVersion(projectId: string, seq: number): Promise
 
   // Apply the restored set through the same file-write semantics as every
   // other writer: upsert what exists in the version, delete what does not.
+  // M26 (audit R-5): the rollback is now ONE transaction — a crash midway
+  // previously left a half-restored workspace (the undo path was weaker than
+  // the refactor path it undoes). The post-rollback version snapshot is part
+  // of the same transaction, so the workspace and its history move together.
   const restoredPaths = new Set(restored.map((r) => r.path))
-  for (const r of restored) {
-    const existing = await db.codeFile.findUnique({
-      where: { projectId_path: { projectId, path: r.path } },
-    })
-    if (existing) {
-      if (existing.content !== r.content) {
-        await db.codeFile.update({ where: { id: existing.id }, data: { content: r.content } })
+  const snapshot = await db.$transaction(async (tx) => {
+    for (const r of restored) {
+      const existing = await tx.codeFile.findUnique({
+        where: { projectId_path: { projectId, path: r.path } },
+      })
+      if (existing) {
+        if (existing.content !== r.content) {
+          await tx.codeFile.update({ where: { id: existing.id }, data: { content: r.content } })
+        }
+      } else {
+        await tx.codeFile.create({ data: { projectId, path: r.path, content: r.content, origin: 'generated' } })
       }
-    } else {
-      await db.codeFile.create({ data: { projectId, path: r.path, content: r.content, origin: 'generated' } })
     }
-  }
-  for (const row of currentRows) {
-    if (!restoredPaths.has(row.path)) {
-      await db.codeFile.delete({ where: { id: row.id } })
+    for (const row of currentRows) {
+      if (!restoredPaths.has(row.path)) {
+        await tx.codeFile.delete({ where: { id: row.id } })
+      }
     }
-  }
-
-  const snapshot = await snapshotProjectVersion({
-    projectId,
-    kind: 'rollback',
-    summary: `Rolled back to version ${seq}`,
-    files: restored,
+    return snapshotProjectVersion(
+      {
+        projectId,
+        kind: 'rollback',
+        summary: `Rolled back to version ${seq}`,
+        files: restored,
+      },
+      tx,
+    )
   })
   return {
     restoredVersion: seq,

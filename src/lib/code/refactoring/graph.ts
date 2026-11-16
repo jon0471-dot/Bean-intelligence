@@ -240,10 +240,18 @@ export function parseImports(source: string): ParsedImport[] {
   return out
 }
 
+/** M26 (audit R-1): typed scope refusal for oversized projects (chat flows map it honestly). */
+export class RefactorScopeError extends Error {}
+
 /** Resolve a specifier against the project file set (same semantics as the reference scanner). */
 export function resolveSpecifier(fromPath: string, spec: string, paths: Set<string>): string | null {
   let resolved: string | null
   if (spec.startsWith('@/')) resolved = spec.slice(2)
+  // M26 (audit R-4): root-relative '/…' specifiers were neither edges nor
+  // unresolved entries — rename-symbol's importer coverage could miss them
+  // while move-module (via the M23 scanner) caught them. They now resolve
+  // exactly like '@/…' (same root-relative semantics).
+  else if (spec.startsWith('/')) resolved = spec.slice(1)
   else if (spec.startsWith('.')) resolved = resolveRelativePath(fromPath.includes('/') ? fromPath.slice(0, fromPath.lastIndexOf('/')) : '', spec)
   else return null // bare specifiers are packages — never project edges here
   if (paths.has(resolved)) return resolved
@@ -292,12 +300,32 @@ function recountInDegrees(nodes: Map<string, GraphNode>): void {
   }
 }
 
-/** Build the full project graph over the current file set. */
+// M26 (audit R-1): the graph build is now BOUNDED — generated/dependency
+// directories are excluded and the file set is capped with an honest typed
+// refusal. Previously every refactoring turn re-parsed the ENTIRE file set
+// (up to 4x per turn across detect/plan/validate/execute) with no cap: a
+// 5,000-file project paid linear multi-second parse cost with no metric and
+// no refusal.
+export const GRAPH_EXCLUDED_DIR_PARTS = ['node_modules', '.next', 'dist', 'build', 'coverage', '.git'] as const
+export const GRAPH_MAX_FILES = 2_000
+
+export function graphFileExcluded(path: string): boolean {
+  const parts = path.split('/')
+  return parts.some((part) => (GRAPH_EXCLUDED_DIR_PARTS as readonly string[]).includes(part))
+}
+
 export function buildProjectGraph(files: Array<{ path: string; content: string }>): ProjectGraph {
-  const paths = new Set(files.map((f) => f.path))
+  const usable = files.filter((f) => !graphFileExcluded(f.path))
+  if (usable.length > GRAPH_MAX_FILES) {
+    throw new RefactorScopeError(
+      `This project has ${usable.length} analyzable files — multi-file refactoring analyzes at most ${GRAPH_MAX_FILES} per turn. ` +
+        `Scope the request to a specific folder (e.g. "move utils.js into lib" for one folder) or export the project and refactor locally.`,
+    )
+  }
+  const paths = new Set(usable.map((f) => f.path))
   const nodes = new Map<string, GraphNode>()
   const unresolved: ProjectGraph['unresolved'] = []
-  for (const f of files) {
+  for (const f of usable) {
     const { node, unresolved: u } = parseNode(f.path, f.content, paths)
     nodes.set(f.path, node)
     unresolved.push(...u)

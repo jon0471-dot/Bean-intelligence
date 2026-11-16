@@ -31,13 +31,19 @@ export async function register(): Promise<void> {
       })
       console.log(line)
     }
-    process.on('SIGTERM', () => {
+    // Next.js augments the global process typing (memoryPressure hooks) —
+    // bind through the minimal POSIX surface this hook needs.
+    const nodeProcess = process as unknown as {
+      on: (event: string, listener: () => void) => void
+      exit: (code?: number) => never
+    }
+    nodeProcess.on('SIGTERM', () => {
       logShutdown('SIGTERM')
-      process.exit(0)
+      nodeProcess.exit(0)
     })
-    process.on('SIGINT', () => {
+    nodeProcess.on('SIGINT', () => {
       logShutdown('SIGINT')
-      process.exit(0)
+      nodeProcess.exit(0)
     })
   }
   try {

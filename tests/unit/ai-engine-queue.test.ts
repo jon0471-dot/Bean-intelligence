@@ -416,7 +416,7 @@ describe('M26 — settle/recovery ownership races', () => {
     // recovery requeues (lease expired) and a new worker claims
     j.status = 'retry_wait'
     j.workerId = null
-    await claimNextJob({ product: 'riishe', workerId: 'w-new', workerKind: 'embedded' }).then(() => undefined)
+    await claimNextJob({ workerId: 'w-new', workerKind: 'embedded' }).then(() => undefined)
     const reClaimed = [...jobStore.values()].find((x) => x.workerId === 'w-new' && x.status === 'running')
     // the stale worker's failure now lands — must NOT touch the new owner's row
     const outcome = await finishFailed('j-f3', 'w-old', { errorClass: 'timeout', errorCode: 'BACKEND_TIMEOUT', errorMessage: 'late failure' })
@@ -426,7 +426,7 @@ describe('M26 — settle/recovery ownership races', () => {
       expect(outcome.retryWait).toBe(false)
       expect(outcome.terminal).toBe(false)
       expect(j.status).toBe('running')
-      expect(j.workerId).toBe('w-new')
+      expect(jobStore.get('j-f3')!.workerId).toBe('w-new')
     } else {
       // a different job was claimed; j-f3 is retry_wait owned by nobody —
       // the stale write must still be rejected (workerId precondition)
