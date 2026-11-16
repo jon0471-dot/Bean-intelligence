@@ -44,6 +44,7 @@ import {
 import { sseDeltas } from '@/lib/adapters/hosted-llm'
 import { estimateTokens } from '@/lib/api/validate'
 import { detectHardware } from '@/lib/ai-engine/gpu'
+import { localProviderEndpointsAllowed } from '@/lib/security/url-guard'
 import { logger } from '@/lib/observability/logger'
 import type {
   ChatRequest,
@@ -112,7 +113,8 @@ function lanePort(baseUrl: string, fallback: number): number {
  * LAN GPU host (10.x/192.168.x) is a valid lane configuration.
  */
 export function resolveLaneConfigs(): { riishe: LaneConfig | null; code: LaneConfig | null } {
-  const allowLocal = process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS === '1'
+  // M26 G-9: canonical parse (both documented spellings '1' and 'true')
+  const allowLocal = localProviderEndpointsAllowed()
   const chatBase = process.env.BEAN_LLAMACPP_BASE_URL?.trim()
   const codeBase = process.env.BEAN_LLAMACPP_CODE_BASE_URL?.trim()
   const bin = process.env.BEAN_LLAMACPP_BIN?.trim() || null
@@ -165,7 +167,8 @@ type LaneKind = 'chat' | 'code'
  * configured, coding tasks ride the chat lane exactly as they always have.
  */
 export function resolveLaneEndpoint(kind: LaneKind): string | null {
-  const allowLocal = process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS === '1'
+  // M26 G-9: canonical parse (both documented spellings '1' and 'true')
+  const allowLocal = localProviderEndpointsAllowed()
   const chatBase = process.env.BEAN_LLAMACPP_BASE_URL?.trim()
   const codeBase = process.env.BEAN_LLAMACPP_CODE_BASE_URL?.trim()
   if (!allowLocal) return null

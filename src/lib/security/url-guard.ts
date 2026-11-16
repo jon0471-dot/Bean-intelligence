@@ -104,7 +104,19 @@ function isLinkLocalV6(host: string): boolean {
 }
 
 function localEndpointAllowedByHatch(): boolean {
-  return process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS === 'true'
+  return localProviderEndpointsAllowed()
+}
+
+/**
+ * M26 (audit G-9): the ONE canonical parse of the local-endpoint SSRF opt-in.
+ * Previously the guard required `true` while the llama lanes and the
+ * credential registry required `1` — the documented `true` spelling admitted
+ * vault loopback URLs yet silently kept the local lanes dormant. Both
+ * spellings are now accepted everywhere.
+ */
+export function localProviderEndpointsAllowed(): boolean {
+  const v = process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS
+  return v === '1' || v === 'true'
 }
 
 export function validateProviderBaseUrl(raw: string): UrlGuardResult {

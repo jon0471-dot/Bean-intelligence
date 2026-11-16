@@ -12,6 +12,34 @@
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
+  // M26 (audit O-4): shutdown events — an unclean restart was previously
+  // indistinguishable from a crash (absence-of-logs forensics). SIGTERM/SIGINT
+  // now log an honest shutdown event before exit (single handler, idempotent).
+  const g = globalThis as unknown as { __beanShutdownHookInstalled?: boolean }
+  if (!g.__beanShutdownHookInstalled) {
+    g.__beanShutdownHookInstalled = true
+    let shuttingDown = false
+    const logShutdown = (signal: string) => {
+      if (shuttingDown) return
+      shuttingDown = true
+      const line = JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'info',
+        event: 'server.shutdown',
+        signal,
+        pid: process.pid,
+      })
+      console.log(line)
+    }
+    process.on('SIGTERM', () => {
+      logShutdown('SIGTERM')
+      process.exit(0)
+    })
+    process.on('SIGINT', () => {
+      logShutdown('SIGINT')
+      process.exit(0)
+    })
+  }
   try {
     const { startEmbeddedEngine } = await import('@/lib/ai-engine/runner')
     startEmbeddedEngine()
