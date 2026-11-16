@@ -145,7 +145,12 @@ const fakeDb = {
 
 mock.module('@/lib/db', () => ({ db: fakeDb }))
 mock.module('@/lib/observability/logger', () => ({
-  logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+  // M26: handle() now also pulls withRequestContext/currentRequestId from
+  // this module — the fake must provide the full consumed surface.
+  logger: { info: () => undefined, warn: () => undefined, error: () => undefined, debug: () => undefined },
+  withRequestContext: async <T,>(ctx: unknown, fn: () => Promise<T>) => fn(),
+  currentRequestId: () => null,
+  redact: (v: string) => v,
 }))
 mock.module('@/lib/code/versioning', () => ({
   snapshotProjectVersion: async (input: { projectId: string; kind: string; summary?: string }) => {
