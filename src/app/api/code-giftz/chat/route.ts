@@ -29,6 +29,9 @@ import { applyFiles } from '@/lib/giftz/workspace'
 import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
 import { detectFileOperation } from '@/lib/code/file-ops/detect'
 import { performDetectedFileOperation } from '@/lib/code/file-ops/execute'
+import { detectRefactoringRequest } from '@/lib/code/refactoring/detect'
+import { performDetectedRefactoring } from '@/lib/code/refactoring/chat-flow'
+import type { RefactorTurnPayload } from '@/lib/code/refactoring/plan'
 import { verificationConfig } from '@/lib/verification/config'
 import { publicVerificationSummary, type VerificationOutcome } from '@/lib/verification/pipeline'
 import { filterConversationsByTitle } from '@/lib/riishe/conversation-view'
@@ -240,10 +243,161 @@ export async function POST(request: Request) {
       }
       const attachmentBlock = await loadAttachments(user.id, body.fileIds)
 
-      // M22 TARGETED EDITING: when the project already has files, the turn is
-      // a MODIFICATION — inject the additive brief that demands re-emitting
-      // only changed files (never the whole project). Pure additive context;
-      // generation on an empty project behaves exactly as before.
+      // ---- M25: refactoring intent turn --------------------------------------
+      // Runs ONLY when M23 detection did NOT claim the message (a plain file
+      // move stays an M23 file operation). Deterministic kinds — rename a
+      // SYMBOL across verified imports, move modules WITH import updates —
+      // are planned server-side with ZERO provider involvement (the preflight
+      // slot is released immediately). Assisted kinds (extract / consolidate /
+      // service layer / restructure / repair) run ONE bounded drafting pass
+      // through the existing adapter inside the standard stream lifecycle; the
+      // draft is validated server-side into a plan awaiting approval. NOTHING
+      // executes during the turn and the workspace is never touched here —
+      // execution happens only through the confirmed, hash-bound executor.
+      const refactorDetection = body.projectId ? detectRefactoringRequest(body.message, files) : { detected: false as const }
+      if (refactorDetection.detected) {
+        const isDeterministicKind =
+          refactorDetection.type === 'op' && (refactorDetection.kind === 'rename-symbol' || refactorDetection.kind === 'move-module')
+        const buildRefactorTurnResult = (flow: { payload: RefactorTurnPayload; assistantText: string; tokensInEst: number; tokensOutEst: number }, t0: number, providerCalls: number): GiftzTurnResult => ({
+          content: flow.assistantText,
+          changes: [],
+          durationMs: Date.now() - t0,
+          tokensInEst: providerCalls > 0 ? flow.tokensInEst : 0, // honest: deterministic planning consumes no tokens
+          tokensOutEst: providerCalls > 0 ? flow.tokensOutEst : 0,
+          continuationCount: 0,
+          verification: null,
+          refactor: flow.payload,
+        })
+        const persistRefactorAssistant = async (result: GiftzTurnResult) => {
+          const assistant = await db.codeMessage.create({
+            data: {
+              projectId,
+              role: 'assistant',
+              content: result.content,
+              metaJson: JSON.stringify({
+                changes: [],
+                continuations: 0,
+                ...(result.refactor ? { refactor: result.refactor } : {}),
+              }),
+            },
+          })
+          return { messageId: assistant.id }
+        }
+        const refactorAfterPersist = async () => {
+          const projectFiles = await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } })
+          return { files: projectFiles.map((f) => ({ path: f.path, origin: f.origin })) }
+        }
+        const refactorLog = (event: string, data?: Record<string, unknown>) => {
+          if (event === 'codegiftz.chat_failed' || event === 'codegiftz.persist_failed') logger.warn(event, data)
+          else logger.info(event, data)
+        }
+
+        // Deterministic kinds + clarifications never touch the provider.
+        if (refactorDetection.type === 'clarification' || isDeterministicKind) {
+          if (!collapseDuplicate) {
+            await db.codeMessage.create({ data: { projectId, role: 'user', content: body.message } })
+          }
+          const t0 = Date.now()
+          try {
+            const flow =
+              refactorDetection.type === 'clarification'
+                ? { payload: { status: 'clarification', question: refactorDetection.question } as RefactorTurnPayload, assistantText: refactorDetection.question, tokensInEst: 0, tokensOutEst: 0 }
+                : await performDetectedRefactoring({ projectId, detection: refactorDetection, message: body.message, files })
+            const result = buildRefactorTurnResult(flow, t0, 0)
+            const assistant = await persistRefactorAssistant(result)
+            await recordAudit({
+              actorId: user.id,
+              action: 'code-giftz.chat_refactor',
+              target: projectId,
+              meta: { status: flow.payload.status, kind: flow.payload.kind, opId: flow.payload.opId, providerCalls: 0 },
+            })
+            if (!wantsStream) {
+              return ok({
+                projectId,
+                messageId: assistant.messageId,
+                content: result.content,
+                changes: result.changes,
+                durationMs: result.durationMs,
+                verification: null,
+                refactor: result.refactor,
+              })
+            }
+            const stream = createGiftzChatStream({
+              projectId,
+              runTurn: async () => result,
+              persistAssistant: persistRefactorAssistant,
+              afterPersist: refactorAfterPersist,
+              failurePayload: upstreamStreamErrorPayload,
+              release,
+              disconnectSignal: request.signal,
+              log: refactorLog,
+            })
+            return new Response(stream, {
+              headers: {
+                'content-type': 'text/event-stream',
+                'cache-control': 'no-cache, no-transform',
+                connection: 'keep-alive',
+              },
+            })
+          } finally {
+            release()
+          }
+        }
+
+        // Provider-assisted kind: ONE bounded drafting pass inside the standard
+        // lifecycle; provider failures produce honest typed error frames and
+        // leave the workspace untouched.
+        if (!collapseDuplicate) {
+          await db.codeMessage.create({ data: { projectId, role: 'user', content: body.message } })
+        }
+        const assistedT0 = Date.now()
+        const refactorMaxPromptChars = Number(backend.limits.maxPromptChars ?? 12_000)
+        const stream = createGiftzChatStream({
+          projectId,
+          runTurn: async () => {
+            const flow = await performDetectedRefactoring({
+              projectId,
+              detection: refactorDetection,
+              message: body.message,
+              files,
+              adapter,
+              backendRequestMs: backend.timeouts.requestMs,
+              maxPromptChars: refactorMaxPromptChars,
+            })
+            await recordUsage({
+              userId: user.id,
+              product: 'code-giftz',
+              backendId: servedBy.backendId,
+              kind: 'coding-task',
+              tokensIn: flow.tokensInEst,
+              tokensOut: flow.tokensOutEst,
+              durationMs: Date.now() - assistedT0,
+              success: flow.payload.status !== 'failed',
+            })
+            await recordAudit({
+              actorId: user.id,
+              action: 'code-giftz.chat_refactor',
+              target: projectId,
+              meta: { status: flow.payload.status, kind: flow.payload.kind, opId: flow.payload.opId, providerCalls: 1 },
+            })
+            return buildRefactorTurnResult(flow, assistedT0, 1)
+          },
+          persistAssistant: persistRefactorAssistant,
+          afterPersist: refactorAfterPersist,
+          failurePayload: upstreamStreamErrorPayload,
+          release,
+          disconnectSignal: request.signal,
+          log: refactorLog,
+        })
+        return new Response(stream, {
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache, no-transform',
+            connection: 'keep-alive',
+          },
+        })
+      }
+
       const targetedEditBrief = files.length > 0 ? buildTargetedEditBrief(files.length) : ''
 
       // BEAN Intelligence: live official-documentation retrieval for the

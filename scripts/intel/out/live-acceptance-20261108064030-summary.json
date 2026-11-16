@@ -1,0 +1,29 @@
+[
+  {
+    "step": "searxng-lane",
+    "status": "ADOPTED",
+    "url": "http://127.0.0.1:8888"
+  },
+  {
+    "step": "auth",
+    "status": "REAL",
+    "email": "intel-live-20261108064030@bean-e2e.test"
+  },
+  {
+    "step": "riishe-tamil-grounded",
+    "status": "DEGRADED",
+    "servedBy": null,
+    "answerChars": 0,
+    "stages": [
+      "researching",
+      "solving"
+    ],
+    "states": [],
+    "sourceCount": 0,
+    "sourceHosts": [],
+    "searchProviders": null,
+    "degradedCount": null,
+    "durationMs": 4216,
+    "error": "The response stream failed before completion. Partial text is labeled as incomplete."
+  }
+]

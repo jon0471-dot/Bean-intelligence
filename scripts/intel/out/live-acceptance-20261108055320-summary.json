@@ -1,0 +1,13 @@
+[
+  {
+    "step": "searxng-lane",
+    "status": "STARTED",
+    "pid": 20095,
+    "bootWaitMs": 2000
+  },
+  {
+    "step": "auth",
+    "status": "FAIL",
+    "error": "Unable to connect. Is the computer able to access the url?"
+  }
+]

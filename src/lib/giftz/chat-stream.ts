@@ -100,6 +100,10 @@ export interface GiftzTurnResult {
    *  move / delete / create turns — the operation ran server-side, no model
    *  output was involved; content === the truthful deterministic summary). */
   fileOp?: import('@/lib/code/file-ops/types').FileOpTurnPayload
+  /** M25 ADDITIVE: structured refactoring payload (chat-driven multi-file
+   *  refactoring plans — planned server-side, awaiting approval; execution is
+   *  a separate confirmed step, never part of the turn). */
+  refactor?: import('@/lib/code/refactoring/plan').RefactorTurnPayload
 }
 
 export interface GiftzChatStreamDeps {
@@ -263,6 +267,7 @@ export function createGiftzChatStream(deps: GiftzChatStreamDeps): ReadableStream
             ...(result.research ? { research: result.research } : {}),
             ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
             ...(result.fileOp ? { fileOp: result.fileOp } : {}),
+            ...(result.refactor ? { refactor: result.refactor } : {}),
           })
         } catch (e) {
           if (isClientDisconnected(e) || clientGone) {

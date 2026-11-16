@@ -16,6 +16,7 @@ import { requireUser } from '@/lib/auth/session'
 import { recordAudit } from '@/lib/observability/metering'
 import { executeOperation } from '@/lib/code/file-ops/execute'
 import { FileOpError } from '@/lib/code/file-ops/types'
+import { executeRefactorOperation } from '@/lib/code/refactoring/execute'
 
 const schema = z.object({
   opId: z.string().min(1).max(100),
@@ -34,6 +35,29 @@ export async function POST(
       throw new BeanApiError('NOT_FOUND', 'Project not found.')
     }
     try {
+      // M25 dispatch: a 'refactor' row executes through the atomic multi-file
+      // refactoring executor (same ledger, same confirmation binding) — the
+      // M23 executor keeps handling every other kind, unchanged.
+      const opRow = await db.codeFileOperation.findUnique({ where: { id: body.opId } })
+      if (opRow && opRow.kind === 'refactor') {
+        if (opRow.projectId !== id) {
+          throw new BeanApiError('NOT_FOUND', 'This refactoring operation was not found for this project.')
+        }
+        const result = await executeRefactorOperation(body.opId, id)
+        await recordAudit({
+          actorId: user.id,
+          action: 'code-giftz.refactor_execute',
+          target: id,
+          meta: {
+            opId: body.opId,
+            kind: result.kind,
+            applied: result.applied.length,
+            versionSeq: result.versionSeq,
+            replayed: result.replayed === true,
+          },
+        })
+        return ok({ result })
+      }
       const result = await executeOperation(body.opId, id)
       await recordAudit({
         actorId: user.id,

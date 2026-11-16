@@ -1,0 +1,2 @@
+{"at":"2026-11-08T05:53:23.877Z","step":"searxng-lane","status":"STARTED","pid":20095,"bootWaitMs":2000}
+{"at":"2026-11-08T05:53:23.879Z","step":"auth","status":"FAIL","error":"Unable to connect. Is the computer able to access the url?"}

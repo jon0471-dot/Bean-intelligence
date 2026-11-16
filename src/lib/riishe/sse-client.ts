@@ -73,6 +73,9 @@ export interface RiisheStreamEvent {
   /** M23 ADDITIVE: structured file-operation payload on the terminal done
    *  frame (rename/move/delete/create/repair — see code-giftz.tsx). */
   fileOp?: import('@/lib/code/file-ops/types').FileOpTurnPayload
+  /** M25 ADDITIVE: structured refactoring payload on the terminal done frame
+   *  (multi-file refactoring plans — see code-giftz.tsx). */
+  refactor?: import('@/lib/code/refactoring/plan').RefactorTurnPayload
 }
 
 export type StreamFailureKind =

@@ -1,0 +1,507 @@
+{
+  "ranAt": "2026-11-16T04:00:43.497Z",
+  "finishedAt": "2026-11-16T04:02:28.645Z",
+  "baseUrl": "http://127.0.0.1:3000",
+  "totals": {
+    "steps": 13,
+    "checks": 72,
+    "checksPassed": 72,
+    "LIVE_VERIFIED": 13,
+    "OFFLINE_VERIFIED": 0,
+    "FAILED": 0,
+    "BLOCKED": 0,
+    "providerDraftingCalls": 3,
+    "deterministicProviderCalls": 0
+  },
+  "steps": [
+    {
+      "id": "s0-env",
+      "title": "Server reachability + provider credential presence (config-level, values never read)",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 1100,
+      "checks": [
+        {
+          "name": "dev server reachable",
+          "passed": true,
+          "detail": "HTTP 200"
+        },
+        {
+          "name": "platform provider credential mechanism present",
+          "passed": true,
+          "detail": "config file present (values never read)"
+        },
+        {
+          "name": "unified gateway responds",
+          "passed": true,
+          "detail": "HTTP 401 (401 = auth-gated, reachable)"
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "s1-seed",
+      "title": "Isolated M21 fixture copies seeded through the REAL API (originals untouched)",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 5574,
+      "checks": [
+        {
+          "name": "Pulse copy seeded",
+          "passed": true,
+          "detail": "22 files"
+        },
+        {
+          "name": "Nebula copy seeded",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "Nova copy seeded",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "fixture originals untouched (spot hash)",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "s2-rename-symbol",
+      "title": "Chat-driven deterministic rename across verified references (Pulse copy)",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 1686,
+      "checks": [
+        {
+          "name": "turn completed",
+          "passed": true,
+          "detail": "duration 357ms"
+        },
+        {
+          "name": "refactor card returned (awaiting approval)",
+          "passed": true,
+          "detail": "engine=deterministic kind=rename-symbol"
+        },
+        {
+          "name": "engine is deterministic (no model call)",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "plan binds opId + planHash",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "affected files listed",
+          "passed": true,
+          "detail": "App.tsx, lib/motion.ts"
+        },
+        {
+          "name": "approved execution succeeds",
+          "passed": true,
+          "detail": "2 file(s)"
+        },
+        {
+          "name": "definition + importer rewritten",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "unrelated files byte-identical",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "one refactor version recorded",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "data": {
+        "opId": "cmwiqk8vx029pnatme4rb764e",
+        "versionSeq": 23
+      }
+    },
+    {
+      "id": "s3-move-module",
+      "title": "Chat-driven deterministic module move with two-direction import updates (Pulse copy)",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 238,
+      "checks": [
+        {
+          "name": "turn completed",
+          "passed": true,
+          "detail": "duration 49ms"
+        },
+        {
+          "name": "refactor card returned (awaiting approval)",
+          "passed": true,
+          "detail": "kind=move-module"
+        },
+        {
+          "name": "engine is deterministic (no model call)",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "approved execution succeeds",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "moved file exists at destination",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "old path gone",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "importer specifier updated (out of data/)",
+          "passed": true,
+          "detail": "import { DATE_RANGES, type DateRangeId } from '../lib/sample'"
+        },
+        {
+          "name": "moved file content preserved (except own specifiers)",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "App.tsx import updated",
+          "passed": true,
+          "detail": "} from './lib/sample'"
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "s4-service-layer",
+      "title": "Provider-assisted service-layer extraction (Pulse copy) — LIVE drafting call",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 26798,
+      "checks": [
+        {
+          "name": "turn completed",
+          "passed": true,
+          "detail": "duration 26486ms"
+        },
+        {
+          "name": "refactor card returned (awaiting approval)",
+          "passed": true,
+          "detail": "engine=provider-assisted files=2"
+        },
+        {
+          "name": "engine is provider-assisted",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "risks/unresolved surfaced for review",
+          "passed": true,
+          "detail": "risks=10 unresolved=0"
+        },
+        {
+          "name": "approved execution succeeds",
+          "passed": true,
+          "detail": "2 file(s)"
+        },
+        {
+          "name": "service module created under services/",
+          "passed": true,
+          "detail": "services/dashboard-data.ts"
+        },
+        {
+          "name": "data-access logic relocated",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "UI imports the service layer",
+          "passed": true,
+          "detail": "} from './services/dashboard-data'"
+        },
+        {
+          "name": "unrelated files byte-identical",
+          "passed": true,
+          "detail": "touched=2"
+        }
+      ],
+      "data": {
+        "versionSeq": 25,
+        "providerCalls": 1
+      }
+    },
+    {
+      "id": "s5-extract-component",
+      "title": "Provider-assisted component extraction (Nebula copy) — LIVE drafting call",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 45098,
+      "checks": [
+        {
+          "name": "turn completed",
+          "passed": true,
+          "detail": "duration 44715ms"
+        },
+        {
+          "name": "refactor card returned (awaiting approval)",
+          "passed": true,
+          "detail": "files=3 created=components/cta-panel.tsx"
+        },
+        {
+          "name": "scope discipline (draft validated server-side)",
+          "passed": true,
+          "detail": "Extract the CTA markup from components/closing.tsx into a new reusable component file named components/cta-panel.tsx; update components/closing.tsx to import and render it. Do not move or rename any e"
+        },
+        {
+          "name": "approved execution succeeds",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "component file created",
+          "passed": true,
+          "detail": "components/cta-panel.tsx"
+        },
+        {
+          "name": "source file updated to use the new component",
+          "passed": true,
+          "detail": "import AnimatedContent from '../components/kit/AnimatedContent'"
+        },
+        {
+          "name": "unrelated files byte-identical",
+          "passed": true,
+          "detail": "touched=3"
+        }
+      ],
+      "data": {
+        "versionSeq": 23,
+        "providerCalls": 1
+      }
+    },
+    {
+      "id": "s6-consolidate",
+      "title": "Provider-assisted consolidation of repeated page markup (Nova copy) — LIVE drafting call",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 6275,
+      "checks": [
+        {
+          "name": "turn completed",
+          "passed": true,
+          "detail": "duration 6001ms"
+        },
+        {
+          "name": "refactor card returned (awaiting approval)",
+          "passed": true,
+          "detail": "files=2"
+        },
+        {
+          "name": "approved execution succeeds",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "shared component created",
+          "passed": true,
+          "detail": "components/PageWrapper.tsx"
+        },
+        {
+          "name": "unrelated files byte-identical",
+          "passed": true,
+          "detail": "touched=2"
+        }
+      ],
+      "data": {
+        "versionSeq": 27,
+        "providerCalls": 1
+      }
+    },
+    {
+      "id": "s7-rollback",
+      "title": "Rollback of the completed Nebula refactoring (append-only history)",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 1152,
+      "checks": [
+        {
+          "name": "rollback accepted",
+          "passed": true,
+          "detail": "restored 22"
+        },
+        {
+          "name": "contents match the pre-refactor state",
+          "passed": true,
+          "detail": "22 files compared"
+        },
+        {
+          "name": "rollback created a NEW version",
+          "passed": true,
+          "detail": "history 23 → 24"
+        },
+        {
+          "name": "history preserved (append-only)",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "s8-m23-regression",
+      "title": "M23 deterministic file operations through the real API (Pulse copy, post-refactor)",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 1420,
+      "checks": [
+        {
+          "name": "M23 file-op still detected and executed (non-destructive auto-execute)",
+          "passed": true,
+          "detail": "kind=move"
+        },
+        {
+          "name": "file moved",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "M23 reference repair executes through the confirmation endpoint",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "import repaired to the new path",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "destructive M23 op requires confirmation (not auto-executed)",
+          "passed": true,
+          "detail": "awaiting_confirmation"
+        },
+        {
+          "name": "cancellation honest (file retained)",
+          "passed": true,
+          "detail": "file retained after cancel"
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "s9-export-independent-build",
+      "title": "ZIP export of the refactored Pulse copy + secret scan + independent toolchain build",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 11609,
+      "checks": [
+        {
+          "name": "export ZIP non-empty",
+          "passed": true,
+          "detail": "42503 bytes"
+        },
+        {
+          "name": "secret scan clean",
+          "passed": true,
+          "detail": "no credential patterns"
+        },
+        {
+          "name": "no env files / node_modules in zip",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "zip extracts cleanly",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "extracted content matches the refactored workspace",
+          "passed": true,
+          "detail": "22 files compared"
+        },
+        {
+          "name": "refactored project builds independently (npm + tsc + vite)",
+          "passed": true,
+          "detail": "npm install + tsc 0 errors + vite build ok (refactored file set)"
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "s10-browser",
+      "title": "Real-Chromium validation of the refactored Pulse build (desktop + mobile + console capture)",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 3761,
+      "checks": [
+        {
+          "name": "page renders with heading content",
+          "passed": true,
+          "detail": "PulseSample analytics · fictional productDate rangeLast 7 da"
+        },
+        {
+          "name": "meaningful content rendered",
+          "passed": true,
+          "detail": "1324 chars"
+        },
+        {
+          "name": "no console errors (desktop)",
+          "passed": true,
+          "detail": "clean"
+        },
+        {
+          "name": "no runtime exceptions (desktop)",
+          "passed": true,
+          "detail": "clean"
+        },
+        {
+          "name": "no failed network requests (desktop)",
+          "passed": true,
+          "detail": "clean"
+        },
+        {
+          "name": "no console errors (mobile)",
+          "passed": true,
+          "detail": "clean"
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "s11-security",
+      "title": "Security & isolation (IDOR, replay, staleness, approval gate)",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 264,
+      "checks": [
+        {
+          "name": "unknown op refuses",
+          "passed": true,
+          "detail": "This file operation was not found for this project."
+        },
+        {
+          "name": "another user cannot execute this project's refactoring",
+          "passed": true,
+          "detail": "HTTP 404"
+        },
+        {
+          "name": "replay returns recorded result (no double mutation)",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "data": {}
+    },
+    {
+      "id": "s12-fixtures",
+      "title": "M21 fixture originals untouched on disk (hash-verified)",
+      "status": "LIVE_VERIFIED",
+      "durationMs": 0,
+      "checks": [
+        {
+          "name": "fixture originals intact",
+          "passed": true,
+          "detail": "Pulse App.tsx hash-verified against the seeded copy; Nebula closing.tsx present"
+        }
+      ],
+      "data": {}
+    }
+  ]
+}

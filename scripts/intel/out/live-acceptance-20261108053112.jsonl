@@ -1,0 +1,2 @@
+{"at":"2026-11-08T05:31:13.061Z","step":"auth","status":"REAL","email":"intel-live-20261108053112@bean-e2e.test"}
+{"at":"2026-11-08T05:37:09.063Z","step":"riishe-english-grounded","status":"REAL","servedBy":null,"httpStatus":200,"answerChars":583,"states":["TOOL_UNAVAILABLE"],"sourceCount":0,"sourceHosts":[],"searchProviders":null,"durationMs":52171,"error":null}

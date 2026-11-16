@@ -41,6 +41,7 @@ export type SupportedLanguage =
   | 'es' // Spanish
   | 'zh' // Chinese
   | 'ja' // Japanese
+  | 'ko' // Korean (Hangul) — work-order Part 2/14 served set
   | 'und' // undetermined / mixed-minority
 
 export interface ScriptRun {
@@ -80,7 +81,7 @@ const SCRIPT_TO_LANGUAGE: Record<ScriptRun['script'], SupportedLanguage | null> 
   arabic: 'ar',
   kana: 'ja',
   han: 'zh', // kanji counts as zh presence; kana presence flips primary to ja
-  hangul: 'und', // Korean is served best-effort; never claimed as a supported language
+  hangul: 'ko', // Hangul is decisive Korean script evidence
   latin: null,
   other: null,
 }
@@ -312,6 +313,7 @@ export function extractPreservedTerms(raw: string): PreservedTerms {
 
 /** Language display names for audit logs and honest degradation notes. */
 export const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
+  ko: 'Korean',
   en: 'English',
   ta: 'Tamil',
   hi: 'Hindi',
@@ -321,4 +323,238 @@ export const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
   zh: 'Chinese',
   ja: 'Japanese',
   und: 'undetermined',
+}
+
+// ---------------------------------------------------------------------------
+// M25 intel-lanes ADDITIVE: the retrieval-facing analysis layer.
+//
+// The functions below are a pure ADDITIVE facade over detectLanguage — the
+// tracked detectLanguage contract (tests/unit/intel-language.test.ts) is
+// unchanged. The retrieval policy (intel/retrieval.ts), the world grounding
+// engine (intel/world/*) and the multilingual query builder consume THIS
+// shape: script-level classification, banded confidence, support honesty and
+// cross-language query variants built on a conservative lexicon.
+// ---------------------------------------------------------------------------
+
+/** Coarse script class used by retrieval and grounding (han+kana merge to cjk). */
+export type LanguageScript =
+  | 'latin' | 'tamil' | 'devanagari' | 'malayalam' | 'arabic' | 'cjk' | 'hangul' | 'other'
+
+export interface LanguageSegment {
+  /** Verbatim (trimmed, bounded) segment text. */
+  text: string
+  script: LanguageScript
+  /** Best-effort language for this segment; 'unknown' when script evidence cannot decide. */
+  language: SupportedLanguage | 'unknown'
+}
+
+export interface LanguageAnalysis {
+  /** Primary language; 'unknown' replaces the internal 'und' so callers never
+   *  mistake an honest no-signal result for a real language. */
+  primary: SupportedLanguage | 'unknown'
+  /** Script of the primary language. */
+  script: LanguageScript
+  /** Banded confidence ('high' >= 0.75, 'medium' >= 0.5, 'low' below). */
+  confidence: 'high' | 'medium' | 'low'
+  /** Retrieval-support honesty: 'strong' = decisive evidence (script run or
+   *  function words), 'partial' = Latin with no function words, 'unknown' =
+   *  no signal at all. Never claims more than the evidence. */
+  support: 'strong' | 'partial' | 'unknown'
+  /** Honest ambiguity note (e.g. Devanagari also covers Marathi/Nepali). */
+  supportNote: string | null
+  /** Latin-script transliterated Indian-language words detected. */
+  transliterated: boolean
+  /** More than one language carries a substantial share. */
+  mixed: boolean
+  /** Ordered script segments (bounded). */
+  segments: LanguageSegment[]
+  /** Numeric confidence (0..1) behind the band — audit evidence, not a claim. */
+  confidenceScore: number
+  /** Verbatim underlying detection note (null when none). */
+  note: string | null
+}
+
+const SCRIPT_OF_RUN: Record<ScriptRun['script'], LanguageScript> = {
+  latin: 'latin',
+  tamil: 'tamil',
+  devanagari: 'devanagari',
+  malayalam: 'malayalam',
+  arabic: 'arabic',
+  han: 'cjk',
+  kana: 'cjk',
+  hangul: 'hangul',
+  other: 'other',
+}
+
+const PRIMARY_SCRIPT: Record<SupportedLanguage, LanguageScript> = {
+  en: 'latin',
+  es: 'latin',
+  ta: 'tamil',
+  hi: 'devanagari',
+  ml: 'malayalam',
+  ar: 'arabic',
+  zh: 'cjk',
+  ja: 'cjk',
+  ko: 'hangul',
+  und: 'other',
+}
+
+/**
+ * Transliterated markers split by the language they actually evidence. A
+ * Latin-script message made of these words IS that language written in
+ * Latin letters — the honest primary is that language at LOW confidence,
+ * and retrieval must keep the original wording as the first query.
+ */
+const TRANSLITERATED_BY_LANGUAGE: Array<[SupportedLanguage, RegExp]> = [
+  ['ta', /\b(vanakkam|vanakam|nandri|thambi|akka|seri|illa|enna|eppadi|epdi|ungal)\b/i],
+  ['hi', /\b(namaste|namaskar|dhanyavad|dhanyavaad|shukriya|kripya)\b/i],
+  ['ml', /\b(namaskaram|ente|ninte|ninakku|valare|sugamano)\b/i],
+]
+
+function band(score: number): 'high' | 'medium' | 'low' {
+  if (score >= 0.75) return 'high'
+  if (score >= 0.5) return 'medium'
+  return 'low'
+}
+
+/**
+ * Analyze a prompt for the retrieval/grounding layers. Pure, deterministic,
+ * never throws. Built ON TOP of detectLanguage (same evidence), adding the
+ * script classification, support honesty and the transliteration-aware
+ * primary inference the retrieval policy needs.
+ */
+export function analyzeLanguage(raw: string): LanguageAnalysis {
+  const profile = detectLanguage(raw)
+  const runs = mixedLanguageSegments(normalizeMultilingualText(raw)).filter((r) => r.text.trim().length > 0)
+  const latinResolution = profile.primary === 'es' ? 'es' : profile.primary === 'und' ? ('und' as SupportedLanguage) : profile.primary
+  const segments: LanguageSegment[] = runs.slice(0, 24).map((r) => {
+    const mapped = SCRIPT_TO_LANGUAGE[r.script]
+    const language = r.script === 'latin' ? latinResolution : mapped
+    return {
+      text: r.text.trim().slice(0, 80),
+      script: SCRIPT_OF_RUN[r.script],
+      language: (language && language !== 'und' ? language : 'unknown') as SupportedLanguage | 'unknown',
+    }
+  })
+
+  let primary: SupportedLanguage | 'unknown' = profile.primary === 'und' ? 'unknown' : profile.primary
+  let score = profile.confidence
+  let supportNote: string | null = null
+
+  // Transliteration-aware primary inference (Latin-dominant input only —
+  // script evidence always wins when it exists). Conservative: the marker
+  // sets are unambiguous frequent words, and the result is honestly LOW
+  // confidence because Latin letters cannot separate e.g. Tamil from
+  // other Dravidian romanizations.
+  if (profile.transliterated && (primary === 'en' || primary === 'unknown')) {
+    const hit = TRANSLITERATED_BY_LANGUAGE.find(([, re]) => re.test(raw))
+    if (hit) {
+      primary = hit[0]
+      score = Math.min(score, 0.45)
+      supportNote = `Transliterated ${LANGUAGE_NAMES[hit[0]]} words in Latin script — primary inferred, not script-decided`
+    }
+  }
+
+  if (profile.primary === 'hi') {
+    supportNote = 'Devanagari script also covers Marathi and Nepali — language inferred from script, not certain'
+  } else if (profile.primary === 'ko') {
+    supportNote = 'Hangul is decisive Korean script evidence'
+  }
+
+  const unknown = primary === 'unknown'
+  let support: LanguageAnalysis['support']
+  if (unknown) {
+    support = 'unknown'
+  } else if (primary === 'en' || primary === 'es') {
+    // Latin-script languages: function-word evidence decides strength.
+    const fnWords = (raw.match(profile.primary === 'es' ? LATIN_STOPWORDS.es : LATIN_STOPWORDS.en) ?? []).length
+    support = fnWords > 0 ? 'strong' : 'partial'
+  } else {
+    // Non-Latin script evidence is decisive for the detected language.
+    support = 'strong'
+  }
+
+  return {
+    primary,
+    script: unknown ? 'other' : PRIMARY_SCRIPT[primary as SupportedLanguage],
+    confidence: band(score),
+    support,
+    supportNote,
+    transliterated: profile.transliterated,
+    mixed: profile.mixed,
+    segments,
+    confidenceScore: Math.round(score * 100) / 100,
+    note: profile.note ? profile.note : null,
+  }
+}
+
+/**
+ * Cross-language query variants for bounded retrieval: the ORIGINAL wording
+ * is always first (the user's own phrasing is the strongest query); for
+ * non-English primaries a conservative lexicon appends up to two English
+ * pivot terms (technical/indexed coverage is broader in English). English
+ * messages gain no junk variants; empty input yields no variants; the list
+ * is deduplicated and capped at three.
+ */
+const QUERY_LEXICON: Array<[RegExp, string]> = [
+  [/பிரதமர்/, 'prime minister'],
+  [/முதல்வர்|முதலமைச்சர்/, 'chief minister'],
+  [/செய்தி/, 'news'],
+  [/தலைநகர்/, 'capital city'],
+  [/இந்தியா/, 'India'],
+  [/தமிழ்நாடு/, 'Tamil Nadu'],
+  [/கழுகு|பறவை/, 'bird'],
+  [/मुख्यमंत्री/, 'chief minister'],
+  [/प्रधानमंत्री/, 'prime minister'],
+  [/समाचार|खबर/, 'news'],
+  [/भारत/, 'India'],
+  [/മുഖ്യമന്ത്രി/, 'chief minister'],
+  [/പ്രധാനമന്ത്രി/, 'prime minister'],
+  [/വാർത്ത/, 'news'],
+  [/ഇന്ത്യ/, 'India'],
+  [/رئيس الوزراء/, 'prime minister'],
+  [/عاصمة/, 'capital'],
+  [/أخبار/, 'news'],
+  [/الهند/, 'India'],
+  [/首相|総理大臣/, 'prime minister'],
+  [/日本/, 'Japan'],
+  [/ニュース/, 'news'],
+  [/总理|国务院总理/, 'premier'],
+  [/中国/, 'China'],
+  [/新闻/, 'news'],
+]
+
+export function buildQueryVariants(message: string, analysis?: LanguageAnalysis): string[] {
+  const text = (message ?? '').trim()
+  if (!text) return []
+  const a = analysis ?? analyzeLanguage(text)
+  const variants: string[] = [text]
+  if (a.primary !== 'unknown' && a.primary !== 'en') {
+    const glosses: string[] = []
+    for (const [re, en] of QUERY_LEXICON) {
+      if (re.test(text) && !glosses.includes(en)) glosses.push(en)
+      if (glosses.length >= 2) break
+    }
+    if (glosses.length > 0) {
+      const pivoted = `${text} ${glosses.join(' ')}`.replace(/\s+/g, ' ').trim()
+      if (pivoted !== text) variants.push(pivoted)
+    }
+  }
+  return [...new Set(variants)].slice(0, 3)
+}
+
+/**
+ * Prompt instruction for same-language answers with verbatim proper nouns.
+ * Null for unknown-language input — never a fabricated instruction.
+ */
+export function languagePromptNote(analysis: LanguageAnalysis): string | null {
+  if (analysis.primary === 'unknown') return null
+  const name = LANGUAGE_NAMES[analysis.primary as SupportedLanguage]
+  return `The user writes in ${name}. Answer in the SAME language (${name}) unless the user explicitly asks for another language. Preserve proper nouns, code identifiers and technical terms exactly as written.`
+}
+
+/** Human-readable language name ('Unknown' for undetermined codes). */
+export function languageName(code: string): string {
+  if (code === 'unknown' || code === 'und') return 'Unknown'
+  return LANGUAGE_NAMES[code as SupportedLanguage] ?? 'Unknown'
 }
