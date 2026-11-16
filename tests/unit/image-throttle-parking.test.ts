@@ -33,6 +33,26 @@ const fakeDb = {
       Object.assign(row, data)
       return row
     },
+    // M26: cancel checkpoints read cancelRequested; guarded settles use updateMany
+    findUnique: async ({ where, select }: { where: { id: string }; select?: Record<string, boolean> }) => {
+      const row = jobRows.get(where.id)
+      if (!row) return null
+      return select ? Object.fromEntries(Object.keys(select).map((k) => [k, row[k]])) : row
+    },
+    updateMany: async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+      const row = jobRows.get(where.id as string)
+      if (!row) return { count: 0 }
+      const statusFilter = where.status as string[] | { in: string[] } | undefined
+      const allowed =
+        statusFilter === undefined
+          ? null
+          : Array.isArray(statusFilter)
+            ? statusFilter
+            : statusFilter.in
+      if (allowed && !allowed.includes(row.status as string)) return { count: 0 }
+      Object.assign(row, data)
+      return { count: 1 }
+    },
   },
   usageRecord: {
     count: async () => usageRows.length,

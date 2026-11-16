@@ -222,6 +222,25 @@ async function updateJob(id: string, data: Record<string, unknown>): Promise<voi
   await db.generationJob.update({ where: { id }, data })
 }
 
+// ---------------------------------------------------------------------------
+// M26 (audit F-2): the legacy writers settled rows with unconditional
+// `update({ where: { id } })` — a worker that lost its lease (GC pause, event-
+// loop stall past leaseMs, cross-process double attach) could clobber the new
+// owner's row (the exact measured clobber class documented on runner.ts).
+// Terminal settles now CAS on an active status (and stay refused for rows a
+// new owner already moved); progress writes stay permissive by design.
+// ---------------------------------------------------------------------------
+const ACTIVE_STATUSES = ['starting', 'running', 'streaming', 'finalizing'] as const
+
+/** Guarded terminal settle: count === 1 only while the row is still active. */
+async function settleActiveGuarded(id: string, data: Record<string, unknown>): Promise<boolean> {
+  const res = await db.generationJob.updateMany({
+    where: { id, status: { in: [...ACTIVE_STATUSES, 'retry_wait', 'queued'] } },
+    data,
+  })
+  return res.count === 1
+}
+
 function parseResult(job: JobRow): VideoJobResult {
   if (!job.resultJson) return {}
   try {
@@ -598,13 +617,20 @@ export async function processVideoJob(job: JobRow): Promise<void> {
       ...(streamProbe.audio ? { audio: streamProbe.audio } : {}),
       ...(continuity ? { continuity } : {}),
     }
-    await updateJob(job.id, {
+    // M26 (audit F-2): the terminal completion is a CAS on active statuses —
+    // a worker that lost its lease can no longer clobber a re-claimed row
+    // (its result is refused; the new owner settles the row instead).
+    const completed = await settleActiveGuarded(job.id, {
       status: 'completed',
       progress: 100,
       finishedAt: new Date(),
       backendId: backend.id,
       resultJson: JSON.stringify(result),
     })
+    if (!completed) {
+      logger.warn('jazmii.settle_refused_lost_ownership', { jobId: job.id, kind: 'complete' })
+      return
+    }
     await recordUsage({
       userId: job.userId,
       product: 'jazmii',
@@ -898,7 +924,7 @@ async function failJob(
   display: string,
   errorClass?: string,
 ): Promise<void> {
-  await updateJob(job.id, {
+  const settled = await settleActiveGuarded(job.id, {
     status: 'failed',
     finishedAt: new Date(),
     backendId,
@@ -906,13 +932,20 @@ async function failJob(
     errorMessage: display,
     ...(errorClass ? { errorClass } : {}),
   })
+  if (!settled) {
+    logger.warn('jazmii.settle_refused_lost_ownership', { jobId: job.id, kind: 'fail', code })
+  }
 }
 
-/** Honest cancellation: stop tracking; the provider task is NOT aborted. */
+/** Honest cancellation: stop tracking; the provider task is NOT aborted.
+ *  M26 (audit F-8): the write is a CAS on ACTIVE statuses — a cancel racing
+ *  a completion can no longer flip a `completed` row to failed/CANCELLED. */
 async function markCancelled(jobId: string): Promise<void> {
   await db.generationJob
-    .update({
-      where: { id: jobId },
+    .updateMany({
+      // every NON-terminal status: a cancel may settle queued/retry_wait rows
+      // directly, but never a completed/failed/cancelled row (F-8 CAS)
+      where: { id: jobId, status: { in: [...ACTIVE_STATUSES, 'queued', 'retry_wait'] } },
       data: {
         status: 'failed',
         finishedAt: new Date(),
@@ -976,7 +1009,13 @@ export function ensureVideoPoller(job: {
   if (!queuedOrRunning) return
   if (activePollers.has(job.id)) return
   if (cancelRequested.has(job.id)) return
-  if (poolsActiveProbe() && (job.status === 'queued' || job.status === 'retry_wait')) return
+  // M26 (audit F-6): when engine pools run, THE ENGINE owns execution —
+  // running/orphaned rows are recovered by lease expiry, not by a second
+  // poller in THIS process (previously any read route could attach a
+  // duplicate executor cross-process: two poll loops, interleaved progress
+  // writes, divergent terminal writes). Re-attach remains the executor ONLY
+  // for pool-less (inline) deployments.
+  if (poolsActiveProbe()) return
   void processVideoJob(job)
 }
 
