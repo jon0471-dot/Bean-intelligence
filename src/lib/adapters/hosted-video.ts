@@ -33,6 +33,7 @@
  * surface: the platform token must be present, and the probe sends it.
  */
 import ZAI from 'z-ai-web-dev-sdk'
+import { guardedFetch } from '@/lib/research/reach/url-safety'
 import type { HealthFailureCategory, HealthReport, TaskAdapter } from './types'
 import {
   noteUpstream429,
@@ -191,13 +192,25 @@ export function detectVideoContainer(bytes: Buffer): 'mp4' | 'webm' | null {
   return null
 }
 
-/** Download the provider output SERVER-SIDE and validate it. */
+/** Download the provider output SERVER-SIDE and validate it.
+ *
+ * M26 (audit S-10): the URL comes from the provider task result, so it is
+ * fetched through the research gateway's guardedFetch — every hop (including
+ * redirects) is revalidated against loopback/private/metadata targets with
+ * manual redirects. A compromised provider response can no longer turn the
+ * worker into a blind internal fetcher; the payload itself is still
+ * magic-byte-validated below. */
 export async function downloadVideo(url: string, timeoutMs = 120_000): Promise<VideoDownload> {
   const t0 = Date.now()
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  let res: Response
   try {
-    const res = await fetch(url, { signal: controller.signal, redirect: 'follow' })
+    const guarded = await guardedFetch(url, { timeoutMs })
+    res = guarded.res
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e)
+    throw new Error(`video download blocked or failed: ${detail.slice(0, 160)}`)
+  }
+  try {
     if (!res.ok) throw new Error(`video download failed with HTTP ${res.status}`)
     const buf = Buffer.from(await res.arrayBuffer())
     if (buf.length === 0) throw new Error('video download returned an empty payload')
@@ -205,8 +218,9 @@ export async function downloadVideo(url: string, timeoutMs = 120_000): Promise<V
     const format = detectVideoContainer(buf)
     if (!format) throw new Error('downloaded payload is not a recognizable video container (mp4/webm)')
     return { bytes: buf, format, bytesLength: buf.length, durationMs: Date.now() - t0 }
-  } finally {
-    clearTimeout(timer)
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('video download')) throw e
+    throw new Error(`video download failed: ${e instanceof Error ? e.message.slice(0, 160) : 'error'}`)
   }
 }
 

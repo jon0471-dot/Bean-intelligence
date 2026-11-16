@@ -98,3 +98,59 @@ describe('url-guard — operator escape hatch (local test rigs only)', () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// M26 S-6 regression: IPv4-mapped-IPv6 bypass (audit finding — the mapped
+// form slipped past both the v4 and v6 checks; the embedded IPv4 address is
+// the real target).
+// ---------------------------------------------------------------------------
+describe('url-guard — IPv4-mapped IPv6 (M26 S-6)', () => {
+  const ALLOW = process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS
+
+  test('mapped metadata endpoint is rejected (never allowed, mapped or not)', () => {
+    expect(validateProviderBaseUrl('http://[::ffff:169.254.169.254]/latest/meta-data').ok).toBe(false)
+    expect(validateProviderBaseUrl('http://[0:0:0:0:0:ffff:169.254.169.254]/latest/meta-data').ok).toBe(false)
+  })
+
+  test('mapped loopback is rejected without the hatch', () => {
+    delete process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS
+    try {
+      expect(validateProviderBaseUrl('http://[::ffff:127.0.0.1]:8081/v1').ok).toBe(false)
+      // parity: the mapped form behaves EXACTLY like its embedded v4 address —
+      // plain http://10.0.0.1 is a legitimate LAN worker under the current
+      // policy, so its mapped form is allowed too (no behavior change)
+      expect(validateProviderBaseUrl('http://[::ffff:10.0.0.1]/v1').ok).toBe(
+        validateProviderBaseUrl('http://10.0.0.1/v1').ok,
+      )
+    } finally {
+      if (ALLOW === undefined) delete process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS
+      else process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS = ALLOW
+    }
+  })
+
+  test('mapped loopback is admitted by the same hatch as plain loopback', () => {
+    process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS = 'true'
+    try {
+      expect(validateProviderBaseUrl('http://[::ffff:127.0.0.1]:8081/v1').ok).toBe(true)
+    } finally {
+      if (ALLOW === undefined) delete process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS
+      else process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS = ALLOW
+    }
+  })
+
+  test('mapped PUBLIC addresses remain allowed (no false positive)', () => {
+    expect(validateProviderBaseUrl('http://[::ffff:8.8.8.8]/v1').ok).toBe(true)
+    expect(validateProviderBaseUrl('https://provider.example/v1').ok).toBe(true)
+  })
+
+  test('the mapping helper itself is pinned (compressed + expanded forms)', async () => {
+    const { ipv4MappedV6Host } = await import('../../src/lib/security/url-guard')
+    expect(ipv4MappedV6Host('::ffff:127.0.0.1')).toBe('127.0.0.1')
+    expect(ipv4MappedV6Host('::FFFF:169.254.169.254')).toBe('169.254.169.254')
+    expect(ipv4MappedV6Host('0:0:0:0:0:ffff:8.8.8.8')).toBe('8.8.8.8')
+    expect(ipv4MappedV6Host('::1')).toBeNull()
+    expect(ipv4MappedV6Host('fe80::1')).toBeNull()
+    expect(ipv4MappedV6Host('provider.example')).toBeNull()
+    expect(ipv4MappedV6Host('::ffff:8.8.8.8.8')).toBeNull() // not a dotted quad
+  })
+})

@@ -20,6 +20,7 @@
  */
 
 import ZAI from 'z-ai-web-dev-sdk'
+import { guardedFetch } from '@/lib/research/reach/url-safety'
 import { withTimeout } from '@/lib/adapters/hosted-llm'
 import { classifyUpstreamError, healthFailureCategory, noteUpstream429, noteUpstreamSuccess, upstreamCoolingDown } from '@/lib/upstream/gateway'
 import { noteRealAttempt, UPSTREAM_FAILURE_CATEGORIES } from '@/lib/adapters/last-attempts'
@@ -134,18 +135,20 @@ export async function analyzeImageOnce(dataUrl: string, instruction: string, tim
 /**
  * Convert an image reference (data URL, http(s) URL, or local /api storage
  * path is NOT followed for security) into a data URL the vision endpoint
- * accepts. Data URLs pass through; http(s) URLs are fetched with a bounded
- * timeout and a size cap. Local/api paths are rejected — callers pass real
- * file buffers when they have them.
+ * accepts. Data URLs pass through; http(s) URLs are fetched through the
+ * research gateway's guardedFetch (M26 audit S-7: the background worker path
+ * previously fetched WITHOUT the SSRF guard and followed redirects — a
+ * validated public URL could 302 to an internal address at worker time).
+ * Every hop is now revalidated against loopback/private/metadata targets.
+ * Local/api paths are rejected — callers pass real file buffers when they
+ * have them. Unreadable/blocked references return null (callers log an
+ * honest "unreadable" note — never a fabricated image).
  */
 export async function imageReferenceToDataUrl(ref: string, timeoutMs = 12_000): Promise<string | null> {
   if (ref.startsWith('data:')) return ref.length < 15_000_000 ? ref : null
   if (!/^https?:\/\//i.test(ref)) return null
   try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
-    const res = await fetch(ref, { signal: controller.signal, redirect: 'follow' })
-    clearTimeout(timer)
+    const { res } = await guardedFetch(ref, { timeoutMs })
     if (!res.ok) return null
     const buf = Buffer.from(await res.arrayBuffer())
     if (buf.length === 0 || buf.length > 15_000_000) return null

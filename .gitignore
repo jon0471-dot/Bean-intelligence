@@ -119,3 +119,14 @@ scripts/m23-out/*.db-*
 validation/m24/fixtures/*/dist/
 validation/m24/evidence/extracted/
 validation/m24/evidence/independent-build/
+
+# M26 release-safety hardening: the f0b47ad auto-commit sweep committed
+# scripts/.github_device_code ("sensitive — never committed" per M25_RESULTS §2),
+# a db/backups snapshot and cURL cookie jars. These patterns make every future
+# sweep skip them. The existing backups stay preserved on LOCAL-only refs
+# (backup/m26-baseline-auto-commit) and are never pushed.
+scripts/.github_device_code
+scripts/**/*cookies*.txt
+db/backups/
+db/*.db
+db/*.db-*
