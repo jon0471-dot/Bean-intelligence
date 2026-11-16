@@ -42,10 +42,20 @@ export async function PATCH(request: Request) {
       throw new BeanApiError('VALIDATION_ERROR', 'Nothing to update.')
     }
 
-    await db.user.update({ where: { id: user.id }, data })
+    // M26 (audit S-8): a password change now revokes EVERY session for the
+    // account (including the caller's — re-authentication is required).
+    // Previously an attacker holding a stolen session token could keep it
+    // alive across a victim's password change; sessions are stored plaintext
+    // (documented residual), so revocation is the only real containment.
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: user.id }, data })
+      if ('passwordHash' in data) {
+        await tx.session.deleteMany({ where: { userId: user.id } })
+      }
+    })
     await recordAudit({ actorId: user.id, action: 'account.update', target: user.id })
 
-    return ok({ updated: true })
+    return ok({ updated: true, sessionsRevoked: 'passwordHash' in data })
   })
 }
 
