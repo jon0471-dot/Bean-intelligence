@@ -119,6 +119,25 @@ const fakeDb = {
       Object.assign(job, data)
       return job
     },
+    // M26: the guarded terminal settles use updateMany (Prisma-style where,
+    // incl. `status: { in: [...] }`).
+    updateMany: async ({ where, data }: { where: Record<string, unknown>; data: Partial<FakeJob> }) => {
+      let count = 0
+      const statusFilter = where.status as string[] | { in: string[] } | undefined
+      const allowed =
+        statusFilter === undefined
+          ? null
+          : Array.isArray(statusFilter)
+            ? statusFilter
+            : statusFilter.in
+      for (const job of jobStore.values()) {
+        if (where.id && job.id !== where.id) continue
+        if (allowed && !allowed.includes(job.status)) continue
+        Object.assign(job, data)
+        count += 1
+      }
+      return { count }
+    },
   },
   usageRecord: {
     create: async ({ data }: { data: Record<string, unknown> }) => {

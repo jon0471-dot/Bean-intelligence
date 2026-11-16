@@ -398,3 +398,95 @@ describe('engine events + transitions + dedupe', () => {
     expect(normalizeStatusForProduct('cancelled')).toBe('cancelled')
   })
 })
+
+// ---------------------------------------------------------------------------
+// M26 race-condition regressions (audit F-3 / F-4): the read-then-write
+// windows in finishFailed and recoverStaleJobs. The fake db is shared with
+// the suites above — these tests interleave ownership changes BETWEEN the
+// read and the write by mutating the store directly.
+// ---------------------------------------------------------------------------
+describe('M26 — settle/recovery ownership races', () => {
+  test('F-3: finishFailed from a STALE worker cannot park a job re-claimed by another worker', async () => {
+    const j = makeJob({ id: 'j-f3', status: 'running', workerId: 'w-old', attempts: 1, maxAttempts: 3 })
+    jobStore.set('j-f3', j)
+    // simulate the interleaving: the stale worker read the row, then RECOVERY
+    // requeued it and a NEW worker claimed it before the stale write lands
+    const read = await (fakeDb.generationJob as typeof fakeDb.generationJob).findUnique({ where: { id: 'j-f3' } })
+    expect(read!.workerId).toBe('w-old')
+    // recovery requeues (lease expired) and a new worker claims
+    j.status = 'retry_wait'
+    j.workerId = null
+    await claimNextJob({ product: 'riishe', workerId: 'w-new', workerKind: 'embedded' }).then(() => undefined)
+    const reClaimed = [...jobStore.values()].find((x) => x.workerId === 'w-new' && x.status === 'running')
+    // the stale worker's failure now lands — must NOT touch the new owner's row
+    const outcome = await finishFailed('j-f3', 'w-old', { errorClass: 'timeout', errorCode: 'BACKEND_TIMEOUT', errorMessage: 'late failure' })
+    if (reClaimed && reClaimed.id === 'j-f3') {
+      // the job was re-claimed by w-new under the SAME id: the stale write
+      // must be rejected (ownership precondition) and the row stays running
+      expect(outcome.retryWait).toBe(false)
+      expect(outcome.terminal).toBe(false)
+      expect(j.status).toBe('running')
+      expect(j.workerId).toBe('w-new')
+    } else {
+      // a different job was claimed; j-f3 is retry_wait owned by nobody —
+      // the stale write must still be rejected (workerId precondition)
+      expect(outcome.retryWait).toBe(false)
+      expect(outcome.terminal).toBe(false)
+    }
+  })
+
+  test('F-3: finishFailed still works for the LEGITIMATE owner and __recovery__', async () => {
+    const j = makeJob({ id: 'j-f3b', status: 'running', workerId: 'w1', attempts: 1, maxAttempts: 1 })
+    jobStore.set('j-f3b', j)
+    const out = await finishFailed('j-f3b', 'w1', { errorClass: 'timeout', errorCode: 'BACKEND_TIMEOUT', errorMessage: 'x' })
+    expect(out.terminal).toBe(true)
+    expect(j.status).toBe('failed')
+    // recovery path bypasses ownership by design
+    const j2 = makeJob({ id: 'j-f3c', status: 'running', workerId: 'w2', attempts: 1, maxAttempts: 1 })
+    jobStore.set('j-f3c', j2)
+    const out2 = await finishFailed('j-f3c', '__recovery__', { errorClass: 'worker_lost', errorCode: 'WORKER_LOST', errorMessage: 'x' })
+    expect(out2.terminal).toBe(true)
+    expect(j2.status).toBe('failed')
+  })
+
+  test('F-4: recovery does NOT requeue a job whose lease was renewed after the sweep read', async () => {
+    const past = new Date(Date.now() - 1_000)
+    const j = makeJob({ id: 'j-f4', status: 'running', workerId: 'w-slow', leaseUntil: past, attempts: 1, maxAttempts: 3 })
+    jobStore.set('j-f4', j)
+    // the sweep READS the stale row...
+    const stale = await (fakeDb.generationJob as unknown as { findMany: (a: { where: Record<string, unknown>; select: Record<string, boolean>; take?: number }) => Promise<FakeJob[]> }).findMany({
+      where: {
+        status: { in: ['starting', 'running', 'streaming', 'finalizing'] },
+        OR: [{ leaseUntil: null }, { leaseUntil: { lt: new Date(Date.now() + 60_000) } }],
+      },
+      select: { id: true, attempts: true, maxAttempts: true, workerId: true, leaseUntil: true },
+      take: 100,
+    })
+    expect(stale.map((s) => s.id)).toContain('j-f4')
+    // ...then the slow worker's heartbeat RENEWS the lease (ownership change)...
+    j.leaseUntil = new Date(Date.now() + 120_000)
+    // ...recovery's write must now match NOTHING (the read-time lease value
+    // no longer matches the row — the F-4 precondition)
+    const res = await (fakeDb.generationJob as unknown as { updateMany: (a: { where: Record<string, unknown>; data: Record<string, unknown> }) => Promise<{ count: number }> }).updateMany({
+      where: {
+        id: 'j-f4',
+        status: { in: ['starting', 'running', 'streaming', 'finalizing'] },
+        leaseUntil: past, // the value recovery read, now stale
+      },
+      data: { status: 'retry_wait', workerId: null },
+    })
+    expect(res.count).toBe(0)
+    expect(j.status).toBe('running')
+    expect(j.workerId).toBe('w-slow')
+  })
+
+  test('F-4: recovery still requeues a genuinely expired lease', async () => {
+    const past = new Date(Date.now() - 5_000)
+    const j = makeJob({ id: 'j-f4b', status: 'running', workerId: 'w-dead', leaseUntil: past, attempts: 1, maxAttempts: 3 })
+    jobStore.set('j-f4b', j)
+    const res = await recoverStaleJobs()
+    expect(res.requeued).toBe(1)
+    expect(j.status).toBe('retry_wait')
+    expect(j.workerId).toBeNull()
+  })
+})

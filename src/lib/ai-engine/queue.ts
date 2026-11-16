@@ -283,8 +283,16 @@ export async function finishFailed(
     // synchronized burst (retry-storm prevention).
     const backoff = jitteredRetryBackoffMs(backoffBase)
     const nextRunAt = new Date(Date.now() + backoff)
+    // M26 (audit F-3): the read above is read-then-write — recovery or
+    // another claim can take ownership in between. The write now re-checks
+    // ownership like every other settle path (the recovery caller may
+    // legitimately settle rows owned by any worker).
     await db.generationJob.updateMany({
-      where: { id: jobId, status: { in: ['starting', 'running', 'streaming', 'finalizing'] } },
+      where: {
+        id: jobId,
+        status: { in: ['starting', 'running', 'streaming', 'finalizing'] },
+        ...(workerId === '__recovery__' ? {} : { workerId }),
+      },
       data: {
         status: 'retry_wait',
         nextRunAt,
@@ -305,7 +313,12 @@ export async function finishFailed(
     return { terminal: false, retryWait: true }
   }
   await db.generationJob.updateMany({
-    where: { id: jobId, status: { in: ['starting', 'running', 'streaming', 'finalizing', 'retry_wait'] } },
+    // M26 (audit F-3): same ownership precondition as the retry branch.
+    where: {
+      id: jobId,
+      status: { in: ['starting', 'running', 'streaming', 'finalizing', 'retry_wait'] },
+      ...(workerId === '__recovery__' ? {} : { workerId }),
+    },
     data: {
       status: 'failed',
       errorClass: failure.errorClass,
@@ -377,13 +390,22 @@ export async function recoverStaleJobs(): Promise<{ requeued: number; failed: nu
       status: { in: ['starting', 'running', 'streaming', 'finalizing'] },
       OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }],
     },
-    select: { id: true, attempts: true, maxAttempts: true, workerId: true },
+    select: { id: true, attempts: true, maxAttempts: true, workerId: true, leaseUntil: true },
     take: 100,
   })
   for (const job of stale) {
     if (job.attempts < job.maxAttempts) {
       const res = await db.generationJob.updateMany({
-        where: { id: job.id, status: { in: ['starting', 'running', 'streaming', 'finalizing'] } },
+        // M26 (audit F-4): the lease expiry is re-verified INSIDE the write —
+        // the read-then-write window previously let recovery requeue a
+        // slow-but-alive worker whose heartbeat landed between the sweep's
+        // read and its write (duplicate provider execution). A heartbeat
+        // that renewed the lease makes this update match nothing.
+        where: {
+          id: job.id,
+          status: { in: ['starting', 'running', 'streaming', 'finalizing'] },
+          ...(job.leaseUntil ? { leaseUntil: job.leaseUntil } : { leaseUntil: null }),
+        },
         data: {
           status: 'retry_wait',
           nextRunAt: new Date(Date.now() + 5_000),
