@@ -122,21 +122,34 @@ export function ok<T extends Record<string, unknown>>(payload: T, init?: Respons
  *  500. Structural name check: importing the error class here creates a
  *  chunk-ordering TDZ in the standalone bundle, so the mapping keys on the
  *  stable error name instead (set by the class itself). */
-export function handle(fn: () => Promise<Response>): Promise<Response> {
-  return fn().catch((err: unknown) => {
-    if (err instanceof BeanApiError) return err.toResponse()
-    if (err instanceof Error && err.name === 'CredentialsNotConfiguredError') {
-      return new BeanApiError('PRODUCT_UNAVAILABLE', err.message).toResponse()
-    }
-    console.error(
-      JSON.stringify({
-        ts: new Date().toISOString(),
-        level: 'error',
-        event: 'api.unexpected_error',
-        message: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? (err.stack ?? '').split('\n').slice(0, 6).join(' | ') : undefined,
-      }),
-    )
-    return new BeanApiError('INTERNAL_ERROR', 'Something went wrong handling your request.').toResponse()
-  })
+export async function handle(fn: () => Promise<Response>): Promise<Response> {
+  // M26 (audit O-1): join every log line of this request to its HTTP trace —
+  // the middleware issues `x-bean-request-id`; entering the logger's ALS
+  // context here makes it available to ALL structured logs in the route.
+  let requestId: string | null = null
+  try {
+    const h = await headers()
+    requestId = h.get('x-bean-request-id')
+  } catch {
+    // outside a request scope (worker/tests) — no id, logs unchanged
+  }
+  return withRequestContext({ requestId: requestId ?? undefined }, async () =>
+    fn().catch((err: unknown) => {
+      if (err instanceof BeanApiError) return err.toResponse()
+      if (err instanceof Error && err.name === 'CredentialsNotConfiguredError') {
+        return new BeanApiError('PRODUCT_UNAVAILABLE', err.message).toResponse()
+      }
+      console.error(
+        JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'error',
+          event: 'api.unexpected_error',
+          requestId: requestId ?? undefined,
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? (err.stack ?? '').split('\n').slice(0, 6).join(' | ') : undefined,
+        }),
+      )
+      return new BeanApiError('INTERNAL_ERROR', 'Something went wrong handling your request.').toResponse()
+    }),
+  )
 }

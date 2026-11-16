@@ -53,6 +53,7 @@ export type UpstreamEndpointClass =
   | 'chat'
   | 'chat-fallback'
   | 'chat-llamacpp'
+  | 'chat-external'
   | 'images'
   | 'video'
   | 'audio'

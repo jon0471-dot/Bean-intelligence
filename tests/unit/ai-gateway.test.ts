@@ -22,7 +22,7 @@ import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 // Static import is safe: errors.ts has zero imports (plain error class), so
 // this binds before any mock.module registration without touching the fakes.
 import { BeanApiError } from '../../src/lib/api/errors'
-import { _resetUpstreamCooldownForTests, noteUpstream429, UpstreamRateLimitError, UpstreamAuthError, UpstreamBillingError } from '../../src/lib/upstream/gateway'
+import { _resetUpstreamCooldownForTests, noteUpstream429, upstreamBreakerState, UpstreamRateLimitError, UpstreamAuthError, UpstreamBillingError } from '../../src/lib/upstream/gateway'
 // The REAL hosted-llm module stays REAL in this file — no mock.module here.
 // Monkey-patching the adapter's METHOD properties (with save/restore) scopes
 // the fake to this file; bun module mocks are process-global and would leak
@@ -439,5 +439,159 @@ describe('openai-compatible adapter — request shaping', () => {
     const messages = (capturedBody! as { messages: Array<{ content: string }> }).messages
     expect(messages[1].content.length).toBeLessThanOrEqual(32_000)
     expect(messages[0].content).toBe('be brief')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// M26 regressions (audit G-1 / G-2 / G-3): external-lane breaker isolation,
+// cancellation propagation, and bounded stream-open deadlines.
+// ---------------------------------------------------------------------------
+describe('M26 — external lane breaker isolation (G-1)', () => {
+  test('an external 429 opens chat-external ONLY (the hosted breaker stays closed)', async () => {
+    globalThis.fetch = (async () => new Response('{"error":"slow down"}', { status: 429 })) as unknown as typeof fetch
+    try {
+      await openAICompatibleChat(
+        { credentialId: 'cred-1', providerModel: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }] },
+        CTX,
+      )
+      expect.unreachable()
+    } catch (e) {
+      expect(e).toBeInstanceOf(UpstreamRateLimitError)
+      expect((e as UpstreamRateLimitError).endpointClass).toBe('chat-external')
+      expect((e as UpstreamRateLimitError).attempted).toBe(true)
+    }
+    expect(upstreamBreakerState('chat-external').coolingDown).toBe(true)
+    expect(upstreamBreakerState('chat').coolingDown).toBe(false)
+  })
+
+  test('a HOSTED 429 never fail-fasts the external lane (per-lane gate)', async () => {
+    noteUpstream429('chat') // hosted breaker open
+    let externalFetches = 0
+    globalThis.fetch = (async () => {
+      externalFetches += 1
+      return new Response('{"choices":[{"message":{"content":"external ok"}}]}', { status: 200 })
+    }) as unknown as typeof fetch
+    const r = await openAICompatibleChat(
+      { credentialId: 'cred-1', providerModel: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }] },
+      CTX,
+    )
+    expect(r.content).toBe('external ok')
+    expect(externalFetches).toBe(1)
+    // and the gateway-level gate agrees: external plans consult chat-external
+    const plan = await planGatewayChat({ model: EXTERNAL_OPENAI_COMPATIBLE_ID, messages: [{ role: 'user', content: 'hi' }], providerModel: 'gpt-4o-mini' })
+    const result = await executeGatewayChat(plan, CTX)
+    expect(result.provider).toContain('external')
+    expect(externalFetches).toBe(2)
+  })
+
+  test('repeated external 429s fail fast on chat-external with ZERO network I/O', async () => {
+    globalThis.fetch = (async () => new Response('{"error":"slow down"}', { status: 429 })) as unknown as typeof fetch
+    // first call opens the breaker
+    await openAICompatibleChat(
+      { credentialId: 'cred-1', providerModel: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }] },
+      CTX,
+    ).catch(() => undefined)
+    let externalFetches = 0
+    globalThis.fetch = (async () => {
+      externalFetches += 1
+      return new Response('{}', { status: 200 })
+    }) as unknown as typeof fetch
+    try {
+      await openAICompatibleChat(
+        { credentialId: 'cred-1', providerModel: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }] },
+        CTX,
+      )
+      expect.unreachable()
+    } catch (e) {
+      expect(e).toBeInstanceOf(UpstreamRateLimitError)
+      expect((e as UpstreamRateLimitError).attempted).toBe(false)
+    }
+    expect(externalFetches).toBe(0)
+  })
+})
+
+describe('M26 — external cancellation propagation (G-2)', () => {
+  test('an aborted caller unwinds the external fetch (the signal is observed)', async () => {
+    process.env.BEAN_EXTERNAL_TIMEOUT_MS = '1000' // bounded composed timer for fast exit
+    const controller = new AbortController()
+    let observedAbort = false
+    globalThis.fetch = ((_url: string, init?: RequestInit) => {
+      // real-fetch semantics: an ALREADY-aborted signal rejects immediately
+      if (init?.signal?.aborted) {
+        observedAbort = true
+        return Promise.reject(new DOMException('Aborted', 'AbortError'))
+      }
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          observedAbort = true
+          reject(new DOMException('Aborted', 'AbortError'))
+        })
+      })
+    }) as unknown as typeof fetch
+    const p = openAICompatibleChat(
+      { credentialId: 'cred-1', providerModel: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }], signal: controller.signal },
+      CTX,
+    )
+    // abort AFTER the request reached the wire (mid-flight cancellation —
+    // the G-2 concern; an already-aborted caller is refused by the adapter's
+    // pre-abort guard without ever reaching fetch)
+    await new Promise((r) => setTimeout(r, 10))
+    controller.abort()
+    await expect(p).rejects.toThrow()
+    expect(observedAbort).toBe(true)
+    delete process.env.BEAN_EXTERNAL_TIMEOUT_MS
+  })
+})
+
+describe('M26 — bounded stream-open deadlines (G-3)', () => {
+  const SAVED_OPEN_ENV = process.env.BEAN_GATEWAY_STREAM_OPEN_TIMEOUT_MS
+  const SAVED_EXT_OPEN_ENV = process.env.BEAN_EXTERNAL_STREAM_OPEN_TIMEOUT_MS
+
+  test('a hung HOSTED stream-open rejects within the deadline instead of hanging forever', async () => {
+    process.env.BEAN_GATEWAY_STREAM_OPEN_TIMEOUT_MS = '120'
+    try {
+      hosted.streamImpl = (async function* () {
+        await new Promise(() => undefined) // never yields — hung open
+      })()
+      const plan = await planGatewayChat({ model: 'bean-chat-hosted', messages: [{ role: 'user', content: 'hi' }] })
+      const t0 = Date.now()
+      await expect((async () => {
+        for await (const _d of executeGatewayChatStream(plan, CTX)) void _d
+      })()).rejects.toThrow(/stream open/i)
+      expect(Date.now() - t0).toBeLessThan(5_000)
+    } finally {
+      hosted.streamImpl = (async function* () {
+        yield 'he'
+        yield 'llo'
+      })()
+      if (SAVED_OPEN_ENV === undefined) delete process.env.BEAN_GATEWAY_STREAM_OPEN_TIMEOUT_MS
+      else process.env.BEAN_GATEWAY_STREAM_OPEN_TIMEOUT_MS = SAVED_OPEN_ENV
+    }
+  })
+
+  test('a hung EXTERNAL stream-open rejects within the deadline (previously timeout=0 → forever)', async () => {
+    process.env.BEAN_EXTERNAL_STREAM_OPEN_TIMEOUT_MS = '120'
+    try {
+      // real-fetch semantics: the abort deadline (AbortSignal.timeout) must
+      // reject the in-flight open — a stub that ignores init.signal would
+      // hang exactly like the pre-G-3 production bug
+      globalThis.fetch = ((_url: string, init?: RequestInit) => {
+        if (init?.signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'))
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'TimeoutError')))
+        })
+      }) as unknown as typeof fetch
+      const t0 = Date.now()
+      await expect((async () => {
+        for await (const _d of openAICompatibleStream(
+          { credentialId: 'cred-1', providerModel: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }] },
+          CTX,
+        )) void _d
+      })()).rejects.toThrow()
+      expect(Date.now() - t0).toBeLessThan(5_000)
+    } finally {
+      if (SAVED_EXT_OPEN_ENV === undefined) delete process.env.BEAN_EXTERNAL_STREAM_OPEN_TIMEOUT_MS
+      else process.env.BEAN_EXTERNAL_STREAM_OPEN_TIMEOUT_MS = SAVED_EXT_OPEN_ENV
+    }
   })
 })

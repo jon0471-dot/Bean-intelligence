@@ -22,6 +22,7 @@
  * configurable verification model (including a different provider) is just
  * another gateway call.
  */
+import type { UpstreamEndpointClass } from '@/lib/upstream/gateway'
 import { hostedLlmAdapter, withTimeout, UpstreamTruncatedError } from '@/lib/adapters/hosted-llm'
 import type { ChatTurn } from '@/lib/adapters/types'
 import { BeanApiError } from '@/lib/api/errors'
@@ -198,7 +199,12 @@ export async function executeGatewayChat(
   plan: ResolvedCallPlan,
   ctx: GatewayCallContext,
 ): Promise<GatewayChatResult> {
-  assertNotCoolingDown()
+  // M26 (audit G-1): the breaker gate is PER LANE — a hosted-gateway 429
+  // (breaker 'chat') must never fail-fast the external lane ('chat-external')
+  // and vice versa. The previous single assertNotCoolingDown('chat') coupled
+  // two independent providers (the exact isolation rule the upstream gateway
+  // documents for chat-fallback/chat-llamacpp).
+  assertNotCoolingDown(plan.kind === 'external' ? 'chat-external' : 'chat')
   if (plan.kind === 'external') {
     if (!plan.model.credentialId) {
       throw new BeanApiError('PRODUCT_UNAVAILABLE', 'The external provider credential is missing.')
@@ -264,7 +270,8 @@ export async function* executeGatewayChatStream(
   plan: ResolvedCallPlan,
   ctx: GatewayCallContext,
 ): AsyncGenerator<string, void, unknown> {
-  assertNotCoolingDown()
+  // M26 (audit G-1): per-lane breaker gate (see executeGatewayChat).
+  assertNotCoolingDown(plan.kind === 'external' ? 'chat-external' : 'chat')
   if (plan.kind === 'external') {
     if (!plan.model.credentialId) {
       throw new BeanApiError('PRODUCT_UNAVAILABLE', 'The external provider credential is missing.')
@@ -295,16 +302,49 @@ export async function* executeGatewayChatStream(
     maxHistoryMessages: plan.messages.length,
     timeoutMs: plan.timeoutMs,
   })
-  for await (const delta of stream) {
-    if (ctx.signal?.aborted) throw new GatewayCancelledError()
-    yield delta
+  yield* guardedStreamDeltas(stream, ctx)
+}
+
+/**
+ * M26 (audit G-3): the stream OPEN is deadline-bounded for BOTH lanes —
+ * the first delta must arrive within GATEWAY_STREAM_OPEN_DEADLINE_MS, after
+ * which the between-delta guards (cancellation / sseDeltas idle+total caps)
+ * apply. Previously a hung stream-open held the SSE turn indefinitely under
+ * heartbeats (the abort checks never ran because no delta ever arrived).
+ */
+export function gatewayStreamOpenDeadlineMs(): number {
+  const ms = Number(process.env.BEAN_GATEWAY_STREAM_OPEN_TIMEOUT_MS || 30_000)
+  return Number.isFinite(ms) && ms >= 0 ? Math.min(ms, 600_000) : 30_000
+}
+
+async function* guardedStreamDeltas(
+  stream: AsyncGenerator<string, void, unknown>,
+  ctx: GatewayCallContext,
+): AsyncGenerator<string, void, unknown> {
+  const iterator = stream[Symbol.asyncIterator]()
+  try {
+    const first = await withTimeout(iterator.next(), gatewayStreamOpenDeadlineMs(), 'Gateway stream open')
+    if (!first.done) yield first.value
+    for (;;) {
+      if (ctx.signal?.aborted) throw new GatewayCancelledError()
+      const r = await iterator.next()
+      if (r.done) break
+      yield r.value
+    }
+  } finally {
+    // unwind the underlying stream (sseDeltas cleanup is best-effort). NOT
+    // awaited: a generator suspended on a never-settling open would block
+    // this finally forever — the queued return unwinds it if/when it resumes.
+    void iterator.return?.().catch(() => undefined)
   }
 }
 
-function assertNotCoolingDown(): void {
+function assertNotCoolingDown(cls: UpstreamEndpointClass): void {
   // The adapter enforces the breaker too; failing fast HERE avoids building
-  // plans for calls the adapter would refuse a moment later.
-  if (upstreamCoolingDown('chat')) {
+  // plans for calls the adapter would refuse a moment later. M26 (audit G-1):
+  // per-lane classes — 'chat' (hosted), 'chat-external' (admin-configured
+  // external providers).
+  if (upstreamCoolingDown(cls)) {
     throw new BeanApiError(
       'RATE_LIMITED',
       'The upstream AI gateway is rate-limited right now (HTTP 429 observed moments ago). Try again shortly.',
