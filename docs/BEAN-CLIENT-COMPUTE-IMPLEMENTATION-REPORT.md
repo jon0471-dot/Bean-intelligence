@@ -236,3 +236,40 @@ from that task.
 | 10 | Release GPU/CPU/worker resources safely | DONE — per-task buffer cleanup, releaseAll, pagehide |
 | 11 | Report honest capability and task states | DONE — 11-state contract, no invented values |
 | 12 | Preserve all six products and their features | DONE for the four wired products; FX/Folio ABSENT (documented); GANGZII untouched (pre-existing state) |
+
+## 13. Post-publish re-verification (2026-11-16, after sandbox recycle)
+
+Re-verification performed the day after publish, in a recycled sandbox (platform state
+rebuilt 2026-11-16 00:36 UTC: `/etc/.z-ai-config` re-created, a dev server ran and wrote
+to the live SQLite db, calendar date rolled Nov 15 → 16).
+
+**Deliverable integrity — PASS:**
+- Working tree is byte-identical to the published commit (`git diff HEAD` empty); local
+  HEAD == `origin/main` == `d99e4234f309f66197785cd5d23c106537f5ad31` (`git ls-remote`).
+- All 86 client-compute tests pass fresh (8 files, 312 expects).
+- `tsc --noEmit`: zero errors in client-compute sources. All remaining `src/`+`tests/`
+  errors live ONLY in untracked WIP files from other work streams (M25 `code/refactoring`,
+  `intel/retrieval|search-chain|world`, `tests/intel`, `llamacpp-lanes`,
+  `infra-hardening`) — none tracked, none part of this milestone (§11 disclosure).
+- Installed `typescript@5.9.3` / `@types/node@25.0.9` match `bun.lock` exactly.
+
+**Pre-existing full suite — NOT re-greened in this environment; evidence says environment,
+not regression:** the same bytes that measured 1971 pass / 0 fail at gate time now show
+~81 failing files in the full `bun test` run (stable across two identical runs), with:
+1. every failing file passes in ISOLATION (verified for claim-repair, jazmii-video,
+   ai-gateway, and the a\* prefix group: 7 files / 128 tests green);
+2. failing-file SET varies between environments (main tree 104 vs clean-HEAD worktree 81)
+   while the code is identical — only the environment differs;
+3. failure mechanism is single-process cross-file state (module-level upstream breaker /
+   in-memory quota state) — a minimal 3-file grouping of three failing files passes 24/0;
+4. environment deltas since the gate are real and documented above (fresh hosted-gateway
+   config, db writes from today's dev run, daily-quota date rollover — several failing
+   suites are quota/lease/breaker-date sensitive).
+
+Conclusion: the published milestone has NO code regression; the pre-existing suites are
+order- and environment-sensitive. The honest status of gate criterion 6 in TODAY's
+environment is "not re-verified green" — re-baseline it in a fresh session after a
+controlled db reset (`prisma migrate reset` equivalent) before relying on the full suite
+as a regression gate. This does not amend any DONE verdict above; it records that
+criterion 6's evidence predates the recycle and must be reproduced under controlled
+conditions to remain citable.
