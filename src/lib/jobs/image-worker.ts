@@ -54,6 +54,8 @@ export type ImageJobRow = {
   status: string
   paramsJson: string
   resultJson: string | null
+  /** Engine claim owner (M26 F-1 guarded writes); null for non-engine callers. */
+  workerId?: string | null
 }
 
 // ---- ZERO-DOWNTIME RECOVERY (2026-11-11): throttle-resilient generation ---
@@ -205,6 +207,63 @@ async function updateJob(id: string, data: Record<string, unknown>) {
   await db.generationJob.update({ where: { id }, data })
 }
 
+// ---------------------------------------------------------------------------
+// M26 (audit F-1): cancellation contract for the TEXT-TO-IMAGE processor.
+// The cancel route documents "the worker will stop at its next checkpoint" —
+// but this processor had NO checkpoints and completed an unconditional write,
+// so a cancelled RUNNING job still generated, stored the artifact and flipped
+// the row to completed/100. Now: (a) checkpoints BEFORE provider work and
+// BEFORE any completion write; (b) the completion itself is a guarded CAS
+// (status still running, not cancel-requested, still our worker) — a job
+// cancelled mid-generation is settled 'cancelled' instead of 'completed'.
+// ---------------------------------------------------------------------------
+
+async function isCancelRequested(id: string): Promise<boolean> {
+  const row = await db.generationJob.findUnique({ where: { id }, select: { cancelRequested: true } })
+  return row?.cancelRequested === true
+}
+
+/** Guarded completion write: count === 1 only when the job is still ours to complete. */
+async function completeJobGuarded(
+  id: string,
+  workerId: string | null | undefined,
+  data: Record<string, unknown>,
+): Promise<boolean> {
+  const where: Record<string, unknown> = { id, status: 'running', cancelRequested: false }
+  if (workerId) where.workerId = workerId
+  const res = await db.generationJob.updateMany({ where, data })
+  return res.count === 1
+}
+
+/** Honest cancellation settle (checked-point cancel — before or after provider work). */
+async function settleCancelled(job: { id: string; userId: string }, workerId: string | null | undefined, when: string, providerSpent: boolean): Promise<void> {
+  const where: Record<string, unknown> = { id: job.id, cancelRequested: true }
+  if (workerId) where.workerId = workerId
+  await db.generationJob.updateMany({
+    where,
+    data: {
+      status: 'cancelled',
+      finishedAt: new Date(),
+      errorCode: 'CANCELLED',
+      errorMessage: `Generation cancelled by the user ${when} it completed (no artifact was delivered).`,
+    },
+  })
+  // Conservative accounting: when provider work already happened, the spend
+  // is metered as a cancelled failure — the account budget never under-counts.
+  if (providerSpent) {
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: getBackend('bean-image-hosted-primary')!.id,
+      kind: 'image-generation',
+      success: false,
+      errorCode: 'CANCELLED',
+      durationMs: 0,
+    }).catch(() => undefined)
+  }
+  logger.info('laxii.job_cancelled_at_checkpoint', { jobId: job.id, when })
+}
+
 export async function processImageJob(job: ImageJobRow): Promise<void> {
   const params = JSON.parse(job.paramsJson) as {
     prompt: string
@@ -270,10 +329,20 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
   // measured hybrid pipeline when the model itself cannot honor them.
   const textDemands: TextDemand | null = extractExactTextDemands(params.prompt)
 
+  // M26 F-1 checkpoint: a cancel arriving between claim and generation ends
+  // the job honestly BEFORE any provider spend.
+  if (await isCancelRequested(job.id)) {
+    await settleCancelled(job, job.workerId, 'before generation started', false)
+    return
+  }
+
   /**
    * The single completion path: store the VERIFIED artifact, register the
    * asset, complete the job with honest metadata, meter the success.
    * Shared by the direct pipeline and the hybrid-typography recovery.
+   * M26 F-1: cancelled jobs are never completed — the write is a guarded
+   * CAS and a raced cancel settles the row 'cancelled' (no artifact
+   * delivery, no success metering).
    */
   const completeJob = async (io: {
     bytes: Buffer
@@ -282,6 +351,10 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
     generation: Record<string, unknown>
     verification: Record<string, unknown> | null
   }): Promise<void> => {
+    if (await isCancelRequested(job.id)) {
+      await settleCancelled(job, job.workerId, 'after generation finished', true)
+      return
+    }
     const dir = path.join(STORAGE_ROOT, job.userId)
     fs.mkdirSync(dir, { recursive: true })
     const ext = io.format === 'png' ? 'png' : 'jpg'
@@ -304,28 +377,35 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       })
     }
 
-    await updateJob(job.id, {
+    const resultJson = JSON.stringify({
+      imageUrl: `/api/laxii/images/${job.id}`,
+      ...(assetUrl ? { assetUrl, assetId } : {}),
+      width: target.width,
+      height: target.height,
+      format: io.format,
+      bytes: io.bytes.length,
+      durationMs: io.durationMs,
+      generation: io.generation,
+      ...(intelMeta ? { intel: intelMeta } : {}),
+      ...(io.verification ? { verification: io.verification } : {}),
+      ...(throttle0.submissionAttempts > 0 || throttle0.throttleWaitMs > 0
+        ? { submissionAttempts: throttle0.submissionAttempts + 1, throttleWaitMs: throttle0.throttleWaitMs }
+        : {}),
+      ...(transientRetries0 > 0 ? { transientRetries: transientRetries0 } : {}),
+    })
+    const stillOurs = await completeJobGuarded(job.id, job.workerId, {
       status: 'completed',
       progress: 100,
       finishedAt: new Date(),
       backendId: backend.id,
-      resultJson: JSON.stringify({
-        imageUrl: `/api/laxii/images/${job.id}`,
-        ...(assetUrl ? { assetUrl, assetId } : {}),
-        width: target.width,
-        height: target.height,
-        format: io.format,
-        bytes: io.bytes.length,
-        durationMs: io.durationMs,
-        generation: io.generation,
-        ...(intelMeta ? { intel: intelMeta } : {}),
-        ...(io.verification ? { verification: io.verification } : {}),
-        ...(throttle0.submissionAttempts > 0 || throttle0.throttleWaitMs > 0
-          ? { submissionAttempts: throttle0.submissionAttempts + 1, throttleWaitMs: throttle0.throttleWaitMs }
-          : {}),
-        ...(transientRetries0 > 0 ? { transientRetries: transientRetries0 } : {}),
-      }),
+      resultJson,
     })
+    if (!stillOurs) {
+      // The job was cancelled (or its ownership changed) between the
+      // checkpoint and this write — settle honestly, never clobber.
+      await settleCancelled(job, job.workerId, 'at completion', true)
+      return
+    }
     await recordUsage({
       userId: job.userId,
       product: 'laxii',

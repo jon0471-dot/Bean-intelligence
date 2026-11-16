@@ -1,4 +1,4 @@
-import { handle, ok } from '@/lib/api/errors'
+import { handle, ok, BeanApiError } from '@/lib/api/errors'
 import { requireUser } from '@/lib/auth/session'
 import { logger } from '@/lib/observability/logger'
 
@@ -8,6 +8,8 @@ export const dynamic = 'force-dynamic'
 const MAX_BYTES = 200_000
 /** Max attachments per request. */
 const MAX_FILES = 5
+/** M26 S-9: whole-body cap BEFORE parsing (max files x max size + multipart overhead). */
+const BODY_CAP_BYTES = MAX_BYTES * MAX_FILES + 64 * 1024
 
 /** Extensions treated as safe UTF-8 text/code. Everything else is rejected
  *  with an explicit reason (binary formats are NOT parsed or guessed). */
@@ -55,6 +57,23 @@ function looksLikeUtf8Text(buf: Buffer): boolean {
 export async function POST(request: Request) {
   return handle(async () => {
     const user = await requireUser()
+    // M26 (audit S-9): reject oversized bodies BEFORE buffering (declared
+    // content-length first, then the bounded raw read) — a multi-GB multipart
+    // can no longer be buffered just to learn every file exceeds the cap.
+    const declaredLength = Number(request.headers.get('content-length') ?? '0')
+    if (Number.isFinite(declaredLength) && declaredLength > BODY_CAP_BYTES) {
+      throw new BeanApiError(
+        'PAYLOAD_TOO_LARGE',
+        `Attachments are limited to ${MAX_FILES} files of ${Math.round(MAX_BYTES / 1024)} KB each.`,
+      )
+    }
+    const raw = Buffer.from(await request.clone().arrayBuffer())
+    if (raw.length > BODY_CAP_BYTES) {
+      throw new BeanApiError(
+        'PAYLOAD_TOO_LARGE',
+        `Attachments are limited to ${MAX_FILES} files of ${Math.round(MAX_BYTES / 1024)} KB each.`,
+      )
+    }
     const form = await request.formData()
     const entries = form.getAll('files').filter((f): f is File => f instanceof File)
     if (entries.length === 0) {

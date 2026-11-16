@@ -245,3 +245,45 @@ describe('checkApiMutationOrigin — rejection reasons (for middleware logging)'
     )
   })
 })
+
+// ---------------------------------------------------------------------------
+// M26 S-5 regression: sibling-tenant same-site CSRF (the audit finding —
+// `Sec-Fetch-Site: same-site` from a hostile sibling under the platform
+// suffix previously fell through to the suffix-scoped Origin allowlist).
+// ---------------------------------------------------------------------------
+describe('M26 S-5 — same-site sibling-tenant CSRF', () => {
+  test('an attacker-controlled sibling subdomain is REJECTED despite the suffix scope', () => {
+    const d = checkApiMutationOrigin('https://evil.space-z.ai', 'same-site', env())
+    expect(d.allowed).toBe(false)
+    expect(d.rejection).toBe('origin-not-allowlisted')
+    expect(isAllowedApiMutation('POST', 'https://evil.space-z.ai', 'same-site', env())).toBe(false)
+  })
+
+  test('the app origin itself uses same-origin metadata and stays allowed', () => {
+    expect(isAllowedApiMutation('POST', 'https://preview-abc123.space-z.ai', 'same-origin', env())).toBe(true)
+    expect(isAllowedApiMutation('POST', 'https://preview-abc123.space-z.ai', null, env())).toBe(true)
+  })
+
+  test('a suffix host with same-site metadata is rejected unless EXACTLY allowlisted', () => {
+    // preview-X + same-site = a cross-origin request (some other suffix host)
+    expect(isAllowedApiMutation('POST', 'https://preview-abc123.space-z.ai', 'same-site', env())).toBe(false)
+    const e = env({ BEAN_TRUSTED_ORIGINS: 'https://preview-abc123.space-z.ai' })
+    expect(isAllowedApiMutation('POST', 'https://preview-abc123.space-z.ai', 'same-site', e)).toBe(true)
+  })
+
+  test('exact-allowlisted origins keep working under same-site metadata', () => {
+    expect(isAllowedApiMutation('POST', 'https://bean.example.com', 'same-site', env())).toBe(true)
+  })
+
+  test('non-production loopback allowance is unchanged (local dev servers)', () => {
+    const e = env({ NODE_ENV: 'development' })
+    expect(isAllowedApiMutation('POST', 'http://localhost:3000', 'same-site', e)).toBe(true)
+    const p = env({ NODE_ENV: 'production' })
+    expect(isAllowedApiMutation('POST', 'http://localhost:3000', 'same-site', p)).toBe(false)
+  })
+
+  test('metadata-less and `none` clients keep the documented Origin policy', () => {
+    expect(isAllowedApiMutation('POST', 'https://preview-abc123.space-z.ai', 'none', env())).toBe(true)
+    expect(isAllowedApiMutation('POST', 'https://preview-abc123.space-z.ai', null, env())).toBe(true)
+  })
+})

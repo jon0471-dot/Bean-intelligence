@@ -120,12 +120,18 @@ function parseList(raw: string | undefined): string[] {
  *  - an explicit empty value (or "none") disables the suffix scope entirely
  *    and fails closed.
  *
- * This does not weaken the control against attackers: Sec-Fetch-Site:
- * cross-site is rejected unconditionally BEFORE the suffix scope is ever
- * consulted (browsers forbid JS from forging Sec-*), so even an attacker-
- * controlled page under the platform suffix cannot forge a state-changing
- * request. The suffix scope only legitimizes pages genuinely served from
- * the platform's own domain — which is where this product is deployed.
+ * M26 (audit S-5 — the previous compensating-control claim was WRONG):
+ * the suffix scope is additionally gated by fetch metadata. A page on a
+ * sibling host under the same platform suffix (e.g. an attacker-controlled
+ * `evil.space-z.ai` tenant) is cross-ORIGIN but same-SITE, so browsers send
+ * `Sec-Fetch-Site: same-site` — which previously fell through to the
+ * suffix-scoped Origin allowlist and forged state-changing requests against
+ * signed-in users. Now `same-site` requests are authorized ONLY by the
+ * exact BEAN_TRUSTED_ORIGINS allowlist (plus the non-production loopback
+ * allowance); the suffix scope keeps serving the app's own origin, whose
+ * legit mutations are `same-origin` by definition. `none` metadata (address-
+ * bar navigations) and metadata-less clients keep the documented Origin
+ * policy unchanged.
  */
 const PLATFORM_DEFAULT_ORIGIN_SUFFIXES = 'space-z.ai'
 
@@ -185,6 +191,12 @@ export function checkApiMutationOrigin(
   if (secFetchSite && secFetchSite.trim().toLowerCase() === 'cross-site') {
     return { allowed: false, rejection: 'cross-site-fetch-metadata' }
   }
+  // M26 S-5: a `same-site` fetch is cross-ORIGIN but same-SITE (e.g. a page
+  // on a sibling host under the same platform suffix). Such requests may be
+  // authorized only by the EXACT allowlist — never by the suffix scope —
+  // so an attacker-controlled sibling tenant cannot CSRF signed-in users.
+  const exactAllowOnly =
+    !!secFetchSite && secFetchSite.trim().toLowerCase() === 'same-site'
 
   if (originHeader === null) return { allowed: true }
 
@@ -215,10 +227,14 @@ export function checkApiMutationOrigin(
   // Suffix scope: HTTPS origins on configured domain suffixes (dot-boundary
   // anchored), for the platform-assigned preview subdomain. Undefined env
   // falls back to the platform default; explicit empty disables (see
-  // resolveSuffixConfig).
-  const { list: suffixes } = resolveSuffixConfig(env.BEAN_TRUSTED_ORIGIN_SUFFIXES)
-  if (url.protocol === 'https:' && suffixes.some((s) => hostMatchesSuffix(url.hostname, s))) {
-    return { allowed: true }
+  // resolveSuffixConfig). Skipped for `same-site` requests (see S-5 above):
+  // the app's own origin produces `same-origin` metadata, so a same-site
+  // request from a suffix host is by definition a DIFFERENT tenant's page.
+  if (!exactAllowOnly) {
+    const { list: suffixes } = resolveSuffixConfig(env.BEAN_TRUSTED_ORIGIN_SUFFIXES)
+    if (url.protocol === 'https:' && suffixes.some((s) => hostMatchesSuffix(url.hostname, s))) {
+      return { allowed: true }
+    }
   }
 
   return { allowed: false, rejection: 'origin-not-allowlisted' }
