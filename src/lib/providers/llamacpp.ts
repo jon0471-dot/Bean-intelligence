@@ -213,6 +213,8 @@ const LANE_POLL_INTERVAL_MS = 500
 interface LaneManagerState {
   probe?: { at: number; up: boolean }
   spawns: number[]
+  /** Shared in-flight ensure (duplicate-spawn mutex, M26 LANE-1). */
+  inflight?: Promise<LaneEnsureResult>
 }
 
 const laneStore = globalThis as unknown as Record<string, unknown>
@@ -223,6 +225,63 @@ function laneState(laneId: string): LaneManagerState {
   const map = laneStore[LANE_STORE_KEY] as Map<string, LaneManagerState>
   if (!map.has(laneId)) map.set(laneId, { spawns: [] })
   return map.get(laneId)!
+}
+
+/** Test isolation: clear the per-process lane state (probe cache, spawn ledger, mutex, RAM reservations). */
+export function resetLaneManagerForTests(): void {
+  (laneStore as Record<string, unknown>)[LANE_STORE_KEY] = undefined;
+  (laneStore as Record<string, unknown>)[LANE_RAM_KEY] = undefined
+}
+
+/* ------------------------------------------------------------------ */
+/* Cross-lane spawn-RAM reservation (M26 LANE-2)                       */
+/*                                                                     */
+/* The per-lane RAM gate reads a 60s-cached hardware report, so two    */
+/* lanes spawning concurrently would each admit themselves against the */
+/* same (stale) measurement and jointly overshoot toward OOM. While a  */
+/* lane's spawn is in flight its full minFreeRamMb requirement is      */
+/* RESERVED here (the same pattern as gpu.ts VRAM reservations) and    */
+/* the admission gate sees MemAvailable MINUS all pending reservations */
+/* — a conservative admission policy measured against the real OS      */
+/* value, never an invented VRAM/RAM guarantee.                        */
+/* ------------------------------------------------------------------ */
+
+const LANE_RAM_KEY = '__bean_llamacpp_lane_ram__'
+
+interface LaneRamReservation {
+  laneId: string
+  ramMb: number
+  reservedAt: number
+}
+
+function laneRamMap(): Map<string, LaneRamReservation> {
+  const g = laneStore as Record<string, unknown>
+  if (!g[LANE_RAM_KEY]) g[LANE_RAM_KEY] = new Map<string, LaneRamReservation>()
+  return g[LANE_RAM_KEY] as Map<string, LaneRamReservation>
+}
+
+/** Total RAM currently reserved by in-flight lane spawns across ALL lanes. */
+export function pendingLaneSpawnRamMb(): number {
+  let total = 0
+  for (const r of laneRamMap().values()) total += r.ramMb
+  return total
+}
+
+/** Reserve the lane's admission RAM for the duration of its spawn attempt. */
+function reserveLaneSpawnRam(laneId: string, ramMb: number): void {
+  laneRamMap().set(laneId, { laneId, ramMb, reservedAt: Date.now() })
+}
+
+function releaseLaneSpawnRam(laneId: string): void {
+  laneRamMap().delete(laneId)
+}
+
+/** Reap reservations orphaned by a crashed ensure (safety net, 5-min cap). */
+function reapLaneSpawnRam(maxAgeMs = 5 * 60_000): void {
+  const now = Date.now()
+  for (const [k, r] of laneRamMap()) {
+    if (now - r.reservedAt > maxAgeMs) laneRamMap().delete(k)
+  }
 }
 
 function recentSpawnCount(s: LaneManagerState, now: number): number {
@@ -290,49 +349,109 @@ export interface LaneEnsureResult {
 }
 
 /**
+ * Injectable dependencies for the ensure orchestration (tests inject fakes;
+ * production resolves the real probe/hardware/fs/spawn). The DECISION stays
+ * the pure planLaneStart contract — only the I/O seams are injectable.
+ */
+interface LaneEnsureDeps {
+  probe: (lane: LaneConfig) => Promise<boolean>
+  hardware: () => Promise<{ freeRamMb: number }>
+  fileExists: (path: string) => boolean
+  spawn: (lane: LaneConfig) => Promise<{ started: boolean; pid: number | null }>
+}
+
+const defaultLaneDeps: LaneEnsureDeps = {
+  probe: probeLane,
+  hardware: async () => await detectHardware(),
+  fileExists: (p) => fs.existsSync(p),
+  spawn: spawnLaneServer,
+}
+
+/**
  * Ensure the lane's server is running: adopt it, or spawn one through the
  * gated decision above. NEVER throws and NEVER blocks the caller's request
  * on refusal — the caller proceeds and the connection failure (if the lane
  * really is down) surfaces through the normal honest failure path.
+ *
+ * M26 reliability contract:
+ *  - Duplicate-spawn mutex: concurrent ensures for the SAME lane share one
+ *    in-flight attempt (they can never double-spawn one port);
+ *  - Cross-lane RAM admission: MemAvailable minus every pending lane spawn
+ *    reservation feeds the same documented RAM gate (conservative admission,
+ *    real OS measurement);
+ *  - A spawn that never opens its port inside the deadline is cleaned up:
+ *    the just-spawned (never-answered) child is terminated — our own child
+ *    only; operator-managed processes are never touched.
  */
 export async function ensureLaneServer(lane: LaneConfig): Promise<LaneEnsureResult> {
+  return ensureLaneServerWithDeps(lane, defaultLaneDeps)
+}
+
+export async function ensureLaneServerWithDeps(
+  lane: LaneConfig,
+  deps: LaneEnsureDeps,
+): Promise<LaneEnsureResult> {
   const s = laneState(lane.laneId)
   const now = Date.now()
   if (s.probe && now - s.probe.at < LANE_PROBE_TTL_MS && s.probe.up) {
     return { up: true, adopted: true, spawned: false, detail: `lane ${lane.laneId} recently proven up (cached probe)` }
   }
-  const answering = await probeLane(lane)
-  s.probe = { at: Date.now(), up: answering }
-  if (answering) {
-    return { up: true, adopted: true, spawned: false, detail: `llama-server answering at ${lane.baseUrl}` }
-  }
+  // Duplicate-spawn mutex (LANE-1): if another ensure for THIS lane is
+  // already probing/deciding/spawning, share its result — never fork a
+  // second spawn for the same port. The promise removes itself in `finally`.
+  if (s.inflight) return s.inflight
+  const attempt = (async (): Promise<LaneEnsureResult> => {
+    const answering = await deps.probe(lane)
+    s.probe = { at: Date.now(), up: answering }
+    if (answering) {
+      return { up: true, adopted: true, spawned: false, detail: `llama-server answering at ${lane.baseUrl}` }
+    }
 
-  let loopback = false
+    let loopback = false
+    try {
+      loopback = ['127.0.0.1', 'localhost', '::1'].includes(new URL(lane.baseUrl).hostname)
+    } catch {
+      loopback = false
+    }
+    const hw = await deps.hardware()
+    // LANE-2: the RAM gate sees MemAvailable minus every pending lane-spawn
+    // reservation (cross-lane admission). Reservation ledger reaped first so
+    // a crashed ensure cannot permanently shrink admission.
+    reapLaneSpawnRam()
+    const admissibleRamMb = Math.max(0, hw.freeRamMb - pendingLaneSpawnRamMb())
+    const plan = planLaneStart(lane, {
+      serverAnswering: answering,
+      spawnsLastHour: recentSpawnCount(s, Date.now()),
+      modelFileExists: deps.fileExists(lane.modelPath),
+      freeRamMb: admissibleRamMb,
+      loopback,
+    })
+    if (plan.action !== 'spawn') {
+      logger.warn('llamacpp.lane_not_started', { laneId: lane.laneId, action: plan.action, reason: plan.reason })
+      return { up: answering, adopted: false, spawned: false, detail: plan.reason }
+    }
+    // LANE-2: hold this lane's requirement as a reservation for the whole
+    // spawn window (weights load + start deadline), released in `finally`.
+    reserveLaneSpawnRam(lane.laneId, lane.minFreeRamMb)
+    try {
+      const outcome = await deps.spawn(lane)
+      return {
+        up: outcome.started,
+        adopted: false,
+        spawned: outcome.started,
+        detail: outcome.started
+          ? `lane ${lane.laneId} started on demand (llama-server detached, port ${lane.port})`
+          : `lane ${lane.laneId} spawn did not open its port within ${LANE_START_DEADLINE_MS}ms (the failed child was terminated)`,
+      }
+    } finally {
+      releaseLaneSpawnRam(lane.laneId)
+    }
+  })()
+  s.inflight = attempt
   try {
-    loopback = ['127.0.0.1', 'localhost', '::1'].includes(new URL(lane.baseUrl).hostname)
-  } catch {
-    loopback = false
-  }
-  const hw = await detectHardware()
-  const plan = planLaneStart(lane, {
-    serverAnswering: answering,
-    spawnsLastHour: recentSpawnCount(s, Date.now()),
-    modelFileExists: fs.existsSync(lane.modelPath),
-    freeRamMb: hw.freeRamMb,
-    loopback,
-  })
-  if (plan.action !== 'spawn') {
-    logger.warn('llamacpp.lane_not_started', { laneId: lane.laneId, action: plan.action, reason: plan.reason })
-    return { up: answering, adopted: false, spawned: false, detail: plan.reason }
-  }
-  const spawned = await spawnLaneServer(lane)
-  return {
-    up: spawned,
-    adopted: false,
-    spawned,
-    detail: spawned
-      ? `lane ${lane.laneId} started on demand (llama-server detached, port ${lane.port})`
-      : `lane ${lane.laneId} spawn did not open its port within ${LANE_START_DEADLINE_MS}ms`,
+    return await attempt
+  } finally {
+    if (s.inflight === attempt) s.inflight = undefined
   }
 }
 
@@ -340,19 +459,28 @@ export async function ensureLaneServer(lane: LaneConfig): Promise<LaneEnsureResu
  * Spawn llama-server exactly as measured in docs/ai/LOCAL-MODEL-LANES.md
  * (quantized KV cache, 256 batch, MALLOC_ARENA_MAX=2): a DETACHED child that
  * survives this process, logs bounded to the operator's log dir when given.
+ *
+ * M26 LANE-3 cleanup: the spawned PID is tracked; if the server never opens
+ * its port inside the deadline, the JUST-SPAWNED child is terminated
+ * (SIGTERM, escalating to SIGKILL) — it would otherwise keep loading weights
+ * into RAM indefinitely. Only this function's own never-answered child is ever
+ * killed; an adopted/operator server is never signaled. M26 LANE-4: the
+ * parent's log fd is closed once the child owns it (bounded fd leak fix).
  */
-async function spawnLaneServer(lane: LaneConfig): Promise<boolean> {
+async function spawnLaneServer(lane: LaneConfig): Promise<{ started: boolean; pid: number | null }> {
   const s = laneState(lane.laneId)
   const bin = lane.bin || 'llama-server'
   const threads = Math.max(1, os.cpus().length)
+  let logFd: number | null = null
+  let child: ReturnType<typeof spawn> | null = null
   try {
     let stdio: 'ignore' | Array<number | 'ignore'> = 'ignore'
     if (lane.logDir) {
       fs.mkdirSync(lane.logDir, { recursive: true })
-      const fd = fs.openSync(path.join(lane.logDir, `llamacpp-${lane.laneId}.log`), 'a')
-      stdio = ['ignore', fd, fd]
+      logFd = fs.openSync(path.join(lane.logDir, `llamacpp-${lane.laneId}.log`), 'a')
+      stdio = ['ignore', logFd, logFd]
     }
-    const child = spawn(
+    child = spawn(
       bin,
       [
         '-m', lane.modelPath,
@@ -370,25 +498,48 @@ async function spawnLaneServer(lane: LaneConfig): Promise<boolean> {
       },
     )
     child.unref()
+    // LANE-4: the child owns the log fds after spawn — close ours.
+    if (logFd !== null) {
+      try { fs.closeSync(logFd) } catch { /* already closed */ }
+      logFd = null
+    }
+    const pid = typeof child.pid === 'number' ? child.pid : null
     s.spawns.push(Date.now())
-    logger.info('llamacpp.lane_spawning', { laneId: lane.laneId, port: lane.port, ctxSize: lane.ctxSize, threads })
+    logger.info('llamacpp.lane_spawning', { laneId: lane.laneId, port: lane.port, ctxSize: lane.ctxSize, threads, pid })
     const deadline = Date.now() + LANE_START_DEADLINE_MS
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, LANE_POLL_INTERVAL_MS))
       if (await probeLane(lane)) {
         s.probe = { at: Date.now(), up: true }
-        logger.info('llamacpp.lane_started', { laneId: lane.laneId, port: lane.port })
-        return true
+        logger.info('llamacpp.lane_started', { laneId: lane.laneId, port: lane.port, pid })
+        return { started: true, pid }
       }
     }
+    // LANE-3: deadline expired without an answering port — terminate OUR
+    // never-answered child so it cannot sit loading weights into RAM
+    // indefinitely (bounded cleanup of our own spawn, never of an adopted
+    // or operator-managed server).
+    if (child.exitCode === null && !child.killed) {
+      try {
+        child.kill('SIGTERM')
+        setTimeout(() => {
+          if (child && child.exitCode === null && !child.killed) child.kill('SIGKILL')
+        }, 2_000).unref?.()
+      } catch { /* child already gone */ }
+      logger.warn('llamacpp.lane_spawn_abandoned', { laneId: lane.laneId, pid, deadlineMs: LANE_START_DEADLINE_MS })
+    }
     logger.warn('llamacpp.lane_start_timeout', { laneId: lane.laneId, deadlineMs: LANE_START_DEADLINE_MS })
-    return false
+    return { started: false, pid }
   } catch (e) {
     logger.warn('llamacpp.spawn_failed', {
       laneId: lane.laneId,
       message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
     })
-    return false
+    return { started: false, pid: null }
+  } finally {
+    if (logFd !== null) {
+      try { fs.closeSync(logFd) } catch { /* already closed */ }
+    }
   }
 }
 
