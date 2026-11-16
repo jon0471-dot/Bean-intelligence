@@ -3,6 +3,9 @@
  * Stable, customer-safe error codes. Internal details never leak here.
  */
 
+import { withRequestContext } from '@/lib/observability/logger'
+import { headers } from 'next/headers'
+
 export type BeanErrorCode =
   | 'UNAUTHENTICATED'
   | 'FORBIDDEN'

@@ -65,11 +65,20 @@ const RENAME_RE_FRONT =
 
 const MOVE_IMPORTS_RE =
   /(?:move|moving)\s+(?:all\s+|the\s+|these\s+)?(?:the\s+)?[`'"]?([\w./-]+)[`'"]?(?:\s+file|\s+module|\s+folder|\s+modules)?[^.\n]{0,80}?(?:to|into|under)\s+(?:the\s+|a\s+|an\s+|my\s+)?[`'"]?([\w./-]+)[`'"]?[^.\n]{0,80}?import|update\s+(?:all\s+|the\s+)?(?:affected\s+)?imports?\s+(?:after\s+)?(?:moving|moved|to\s+move)/i
-const RESTRUCTURE_RE = /reorganiz|restructur|clean(?:er)?\s+(?:folder|project|directory)\s+structure|rearrange\s+the\s+project/i
+// M26 (audit R-3): restructure/consolidate detection previously matched ANY
+// message containing the stem ("help me restructure this function") — an
+// ordinary PROSE-shaped edit request was hijacked into a multi-file plan.
+// Folder/project-shaped intent is now required (structure of FILES, not of
+// a function's code).
+const RESTRUCTURE_RE = /(?:reorganiz|restructur|rearrang)\w*\s+(?:the\s+|this\s+|my\s+|our\s+)?(?:project|folder|directory|codebase|repo(?:sitory)?|file\s+structure|folder\s+structure|directory\s+structure|components?\s+structure|src\b)|clean(?:er)?\s+(?:folder|project|directory)\s+structure|restructure\s+the\s+project/i
 const EXTRACT_COMPONENT_RE = /extract\s+(?:the\s+|this\s+|that\s+)?(?:(?:reusable|shared|entire|whole)\s+)?(?:[\w-]+\s+){0,2}(?:component|section|markup|card|widget|panel|modal|header|footer|sidebar|form)/i
 const EXTRACT_MODULE_RE = /extract\s+(?:the\s+|this\s+|that\s+)?(?:[\w-]+\s+){0,2}(?:function|logic|module|helpers?|utils?|hook|class)/i
 const SERVICE_RE = /service\s+layer|move\s+all\s+(?:the\s+)?api\s+calls|separate\s+(?:the\s+)?(?:business\s+)?logic\s+from\s+(?:the\s+)?(?:presentation|ui)|extract\s+(?:the\s+)?api\s+(?:calls?|logic)|api\s+layer|data\s+access\s+layer/i
-const CONSOLIDATE_RE = /consolidat|deduplicat|(?:convert|turn|combine|merge)\s+(?:these\s+|the\s+)?(?:repeated|duplicate|similar|common)\s+(?:[\w-]+\s+)?(?:ui\s+)?(?:elements?|components?|blocks?|sections?|markup)\s+(?:into|to)\s+(?:a\s+)?shared|(?:create|make)\s+(?:a\s+)?(?:shared|common|single)\s+(?:component|module)\s+(?:for|out of)/i
+// M26 (audit R-3b): the bare `consolidat`/`deduplicat` stems hijacked
+// function-level prose ("consolidate these two functions") into a multi-file
+// plan. Detection now requires the structural object phrasing (shared
+// components/modules, duplicated UI blocks, folder-scoped consolidation).
+const CONSOLIDATE_RE = /consolidat\w*\s+(?:the\s+|these\s+|all\s+)?(?:duplicate[ds]?(?:\s+\w+){0,3}\s+(?:components?|modules?|files|utils?|helpers?|hooks?|pages?|routes?)|shared\s+\w+|(?:ui\s+)?(?:elements?|components?|blocks?|sections?|markup)\s+(?:into|to))|deduplicat\w*\s+(?:the\s+|these\s+|all\s+)?(?:components?|modules?|files|utils?|helpers?|hooks?|pages?|routes?|code\s+across)|(?:convert|turn|combine|merge)\s+(?:these\s+|the\s+)?(?:repeated|duplicate|similar|common)\s+(?:[\w-]+\s+){0,2}(?:ui\s+)?(?:elements?|components?|blocks?|sections?|markup)\s+(?:into|to)\s+(?:a\s+)?shared|(?:create|make)\s+(?:a\s+)?(?:shared|common|single)\s+(?:component|module)\s+(?:for|out of)/i
 
 const INTO_FILE_RE = /(?:into|in|as|to)\s+(?:its\s+own|a\s+|an?\s+)?(?:separate\s+|new\s+|dedicated\s+|own\s+)?(?:file|module|component|service|folder|directory)/i
 
@@ -174,6 +183,27 @@ export function detectRefactoringRequest(message: string, files: Array<{ path: s
   if (MOVE_IMPORTS_RE.test(text)) {
     const m = /(?:move|moving)\s+(?:all\s+|the\s+|these\s+)?(?:the\s+)?[`'"]?([\w./-]+)[`'"]?[^.\n]{0,80}?(?:to|into|under)\s+(?:the\s+|a\s+|an\s+|my\s+)?[`'"]?([\w./-]+)[`'"]?/i.exec(text)
     if (m) {
+      const token = m[1].replace(/[`'"]/g, '').trim().replace(/\/+$/, '')
+      // M26 (audit R-2): a bare token matching MULTIPLE file basenames (two
+      // `hero.tsx` in different folders) previously collected ALL of them as
+      // move sources — one plan silently moved both. The plan card's
+      // "never guesses" contract requires a clarification instead.
+      const exact = files.filter((f) => f.path === token || f.path === `${token}.ts` || f.path === `${token}.tsx` || f.path === `${token}.js` || f.path === `${token}.jsx`)
+      const byFolder = exact.length === 0 ? files.filter((f) => f.path.startsWith(`${token}/`)) : []
+      if (exact.length === 0 && byFolder.length === 0) {
+        const base = basenameOf(token)
+        const byBase = files.filter((f) => basenameOf(f.path) === base || basenameOf(f.path).replace(/\.[a-z]+$/i, '') === base)
+        if (byBase.length > 1) {
+          const list = byBase.slice(0, 6).map((f) => f.path).join('\n')
+          return {
+            detected: true,
+            type: 'clarification',
+            question: `"${m[1]}" matches ${byBase.length} files:
+${list}
+Which one should move into ${m[2]}?`,
+          }
+        }
+      }
       const sources = matchPathToken(m[1], files)
       if (sources.length === 0) {
         return { detected: true, type: 'clarification', question: `I could not find "${m[1]}" in this project — which file(s) or folder should move into ${m[2]}?` }

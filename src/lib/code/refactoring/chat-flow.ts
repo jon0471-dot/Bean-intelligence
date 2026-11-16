@@ -18,7 +18,7 @@
  */
 import { FileOpError } from '@/lib/code/file-ops/types'
 import type { TaskAdapter } from '@/lib/adapters/types'
-import { buildProjectGraph, dependencyCone } from './graph'
+import { buildProjectGraph, dependencyCone, RefactorScopeError } from './graph'
 import { buildDeterministicRefactorPlan, detectRefactoringRequest, type RefactorDetection } from './detect'
 import { assembleAssistedPlan, correctiveDraftCharBudget, draftRefactoringPatch } from './assisted'
 import {
@@ -217,6 +217,11 @@ export async function performDetectedRefactoring(args: RefactorFlowArgs): Promis
       providerCalls,
     }
   } catch (e) {
+    // M26 (audit R-1): scope refusals surface as honest typed rejections
+    if (e instanceof RefactorScopeError) {
+      const payload: RefactorTurnPayload = { status: 'rejected', reason: e.message }
+      return { payload, assistantText: refactorAssistantText(payload), tokensInEst: 0, tokensOutEst: 0, providerCalls: 0 }
+    }
     if (e instanceof FileOpError) return mapFileOpError(e)
     throw e // provider failures propagate as their typed classes (honest frames)
   }

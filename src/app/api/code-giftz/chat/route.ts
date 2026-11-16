@@ -29,6 +29,7 @@ import { applyFiles } from '@/lib/giftz/workspace'
 import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
 import { detectFileOperation } from '@/lib/code/file-ops/detect'
 import { performDetectedFileOperation } from '@/lib/code/file-ops/execute'
+import { RefactorScopeError } from '@/lib/code/refactoring/graph'
 import { detectRefactoringRequest } from '@/lib/code/refactoring/detect'
 import { performDetectedRefactoring } from '@/lib/code/refactoring/chat-flow'
 import type { RefactorTurnPayload } from '@/lib/code/refactoring/plan'
@@ -254,7 +255,17 @@ export async function POST(request: Request) {
       // draft is validated server-side into a plan awaiting approval. NOTHING
       // executes during the turn and the workspace is never touched here —
       // execution happens only through the confirmed, hash-bound executor.
-      const refactorDetection = body.projectId ? detectRefactoringRequest(body.message, files) : { detected: false as const }
+      // M26 (audit R-1): an oversized project is an honest typed refusal —
+      // the customer sees WHY (scope the request / export), never a 500.
+      let refactorDetection: ReturnType<typeof detectRefactoringRequest>
+      try {
+        refactorDetection = body.projectId ? detectRefactoringRequest(body.message, files) : { detected: false as const }
+      } catch (e) {
+        if (e instanceof RefactorScopeError) {
+          return ok({ reply: e.message, detected: false as const })
+        }
+        throw e
+      }
       if (refactorDetection.detected) {
         const isDeterministicKind =
           refactorDetection.type === 'op' && (refactorDetection.kind === 'rename-symbol' || refactorDetection.kind === 'move-module')
