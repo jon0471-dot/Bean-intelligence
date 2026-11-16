@@ -33,6 +33,8 @@ export type VersionKind =
   // M23: chat-driven file operations and separately-approved reference repairs.
   | 'file-op'
   | 'repair'
+  // M25: atomic multi-file refactoring (one coherent version per approved plan).
+  | 'refactor'
 
 export interface VersionFileEntry {
   path: string

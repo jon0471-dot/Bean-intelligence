@@ -1,0 +1,23 @@
+[
+  {
+    "step": "searxng-lane",
+    "status": "ADOPTED",
+    "url": "http://127.0.0.1:8888"
+  },
+  {
+    "step": "auth",
+    "status": "REAL",
+    "email": "intel-live-20261108065845@bean-e2e.test"
+  },
+  {
+    "step": "jazmii-grounded-job",
+    "status": "SUBMITTED",
+    "jobId": "cmw7he9kd0011qx5z0osb74vk"
+  },
+  {
+    "step": "jazmii-grounded-job",
+    "status": "TIMEOUT",
+    "jobId": "cmw7he9kd0011qx5z0osb74vk",
+    "waitedMs": 360000
+  }
+]

@@ -36,7 +36,7 @@ export async function GET(
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
         messages: messages.map((m) => {
-          const meta = m.metaJson ? (JSON.parse(m.metaJson) as { changes?: Array<{ path: string; change: string }>; frontend?: unknown; research?: { sources?: Array<{ host: string; url: string; title: string; channel: string; backend?: string | null; engine?: string }>; degraded?: string[] }; fileOp?: import('@/lib/code/file-ops/types').FileOpTurnPayload }) : {}
+          const meta = m.metaJson ? (JSON.parse(m.metaJson) as { changes?: Array<{ path: string; change: string }>; frontend?: unknown; research?: { sources?: Array<{ host: string; url: string; title: string; channel: string; backend?: string | null; engine?: string }>; degraded?: string[] }; fileOp?: import('@/lib/code/file-ops/types').FileOpTurnPayload; refactor?: import('@/lib/code/refactoring/plan').RefactorTurnPayload }) : {}
           return {
             id: m.id,
             role: m.role,
@@ -49,6 +49,9 @@ export async function GET(
             // M23 ADDITIVE: file-operation payload (pending confirmations
             // stay actionable after reload; executed ops keep their card).
             ...(meta.fileOp ? { fileOp: meta.fileOp } : {}),
+            // M25 ADDITIVE: refactoring payload (pending plans stay
+            // actionable after reload; executed refactors keep their card).
+            ...(meta.refactor ? { refactor: meta.refactor } : {}),
           }
         }),
         files: files.map((f) => ({ path: f.path, content: f.content, origin: f.origin })),

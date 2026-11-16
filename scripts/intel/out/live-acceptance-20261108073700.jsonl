@@ -1,0 +1,3 @@
+{"at":"2026-11-08T07:37:02.092Z","step":"searxng-lane","status":"ADOPTED","url":"http://127.0.0.1:8888"}
+{"at":"2026-11-08T07:37:02.193Z","step":"auth","status":"REAL","email":"intel-live-20261108073700@bean-e2e.test"}
+{"at":"2026-11-08T07:44:08.620Z","step":"giftz-docs-turn","status":"REAL","servedBy":null,"answerChars":0,"docsResponse":null,"docsPersisted":null,"durationMs":356460,"error":null}

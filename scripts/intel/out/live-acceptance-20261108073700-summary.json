@@ -1,0 +1,22 @@
+[
+  {
+    "step": "searxng-lane",
+    "status": "ADOPTED",
+    "url": "http://127.0.0.1:8888"
+  },
+  {
+    "step": "auth",
+    "status": "REAL",
+    "email": "intel-live-20261108073700@bean-e2e.test"
+  },
+  {
+    "step": "giftz-docs-turn",
+    "status": "REAL",
+    "servedBy": null,
+    "answerChars": 0,
+    "docsResponse": null,
+    "docsPersisted": null,
+    "durationMs": 356460,
+    "error": null
+  }
+]

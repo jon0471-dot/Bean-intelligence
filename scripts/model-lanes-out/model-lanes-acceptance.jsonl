@@ -1,0 +1,11 @@
+{"at":"2026-11-08T04:36:58.938Z","name":"auth","status":200}
+{"at":"2026-11-08T04:37:59.328Z","name":"riishe_turn1","httpStatus":200,"contentChars":15,"contentPreview":"codeword stored","durationMs":60390,"meta":null}
+{"at":"2026-11-08T04:38:04.802Z","name":"riishe_turn2_context","conversationId":"cmw7cbwlo0008qx018nw8hhfh","contentChars":15,"contentPreview":"codeword stored","durationMs":5474}
+{"at":"2026-11-08T04:38:04.803Z","name":"riishe_context_recall","pass":false}
+{"at":"2026-11-08T04:39:34.829Z","name":"riishe_chat_http_error","status":502,"body":"{\"ok\":false,\"error\":{\"code\":\"BACKEND_FAILURE\",\"message\":\"RIISHE timed out after 90000ms\"}}"}
+{"at":"2026-11-08T04:39:34.829Z","name":"riishe_tamil","contentChars":0,"contentPreview":"","hasTamilScript":false,"durationMs":90026}
+{"at":"2026-11-08T04:39:41.880Z","name":"giftz_task","status":200,"body":"{\"ok\":true,\"task\":{\"id\":\"cmw7cfeb2000tqx01d1d6oph8\",\"mode\":\"generate\",\"content\":\"```python\\n# main.py\\nprint(\\\"BEAN-LOCAL-OK\\\")\\n```\",\"files\":[{\"path\":\"main.py\",\"content\":\"# main.py\\nprint(\\\"BEAN-LOCAL-OK\\\")\\n\"}],\"durationMs\":6995}}","durationMs":7051}
+{"at":"2026-11-08T04:39:41.944Z","name":"giftz_sandbox_run","status":200,"body":"{\"ok\":true,\"run\":{\"runId\":\"924260ba-d2e4-40a5-8e05-50eabbbd1dcf\",\"stdout\":\"BEAN-LOCAL-OK\\n\",\"stderr\":\"\",\"exitCode\":0,\"timedOut\":false,\"durationMs\":27}}"}
+{"at":"2026-11-08T04:39:41.945Z","name":"giftz_sandbox_verdict","pass":true,"exitCode":0,"stdoutPreview":"BEAN-LOCAL-OK\n"}
+{"at":"2026-11-08T04:39:41.984Z","name":"attribution_usage_rows","latestBackendIds":["None","bean-chat-local-llamacpp","bean-chat-local-llamacpp","bean-chat-local-llamacpp"]}
+{"at":"2026-11-08T04:39:41.984Z","name":"VERDICT","riisheLocalServed":true,"giftzLocalCodegen":true,"giftzSandboxReal":true,"qualityMetrics":{"riisheMultiTurnRecall":false,"riisheTamilGeneration":false,"attributionBackendIds":["bean-chat-local-llamacpp","bean-chat-local-llamacpp","bean-chat-local-llamacpp"]}}

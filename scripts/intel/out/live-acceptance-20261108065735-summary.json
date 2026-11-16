@@ -1,0 +1,30 @@
+[
+  {
+    "step": "searxng-lane",
+    "status": "ADOPTED",
+    "url": "http://127.0.0.1:8888"
+  },
+  {
+    "step": "auth",
+    "status": "REAL",
+    "email": "intel-live-20261108065735@bean-e2e.test"
+  },
+  {
+    "step": "laxii-grounded-job",
+    "status": "SUBMITTED",
+    "jobId": "cmw7hcr9n000pqx5z9390wyxv"
+  },
+  {
+    "step": "laxii-grounded-job",
+    "status": "BLOCKED",
+    "jobId": "cmw7hcr9n000pqx5z9390wyxv",
+    "finalStatus": "failed",
+    "errorCode": "BACKEND_FAILURE",
+    "errorMessage": "The image gateway is rate-limited right now (HTTP 429). The request was not repeated.",
+    "groundingPersisted": false,
+    "groundingModules": null,
+    "groundingConstraints": null,
+    "artifactBytes": null,
+    "durationMs": 6025
+  }
+]

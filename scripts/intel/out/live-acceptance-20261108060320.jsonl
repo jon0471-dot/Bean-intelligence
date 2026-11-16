@@ -1,0 +1,3 @@
+{"at":"2026-11-08T06:03:23.182Z","step":"searxng-lane","status":"ADOPTED","url":"http://127.0.0.1:8888"}
+{"at":"2026-11-08T06:03:23.308Z","step":"auth","status":"REAL","email":"intel-live-20261108060320@bean-e2e.test"}
+{"at":"2026-11-08T06:12:30.773Z","step":"riishe-english-grounded","status":"REAL","servedBy":null,"answerChars":0,"stages":["researching","solving","verifying","solving"],"states":[],"sourceCount":0,"sourceHosts":[],"searchProviders":null,"degradedCount":null,"durationMs":237041,"error":null}

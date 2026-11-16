@@ -1,0 +1,3 @@
+{"at":"2026-11-08T06:13:55.658Z","step":"searxng-lane","status":"ADOPTED","url":"http://127.0.0.1:8888"}
+{"at":"2026-11-08T06:13:55.761Z","step":"auth","status":"REAL","email":"intel-live-20261108061355@bean-e2e.test"}
+{"at":"2026-11-08T06:22:00.883Z","step":"riishe-english-grounded","status":"REAL","servedBy":null,"answerChars":770,"stages":["researching","solving","verifying","solving"],"states":["PARTIALLY_VERIFIED"],"sourceCount":6,"sourceHosts":["nodejs.org","github.com","nodejs.org"],"searchProviders":null,"degradedCount":7,"durationMs":201378,"error":null}

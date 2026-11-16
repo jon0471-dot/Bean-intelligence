@@ -1,0 +1,3 @@
+{"at":"2026-11-08T06:33:36.893Z","step":"searxng-lane","status":"ADOPTED","url":"http://127.0.0.1:8888"}
+{"at":"2026-11-08T06:33:37.015Z","step":"auth","status":"REAL","email":"intel-live-20261108063335@bean-e2e.test"}
+{"at":"2026-11-08T06:38:35.576Z","step":"riishe-tamil-grounded","status":"DEGRADED","servedBy":null,"answerChars":0,"stages":["researching","solving"],"states":[],"sourceCount":0,"sourceHosts":[],"searchProviders":null,"degradedCount":null,"durationMs":183433,"error":"The AI provider stopped sending data before the response finished (stream timed out). The text received so far is preserved as incomplete — try again in a moment."}

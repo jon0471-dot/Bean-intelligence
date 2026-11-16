@@ -1,0 +1,4 @@
+{"at":"2026-11-08T07:17:37.257Z","step":"searxng-lane","status":"ADOPTED","url":"http://127.0.0.1:8888"}
+{"at":"2026-11-08T07:17:37.380Z","step":"auth","status":"REAL","email":"intel-live-20261108071736@bean-e2e.test"}
+{"at":"2026-11-08T07:17:37.414Z","step":"laxii-grounded-job","status":"SUBMITTED","jobId":"cmw7i2hof0008qx4gkkiwinra"}
+{"at":"2026-11-08T07:17:43.437Z","step":"laxii-grounded-job","status":"BLOCKED","jobId":"cmw7i2hof0008qx4gkkiwinra","finalStatus":"failed","errorCode":"BACKEND_FAILURE","errorMessage":"The image gateway is rate-limited right now (HTTP 429). The request was not repeated.","groundingPersisted":true,"groundingModules":["animal","nature","spatial"],"groundingConstraints":6,"artifactBytes":null,"durationMs":6023}

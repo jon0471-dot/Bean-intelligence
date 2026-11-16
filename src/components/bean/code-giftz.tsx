@@ -90,6 +90,9 @@ interface ChatMessage {
   /** M23 ADDITIVE: structured file-operation payload (rename/move/delete/
    *  create/repair executed or proposed server-side — never simulated). */
   fileOp?: FileOpView
+  /** M25 ADDITIVE: structured refactoring payload (planned server-side,
+   *  awaiting explicit approval — never auto-executed). */
+  refactor?: RefactorView
 }
 
 /** M23 — file-operation card payload (mirrors the server contract). */
@@ -119,6 +122,38 @@ interface FileOpResultView {
   replayed?: boolean
   repairOffered?: { opId: string; planHash: string; affectedFiles: Array<{ path: string; lines: number[]; sample: string }>; consequence: string } | null
 }
+
+/** M25 — refactoring card payload (mirrors the server contract). */
+interface RefactorView {
+  status: 'awaiting_confirmation' | 'executed' | 'rejected' | 'clarification' | 'failed'
+  kind?: string
+  opId?: string
+  planHash?: string
+  title?: string
+  engine?: 'deterministic' | 'provider-assisted'
+  reason?: string
+  steps?: string[]
+  affectedFiles?: string[]
+  createdPaths?: string[]
+  editsPreview?: Array<{ path: string; changeType: string; addedLines: number; removedLines: number }>
+  risks?: string[]
+  unresolved?: Array<{ path: string; specifier: string; note: string }>
+  conflicts?: string[]
+  question?: string
+  consequence?: string
+  versionSeq?: number | null
+  result?: RefactorResultView
+}
+interface RefactorResultView {
+  opId: string
+  kind: string
+  status: string
+  applied: Array<{ path: string; action: string }>
+  failed: Array<{ path: string; reason: string }>
+  versionSeq: number | null
+  verification: { contentsPreserved: boolean; unresolvedImports: number; duplicateExports: Array<{ name: string; paths: string[] }>; integrityDetail: string }
+  replayed?: boolean
+}
 interface ProjectFile { path: string; content: string; origin: 'generated' | 'modified'; updatedAt?: string }
 interface FileChange {
   path: string
@@ -140,7 +175,7 @@ interface FileMeta { id: string; name: string; kind: string; size: number; statu
 interface VersionSummary {
   id: string
   seq: number
-  kind: 'initial' | 'turn' | 'manual' | 'rollback' | 'file-save' | 'file-delete' | 'file-op' | 'repair'
+  kind: 'initial' | 'turn' | 'manual' | 'rollback' | 'file-save' | 'file-delete' | 'file-op' | 'repair' | 'refactor'
   summary: string | null
   fileCount: number
   changedFiles: Array<{ path: string; change: 'added' | 'modified' | 'deleted' | 'renamed'; previousPath?: string }>
@@ -193,6 +228,25 @@ const FILE_OP_STATUS_STYLE: Record<FileOpView['status'], string> = {
   clarification: 'border border-white/12 bg-white/5 text-white/50',
   rejected: 'border border-red-500/30 bg-red-500/10 text-red-300',
   explained: 'border border-white/12 bg-white/5 text-white/50',
+  failed: 'border border-red-500/30 bg-red-500/10 text-red-300',
+}
+
+const REFACTOR_KIND_LABEL: Record<string, string> = {
+  'rename-symbol': 'Rename symbol',
+  'move-module': 'Move modules + update imports',
+  'extract-component': 'Extract component',
+  'extract-module': 'Extract module',
+  'service-layer': 'Service-layer extraction',
+  consolidate: 'Consolidate',
+  restructure: 'Restructure',
+  repair: 'Targeted repair',
+}
+
+const REFACTOR_STATUS_STYLE: Record<RefactorView['status'], string> = {
+  executed: 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  awaiting_confirmation: 'border border-amber-500/40 bg-amber-500/10 text-amber-300',
+  clarification: 'border border-white/12 bg-white/5 text-white/50',
+  rejected: 'border border-red-500/30 bg-red-500/10 text-red-300',
   failed: 'border border-red-500/30 bg-red-500/10 text-red-300',
 }
 
@@ -315,6 +369,144 @@ function FileOpCard(props: {
   )
 }
 
+/** M25 — the transcript card for one structured refactoring plan: summary,
+ *  affected files, before/after shape, risks and unresolved references,
+ *  validation status after execution, version + rollback availability.
+ *  Never shows a simulated outcome — everything comes from the server. */
+function RefactorCard(props: {
+  plan: RefactorView
+  disabled: boolean
+  busy: boolean
+  onConfirm: () => void
+  onCancel: () => void
+  onOpenFile: (path: string) => void
+}) {
+  const { plan, disabled, busy, onConfirm, onCancel, onOpenFile } = props
+  if (plan.status === 'clarification') return null // the question text is the answer
+  const kindLabel = REFACTOR_KIND_LABEL[plan.kind ?? ''] ?? 'Refactoring'
+  return (
+    <div className="mt-2 rounded-lg border border-[rgba(212,175,55,0.25)] bg-black/20 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <GitCompareArrows className="h-3.5 w-3.5 text-[#f0c75e]" />
+        <span className="text-[11px] font-medium text-white/85">{kindLabel}</span>
+        <span className={cn('rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide', REFACTOR_STATUS_STYLE[plan.status])}>
+          {plan.status === 'awaiting_confirmation' ? 'needs approval' : plan.status.replace('_', ' ')}
+        </span>
+        <span className="rounded border border-white/12 px-1 py-0.5 text-[9px] text-white/40">
+          {plan.engine === 'deterministic' ? 'deterministic — no model call' : 'provider-assisted draft, server-validated'}
+        </span>
+        {plan.result?.replayed ? (
+          <span className="rounded border border-white/12 px-1 py-0.5 text-[9px] text-white/40">replayed — already executed</span>
+        ) : null}
+        {(plan.versionSeq ?? plan.result?.versionSeq) ? (
+          <span className="rounded border border-[rgba(212,175,55,0.4)] bg-[rgba(212,175,55,0.08)] px-1.5 py-0.5 text-[9px] text-[#f0c75e]">
+            v{plan.versionSeq ?? plan.result?.versionSeq}
+          </span>
+        ) : null}
+      </div>
+
+      {plan.title ? <p className="mt-1.5 text-[11px] font-medium text-white/80">{plan.title}</p> : null}
+      {plan.reason ? <p className="mt-0.5 text-[10.5px] leading-snug text-white/45">{plan.reason}</p> : null}
+
+      {(plan.editsPreview?.length ?? 0) > 0 ? (
+        <div className="mt-1.5">
+          <p className="text-[10px] uppercase tracking-wide text-white/35">Before → after ({plan.editsPreview?.length} file(s))</p>
+          <div className="mt-1 space-y-0.5">
+            {(plan.editsPreview ?? []).map((e) => (
+              <button
+                key={e.path}
+                onClick={() => onOpenFile(e.path)}
+                className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left font-mono text-[10px] text-white/60 hover:bg-white/5"
+              >
+                <span
+                  className={cn(
+                    'rounded px-1 py-0.5 text-[8.5px] uppercase',
+                    e.changeType === 'create' ? 'bg-emerald-500/15 text-emerald-300' : e.changeType === 'move-content' ? 'bg-sky-500/15 text-sky-300' : 'bg-[rgba(212,175,55,0.12)] text-[#f0c75e]',
+                  )}
+                >
+                  {e.changeType}
+                </span>
+                <span className="break-all">{e.path}</span>
+                <span className="ml-auto shrink-0 text-emerald-300">+{e.addedLines}</span>
+                <span className="shrink-0 text-red-300">-{e.removedLines}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {(plan.risks?.length ?? 0) > 0 ? (
+        <div className="mt-1.5">
+          <p className="text-[10px] uppercase tracking-wide text-amber-300/70">Risks</p>
+          <ul className="mt-0.5 list-inside list-disc space-y-0.5">
+            {(plan.risks ?? []).slice(0, 4).map((r, i) => (
+              <li key={i} className="text-[10.5px] leading-snug text-amber-300/90">{r}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {(plan.unresolved?.length ?? 0) > 0 ? (
+        <div className="mt-1.5">
+          <p className="text-[10px] uppercase tracking-wide text-white/35">Unresolved references (listed, never rewritten)</p>
+          <ul className="mt-0.5 space-y-0.5">
+            {(plan.unresolved ?? []).slice(0, 5).map((u, i) => (
+              <li key={i} className="text-[10.5px] leading-snug text-white/45">
+                <span className="font-mono text-white/60">{u.path}</span> — {u.note}
+              </li>
+            ))}
+            {(plan.unresolved?.length ?? 0) > 5 ? <li className="text-[10px] text-white/35">… and {(plan.unresolved?.length ?? 0) - 5} more</li> : null}
+          </ul>
+        </div>
+      ) : null}
+
+      {plan.consequence ? <p className="mt-1.5 text-[10.5px] leading-snug text-white/45">{plan.consequence}</p> : null}
+      {plan.reason && (plan.status === 'rejected' || plan.status === 'failed') ? (
+        <p className="mt-1.5 text-[10.5px] leading-snug text-red-300">{plan.reason}</p>
+      ) : null}
+
+      {plan.status === 'awaiting_confirmation' ? (
+        <div className="mt-2 flex items-center gap-1.5">
+          <button
+            onClick={onConfirm}
+            disabled={disabled}
+            className="inline-flex items-center gap-1 rounded bg-[#d4af37] px-2 py-1 text-[10.5px] font-medium text-black hover:bg-[#e6c25a] disabled:opacity-40"
+          >
+            {busy ? <Spinner className="h-3 w-3" /> : null} Approve &amp; execute
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={disabled}
+            className="rounded border border-white/10 px-2 py-1 text-[10.5px] text-white/50 hover:border-[rgba(212,175,55,0.3)] hover:text-white/80 disabled:opacity-40"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
+      {plan.status === 'executed' && plan.result ? (
+        <div className="mt-1.5 border-t border-[rgba(212,175,55,0.12)] pt-1.5">
+          <p className={cn('text-[10.5px] leading-snug', plan.result.verification.contentsPreserved ? 'text-white/45' : 'text-red-300')}>
+            {plan.result.verification.integrityDetail}
+          </p>
+          {plan.result.verification.unresolvedImports > 0 ? (
+            <p className="mt-0.5 text-[10.5px] leading-snug text-amber-300">
+              {plan.result.verification.unresolvedImports} unresolved relative import(s) remain — review them in the workspace.
+            </p>
+          ) : null}
+          {plan.result.verification.duplicateExports.length > 0 ? (
+            <p className="mt-0.5 text-[10.5px] leading-snug text-amber-300">
+              Duplicate export(s): {plan.result.verification.duplicateExports.map((d) => d.name).slice(0, 4).join(', ')}
+            </p>
+          ) : null}
+          {plan.result.failed.length > 0 ? <p className="mt-0.5 text-[10.5px] leading-snug text-red-300">{plan.result.failed[0].reason}</p> : null}
+          <p className="mt-0.5 text-[10px] text-white/35">Rollback available from the Versions panel (rollback records a NEW version — history is never rewritten).</p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function langOf(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase() ?? ''
   const map: Record<string, string> = {
@@ -387,7 +579,7 @@ export function CodeGiftz() {
   // M23 — file-operation cards: busy op (spinner on its buttons) and the
   // pending destructive confirmation (deletion / reference repair).
   const [fileOpBusy, setFileOpBusy] = useState<string | null>(null)
-  const [confirmingFileOp, setConfirmingFileOp] = useState<{ messageId: string; opId: string; title: string; detail: string; destructive: boolean } | null>(null)
+  const [confirmingFileOp, setConfirmingFileOp] = useState<{ messageId: string; opId: string; title: string; detail: string; destructive: boolean; target?: 'file-op' | 'refactor' } | null>(null)
   // Cache-buster: bumped after accepted changes so the iframe re-fetches the
   // fresh preview (the route serves no-store; this also forces a re-render).
   const [previewKey, setPreviewKey] = useState(0)
@@ -470,12 +662,12 @@ export function CodeGiftz() {
         project: {
           id: string
           title: string
-          messages: Array<{ id: string; role: string; content: string; changes: Array<{ path: string; change: string }>; fileOp?: FileOpView }>
+          messages: Array<{ id: string; role: string; content: string; changes: Array<{ path: string; change: string }>; fileOp?: FileOpView; refactor?: RefactorView }>
           files: Array<{ path: string; content: string; origin: 'generated' | 'modified'; updatedAt?: string }>
         }
       }>(`/api/code-giftz/chat/${id}`)
       setProjectId(d.project.id)
-      setMessages(d.project.messages.map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, changes: m.changes ?? [], ...(m.fileOp ? { fileOp: m.fileOp as FileOpView } : {}) })))
+      setMessages(d.project.messages.map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, changes: m.changes ?? [], ...(m.fileOp ? { fileOp: m.fileOp as FileOpView } : {}), ...(m.refactor ? { refactor: m.refactor as RefactorView } : {}) })))
       setFiles(d.project.files.map((f) => ({ path: f.path, content: f.content, origin: f.origin, updatedAt: f.updatedAt })))
       const first = d.project.files[0]
       setOpenTabs(first ? [first.path] : [])
@@ -584,6 +776,52 @@ export function CodeGiftz() {
         prev.map((msg) =>
           msg.id === messageId && msg.fileOp
             ? { ...msg, fileOp: { ...msg.fileOp, status: 'rejected' as const, reason: 'Cancelled — nothing was changed.' } }
+            : msg,
+        ),
+      )
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setFileOpBusy(null)
+    }
+  }
+
+  // ---- M25 refactoring execution (same ledger + confirmation endpoint; the
+  // server dispatches 'refactor' rows to the atomic multi-file executor) ----
+  async function executeRefactor(pid: string, opId: string, messageId: string) {
+    setFileOpBusy(opId)
+    try {
+      const d = await beanFetch<{ result: RefactorResultView }>(
+        `/api/code-giftz/projects/${pid}/file-ops/execute`,
+        { method: 'POST', json: { opId } },
+      )
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId && msg.refactor
+            ? { ...msg, refactor: { ...msg.refactor, status: 'executed' as const, result: d.result, versionSeq: d.result.versionSeq } }
+            : msg,
+        ),
+      )
+      refreshWorkspaceFiles(pid)
+      setPreviewKey((k) => k + 1)
+      void refreshPreviewAudit(pid)
+      void loadProjects(searchQuery)
+      if (versionsOpen) void openVersions()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setFileOpBusy(null)
+    }
+  }
+
+  async function cancelRefactor(pid: string, opId: string, messageId: string) {
+    setFileOpBusy(opId)
+    try {
+      await beanFetch(`/api/code-giftz/projects/${pid}/file-ops/cancel`, { method: 'POST', json: { opId } })
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId && msg.refactor
+            ? { ...msg, refactor: { ...msg.refactor, status: 'rejected' as const, reason: 'Cancelled — nothing was changed.' } }
             : msg,
         ),
       )
@@ -989,6 +1227,7 @@ export function CodeGiftz() {
                       incomplete: false,
                       verification: wireVerification,
                       ...(evt.fileOp ? { fileOp: evt.fileOp as FileOpView } : {}),
+                      ...(evt.refactor ? { refactor: evt.refactor as RefactorView } : {}),
                     }
                   : m,
               ),
@@ -1009,6 +1248,12 @@ export function CodeGiftz() {
               void refreshPreviewAudit(newProjectId)
               void loadProjects(searchQuery)
               if (versionsOpen) void openVersions()
+            }
+            // M25: a refactor card arrived (plan awaiting approval) — nothing
+            // changed yet, but the version badge/list metadata may advance
+            // once the user confirms (handled by executeRefactor).
+            if (evt.refactor?.status === 'awaiting_confirmation') {
+              void loadProjects(searchQuery)
             }
             const changes = evt.changes ?? []
             if (changes.length > 0) {
@@ -1241,6 +1486,39 @@ export function CodeGiftz() {
                               destructive: true,
                             })
                           }}
+                        />
+                      ) : null}
+                      {/* M25 — refactoring card: the real structured plan/result of a
+                          chat-driven multi-file refactoring. The plan is always
+                          awaiting explicit approval; execution runs through the
+                          same hash-bound confirmation endpoint as file ops. */}
+                      {m.refactor ? (
+                        <RefactorCard
+                          plan={m.refactor}
+                          disabled={fileOpBusy !== null}
+                          busy={fileOpBusy !== null && fileOpBusy === m.refactor.opId}
+                          onConfirm={() => {
+                            const plan = m.refactor
+                            if (!plan?.opId) return
+                            setConfirmingFileOp({
+                              messageId: m.id,
+                              opId: plan.opId,
+                              target: 'refactor',
+                              title: `Confirm ${REFACTOR_KIND_LABEL[plan.kind ?? ''] ?? 'refactoring'}`,
+                              detail:
+                                (plan.consequence ?? '') +
+                                (plan.affectedFiles && plan.affectedFiles.length > 0
+                                  ? ` Files: ${plan.affectedFiles.slice(0, 6).join(', ')}${plan.affectedFiles.length > 6 ? ` and ${plan.affectedFiles.length - 6} more` : ''}.`
+                                  : '') +
+                                ' This applies every listed change atomically as one version; version history keeps a full rollback path.',
+                              destructive: true,
+                            })
+                          }}
+                          onCancel={() => {
+                            const plan = m.refactor
+                            if (plan?.opId && projectId) void cancelRefactor(projectId, plan.opId, m.id)
+                          }}
+                          onOpenFile={(p) => openFile(p)}
                         />
                       ) : null}
                       {/* ADDITIVE (shared research gateway): clickable technical
@@ -1945,7 +2223,10 @@ export function CodeGiftz() {
                 e.preventDefault()
                 const pending = confirmingFileOp
                 setConfirmingFileOp(null)
-                if (pending && projectId) void executeFileOp(projectId, pending.opId, pending.messageId)
+                if (pending && projectId) {
+                  if (pending.target === 'refactor') void executeRefactor(projectId, pending.opId, pending.messageId)
+                  else void executeFileOp(projectId, pending.opId, pending.messageId)
+                }
               }}
               disabled={fileOpBusy !== null}
               className={confirmingFileOp?.destructive ? 'bg-red-600 text-white hover:bg-red-500' : 'bg-[#d4af37] text-black hover:bg-[#e6c25a]'}
