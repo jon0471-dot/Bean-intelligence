@@ -108,9 +108,13 @@ requirement that history rewriting awaits repository-owner approval.
 
 ## 5. Workspace WIP quarantine results
 
-The quarantined-WIP set (211 files diff `main` vs
-`backup/m26-baseline-auto-commit`, 153 added by the `f0b47ad` auto-commit)
-was re-inventoried file-by-file (`scripts/m261/quarantine-inventory.ts`):
+The quarantined-WIP set (160 files added by the
+`backup/m26-baseline-auto-commit` line relative to the fix tip `76e63af`:
+153 quarantined-WIP files + the 7 token files this milestone removed from
+HEAD) was re-inventoried file-by-file (`scripts/m261/quarantine-inventory.ts`),
+and the full per-file record — path, git status, sensitivity class,
+secrets/PII flag, staleness, future-milestone tag, retention verdict — is
+committed as `docs/M26_1_QUARANTINE_INVENTORY.md`. Summary:
 
 | Class | Files | Sensitive? | Retain? |
 |---|---|---|---|
