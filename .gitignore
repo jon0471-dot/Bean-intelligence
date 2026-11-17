@@ -130,3 +130,16 @@ scripts/**/*cookies*.txt
 db/backups/
 db/*.db
 db/*.db-*
+
+# M26.1 hardening (supersedes the M26 sweep scope): 7 more session-token
+# files were found in scripts/e2e-out with non-"cookie" names (c2.txt,
+# cg-ck*.txt, pipeline-ck*.txt, uc*.txt — introduced by a634fcf, missed by
+# the M26 *cookie* filter, removed from HEAD in M26.1). Every E2E output
+# directory may hold live session material or harness DBs: ignore all
+# generated E2E output trees wholesale and any DB snapshot under scripts/.
+scripts/e2e-out/*.txt
+scripts/*-out/*.db
+scripts/*-out/*.db-*
+scripts/*.db
+scripts/e2e-verify-out/verify.db
+scripts/giftz-verify-out/verify.db
