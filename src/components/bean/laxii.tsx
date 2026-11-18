@@ -25,6 +25,7 @@ import { Progress } from '@/components/ui/progress'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { beanFetch, GoldBadge, Spinner, timeAgo } from './shared'
+import { ImageLightbox, type LightboxImage } from './laxii/image-lightbox'
 import { useToast } from '@/hooks/use-toast'
 import { getClientCompute } from '@/lib/client-compute'
 import { scheduleImagePreprocess } from '@/lib/client-compute/adapters/laxii'
@@ -89,6 +90,12 @@ interface ThreadJob {
   bytes: number | null
   durationMs: number | null
   transparent: boolean
+  // M26.3 honest quality-report fields (serialized job view).
+  aspectRatio: string | null
+  model: string | null
+  generation: Record<string, unknown> | null
+  artifact: Record<string, unknown> | null
+  prompt: string | null
   queuedAt: string
 }
 
@@ -402,10 +409,13 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
 
   // ---- send one conversational turn ----------------------------------------------
   const send = useCallback(
-    async (rawText: string, opts?: { assetId?: string | null; maskAssetIds?: string[]; clearSource?: boolean }) => {
+    async (rawText: string, opts?: { assetId?: string | null; maskAssetIds?: string[]; clearSource?: boolean; sizeOverride?: { size?: string; width?: number; height?: number } }) => {
       const text = rawText.trim()
       const assetId = opts?.assetId !== undefined ? opts.assetId : sourceRef?.assetId
       const maskAssetIds = opts?.maskAssetIds
+      // M26.3 Regenerate passes an explicit size override; the composer keeps
+      // its own memo — both land in the same payload field.
+      const effectiveSizeOverride = opts?.sizeOverride ?? sizeOverride
       if (!text && !assetId && !(maskAssetIds && maskAssetIds.length)) return
       if (sending) return
       setSending(true)
@@ -448,7 +458,7 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
             text,
             ...(assetId ? { assetId } : {}),
             ...(maskAssetIds && maskAssetIds.length ? { maskAssetIds } : {}),
-            ...(sizeOverride ? { sizeOverride } : {}),
+            ...(effectiveSizeOverride ? { sizeOverride: effectiveSizeOverride } : {}),
           },
         })
         setActiveId(d.conversation.id)
@@ -509,6 +519,37 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
     } catch (e) {
       toast({ title: 'Delete failed', description: (e as Error).message, variant: 'destructive' })
     }
+  }
+
+  // ---- M26.3 in-app image viewer -------------------------------------------
+  // Clicking a result image opens the lightbox ON THIS ROUTE (never a raw
+  // navigation to the asset URL). The image list spans the conversation's
+  // completed results so the viewer can navigate next/previous.
+  const viewerImages = useMemo<LightboxImage[]>(
+    () =>
+      thread
+        .filter((m) => m.kind === 'job' && m.job?.imageUrl && m.job.status === 'completed')
+        .map((m) => ({
+          src: m.job!.imageUrl!,
+          alt: `LAXII ${m.job!.task === 'image-generation' ? 'generated' : 'edited'} image`,
+          downloadName: `bean-laxii-${m.job!.id}.${m.job!.format === 'png' ? 'png' : 'jpg'}`,
+        })),
+    [thread],
+  )
+  const [viewer, setViewer] = useState<{ images: LightboxImage[]; index: number } | null>(null)
+  function openViewer(src: string) {
+    const idx = viewerImages.findIndex((i) => i.src === src)
+    if (idx >= 0) setViewer({ images: viewerImages, index: idx })
+    else setViewer({ images: [{ src, alt: 'LAXII image', downloadName: 'bean-laxii-image' }], index: 0 })
+  }
+
+  /** M26.3 — explicit regeneration of a generation result (same prompt + size). */
+  function regenerate(prompt: string, size: string | null) {
+    const parsed = size && /^\d+x\d+$/.test(size) ? size.split('x').map(Number) : null
+    void send(prompt, {
+      sizeOverride: parsed ? { width: parsed[0], height: parsed[1] } : undefined,
+      clearSource: false,
+    })
   }
 
   // ---- compact result actions (each one sends a NEW conversational request) -------
@@ -668,6 +709,8 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
                     onCopy={copyImage}
                     onConfirmMask={confirmMask}
                     maskBusy={maskBusyId === m.id}
+                    onOpenViewer={openViewer}
+                    onRegenerate={regenerate}
                   />
                 ),
               )
@@ -779,6 +822,18 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
           </div>
         </div>
       </main>
+
+      {/* M26.3 in-app image viewer — mounted at the workspace root so opening
+          an image NEVER navigates away and no route change can lose state. */}
+      <ImageLightbox
+        images={viewer?.images ?? []}
+        index={viewer?.index ?? 0}
+        onIndexChange={(i) => setViewer((v) => (v ? { ...v, index: i } : v))}
+        open={viewer !== null}
+        onOpenChange={(o) => {
+          if (!o) setViewer(null)
+        }}
+      />
     </div>
   )
 }
@@ -847,6 +902,8 @@ function AssistantMessage({
   onCopy,
   onConfirmMask,
   maskBusy,
+  onOpenViewer,
+  onRegenerate,
 }: {
   message: ThreadMessage
   onRetry: (m: ThreadMessage) => void
@@ -854,6 +911,8 @@ function AssistantMessage({
   onCopy: (url: string) => void
   onConfirmMask: (m: ThreadMessage, file: File) => Promise<void>
   maskBusy: boolean
+  onOpenViewer: (src: string) => void
+  onRegenerate: (prompt: string, size: string | null) => void
 }) {
   if (message.kind === 'pending') {
     return (
@@ -905,7 +964,7 @@ function AssistantMessage({
   }
 
   if (message.kind === 'job' && message.job) {
-    return <JobInThread message={message} onRetry={onRetry} onFollowUp={onFollowUp} onCopy={onCopy} />
+    return <JobInThread message={message} onRetry={onRetry} onFollowUp={onFollowUp} onCopy={onCopy} onOpenViewer={onOpenViewer} onRegenerate={onRegenerate} />
   }
 
   return null
@@ -920,11 +979,15 @@ function JobInThread({
   onRetry,
   onFollowUp,
   onCopy,
+  onOpenViewer,
+  onRegenerate,
 }: {
   message: ThreadMessage
   onRetry: (m: ThreadMessage) => void
   onFollowUp: (text: string, imageUrl: string) => void
   onCopy: (url: string) => void
+  onOpenViewer: (src: string) => void
+  onRegenerate: (prompt: string, size: string | null) => void
 }) {
   const job = message.job!
   const [compare, setCompare] = useState<'after' | 'before' | 'diff'>('after')
@@ -942,7 +1005,13 @@ function JobInThread({
             alt={`LAXII ${job.task === 'image-generation' ? 'generated' : 'edited'} result${job.transparent ? ' (transparent PNG)' : ''}`}
             className="max-h-[420px] w-auto max-w-full cursor-zoom-in rounded-lg object-contain"
             loading="lazy"
-            onClick={() => window.open(src, '_blank', 'noopener')}
+            // M26.3: the viewer opens IN-APP — never a raw navigation to the
+            // asset URL. stopPropagation guards against parent-card handlers.
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              onOpenViewer(src)
+            }}
           />
         ) : job.status === 'failed' || job.status === 'rejected' || job.status === 'cancelled' ? (
           <div className="max-w-md p-4 text-center">
@@ -984,10 +1053,11 @@ function JobInThread({
               <Clock className="h-3.5 w-3.5 shrink-0 text-[#d4af37]" />
             )}
             <span className="truncate text-[11px] text-white/45">
-              {job.size && (job.width === null || job.height === null || job.size !== `${job.width}x${job.height}`) ? `${job.size} · ` : ''}
               {job.width && job.height ? `${job.width}×${job.height}` : job.size ?? 'image'}
+              {job.aspectRatio ? ` · ${job.aspectRatio}` : ''}
               {job.durationMs ? ` · ${(job.durationMs / 1000).toFixed(1)}s` : ''}
-              {job.bytes ? ` · ${Math.round(job.bytes / 1024)} KB` : ''} · {timeAgo(job.queuedAt)}
+              {job.bytes ? ` · ${Math.round(job.bytes / 1024)} KB` : ''}
+              {job.model ? ` · ${job.model.split(';')[0].slice(0, 44)}` : ''} · {timeAgo(job.queuedAt)}
             </span>
           </div>
           {job.status === 'completed' ? (
@@ -1000,14 +1070,69 @@ function JobInThread({
         </div>
 
         {job.status === 'completed' && job.imageUrl ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <a
-              href={job.imageUrl}
-              download={`bean-laxii-${job.id}.${job.format === 'png' ? 'png' : 'jpg'}`}
-              className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2.5 py-1.5 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
-            >
-              <Download className="h-3 w-3" /> Download
-            </a>
+          <>
+            {/* M26.3 honest processing disclosure — measured values from the
+                job result; hidden when the provider needed no finishing. */}
+            {job.task === 'image-generation' && job.generation && typeof job.generation === 'object' ? (
+              <div
+                className="mx-3 mb-1 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] leading-snug text-white/45"
+                title={typeof job.generation.note === 'string' ? job.generation.note : undefined}
+              >
+                {`requested ${String(job.generation.requested ?? '?')} · model generated ${String(job.generation.generated ?? '?')}`}
+                {typeof job.generation.providerReturned === 'string' ? ` · provider returned ${String(job.generation.providerReturned)}` : ''}
+                {typeof job.generation.strategy === 'string' && job.generation.strategy !== 'native' ? ` · ${String(job.generation.strategy)}` : ''}
+                {typeof job.generation.finishStrategy === 'string' ? ` · finished ${String(job.generation.finishStrategy)}` : ''}
+                {typeof job.generation.cropLossPct === 'number' ? ` (crop ${String(job.generation.cropLossPct)}%)` : ''}
+                {typeof job.generation.paddedAreaPct === 'number' ? ` (pad ${String(job.generation.paddedAreaPct)}%)` : ''}
+                {typeof job.generation.finishCropLossPct === 'number' ? ` (crop ${String(job.generation.finishCropLossPct)}%)` : ''}
+                {typeof job.generation.finishPaddedAreaPct === 'number' ? ` (pad ${String(job.generation.finishPaddedAreaPct)}%)` : ''}
+              </div>
+            ) : null}
+            {/* M26.3 watermark / unwanted-mark honesty: flagged only when the
+                bounded vision check RAN and reported embedded text nobody
+                asked for; the check outcome is shown even when it could not run. */}
+            {job.artifact && typeof job.artifact === 'object' && (job.artifact as Record<string, unknown>).unwantedTextDetected !== null && typeof job.artifact === 'object' ? (
+              (job.artifact as Record<string, unknown>).unwantedTextDetected === true ? (
+                <div className="mx-3 mb-1 rounded-md border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[10px] leading-snug text-amber-200">
+                  <span className="font-medium">Unwanted text/logo mark detected in this image.</span>
+                  {typeof (job.artifact as Record<string, unknown>).regeneration === 'object' && (job.artifact as Record<string, unknown>).regeneration ? (
+                    <span className="text-amber-200/75"> {String(((job.artifact as Record<string, unknown>).regeneration as Record<string, unknown>).note ?? '')}</span>
+                  ) : null}
+                  {typeof (job.artifact as Record<string, unknown>).flaggedOriginalAssetUrl === 'string' ? (
+                    <a
+                      href={String((job.artifact as Record<string, unknown>).flaggedOriginalAssetUrl)}
+                      className="ml-1 underline decoration-dotted"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      flagged original preserved
+                    </a>
+                  ) : null}
+                </div>
+              ) : (job.artifact as Record<string, unknown>).unwantedTextDetected === false ? null : (
+                <div className="mx-3 mb-1 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white/35">
+                  automatic artifact inspection could not run this time — {String((job.artifact as Record<string, unknown>).reason ?? 'unavailable')}
+                </div>
+              )
+            ) : null}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <a
+                href={job.imageUrl}
+                download={`bean-laxii-${job.id}.${job.format === 'png' ? 'png' : 'jpg'}`}
+                className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2.5 py-1.5 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
+              >
+                <Download className="h-3 w-3" /> Download
+              </a>
+              {job.task === 'image-generation' && job.prompt ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRegenerate(job.prompt!, job.size)
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md border border-[rgba(212,175,55,0.35)] px-2.5 py-1.5 text-[11px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
+                >
+                  <RefreshCw className="h-3 w-3" /> Regenerate
+                </button>
+              ) : null}
             <button
               onClick={() => {
                 setCopied(true)
@@ -1042,7 +1167,8 @@ function JobInThread({
             >
               <Maximize2 className="h-3 w-3" /> Upscale
             </button>
-          </div>
+            </div>
+          </>
         ) : null}
 
         {/* Preservation report (deterministic engine jobs) */}

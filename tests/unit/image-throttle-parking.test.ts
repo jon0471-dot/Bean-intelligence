@@ -126,6 +126,9 @@ mock.module('@/lib/intel/grounding', () => ({
   }),
 }))
 mock.module('@/lib/intel/continuity', () => ({
+  // M26.3: the mock must carry the FULL export surface (module replacement
+  // replaces every export — missing ones break the import).
+  unwantedTextDefects: (defects: string[]) => [],
   verifyGeneratedImage: async () => ({
     checked: false,
     method: 'unavailable',

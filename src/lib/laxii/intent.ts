@@ -74,8 +74,8 @@ const LAXII_PRESET_SIZES: Record<string, string> = {
   square: '1024x1024',
   portrait: '768x1344',
   landscape: '1344x768',
-  wide: '1440x720',
-  tall: '720x1440',
+  wide: '2048x1024',
+  tall: '1024x2048',
 }
 
 const RATIO_PRESET_SIZES: Array<{ ratio: number; size: string }> = [
@@ -84,8 +84,10 @@ const RATIO_PRESET_SIZES: Array<{ ratio: number; size: string }> = [
   { ratio: 864 / 1152, size: '864x1152' },
   { ratio: 1344 / 768, size: '1344x768' },
   { ratio: 1152 / 864, size: '1152x864' },
-  { ratio: 2, size: '1440x720' },
-  { ratio: 0.5, size: '720x1440' },
+  { ratio: 16 / 9, size: '2048x1152' },
+  { ratio: 9 / 16, size: '1152x2048' },
+  { ratio: 2, size: '2048x1024' },
+  { ratio: 0.5, size: '1024x2048' },
 ]
 
 const BG_REMOVAL_RE =

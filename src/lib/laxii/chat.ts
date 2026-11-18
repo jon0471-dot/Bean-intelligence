@@ -33,6 +33,12 @@ export interface SerializedJobView {
   bytes: number | null
   durationMs: number | null
   transparent: boolean
+  // M26.3 honest quality report — measured values from the job result only.
+  aspectRatio: string | null
+  model: string | null
+  generation: Record<string, unknown> | null
+  artifact: Record<string, unknown> | null
+  prompt: string | null
   queuedAt: string
 }
 
@@ -116,6 +122,13 @@ export function jobViewOfRow(job: JobRowLike): SerializedJobView {
     bytes: (result?.bytes as number) ?? null,
     durationMs: (result?.durationMs as number) ?? null,
     transparent: result?.transparent === true,
+    // M26.3 — honest quality-report fields (never invented; absent when the
+    // job carries no measured value of that kind).
+    aspectRatio: (result?.aspectRatio as string) ?? null,
+    model: (result?.model as string) ?? null,
+    generation: (result?.generation as Record<string, unknown>) ?? null,
+    artifact: (result?.artifact as Record<string, unknown>) ?? null,
+    prompt: typeof params.prompt === 'string' ? (params.prompt as string) : null,
     queuedAt: job.queuedAt.toISOString(),
   }
 }

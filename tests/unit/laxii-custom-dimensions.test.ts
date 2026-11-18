@@ -88,19 +88,18 @@ describe('planExactDimensions — generation strategy selection', () => {
     }
   })
 
-  test('1920x1080 generates 1344x768 and center-crops ~1.6% (no distortion)', () => {
+  test('M26.3: 1920x1080 generates the EXACT 16:9 native 2048x1152 — pure resize, zero loss', () => {
     const plan = planExactDimensions(1920, 1080)
-    expect(plan.generateWidth).toBe(1344)
-    expect(plan.generateHeight).toBe(768)
-    expect(plan.strategy.kind).toBe('cover-crop')
-    expect(plan.strategy.kind === 'cover-crop' && plan.strategy.cropLossPct).toBeLessThan(2.5)
+    expect(plan.generateWidth).toBe(2048)
+    expect(plan.generateHeight).toBe(1152)
+    expect(plan.strategy.kind).toBe('resize')
   })
 
-  test('1080x1920 mirrors the landscape case', () => {
+  test('M26.3: 1080x1920 mirrors with the 9:16 native 1152x2048 (pure resize)', () => {
     const plan = planExactDimensions(1080, 1920)
-    expect(plan.generateWidth).toBe(768)
-    expect(plan.generateHeight).toBe(1344)
-    expect(plan.strategy.kind).toBe('cover-crop')
+    expect(plan.generateWidth).toBe(1152)
+    expect(plan.generateHeight).toBe(2048)
+    expect(plan.strategy.kind).toBe('resize')
   })
 
   test('2048x2048 uses the native 1024x1024 with a pure resize (same aspect, no crop)', () => {

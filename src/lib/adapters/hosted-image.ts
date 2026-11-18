@@ -16,15 +16,19 @@ import {
 } from '@/lib/upstream/gateway'
 
 const BACKEND_ID = 'bean-image-hosted-primary'
-/** Exactly the size literals the gateway SDK accepts. */
+/** Exactly the size literals the gateway SDK accepts (M26.3: the measured
+ *  provider contract — /32-aligned, 512–2880 per side, ≤2²² px; the two
+ *  misaligned sizes the old list carried always failed with HTTP 400). */
 const SUPPORTED_SIZES = [
   '1024x1024',
   '768x1344',
   '864x1152',
   '1344x768',
   '1152x864',
-  '1440x720',
-  '720x1440',
+  '2048x1152',
+  '1152x2048',
+  '2048x1024',
+  '1024x2048',
 ] as const
 type SupportedSize = (typeof SUPPORTED_SIZES)[number]
 // The literal union remains the adapter's contract for native generation;

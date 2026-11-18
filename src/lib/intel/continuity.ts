@@ -290,7 +290,24 @@ const IMAGE_DEFECT_CHECKLIST = [
   'lighting inconsistencies (shadows from multiple directions, missing shadows)',
   'material behavior errors (glass bending, rigid liquid)',
   'text artifacts or garbled lettering (if any text was requested, verify it matches)',
+  'unwanted embedded text, letters, logos, wordmarks, watermarks or signatures that the request never asked for (e.g. a brand-like mark rendered into a corner of the scene)',
 ]
+
+/**
+ * M26.3 — extract the UNWANTED embedded text/logo/watermark defects from a
+ * verification report. The checklist distinguishes "text artifacts" (the
+ * prompt DEMANDED wording and the model rendered it wrong) from "unwanted
+ * embedded marks" (no text was requested at all); only the latter class
+ * drives the bounded watermark regeneration. Matched by intent, never by
+ * guessing: a defect counts when it plainly reports a mark nobody asked for.
+ */
+export function unwantedTextDefects(defects: string[]): string[] {
+  const re =
+    /\b(unwanted|embedded|brand|brand-?like|wordmark|watermark|signature|logo[s]?|letters?|lettering|text|caption|typography)\b/i
+  const notRequested = /\b(no text|not requested|never (asked|requested)|without (any )?text|unwanted|unexpected|despite|even though)\b/i
+  const demandedText = /\b(demanded|requested text|requested wording|expected wording|exact wording|garbled|misspell)/i
+  return defects.filter((d) => re.test(d) && !demandedText.test(d) || (re.test(d) && notRequested.test(d)))
+}
 
 /**
  * LAXII: verify a generated image against the defect checklist. Non-fatal
@@ -302,6 +319,7 @@ export async function verifyGeneratedImage(imageDataUrl: string, requestSummary:
   const instruction =
     `You are an image-quality inspector. The generated image was requested as: "${requestSummary.slice(0, 300)}".\n` +
     `Inspect it for these DEFECT classes only:\n${checklist}\n` +
+    `The request summary above states everything the image was ASKED to show — any text, letters, logo, wordmark or watermark visible in the image that the request never asked for IS a defect: report it and quote the exact characters you can read.\n` +
     `Respond with JSON only: {"defects":["<each clearly observed defect>"],"observation":"one-sentence factual description of the image"}. ` +
     `If none are visible, return an empty defects array. Report only what is clearly visible; do not invent defects.`
 

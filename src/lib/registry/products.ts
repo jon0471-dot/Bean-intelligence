@@ -131,6 +131,8 @@ export const LAXII_SIZES = [
   { value: '864x1152', label: 'Portrait 3:4' },
   { value: '1344x768', label: 'Landscape 7:4' },
   { value: '1152x864', label: 'Landscape 4:3' },
-  { value: '1440x720', label: 'Wide 2:1' },
-  { value: '720x1440', label: 'Tall 1:2' },
+  { value: '2048x1152', label: 'Landscape 16:9' },
+  { value: '1152x2048', label: 'Portrait 9:16' },
+  { value: '2048x1024', label: 'Wide 2:1' },
+  { value: '1024x2048', label: 'Tall 1:2' },
 ] as const

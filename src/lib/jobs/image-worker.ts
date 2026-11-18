@@ -15,11 +15,15 @@ import { withTimeout } from '@/lib/adapters/hosted-llm'
 import {
   validateDimensions,
   planExactDimensions,
+  planFinishStrategy,
   applyExactDimensions,
   measureImage,
   generationProvenance,
+  aspectRatioLabel,
+  isValidProviderSize,
   DimensionError,
   type DimensionPlan,
+  type ExactStrategy,
 } from '@/lib/laxii/dimensions'
 import {
   extractExactTextDemands,
@@ -39,7 +43,7 @@ import { appendJobEventSafe } from '@/lib/ai-engine/events'
 import { getBackend } from '@/lib/registry/backends'
 import { storeResultAsset } from '@/lib/laxii/assets'
 import { prepareImageIntelligence } from '@/lib/intel/grounding'
-import { verifyGeneratedImage, imageBufferToDataUrl } from '@/lib/intel/continuity'
+import { verifyGeneratedImage, imageBufferToDataUrl, unwantedTextDefects } from '@/lib/intel/continuity'
 import { automatedQuotaState, automatedSkipReason } from '@/lib/providers/account-quota'
 import fs from 'fs'
 import path from 'path'
@@ -350,6 +354,7 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
     durationMs: number
     generation: Record<string, unknown>
     verification: Record<string, unknown> | null
+    artifact?: Record<string, unknown> | null
   }): Promise<void> => {
     if (await isCancelRequested(job.id)) {
       await settleCancelled(job, job.workerId, 'after generation finished', true)
@@ -385,7 +390,14 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       format: io.format,
       bytes: io.bytes.length,
       durationMs: io.durationMs,
+      // M26.3 honest quality report: the aspect ratio is the reduced fraction
+      // of the FINAL encoded dimensions, and the model identity comes from
+      // the registry — measured values only, never invented.
+      aspectRatio: aspectRatioLabel(target.width, target.height),
+      model: backend.modelIdentity,
+      backendId: backend.id,
       generation: io.generation,
+      ...(io.artifact ? { artifact: io.artifact } : {}),
       ...(intelMeta ? { intel: intelMeta } : {}),
       ...(io.verification ? { verification: io.verification } : {}),
       ...(throttle0.submissionAttempts > 0 || throttle0.throttleWaitMs > 0
@@ -535,6 +547,18 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
   }
 
   try {
+    // M26.3 — MEASURED provider size contract (HTTP 400 code 1214): both
+    // sides 512–2880px AND multiples of 32 AND ≤ 2^22 px total. The old
+    // native list contained two misaligned sizes (1440x720 / 720x1440) that
+    // ALWAYS failed after quota spend; the planner is corrected and this
+    // guard makes any future drift fail fast BEFORE the provider call.
+    if (!isValidProviderSize(plan.generateWidth, plan.generateHeight)) {
+      throw new DimensionError(
+        'INVALID_DIMENSIONS',
+        `the planned generation size ${plan.generateWidth}x${plan.generateHeight} violates the ` +
+          "provider's measured size contract (each side 512-2880px, a multiple of 32, total pixels <= 2^22) — nothing was generated",
+      )
+    }
     const result = await withTimeout(
       hostedImageAdapter.generateImage!({
         prompt: conditionedPrompt,
@@ -550,19 +574,47 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
     // verification, so every downstream consumer sees the delivered artifact.
     // The decoded byte dimensions are MEASURED, never trusted from metadata
     // (brief PART 2 §9); a mismatch fails the job honestly.
+    // M26.3 RESILIENCE: the FIELD measured the provider answering a landscape
+    // request with its own square default (1312x1312). Failing the job there
+    // leaves the user with nothing; instead the ACTUAL bytes are finished to
+    // the exact requested target with the least-loss strategy (same decision
+    // rules: no stretching, no crop beyond COVER_CROP_LOSS_MAX, blurred
+    // edge-derived padding otherwise) and the WHOLE truth is persisted in the
+    // generation provenance — requested vs planned vs providerReturned vs
+    // finalStrategy. A genuine unusable response still fails honestly.
     let finalBytes = result.bytes
     let finalFormat = result.format
+    let finishFromActual: { providerReturned: { width: number; height: number }; strategy: ExactStrategy } | null = null
     const nativeResult = await measureImage(result.bytes)
     if (
       nativeResult.width !== plan.generateWidth ||
       nativeResult.height !== plan.generateHeight
     ) {
-      throw new Error(
-        `the provider returned ${nativeResult.width}x${nativeResult.height} for a ` +
-          `${plan.generateWidth}x${plan.generateHeight} request — dimensions did not validate`,
-      )
+      const finishStrategy = planFinishStrategy(nativeResult, target)
+      const applied = await applyExactDimensions(result.bytes, target, {
+        generateWidth: nativeResult.width,
+        generateHeight: nativeResult.height,
+        strategy: finishStrategy,
+      })
+      const measured = await measureImage(applied.bytes)
+      if (measured.width !== target.width || measured.height !== target.height) {
+        throw new Error(
+          `the exact-dimension pipeline produced ${measured.width}x${measured.height} ` +
+            `instead of the requested ${target.width}x${target.height} — artifact rejected`,
+        )
+      }
+      finalBytes = applied.bytes
+      finalFormat = 'jpeg'
+      finishFromActual = { providerReturned: { width: nativeResult.width, height: nativeResult.height }, strategy: finishStrategy }
+      logger.warn('laxii.provider_size_mismatch_finished', {
+        jobId: job.id,
+        planned: `${plan.generateWidth}x${plan.generateHeight}`,
+        providerReturned: `${nativeResult.width}x${nativeResult.height}`,
+        finishStrategy: finishStrategy.kind,
+        delivered: `${target.width}x${target.height}`,
+      })
     }
-    if (plan.strategy.kind !== 'native') {
+    if (plan.strategy.kind !== 'native' && !finishFromActual) {
       const applied = await applyExactDimensions(result.bytes, target, plan)
       const measured = await measureImage(applied.bytes)
       if (measured.width !== target.width || measured.height !== target.height) {
@@ -573,6 +625,41 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       }
       finalBytes = applied.bytes
       finalFormat = 'jpeg'
+    }
+
+    // M26.3 — one reusable exact-finish pass for ANY provider bytes (the
+    // original run and, if needed, the bounded watermark regeneration below):
+    // measure → mismatch finish → verified exact target.
+    const finishProviderBytes = async (
+      bytes: Buffer,
+    ): Promise<{ bytes: Buffer; format: 'jpeg' | 'png'; providerReturned: { width: number; height: number } }> => {
+      const measured = await measureImage(bytes)
+      let outBytes = bytes
+      let outFormat: 'jpeg' | 'png' = measured.format === 'png' ? 'png' : 'jpeg'
+      let mismatch: { providerReturned: { width: number; height: number }; strategy: ExactStrategy } | null = null
+      if (measured.width !== plan.generateWidth || measured.height !== plan.generateHeight) {
+        const strategy = planFinishStrategy(measured, target)
+        const applied = await applyExactDimensions(bytes, target, {
+          generateWidth: measured.width,
+          generateHeight: measured.height,
+          strategy,
+        })
+        outBytes = applied.bytes
+        outFormat = 'jpeg'
+        mismatch = { providerReturned: { width: measured.width, height: measured.height }, strategy }
+      } else if (plan.strategy.kind !== 'native') {
+        const applied = await applyExactDimensions(bytes, target, plan)
+        outBytes = applied.bytes
+        outFormat = 'jpeg'
+      }
+      const final = await measureImage(outBytes)
+      if (final.width !== target.width || final.height !== target.height) {
+        throw new Error(
+          `the exact-dimension pipeline produced ${final.width}x${final.height} ` +
+            `instead of the requested ${target.width}x${target.height} — artifact rejected`,
+        )
+      }
+      return { bytes: outBytes, format: outFormat, providerReturned: mismatch?.providerReturned ?? { width: plan.generateWidth, height: plan.generateHeight } }
     }
 
     // ---- TEXT-HEAVY GENERATION (PART 4): when the prompt demanded exact
@@ -733,6 +820,126 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       logger.warn('laxii.intel_verification_failed', { jobId: job.id, message: e instanceof Error ? e.message : String(e) })
     }
 
+    // ---- M26.3 WATERMARK / UNWANTED-MARK HANDLING ---------------------------
+    // The field showed an IMAX-like wordmark rendered INTO a cinematic image
+    // that never asked for text. Classification (M26_3_WATERMARK_INVESTIGATION.md):
+    // the mark is generated directly by the model — no BEAN overlay exists
+    // anywhere in the pipeline, and clean generations carry no mark. Handling
+    // per the milestone contract:
+    //   1. the prompt conditioning now EXCLUDES text/logos/watermarks;
+    //   2. when the bounded vision check reports UNWANTED marks, ONE
+    //      regeneration attempt runs with the same prompt and planned size
+    //      (quota-guarded exactly like every automated provider consumption);
+    //   3. the regenerated image replaces the flagged one ONLY when its own
+    //      re-check is clean; otherwise the ORIGINAL stays the result and is
+    //      flagged — never silently cropped, never overwritten dishonestly;
+    //   4. the result records the whole truth; the UI surfaces the flag and
+    //      an explicit Regenerate action.
+    let artifactReport: Record<string, unknown> | null = null
+    {
+      const checked = verification?.checked === true
+      const defects = checked && Array.isArray((verification as Record<string, unknown>)?.defects)
+        ? ((verification as Record<string, unknown>).defects as string[])
+        : []
+      const unwanted = checked ? unwantedTextDefects(defects) : []
+      if (!checked) {
+        artifactReport = {
+          checked: false,
+          unwantedTextDetected: null,
+          reason: String((verification as Record<string, unknown>)?.reason ?? 'verification unavailable').slice(0, 160),
+        }
+      } else if (unwanted.length === 0) {
+        artifactReport = { checked: true, unwantedTextDetected: false, checkedAt: (verification as Record<string, unknown>).checkedAt }
+      } else {
+        artifactReport = { checked: true, unwantedTextDetected: true, defects: unwanted, checkedAt: (verification as Record<string, unknown>).checkedAt }
+        const tRegen = Date.now()
+        try {
+          const quotaState = await automatedQuotaState()
+          const reserveReason = automatedSkipReason(quotaState)
+          if (reserveReason) throw new Error(`regeneration not attempted: ${reserveReason}`)
+          const regen = await withTimeout(
+            hostedImageAdapter.generateImage!({
+              prompt: conditionedPrompt,
+              size: generateSize,
+              timeoutMs: backend.timeouts.requestMs,
+            }),
+            backend.timeouts.requestMs,
+            'Image regeneration',
+          )
+          const regenFinished = await finishProviderBytes(regen.bytes)
+          const regenDataUrl = await imageBufferToDataUrl(regenFinished.bytes, regenFinished.format === 'png' ? 'image/png' : 'image/jpeg')
+          const recheck = await verifyGeneratedImage(regenDataUrl, params.prompt)
+          const unwantedAfter = recheck.checked ? unwantedTextDefects(recheck.defects) : []
+          const clean = recheck.checked && unwantedAfter.length === 0
+          artifactReport = {
+            ...artifactReport,
+            regeneration: {
+              attempted: true,
+              used: clean,
+              defectsAfter: recheck.checked ? unwantedAfter : null,
+              ...(recheck.checked ? {} : { recheckReason: String(recheck.reason ?? '').slice(0, 160) }),
+              durationMs: Date.now() - tRegen,
+              note: clean
+                ? 'the regenerated image is text/artifact-clean and replaced the flagged first attempt — the flagged original is preserved and linked in flaggedOriginalAssetUrl'
+                : 'the ORIGINAL flagged image stays the result: the single bounded regeneration still showed unwanted text (an explicit Regenerate action remains available)',
+            },
+          }
+          if (clean) {
+            // Preserve the FLAGGED original, deliver the clean regeneration.
+            const flaggedAsset = await storeResultAsset(job.userId, 'result', finalBytes, target.width, target.height, {
+              jobId: job.id,
+              artifact: 'flagged-original',
+              mime: finalFormat === 'png' ? 'image/png' : 'image/jpeg',
+            })
+            artifactReport.flaggedOriginalAssetUrl = flaggedAsset.url
+            finalBytes = regenFinished.bytes
+            finalFormat = regenFinished.format
+            finishFromActual =
+              regenFinished.providerReturned.width !== plan.generateWidth ||
+              regenFinished.providerReturned.height !== plan.generateHeight
+                ? {
+                    providerReturned: regenFinished.providerReturned,
+                    strategy: planFinishStrategy(regenFinished.providerReturned, target),
+                  }
+                : null
+            await recordUsage({
+              userId: job.userId,
+              product: 'laxii',
+              backendId: backend.id,
+              kind: 'image-generation',
+              imageCount: 1,
+              durationMs: Date.now() - tRegen,
+              success: true,
+            })
+            logger.info('laxii.artifact_regeneration_clean', { jobId: job.id, durationMs: Date.now() - tRegen })
+          } else {
+            await recordUsage({
+              userId: job.userId,
+              product: 'laxii',
+              backendId: backend.id,
+              kind: 'image-generation',
+              imageCount: 1,
+              durationMs: Date.now() - tRegen,
+              success: true,
+            })
+            logger.info('laxii.artifact_regeneration_still_flagged', { jobId: job.id })
+          }
+        } catch (e) {
+          artifactReport = {
+            ...artifactReport,
+            regeneration: {
+              attempted: false,
+              used: false,
+              reason: String(e instanceof Error ? e.message : e).slice(0, 180),
+              durationMs: Date.now() - tRegen,
+              note: 'the ORIGINAL flagged image stays the result',
+            },
+          }
+          logger.warn('laxii.artifact_regeneration_failed', { jobId: job.id, message: e instanceof Error ? e.message : String(e) })
+        }
+      }
+    }
+
     // Persist artifact under BEAN storage; access is authorized per-user.
     // The bytes written are the VERIFIED bytes (the applied correction replaces
     // the original file when — and only when — the re-check proved it better).
@@ -740,11 +947,12 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       bytes: verifiedBytes,
       format: verifiedFormat,
       durationMs: result.durationMs,
-      generation: generationProvenance(plan, target),
+      generation: generationProvenance(plan, target, finishFromActual ? finishFromActual : undefined),
       verification: {
         ...(verification ?? {}),
         ...(textValidation ? { textValidation } : {}),
       },
+      artifact: artifactReport,
     })
   } catch (e) {
     // ZERO-DOWNTIME RECOVERY (2026-11-11): a throttle-class failure (real 429

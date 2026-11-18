@@ -214,6 +214,37 @@ export function buildMotionTimeline(prompt: string, u: PromptUnderstanding): str
 }
 
 /**
+ * M26.3 — style-aware realism conditioning for LAXII generation.
+ *
+ * Rules (per the milestone contract):
+ *  - an EXPLICIT artistic style declaration always wins: the user asked for
+ *    anime/painting/3D/etc., so NO photoreal conditioning is appended;
+ *  - otherwise, when the prompt leans cinematic/photographic ("cinematic",
+ *    "photorealistic", "film still", a named camera/film stock, …) or makes
+ *    a real-world scene request, strengthen the conditioning toward
+ *    live-action photographic realism with the milestone's checklist;
+ *  - the returned block is appended conditioning — the user's prompt stays
+ *    verbatim and first; nothing is rewritten.
+ */
+export function laxiiStyleConditioning(normalizedPrompt: string): string | null {
+  const ARTISTIC_STYLE =
+    /\b(anime|manga|illustration|illustrated|painting|oil\s+painting|watercolor|watercolour|sketch|pencil\s+drawing|drawing|cartoon|comic|pixel\s*art|3d\s*render|cgi|concept\s*art|vector|flat\s*design|low\s*poly|claymation|stop[- ]motion)\b/i
+  const PHOTOREAL =
+    /\b(cinematic|photorealistic|photoreal|photograph|photo\s+of|film\s+still|live[- ]action|realistic|realism|documentary|editorial\s+photography|movie\s+still|35mm|85mm|cinematography|color\s*grade|colour\s*grade|filmic)\b/i
+
+  if (ARTISTIC_STYLE.test(normalizedPrompt)) return null
+  if (!PHOTOREAL.test(normalizedPrompt)) return null
+  return (
+    'Realism directives (live-action photographic rendering): treat this as a cinematic film still from ' +
+    'a real camera; photographic environmental detail with natural imperfections; realistic anatomy, hands ' +
+    'and fabric behavior; natural materials with true surface texture (skin pores, wood grain, metal wear); ' +
+    'physically consistent lighting with coherent shadows; natural atmospheric effects (air haze, dust, ' +
+    'volumetric light where plausible); natural lens characteristics (depth of field, mild optical falloff); ' +
+    'filmic color grading; absolutely no illustration, anime or painterly concept-art look.'
+  )
+}
+
+/**
  * Compile the full conditioning block. Bounded to the product budget;
  * truncation drops the LOWEST-priority sections first (fidelity notes →
  * extra world facts) and NEVER touches the user prompt.
@@ -245,6 +276,28 @@ export function compileConditioning(
     sections.push({ priority: 1, text: buildMotionTimeline(u.normalized, u) })
   }
   sections.push({ priority: 3, text: renderCinematographyBlock(cinema, product) })
+
+  // M26.3 WATERMARK / TEXT-ARTIFACT EXCLUSION (LAXII): the field measured an
+  // IMAX-like wordmark rendered INTO a cinematic image that never asked for
+  // text. The final prompt now excludes embedded text unconditionally for
+  // LAXII generation — explicit, short, and appended WITHOUT touching the
+  // user's own words (the user prompt stays verbatim and first).
+  if (product === 'laxii') {
+    sections.push({
+      priority: 2,
+      text:
+        'Exclusions (mandatory): absolutely no text, no letters, no words, no numbers, no captions, ' +
+        'no logos, no wordmarks, no watermarks, no signatures and no trademarks anywhere in the image.',
+    })
+    // M26.3 CINEMATIC PROMPT ADHERENCE: when the request asks for
+    // photorealism/cinematic rendering and does NOT declare an artistic
+    // style, strengthen the conditioning toward live-action photographic
+    // realism. A declared style (anime, oil painting, 3D render, …) is
+    // RESPECTED — the realism block is skipped so artistic prompts are
+    // never flattened into photorealism.
+    const style = laxiiStyleConditioning(u.normalized)
+    if (style) sections.push({ priority: 3, text: style })
+  }
 
   if (opts.referenceContinuity) sections.push({ priority: 0, text: opts.referenceContinuity })
 

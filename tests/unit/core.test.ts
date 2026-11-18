@@ -28,9 +28,13 @@ describe('public product catalog (customer-facing identity)', () => {
     }
   })
 
-  test('LAXII exposes exactly the seven backend-supported sizes', () => {
-    expect(LAXII_SIZES).toHaveLength(7)
+  test('LAXII exposes exactly the nine provider-valid sizes (M26.3 measured contract)', () => {
+    // M26.3: the provider rejects non-/32-aligned sides (HTTP 400 code 1214);
+    // the catalog now carries the nine /32-aligned sizes including true 16:9.
+    expect(LAXII_SIZES).toHaveLength(9)
     expect(LAXII_SIZES.map((s) => s.value)).toContain('1024x1024')
+    expect(LAXII_SIZES.map((s) => s.value)).toContain('2048x1152')
+    expect(LAXII_SIZES.map((s) => s.value)).not.toContain('1440x720')
   })
 
   test('getProduct resolves and rejects correctly', () => {

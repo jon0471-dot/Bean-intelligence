@@ -135,7 +135,7 @@ export const AI_MODEL_REGISTRY: ModelRegistryEntry[] = [
     capabilities: ['text-to-image'],
     inputFormats: ['text'],
     outputFormats: ['jpeg'],
-    limits: { maxPromptChars: 4_000, sizes: ['1024x1024', '768x1344', '864x1152', '1344x768', '1152x864', '1440x720', '720x1440'] },
+    limits: { maxPromptChars: 4_000, sizes: ['1024x1024', '768x1344', '864x1152', '1344x768', '1152x864', '2048x1152', '1152x2048', '2048x1024', '1024x2048'] },
     maxDurationMs: 180_000,
     hardware: { vramMb: null },
     costClass: 'free-hosted',

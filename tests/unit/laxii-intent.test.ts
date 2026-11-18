@@ -115,13 +115,13 @@ describe('dimension and ratio hints survive into the generation params', () => {
   test('aspect ratio snaps to the nearest supported preset', () => {
     const d = detectIntent({ text: 'Generate a movie banner in 16:9 style.', ...NO_IMAGE })
     expect(d.intent).toBe('generate')
-    expect(d.size).toBe('1344x768')
+    expect(d.size).toBe('2048x1152')
   })
 
   test('aspect words map to presets (portrait / square / wide / tall)', () => {
-    expect(detectIntent({ text: 'draw a tall bookmark design', ...NO_IMAGE }).size).toBe('720x1440')
+    expect(detectIntent({ text: 'draw a tall bookmark design', ...NO_IMAGE }).size).toBe('1024x2048')
     expect(detectIntent({ text: 'make a square avatar illustration', ...NO_IMAGE }).size).toBe('1024x1024')
-    expect(detectIntent({ text: 'wide desktop wallpaper of mountains', ...NO_IMAGE }).size).toBe('1440x720')
+    expect(detectIntent({ text: 'wide desktop wallpaper of mountains', ...NO_IMAGE }).size).toBe('2048x1024')
   })
 
   test('out-of-bounds explicit dimensions are NOT passed through', () => {

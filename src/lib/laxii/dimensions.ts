@@ -32,16 +32,60 @@
  */
 import sharp from 'sharp'
 
-/** The 7 provider-native generation sizes (registry LAXII_SIZES values). */
+/**
+ * The provider-native generation sizes (M26.3 CORRECTED — measured contract).
+ *
+ * MEASURED PROVIDER CONTRACT (2026-11-18, live HTTP 400 code 1214, message
+ * quoted verbatim from the gateway): both sides must be within 512–2880px,
+ * BOTH MUST BE MULTIPLES OF 32, and total pixels must not exceed 2²².
+ * The previous list contained 1440x720 and 720x1440 — 720 is NOT a multiple
+ * of 32, so every generation planned onto them failed with HTTP 400.
+ * Replacements and the true-16:9 additions below are all /32-aligned, inside
+ * the per-side range, and under the pixel cap:
+ *   2048x1152 = 2,359,296 px  (exact 16:9)
+ *   1152x2048 = 2,359,296 px  (exact 9:16)
+ *   2048x1024 = 2,097,152 px  (exact 2:1)
+ *   1024x2048 = 2,097,152 px  (exact 1:2)
+ */
 export const NATIVE_SIZES: ReadonlyArray<{ width: number; height: number }> = [
   { width: 1024, height: 1024 },
   { width: 768, height: 1344 },
   { width: 864, height: 1152 },
   { width: 1344, height: 768 },
   { width: 1152, height: 864 },
-  { width: 1440, height: 720 },
-  { width: 720, height: 1440 },
+  { width: 2048, height: 1152 },
+  { width: 1152, height: 2048 },
+  { width: 2048, height: 1024 },
+  { width: 1024, height: 2048 },
 ]
+
+/**
+ * M26.3 — the provider's measured size contract (see NATIVE_SIZES above).
+ * Every planned generation size is validated against this BEFORE the provider
+ * call: a violation fails fast with an honest message instead of a cryptic
+ * upstream 400 after quota spend.
+ */
+export const PROVIDER_SIZE_CONTRACT = {
+  minSidePx: 512,
+  maxSidePx: 2880,
+  sideMultipleOf: 32,
+  maxTotalPixels: 2 ** 22,
+} as const
+
+export function isValidProviderSize(width: number, height: number): boolean {
+  const c = PROVIDER_SIZE_CONTRACT
+  return (
+    Number.isInteger(width) &&
+    Number.isInteger(height) &&
+    width % c.sideMultipleOf === 0 &&
+    height % c.sideMultipleOf === 0 &&
+    width >= c.minSidePx &&
+    height >= c.minSidePx &&
+    width <= c.maxSidePx &&
+    height <= c.maxSidePx &&
+    width * height <= c.maxTotalPixels
+  )
+}
 
 /** Inclusive bounds for user-requested dimensions (server-authoritative). */
 export const MIN_DIMENSION_PX = 256
@@ -177,11 +221,81 @@ export function planExactDimensions(width: number, height: number): DimensionPla
   }
 }
 
+/**
+ * M26.3 — finish plan from the ACTUAL provider output to the exact target.
+ * The provider is asked for one of its native sizes, but the FIELD showed it
+ * can answer with different dimensions (a square default) for landscape
+ * requests. Instead of failing the job, the actual bytes are finished to the
+ * exact requested target with the least-loss strategy — never stretched,
+ * never silently cropped beyond COVER_CROP_LOSS_MAX, always disclosed.
+ * Same decision math as planExactDimensions, with the source being the
+ * provider's real output instead of a native size.
+ */
+export function planFinishStrategy(
+  actual: { width: number; height: number },
+  target: { width: number; height: number },
+): ExactStrategy {
+  const targetAspect = aspect(target.width, target.height)
+  const sourceAspect = aspect(actual.width, actual.height)
+
+  // Same aspect (within tolerance): a pure high-quality scale — no crop, no
+  // distortion, no padding.
+  if (Math.abs(sourceAspect - targetAspect) < 1e-6) {
+    return { kind: 'resize', note: 'same aspect ratio — high-quality scale, no crop and no distortion' }
+  }
+
+  // Cover: scale the actual output so it covers the target, center-crop the
+  // remainder when the discarded share stays within the design bound.
+  const s = Math.max(target.width / actual.width, target.height / actual.height)
+  const scaledW = actual.width * s
+  const scaledH = actual.height * s
+  const cropLoss = 1 - (target.width * target.height) / (scaledW * scaledH)
+  if (cropLoss <= COVER_CROP_LOSS_MAX) {
+    return {
+      kind: 'cover-crop',
+      cropLossPct: Math.round(cropLoss * 1000) / 10,
+      note: 'scaled to cover and center-cropped — no distortion, edges trimmed',
+    }
+  }
+
+  // Otherwise pad-extend: the actual output scaled to FIT, composed over a
+  // blurred edge-derived background — nothing of the subject discarded.
+  const fittedS = Math.min(target.width / actual.width, target.height / actual.height)
+  const fittedW = actual.width * fittedS
+  const fittedH = actual.height * fittedS
+  const padShare = 1 - (fittedW * fittedH) / (target.width * target.height)
+  return {
+    kind: 'pad-extend',
+    padPct: Math.round(padShare * 1000) / 10,
+    note: 'scaled to fit; background extended with a blurred edge-derived fill',
+  }
+}
+
 /** Decode actual pixel dimensions from image bytes (never trust metadata). */
 export async function measureImage(bytes: Buffer): Promise<{ width: number; height: number; format: string }> {
   const meta = await sharp(bytes).metadata()
   if (!meta.width || !meta.height) throw new Error('decoded image has no measurable dimensions')
   return { width: meta.width, height: meta.height, format: meta.format ?? 'unknown' }
+}
+
+/**
+ * M26.3 — reduce a final width×height to its small fraction label ("16:9").
+ * Pure, integer-exact (no float rounding traps): gcd reduction with a
+ * graceful fallback to one-decimal precision for ratios that do not reduce
+ * cleanly (e.g. 1344x768 → "7:4"; 1921×1081 → "1.8:1"). Used for the honest
+ * quality report — the label ALWAYS describes the FINAL encoded dimensions.
+ */
+export function aspectRatioLabel(width: number, height: number): string {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) return 'unknown'
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b))
+  const g = gcd(width, height)
+  const rw = width / g
+  const rh = height / g
+  if (rw <= 64 && rh <= 64) return `${rw}:${rh}`
+  // Not a clean small fraction: one decimal on the larger term.
+  const ratio = width / height
+  const r = ratio >= 1 ? `${(ratio).toFixed(1)}:1` : `1:${(1 / ratio).toFixed(1)}`
+  return r
 }
 
 const JPEG_QUALITY = 93
@@ -243,21 +357,35 @@ export async function applyExactDimensions(
 export function generationProvenance(
   plan: DimensionPlan,
   requested: { width: number; height: number },
+  finish?: {
+    /** What the provider ACTUALLY returned, when it ignored the plan. */
+    providerReturned: { width: number; height: number }
+    /** The strategy applied to finish the actual bytes to the target. */
+    strategy: ExactStrategy
+  },
 ): Record<string, unknown> {
-  if (plan.strategy.kind === 'native') {
-    return {
-      requested: `${requested.width}x${requested.height}`,
-      generated: `${plan.generateWidth}x${plan.generateHeight}`,
-      strategy: 'native',
-      note: 'generated at the exact requested resolution by the provider',
-    }
-  }
-  return {
+  const base: Record<string, unknown> = {
     requested: `${requested.width}x${requested.height}`,
     generated: `${plan.generateWidth}x${plan.generateHeight}`,
-    strategy: plan.strategy.kind,
-    ...(plan.strategy.kind === 'cover-crop' ? { cropLossPct: plan.strategy.cropLossPct } : {}),
-    ...(plan.strategy.kind === 'pad-extend' ? { paddedAreaPct: plan.strategy.padPct } : {}),
-    note: plan.strategy.note,
   }
+  if (plan.strategy.kind !== 'native') {
+    base.strategy = plan.strategy.kind
+    if (plan.strategy.kind === 'cover-crop') base.cropLossPct = plan.strategy.cropLossPct
+    if (plan.strategy.kind === 'pad-extend') base.paddedAreaPct = plan.strategy.padPct
+    base.note = plan.strategy.note
+  } else {
+    base.strategy = 'native'
+    base.note = 'generated at the exact requested resolution by the provider'
+  }
+  if (finish) {
+    // M26.3: the provider ignored the planned size — record the WHOLE truth:
+    // what was asked, what came back, and how the exact target was reached.
+    base.providerReturned = `${finish.providerReturned.width}x${finish.providerReturned.height}`
+    base.finishStrategy = finish.strategy.kind
+    if (finish.strategy.kind === 'cover-crop') base.finishCropLossPct = finish.strategy.cropLossPct
+    if (finish.strategy.kind === 'pad-extend') base.finishPaddedAreaPct = finish.strategy.padPct
+    const finishNote = 'note' in finish.strategy ? finish.strategy.note : 'finished to the exact requested dimensions'
+    base.note = `${base.note}; the provider returned ${finish.providerReturned.width}x${finish.providerReturned.height} instead of the planned ${plan.generateWidth}x${plan.generateHeight} — the output was finished to the exact requested dimensions (${finishNote})`
+  }
+  return base
 }

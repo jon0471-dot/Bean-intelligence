@@ -88,7 +88,7 @@ const schema = z.discriminatedUnion('mode', [
     prompt: z.string().min(3).max(2000),
     // Edited-output dimensions; omitted = provider default (honest pass-through).
     size: z
-      .enum(['1024x1024', '768x1344', '864x1152', '1344x768', '1152x864', '1440x720', '720x1440'])
+      .enum(['1024x1024', '768x1344', '864x1152', '1344x768', '1152x864', '2048x1152', '1152x2048', '2048x1024', '1024x2048'])
       .optional(),
   }),
   // OPERATIONAL-TRANSFORMATION (2026-11-11), Phase 4: REAL background

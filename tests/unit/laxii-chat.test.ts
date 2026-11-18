@@ -144,7 +144,8 @@ describe('generation through conversation', () => {
     const job = await lastJob()
     expect(JSON.parse(job?.paramsJson as string)).toEqual({
       prompt: 'Create a wide perfume banner in 16:9.',
-      size: '1344x768',
+      // M26.3: "16:9" now resolves to the EXACT 16:9 native the provider accepts.
+      size: '2048x1152',
     })
   })
 
