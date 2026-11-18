@@ -59,12 +59,19 @@ import {
 import type { HealthFailureCategory } from '@/lib/adapters/types'
 import { appendJobEventSafe } from '@/lib/ai-engine/events'
 import { CHROMA_BG_PROMPT, chromaCutout, validateCutout } from './bg-removal'
+import { parseLocalEditPlan, planRequiresApproval, executeLocalEditPlan, type LocalEditPlan } from './local-edit'
+import { runLocalBackgroundRemoval } from './bg-removal-local'
+import { lamaInstalled, lamaInpaint } from './inpaint-local'
+import { decodeRaw } from './segmentation'
+import { recordEditHistory } from './history'
 
 export interface JobLike {
   id: string
   userId: string
   status: string
   paramsJson: string
+  /** The resolved lane backend set at submission (M26.2 dispatch key). */
+  backendId?: string | null
   /** CAPABILITY RECOVERY (2026-11-11): the engine claim hands the row's
    *  resultJson through, so the hosted-edit / bg-removal throttle parking
    *  can persist its bounded retry budget in the same place T2I does. */
@@ -108,6 +115,15 @@ export interface EditJobParams {
   maxGenerativeSidePx?: number
   /** Hosted conversational edit: edited-output dimensions (optional). */
   size?: string
+  /** M26.2 lane selection for conversational-edit / background-removal. */
+  engine?: 'auto' | 'hosted' | 'local'
+  /** M26.2 explicit approval for destructive geometry ops (local engine). */
+  approved?: boolean
+  /** M26.2 local background-removal export options. */
+  output?: 'png' | 'jpeg'
+  backgroundColor?: string
+  backgroundBlur?: boolean
+  blurSigma?: number
 }
 
 interface StageCtx {
@@ -399,6 +415,13 @@ function resizeMask(mask: ShapedMask, w: number, h: number): ShapedMask {
   return { alpha: out, width: w, height: h }
 }
 
+/** M26.2: ShapedMask alpha (0..1 float) → binary 0/255 mask for the LaMa lane. */
+function maskToU8(mask: ShapedMask): Uint8Array {
+  const out = new Uint8Array(mask.width * mask.height)
+  for (let i = 0; i < out.length; i++) out[i] = mask.alpha[i] > 0.5 ? 255 : 0
+  return out
+}
+
 async function finishWithArtifacts(opts: {
   ctx: StageCtx
   original: RawImage
@@ -681,6 +704,15 @@ async function processHostedEditJob(job: JobLike, startedAt: number): Promise<vo
       httpStatus: null,
       upstream: false,
     })
+    await recordEditHistory({
+      userId: job.userId,
+      baseAssetId: params.assetId,
+      resultAssetId: resultAsset.id,
+      jobId: job.id,
+      engine: 'hosted-edit',
+      mode: 'conversational-edit',
+      ops: [{ type: 'conversational-edit', engine: 'hosted-edit' }],
+    })
     logger.info('laxii.hosted_edit_completed', { jobId: job.id, bytes: outPng.length })
   } catch (e) {
     // CAPABILITY RECOVERY (2026-11-11): a genuine HTTP 429 PARKS the job
@@ -879,6 +911,15 @@ async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Pro
     // in for a conversational-edit success (and a bg failure block editing),
     // which the capability model explicitly forbids: one capability's
     // evidence must never mask another's.
+    await recordEditHistory({
+      userId: job.userId,
+      baseAssetId: params.assetId,
+      resultAssetId: resultAsset.id,
+      jobId: job.id,
+      engine: 'hosted-bg-removal',
+      mode: 'background-removal',
+      ops: [{ type: 'background-removal', engine: 'hosted-edit+chroma-cutout' }],
+    })
     logger.info('laxii.bg_removal_completed', {
       jobId: job.id,
       bytes: png.length,
@@ -931,17 +972,36 @@ export async function processEditJob(job: JobLike): Promise<void> {
   const startedAt = Date.now()
   // PHASE 4: whole-image conversational edits run on the authorized hosted
   // editing backend (real provider execution, honest failure classes).
+  // M26.2: the ROUTE resolves the lane into job.backendId — dispatch by that
+  // resolved backend (fallback: an explicit params.engine request).
   const params = JSON.parse(job.paramsJson) as EditJobParams
+  const lane = job.backendId ?? (params.engine === 'local' ? 'bean-image-local-edit' : undefined)
   if (params.mode === 'conversational-edit') {
+    if (lane === 'bean-image-local-edit') {
+      await processLocalEditJob(job, startedAt)
+      return
+    }
     await processHostedEditJob(job, startedAt)
     return
   }
   if (params.mode === 'background-removal') {
+    if (lane === 'bean-image-local-segmentation' || (lane === undefined && params.engine === 'local')) {
+      await processLocalBgRemovalJob(job, startedAt)
+      return
+    }
     await processBackgroundRemovalJob(job, startedAt)
     return
   }
   const ctx: StageCtx = { job, lastProgress: 0 }
   const backend = getBackend('bean-image-selfhosted-diffusers')
+  // M26.2: masked OBJECT REMOVAL can execute through the REAL local LaMa
+  // lane when the GPU Diffusers worker is not deployed (the local-edit
+  // backend is enabled and the model is installed). Never a silent
+  // substitution: the job row already carries the local backend id.
+  if (params.mode === 'object-removal' && job.backendId === 'bean-image-local-edit') {
+    await processLamaObjectRemovalJob(job, startedAt)
+    return
+  }
   try {
     if (backend?.enabled !== true) {
       throw new BeanApiError(
@@ -1118,5 +1178,399 @@ export async function processEditJob(job: JobLike): Promise<void> {
       errorCode: code,
       durationMs: Date.now() - startedAt,
     })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// M26.2 — REAL local lanes: conversational edit engine, local background
+// removal, LaMa object removal. Same job lifecycle (progress, cancellation,
+// honest failure classes, per-user storage, usage metering) as every other
+// processor; evidence is recorded under the SAME capability keys so the
+// dashboard flips only on real completions.
+// ---------------------------------------------------------------------------
+
+/** Honest shared failure path for the local lanes (never a fake success). */
+async function failLocalEditJob(
+  job: JobLike,
+  backendId: string,
+  e: unknown,
+  startedAt: number,
+  attemptKey: 'image-editing' | 'image-bg-removal' | 'image-object-removal',
+  label: string,
+): Promise<void> {
+  const isBean = e instanceof BeanApiError
+  const message = isBean
+    ? e.message
+    : e instanceof LaxiiImageError
+      ? e.message
+      : e instanceof Error
+        ? e.message.slice(0, 300)
+        : `The ${label} could not complete.`
+  const code = isBean ? e.code : 'BACKEND_FAILURE'
+  // Validation outcomes (honest unsupported-content refusals — e.g. the
+  // no-subject matte gate) are NOT capability-health evidence: the lane
+  // executed correctly and refused unsuitable content. The persisted-store
+  // rule already says only upstream-class failures count as health evidence;
+  // the in-memory tracker follows the same contract, so a validation refusal
+  // never pins a healthy lane to degraded/blocked (the job row itself still
+  // records the truthful refusal for the user).
+  const validationOutcome =
+    isBean && (code === 'VALIDATION_ERROR' || code === 'CAPABILITY_UNSUPPORTED')
+  if (!validationOutcome) {
+    const record: RealAttemptRecord = {
+      at: new Date().toISOString(),
+      ok: false,
+      backendId,
+      failureCategory: 'backend-error',
+      httpStatus: null,
+      upstream: false,
+    }
+    noteRealAttempt(attemptKey, record)
+  }
+  logger.warn('laxii.local_lane_failed', { jobId: job.id, backendId, label, message: message.slice(0, 200), validationOutcome })
+  await failJob(job.id, code, message)
+  await recordUsage({
+    userId: job.userId,
+    product: 'laxii',
+    backendId,
+    kind: 'image-editing',
+    success: false,
+    errorCode: code,
+    durationMs: Date.now() - startedAt,
+  })
+}
+
+/** M26.2 local conversational edit: parse plan → execute REAL ops → history. */
+async function processLocalEditJob(job: JobLike, startedAt: number): Promise<void> {
+  const ctx: StageCtx = { job, lastProgress: 0 }
+  const backend = getBackend('bean-image-local-edit')!
+  const params = JSON.parse(job.paramsJson) as EditJobParams
+  try {
+    if (backend.enabled !== true) {
+      throw new BeanApiError(
+        'PROVIDER_UNAVAILABLE',
+        'The local edit engine is not enabled on this deployment. Its availability is reported by the capability endpoints — nothing was queued against it.',
+      )
+    }
+    await progress(ctx, 8)
+    if (await stopIfCancelled(ctx)) return
+
+    // Defense in depth: the route already refuses impossible plans; parse
+    // again HERE so a stale/edited row can never execute one.
+    const plan: LocalEditPlan = parseLocalEditPlan(params.prompt)
+    if (plan.unsupported.length > 0) {
+      throw new BeanApiError('CAPABILITY_UNSUPPORTED', `The local edit engine cannot honestly perform this request: ${plan.unsupported[0]}`)
+    }
+    if (plan.ops.length === 0) {
+      throw new BeanApiError('VALIDATION_ERROR', 'The instruction does not match any locally executable edit.')
+    }
+    if (planRequiresApproval(plan) && params.approved !== true) {
+      throw new BeanApiError('VALIDATION_ERROR', 'Destructive geometry changes require explicit approval. Resubmit with approval.')
+    }
+
+    const imageBytes = await readAssetBytes(job.userId, params.assetId)
+    const inputAsset = await loadAsset(job.userId, params.assetId)
+    await progress(ctx, 20)
+
+    // Mask (optional): enables remove-masked via the LaMa lane.
+    let mask: { data: Uint8Array; width: number; height: number } | undefined
+    if ((params.maskStrokes ?? []).length > 0) {
+      const strokes = await loadMaskStrokes(job.userId, params.maskStrokes ?? [])
+      if (strokes.length > 0) {
+        const decoded = await decodeRaw(
+          await sharp(imageBytes).rotate().removeAlpha().png().toBuffer(),
+        )
+        const built = shapeMask(await buildMask(strokes, decoded.width, decoded.height), {
+          expandPx: 2,
+          featherPx: 8,
+        })
+        const u8 = new Uint8Array(decoded.width * decoded.height)
+        for (let i = 0; i < u8.length; i++) u8[i] = built.alpha[i] > 0.5 ? 255 : 0
+        mask = { data: u8, width: decoded.width, height: decoded.height }
+      }
+    }
+    await progress(ctx, 35)
+
+    if (await stopIfCancelled(ctx)) return
+    const execution = await executeLocalEditPlan(imageBytes, plan, { mask })
+    await progress(ctx, 78)
+
+    const png = await encodePng(execution.rgb, execution.width, execution.height)
+    const resultAsset = await storeResultAsset(job.userId, 'result', png, execution.width, execution.height, {
+      jobId: job.id,
+      provenance: {
+        engine: 'local-edit',
+        pipeline: 'local-edit-engine',
+        mode: 'conversational-edit',
+        executedOps: execution.executed,
+        matteModel: execution.matteModel ?? null,
+        note: 'REAL local edit engine: parsed conservative plan executed per-pixel. Original asset untouched.',
+      },
+    })
+    await progress(ctx, 92)
+
+    await db.generationJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'completed',
+        progress: 100,
+        finishedAt: new Date(),
+        backendId: backend.id,
+        resultJson: JSON.stringify({
+          imageUrl: resultAsset.url,
+          originalUrl: inputAsset.url,
+          width: execution.width,
+          height: execution.height,
+          format: 'png',
+          bytes: png.length,
+          durationMs: Date.now() - startedAt,
+          executedOps: execution.executed,
+          provenance: { engine: 'local-edit', pipeline: 'local-edit-engine', mode: 'conversational-edit' },
+        }),
+      },
+    })
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: backend.id,
+      kind: 'image-editing',
+      imageCount: 1,
+      durationMs: Date.now() - startedAt,
+      success: true,
+    })
+    noteRealAttempt('image-editing', {
+      at: new Date().toISOString(),
+      ok: true,
+      backendId: backend.id,
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    })
+    await recordEditHistory({
+      userId: job.userId,
+      baseAssetId: params.assetId,
+      resultAssetId: resultAsset.id,
+      jobId: job.id,
+      engine: 'local-edit',
+      mode: 'conversational-edit',
+      ops: execution.executed,
+      approval: params.approved ?? false,
+    })
+    logger.info('laxii.local_edit_completed', {
+      jobId: job.id,
+      ops: execution.executed.map((o) => o.type).join('+'),
+      bytes: png.length,
+    })
+  } catch (e) {
+    if (await stopIfCancelled(ctx)) return
+    await failLocalEditJob(job, backend.id, e, startedAt, 'image-editing', 'local conversational edit')
+  }
+}
+
+/** M26.2 local background removal: REAL matting → alpha → export. */
+async function processLocalBgRemovalJob(job: JobLike, startedAt: number): Promise<void> {
+  const ctx: StageCtx = { job, lastProgress: 0 }
+  const backend = getBackend('bean-image-local-segmentation')!
+  const params = JSON.parse(job.paramsJson) as EditJobParams
+  try {
+    if (backend.enabled !== true) {
+      throw new BeanApiError(
+        'PROVIDER_UNAVAILABLE',
+        'The local matting lane is not enabled on this deployment. Its availability is reported by the capability endpoints — nothing was queued against it.',
+      )
+    }
+    await progress(ctx, 8)
+    if (await stopIfCancelled(ctx)) return
+    const imageBytes = await readAssetBytes(job.userId, params.assetId)
+    const inputAsset = await loadAsset(job.userId, params.assetId)
+    await progress(ctx, 25)
+
+    if (await stopIfCancelled(ctx)) return
+    const result = await runLocalBackgroundRemoval(imageBytes, {
+      format: params.output ?? 'png',
+      backgroundColor: params.backgroundColor,
+      backgroundBlur: params.backgroundBlur,
+      blurSigma: params.blurSigma,
+    })
+    await progress(ctx, 85)
+
+    const mime = result.format === 'jpeg' ? 'image/jpeg' : 'image/png'
+    const resultAsset = await storeResultAsset(job.userId, 'result', result.bytes, result.width, result.height, {
+      jobId: job.id,
+      mime,
+      provenance: result.provenance,
+    })
+    await progress(ctx, 92)
+
+    await db.generationJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'completed',
+        progress: 100,
+        finishedAt: new Date(),
+        backendId: backend.id,
+        resultJson: JSON.stringify({
+          imageUrl: resultAsset.url,
+          originalUrl: inputAsset.url,
+          width: result.width,
+          height: result.height,
+          format: result.format,
+          transparent: result.transparent,
+          bytes: result.bytes.length,
+          durationMs: Date.now() - startedAt,
+          matte: result.stats,
+          provenance: result.provenance,
+        }),
+      },
+    })
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: backend.id,
+      kind: 'image-editing',
+      imageCount: 1,
+      durationMs: Date.now() - startedAt,
+      success: true,
+    })
+    noteRealAttempt('image-bg-removal', {
+      at: new Date().toISOString(),
+      ok: true,
+      backendId: backend.id,
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    })
+    await recordEditHistory({
+      userId: job.userId,
+      baseAssetId: params.assetId,
+      resultAssetId: resultAsset.id,
+      jobId: job.id,
+      engine: 'local-bg-removal',
+      mode: 'background-removal',
+      ops: [{ type: 'background-removal', matteModel: result.stats.model, output: result.format }],
+    })
+    logger.info('laxii.local_bg_removal_completed', {
+      jobId: job.id,
+      model: result.stats.model,
+      bytes: result.bytes.length,
+      subjectFraction: result.stats.subjectFraction,
+    })
+  } catch (e) {
+    if (await stopIfCancelled(ctx)) return
+    await failLocalEditJob(job, backend.id, e, startedAt, 'image-bg-removal', 'local background removal')
+  }
+}
+
+/**
+ * M26.2 — LaMa object-removal fallback: the exact brush-mask object-removal
+ * flow, executed by REAL LaMa inpainting when the Diffusers GPU worker is
+ * not deployed. Evidence is recorded under its OWN key ('image-object-removal')
+ * — a removal success never stands in for conversational-editing evidence.
+ */
+export async function processLamaObjectRemovalJob(job: JobLike, startedAt: number): Promise<void> {
+  const ctx: StageCtx = { job, lastProgress: 0 }
+  const backend = getBackend('bean-image-local-edit')!
+  const params = JSON.parse(job.paramsJson) as EditJobParams
+  try {
+    if (backend.enabled !== true || !lamaInstalled()) {
+      throw new BeanApiError(
+        'PROVIDER_UNAVAILABLE',
+        'Object removal needs the local LaMa inpainting model, which is not installed/enabled on this deployment. Your image was not modified.',
+      )
+    }
+    await progress(ctx, 10)
+    if (await stopIfCancelled(ctx)) return
+    const imageBytes = await readAssetBytes(job.userId, params.assetId)
+    const inputAsset = await loadAsset(job.userId, params.assetId)
+    await progress(ctx, 18)
+
+    const workingOriginal = await decodeToRaw(await sharp(imageBytes).rotate().removeAlpha().png().toBuffer())
+    const maskStrokes = await loadMaskStrokes(job.userId, params.maskStrokes ?? [])
+    if (maskStrokes.length === 0) {
+      throw new BeanApiError('VALIDATION_ERROR', 'A mask is required for object removal.')
+    }
+    let mask = await buildMask(maskStrokes, workingOriginal.width, workingOriginal.height)
+    mask = shapeMask(mask, params.shaping ?? { expandPx: 4, featherPx: 8 })
+    await progress(ctx, 30)
+
+    // LaMa works at 512 internal — cap the working side there, then restore.
+    const maxSide = 512
+    const scale = Math.min(1, maxSide / Math.max(workingOriginal.width, workingOriginal.height))
+    const genW = Math.max(64, Math.round((workingOriginal.width * scale) / 8) * 8)
+    const genH = Math.max(64, Math.round((workingOriginal.height * scale) / 8) * 8)
+    const genImage = await resizeRaw(workingOriginal, genW, genH)
+    const genMask = resizeMask(mask, genW, genH)
+    await progress(ctx, 45)
+    if (await stopIfCancelled(ctx)) return
+
+    const result = await lamaInpaint(genImage, { data: maskToU8(genMask), width: genMask.width, height: genMask.height })
+    await progress(ctx, 78)
+    const restored = await resizeRaw(
+      { data: result.rgb, width: result.width, height: result.height },
+      workingOriginal.width,
+      workingOriginal.height,
+    )
+    const finalComposite = compositePreserved(workingOriginal, restored, mask, { globalColorChange: false })
+    const png = await encodePng(finalComposite.data, workingOriginal.width, workingOriginal.height)
+    const resultAsset = await storeResultAsset(job.userId, 'result', png, workingOriginal.width, workingOriginal.height, {
+      jobId: job.id,
+      provenance: {
+        engine: 'lama-object-removal',
+        pipeline: 'local-lama-inpaint',
+        mode: 'object-removal',
+        note: 'REAL LaMa structural inpainting inside the user mask; every pixel outside the mask is EXACT original bytes.',
+      },
+    })
+    await progress(ctx, 92)
+
+    await db.generationJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'completed',
+        progress: 100,
+        finishedAt: new Date(),
+        backendId: backend.id,
+        resultJson: JSON.stringify({
+          imageUrl: resultAsset.url,
+          originalUrl: inputAsset.url,
+          width: workingOriginal.width,
+          height: workingOriginal.height,
+          format: 'png',
+          bytes: png.length,
+          durationMs: Date.now() - startedAt,
+          provenance: { engine: 'lama-object-removal', pipeline: 'local-lama-inpaint', mode: 'object-removal' },
+        }),
+      },
+    })
+    await recordUsage({
+      userId: job.userId,
+      product: 'laxii',
+      backendId: backend.id,
+      kind: 'image-editing',
+      imageCount: 1,
+      durationMs: Date.now() - startedAt,
+      success: true,
+    })
+    noteRealAttempt('image-object-removal', {
+      at: new Date().toISOString(),
+      ok: true,
+      backendId: backend.id,
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    })
+    await recordEditHistory({
+      userId: job.userId,
+      baseAssetId: params.assetId,
+      resultAssetId: resultAsset.id,
+      jobId: job.id,
+      engine: 'lama-object-removal',
+      mode: 'object-removal',
+      ops: [{ type: 'remove-masked', engine: 'lama-onnx' }],
+    })
+    logger.info('laxii.lama_object_removal_completed', { jobId: job.id, bytes: png.length })
+  } catch (e) {
+    if (await stopIfCancelled(ctx)) return
+    await failLocalEditJob(job, backend.id, e, startedAt, 'image-object-removal', 'LaMa object removal')
   }
 }

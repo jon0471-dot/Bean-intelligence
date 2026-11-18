@@ -16,6 +16,8 @@
  */
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import path from 'path'
+import fs from 'fs'
+import crypto from 'crypto'
 import { logger } from '@/lib/observability/logger'
 
 export interface WorkerError extends Error {
@@ -68,6 +70,8 @@ interface WorkerSingleton {
   nextId: number
   buffer: string
   crashed: boolean
+  /** M26.2: the pairing token this server spawned the worker with. */
+  pairingToken: string | null
 }
 
 const GLOBAL_KEY = '__bean_laxii_worker__'
@@ -82,9 +86,48 @@ function singleton(): WorkerSingleton {
       nextId: 1,
       buffer: '',
       crashed: false,
+      pairingToken: null,
     } satisfies WorkerSingleton
   }
   return g[GLOBAL_KEY] as WorkerSingleton
+}
+
+/**
+ * M26.2 — authenticated local pairing. The server generates a per-deployment
+ * pairing token (storage/worker/, mode 600, OUTSIDE Git), passes it to the
+ * spawned worker through its environment, and REJECTS the worker's ready
+ * signal unless the worker proves possession of the same token. A mismatched
+ * or missing token is a WORKER_AUTH error — the process is killed and never
+ * trusted. This closes the "any local process can talk to the GPU worker"
+ * gap while keeping the worker strictly local (no ports are opened).
+ */
+function pairingToken(): string {
+  const state = singleton()
+  if (state.pairingToken) return state.pairingToken
+  const envToken = process.env.LAXII_WORKER_TOKEN
+  if (envToken && envToken.length >= 16) {
+    state.pairingToken = envToken
+    return envToken
+  }
+  const dir = path.join(process.cwd(), 'storage', 'worker')
+  fs.mkdirSync(dir, { recursive: true })
+  const file = path.join(dir, 'laxii-worker.token')
+  if (fs.existsSync(file)) {
+    const existing = fs.readFileSync(file, 'utf8').trim()
+    if (existing.length >= 16) {
+      state.pairingToken = existing
+      return existing
+    }
+  }
+  const token = crypto.randomBytes(32).toString('hex')
+  fs.writeFileSync(file, token, { mode: 0o600 })
+  try {
+    fs.chmodSync(file, 0o600)
+  } catch {
+    /* best effort on platforms without chmod */
+  }
+  state.pairingToken = token
+  return token
 }
 
 function workerPath(): string {
@@ -144,7 +187,7 @@ async function ensureWorker(state: WorkerSingleton): Promise<void> {
     try {
       proc = spawn(pythonBin(), [workerPath(), '--models-dir', modelsDir()], {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, PYTHONUNBUFFERED: '1' },
+        env: { ...process.env, PYTHONUNBUFFERED: '1', BEAN_WORKER_TOKEN: pairingToken() },
       })
     } catch (e) {
       // Some runtimes (Bun) throw synchronously on ENOENT instead of
@@ -208,6 +251,22 @@ function handleStdout(state: WorkerSingleton, chunk: string): void {
       continue
     }
     if (msg.type === 'ready') {
+      // M26.2 pairing verification: the worker must echo the token it was
+      // spawned with. Anything else is an untrusted process — killed, never
+      // used, reported as WORKER_AUTH.
+      const expected = state.pairingToken
+      if (!expected || msg.auth !== expected) {
+        const ready = state.pending.get('__ready__')
+        state.pending.delete('__ready__')
+        ready?.reject(workerError('WORKER_AUTH', 'The local worker failed the pairing check (missing or mismatched token). The process was stopped.'))
+        try {
+          state.proc?.kill('SIGKILL')
+        } catch {
+          /* already gone */
+        }
+        state.proc = null
+        return
+      }
       const ready = state.pending.get('__ready__')
       if (ready) {
         state.pending.delete('__ready__')

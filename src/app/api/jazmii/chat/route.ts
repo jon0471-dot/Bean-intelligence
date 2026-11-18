@@ -10,6 +10,10 @@ import { recordAudit } from '@/lib/observability/metering'
 import { ensureVideoPoller } from '@/lib/jobs/video-worker'
 import { jazmiiTitleFromText, serializeJazmiiMessages } from '@/lib/jazmii/chat'
 import { validateVideoReferenceImage } from '@/lib/jazmii/reference-image'
+import { getBackend } from '@/lib/registry/backends'
+import { lastRealAttempt } from '@/lib/adapters/last-attempts'
+import { persistedAttempt } from '@/lib/adapters/persisted-attempts'
+import { parseMotionProgram } from '@/lib/jazmii/i2v-local'
 
 /**
  * JAZMII — one conversational turn (2026-11-12 unified studio).
@@ -35,6 +39,8 @@ const settingsSchema = z.object({
   fps: z.number().int().min(12).max(60).optional(),
   quality: z.enum(['speed', 'quality']).optional(),
   withAudio: z.boolean().optional(),
+  // M26.2 I2V lane selection (reference-image jobs only).
+  engine: z.enum(['auto', 'hosted', 'local-motion']).optional(),
 })
 
 const schema = z.object({
@@ -86,7 +92,37 @@ export async function POST(request: Request) {
     }
 
     // ---- job submission: EXACT generate-route semantics ---------------------
-    const { backend, release } = await preflight(user.id, 'jazmii', 'video-generation')
+    // M26.2: I2V lane resolution mirrors the generate route (explicit engines
+    // honored; 'auto' heals to the local lane only on fresh hosted-failure
+    // evidence AND a genuinely enabled local lane).
+    const requestedEngine = (settings.engine ?? 'auto') as 'auto' | 'hosted' | 'local-motion'
+    let chosenBackendId = 'bean-video-hosted-primary'
+    let chosenEngine: 'auto' | 'hosted' | 'local-motion' = requestedEngine
+    if (body.imageUrl) {
+      const localEnabled = getBackend('bean-video-local-motion')?.enabled === true
+      if (requestedEngine === 'local-motion') chosenBackendId = 'bean-video-local-motion'
+      else if (requestedEngine === 'hosted') chosenBackendId = 'bean-video-hosted-primary'
+      else {
+        const lastI2v = lastRealAttempt('video-generation-i2v') ?? (await persistedAttempt('video-generation-i2v'))
+        if (lastI2v && !lastI2v.ok && localEnabled) {
+          chosenBackendId = 'bean-video-local-motion'
+          chosenEngine = 'local-motion'
+        }
+      }
+      // M26.2: honest submit-time refusal for impossible local-lane requests.
+      if (chosenBackendId === 'bean-video-local-motion') {
+        const motion = parseMotionProgram(text)
+        if (motion.unsupported.length > 0) {
+          throw new BeanApiError('CAPABILITY_UNSUPPORTED', `The local motion lane cannot honestly perform this request: ${motion.unsupported[0]}. Use the hosted engine for generative synthesis.`)
+        }
+      }
+    }
+    const { release } = await preflight(
+      user.id,
+      'jazmii',
+      'video-generation',
+      chosenBackendId !== 'bean-video-hosted-primary' ? { backendId: chosenBackendId } : undefined,
+    )
     let job
     try {
       const dedupeKey = dedupeKeyFor(user.id, 'jazmii', 'video-generation', {
@@ -111,6 +147,7 @@ export async function POST(request: Request) {
           task: 'video-generation',
           status: 'queued',
           progress: 0,
+          backendId: chosenBackendId,
           dedupeKey,
           paramsJson: JSON.stringify({
             prompt: text,
@@ -123,6 +160,8 @@ export async function POST(request: Request) {
             ...(settings.size ? { size: settings.size } : {}),
             ...(settings.durationSec ? { durationSec: settings.durationSec } : {}),
             ...(settings.fps ? { fps: settings.fps } : {}),
+            // M26.2: resolved lane rides with the job (worker dispatch key).
+            ...(body.imageUrl ? { engine: chosenEngine } : {}),
           }),
         },
       })

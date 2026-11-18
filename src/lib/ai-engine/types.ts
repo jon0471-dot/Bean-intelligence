@@ -136,6 +136,8 @@ export interface ClaimedJob {
   maxAttempts: number
   paramsJson: string
   resultJson: string | null
+  /** M26.2: the resolved lane backend — the worker dispatches local lanes by it. */
+  backendId: string | null
   cancelRequested: boolean
   workerId: string
   workerKind: 'embedded' | 'standalone'

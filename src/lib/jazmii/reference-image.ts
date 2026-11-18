@@ -51,7 +51,13 @@ export interface ReferenceImageValidation {
   reason: string | null
 }
 
-async function resolveReferenceBytes(input: string): Promise<{ bytes: Buffer; reason: null } | { bytes: null; reason: string }> {
+/**
+ * Resolve the actual bytes behind a validated reference-image input (data
+ * URL decode or SSRF-guarded fetch). Exported for the M26.2 local I2V lane,
+ * which executes REAL inference on the image server-side (the hosted lane
+ * forwards the string instead). Validation must still run first.
+ */
+export async function resolveReferenceBytes(input: string): Promise<{ bytes: Buffer; reason: null } | { bytes: null; reason: string }> {
   if (input.startsWith('data:')) {
     const comma = input.indexOf(',')
     if (comma < 0) return { bytes: null, reason: 'The reference image data URL has no base64 payload.' }

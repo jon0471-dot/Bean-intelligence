@@ -11,6 +11,9 @@ import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { ensureVideoPoller } from '@/lib/jobs/video-worker'
 import { upstreamBreakerState, type UpstreamEndpointClass } from '@/lib/upstream/gateway'
 import { validateVideoReferenceImage } from '@/lib/jazmii/reference-image'
+import { lastRealAttempt } from '@/lib/adapters/last-attempts'
+import { persistedAttempt } from '@/lib/adapters/persisted-attempts'
+import { parseMotionProgram } from '@/lib/jazmii/i2v-local'
 
 /**
  * JAZMII — submit a REAL video-generation job (async; no HTTP request is
@@ -33,6 +36,10 @@ const schema = z.object({
     .optional(),
   quality: z.enum(['speed', 'quality']).optional(),
   withAudio: z.boolean().optional(),
+  // M26.2 I2V lane selection: 'auto' (hosted, status quo) | 'hosted' |
+  // 'local-motion' (REAL local motion+RIFE animation lane). Text-only jobs
+  // always use the hosted provider.
+  engine: z.enum(['auto', 'hosted', 'local-motion']).optional(),
   size: z
     .string()
     .regex(/^\d{3,4}x\d{3,4}$/, 'size must be WxH (e.g. 1280x720)')
@@ -61,8 +68,46 @@ export async function POST(request: Request) {
       throw new BeanApiError('VALIDATION_ERROR', imageValidation.reason ?? 'The reference image is not usable.')
     }
 
+    // M26.2 I2V lane resolution (imageUrl jobs only) — BEFORE preflight so
+    // the router can gate the SPECIFIC lane. Explicit engines are honored;
+    // 'auto' keeps the hosted status quo, healing to the local lane only
+    // when the hosted lane recorded a fresh upstream failure AND the local
+    // lane is genuinely enabled — evidence-based, never optimism.
+    const requestedEngine = body.engine ?? 'auto'
+    let chosenBackendId = 'bean-video-hosted-primary'
+    let chosenEngine: 'auto' | 'hosted' | 'local-motion' = requestedEngine
+    if (body.imageUrl) {
+      const localEnabled = getBackend('bean-video-local-motion')?.enabled === true
+      if (requestedEngine === 'local-motion') {
+        chosenBackendId = 'bean-video-local-motion'
+      } else if (requestedEngine === 'hosted') {
+        chosenBackendId = 'bean-video-hosted-primary'
+      } else {
+        const lastI2v = lastRealAttempt('video-generation-i2v') ?? (await persistedAttempt('video-generation-i2v'))
+        if (lastI2v && !lastI2v.ok && localEnabled) {
+          chosenBackendId = 'bean-video-local-motion'
+          chosenEngine = 'local-motion'
+        } else {
+          chosenEngine = 'auto'
+        }
+      }
+      // M26.2: the local motion lane refuses subject-motion/added-content
+      // instructions at SUBMIT time — honest 422, no doomed job row.
+      if (chosenBackendId === 'bean-video-local-motion') {
+        const motion = parseMotionProgram(body.prompt)
+        if (motion.unsupported.length > 0) {
+          throw new BeanApiError('CAPABILITY_UNSUPPORTED', `The local motion lane cannot honestly perform this request: ${motion.unsupported[0]}. Use the hosted engine for generative synthesis.`)
+        }
+      }
+    }
+
     // Routing rules 1–5: availability, rate limit, quota, concurrency, backend.
-    const { backend, release } = await preflight(user.id, 'jazmii', 'video-generation')
+    const { release } = await preflight(
+      user.id,
+      'jazmii',
+      'video-generation',
+      chosenBackendId !== 'bean-video-hosted-primary' ? { backendId: chosenBackendId } : undefined,
+    )
     try {
       // ZERO-DOWNTIME RECOVERY (2026-11-11) — duplicate-submission guard: an
       // identical ACTIVE video job is refused with 409. The data URL (up to
@@ -89,6 +134,7 @@ export async function POST(request: Request) {
           task: 'video-generation',
           status: 'queued',
           progress: 0,
+          backendId: chosenBackendId,
           dedupeKey,
           paramsJson: JSON.stringify({
             prompt: body.prompt,
@@ -101,6 +147,9 @@ export async function POST(request: Request) {
             ...(body.size ? { size: body.size } : {}),
             ...(body.durationSec ? { durationSec: body.durationSec } : {}),
             ...(body.fps ? { fps: body.fps } : {}),
+            // M26.2: the RESOLVED lane rides with the job — the worker
+            // dispatches by it (local-motion → the RIFE frame lane).
+            ...(body.imageUrl ? { engine: chosenEngine } : {}),
           }),
         },
       })
@@ -113,6 +162,7 @@ export async function POST(request: Request) {
             status: 'queued',
             progress: 0,
             queuedAt: job.queuedAt,
+            ...(body.imageUrl ? { engine: chosenEngine } : {}),
           },
         },
         { status: 202 },

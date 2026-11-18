@@ -12,7 +12,18 @@ import { AsyncLocalStorage } from 'async_hooks'
 type Level = 'debug' | 'info' | 'warn' | 'error'
 
 const LEVELS: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 }
-const MIN_LEVEL: number = LEVELS[(process.env.BEAN_LOG_LEVEL as Level) ?? 'info'] ?? 20
+let MIN_LEVEL: number = LEVELS[(process.env.BEAN_LOG_LEVEL as Level) ?? 'info'] ?? 20
+
+/**
+ * Runtime log-level control. Deployment env (BEAN_LOG_LEVEL) seeds the floor;
+ * tests may pin a specific level hermetically (and restore it afterwards) so
+ * a suite's assertions never depend on the ambient deployment configuration —
+ * measured 2026-11-18: with BEAN_LOG_LEVEL=warn the correlation-id tests
+ * observed zero info lines and failed, purely as an env artifact.
+ */
+export function setLogLevel(level: Level): void {
+  MIN_LEVEL = LEVELS[level] ?? 20
+}
 
 // ---------------------------------------------------------------------------
 // M26 (audit O-1): request/correlation IDs.

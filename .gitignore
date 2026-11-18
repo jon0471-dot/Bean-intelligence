@@ -46,6 +46,15 @@ local-*
 # so it could never be committed and its absence broke the build with
 # "Module not found: Can't resolve '@/lib/laxii/local-adapter'".
 !src/lib/laxii/local-adapter.ts
+# Same class of bug, caught at M26.2 review: these are REAL source files and
+# directories of the local inference lanes — never local artifacts. Without
+# these negations a fresh clone misses them and the build breaks
+# ("Module not found: '@/lib/media/local-models'" etc.), while the sandbox
+# (where the files exist on disk) builds fine — verified with git check-ignore.
+!src/lib/laxii/local-edit.ts
+!src/lib/local-engine/
+!src/lib/media/local-models.ts
+!src/app/api/laxii/local-models/
 .claude
 .z-ai-config
 *.log

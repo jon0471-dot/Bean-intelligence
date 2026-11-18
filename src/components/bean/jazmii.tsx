@@ -115,6 +115,8 @@ interface ComposerSettings {
   durationSec: number
   quality: 'speed' | 'quality'
   withAudio: boolean
+  /** M26.2 I2V lane: auto (status quo, evidence-healed) / hosted / local-motion. */
+  engine: 'auto' | 'hosted' | 'local-motion'
 }
 
 const SIZE_PRESETS = [
@@ -177,7 +179,7 @@ export function Jazmii() {
   const [composer, setComposer] = useState('')
   const [sending, setSending] = useState(false)
   const [referenceImage, setReferenceImage] = useState<{ dataUrl: string; name: string } | null>(null)
-  const [settings, setSettings] = useState<ComposerSettings>({ size: '1280x720', durationSec: 5, quality: 'quality', withAudio: false })
+  const [settings, setSettings] = useState<ComposerSettings>({ size: '1280x720', durationSec: 5, quality: 'quality', withAudio: false, engine: 'auto' })
   const [customMode, setCustomMode] = useState(false)
   const [customW, setCustomW] = useState('1280')
   const [customH, setCustomH] = useState('720')
@@ -327,6 +329,7 @@ export function Jazmii() {
               durationSec: settings.durationSec,
               quality: settings.quality,
               withAudio: settings.withAudio,
+              engine: settings.engine,
             },
           },
         })
@@ -945,11 +948,42 @@ function SettingsPopover({
           <span className="hidden sm:inline">
             {aspectLabel(effectiveSize) || effectiveSize} · {settings.durationSec}s · {settings.quality}
             {settings.withAudio ? ' · audio' : ''}
+            {settings.engine !== 'auto' ? ` · ${settings.engine === 'local-motion' ? 'local motion' : 'hosted'}` : ''}
           </span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 border-[rgba(212,175,55,0.25)] bg-[#0d0d0d] p-3">
         <div className="mb-2 text-[10px] uppercase tracking-wide text-white/45">Generation settings</div>
+
+        {/* M26.2 I2V lane selection — honest disclosure of what each lane does. */}
+        <div className="mb-1 text-[11px] text-white/55">Image-to-video engine</div>
+        <div className="mb-1 grid grid-cols-3 gap-1.5">
+          {([
+            { value: 'auto', label: 'Auto' },
+            { value: 'local-motion', label: 'Local motion' },
+            { value: 'hosted', label: 'Hosted' },
+          ] as const).map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setSettings({ ...settings, engine: opt.value })}
+              className={cn(
+                'rounded-lg border px-2 py-1.5 text-[11px]',
+                settings.engine === opt.value
+                  ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.12)] text-[#f0c75e]'
+                  : 'border-white/10 text-white/55',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <p className="mb-2 text-[10px] leading-snug text-white/40">
+          {settings.engine === 'local-motion'
+            ? 'Local motion lane: animates your still (pan/zoom + neural in-between frames). No generative scene synthesis.'
+            : settings.engine === 'hosted'
+              ? 'Hosted provider: full generative image-to-video (requires provider availability).'
+              : 'Auto: hosted provider first; falls back to the local motion lane when the provider has a fresh failure.'}
+        </p>
 
         <div className="mb-1 text-[11px] text-white/55">Aspect ratio</div>
         <div className="mb-2 grid grid-cols-2 gap-1.5">

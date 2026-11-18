@@ -821,9 +821,14 @@ def main():
         os.environ["LAXII_MODELS_DIR"] = args.models_dir
 
     engine = Engine()
+    # M26.2 authenticated local pairing: echo the token the server spawned us
+    # with. The server rejects a mismatched/missing token (WORKER_AUTH) and
+    # kills the process — a stale or hostile worker is never trusted.
     emit({"id": None, "type": "ready", "workerVersion": WORKER_VERSION,
-          "pid": os.getpid()})
+          "pid": os.getpid(),
+          "auth": os.environ.get("BEAN_WORKER_TOKEN", "")})
     threading.Thread(target=_idle_unload_reaper, args=(engine,), daemon=True).start()
+    _install_signal_handlers(engine)
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -874,6 +879,28 @@ def main():
             if BUSY_LOCK.locked():
                 BUSY_LOCK.release()
     log("stdin closed; exiting")
+
+
+def _install_signal_handlers(engine):
+    """M26.2 graceful shutdown: SIGTERM/SIGINT unload pipelines before exit
+    so no job artifact is left half-written and GPU memory is released."""
+    import signal as _signal
+
+    def _shutdown(signum, _frame):
+        try:
+            log("signal %s received; unloading pipelines" % signum)
+            engine.unload()
+        except Exception as e:  # never block shutdown on cleanup errors
+            log("unload during shutdown failed: %r" % e)
+        sys.exit(0)
+
+    for sig in (_signal.SIGTERM, getattr(_signal, "SIGINT", None)):
+        if sig is None:
+            continue
+        try:
+            _signal.signal(sig, _shutdown)
+        except (ValueError, OSError):
+            pass
 
 
 def _vram_free():

@@ -26,7 +26,7 @@ export type DeploymentMode = 'authorized-hosted' | 'self-hosted'
  *  - 'local-process' marks a backend that runs IN this application process
  *    (or as a child process on the same host) with no upstream service.
  */
-export type ImageEndpointType = 'managed-sdk' | 'http' | 'gpu-worker' | 'local-process'
+export type ImageEndpointType = 'managed-sdk' | 'http' | 'gpu-worker' | 'local-process' | 'local-inference'
 
 export interface BackendDescriptor {
   id: string
@@ -48,7 +48,7 @@ export interface BackendDescriptor {
   /** Licensing posture as verified for THIS deployment arrangement. */
   license: {
     name: string
-    commercialUse: 'authorized' | 'restricted' | 'not-applicable'
+    commercialUse: 'authorized' | 'permitted' | 'restricted' | 'not-applicable'
     note: string
     sourceUrl: string
     verifiedAt: string
@@ -400,6 +400,143 @@ const VIDEO_PLANNED: BackendDescriptor = {
   retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
+/**
+ * JAZMII — REAL local image-to-video lane (M26.2). Animates the submitted
+ * still with parsed motion programs and synthesizes EVERY in-between frame
+ * with RIFE neural frame interpolation (MIT), encoded by ffmpeg and gated
+ * by the same ffprobe completion contract as the hosted lane. It is NOT
+ * diffusion scene synthesis — the lane class is disclosed in provenance on
+ * every result. Enabled after the recorded real inference acceptance run
+ * (scripts/m262 validation), same policy as every registry backend.
+ */
+const LOCAL_VIDEO_MOTION: BackendDescriptor = {
+  id: 'bean-video-local-motion',
+  productId: 'jazmii',
+  task: 'video-generation',
+  provider: 'BEAN Intelligence local inference (onnxruntime-node)',
+  modelIdentity: 'RIFE v4-class frame interpolation ONNX (MIT, upstream hzwer/Practical-RIFE; export FuryTMP/RIFE_fp32, SHA-256-pinned)',
+  revision: 'rife_fp32 @ 6a31074c0f588648982b5e828aee6c27e005015a712a46ea63da48c65fa9a26b',
+  endpointType: 'local-inference',
+  deploymentMode: 'self-hosted',
+  runtime: 'onnxruntime-node CPU EP + ffmpeg 7.x — no GPU required; working side capped (default 512px) for CPU budgets',
+  limits: {
+    maxPromptChars: 2000,
+    durationSec: '3..12 (CPU lane caps effective fps at 24)',
+    sizeFormat: 'WxH within 360..1920; working resolution snaps to /32 and stays within the CPU budget — the ENCODED dims are what ffprobe reports',
+    maxFrames: '240 (BEAN_I2V_MAX_FRAMES)',
+    laneClass: 'motion animation of the provided still (pan/zoom trajectory + neural in-between frames) — NOT generative scene synthesis',
+  },
+  license: {
+    name: 'MIT (RIFE upstream + ONNX export)',
+    commercialUse: 'permitted',
+    note: 'Verified 2026-11-18 against upstream hzwer/Practical-RIFE (MIT) and the export repo license.',
+    sourceUrl: 'https://github.com/hzwer/Practical-RIFE',
+    verifiedAt: '2026-11-18',
+  },
+  dataHandling:
+    'The reference image is resolved server-side (SSRF-guarded), processed by the BEAN local worker and stored under BEAN per-user storage. No external service receives the pixels.',
+  metering: { unit: 'video-job', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  // ENABLED (2026-11-18): a REAL end-to-end acceptance run completed through
+  // the actual route/queue/worker path (real RIFE inference on real frames,
+  // ffmpeg encode, ffprobe-validated artifact) — see M26_2_RESULTS.md and
+  // scripts/m262-out/acceptance.json. The model must still be installed
+  // explicitly on every deployment (honest 'not-installed' state otherwise).
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 1 },
+  timeouts: { requestMs: 600_000, queueMs: 10_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
+ * LAXII — REAL local segmentation backend (M26.2). MODNet (Apache-2.0,
+ * u2netp fallback) alpha matting powering the background-removal lane:
+ * true alpha at FULL source resolution, transparent PNG or explicit
+ * background export. Enabled after the recorded real matting acceptance run.
+ */
+const LOCAL_IMAGE_SEGMENTATION: BackendDescriptor = {
+  id: 'bean-image-local-segmentation',
+  productId: 'laxii',
+  task: 'image-editing',
+  provider: 'BEAN Intelligence local inference (onnxruntime-node)',
+  modelIdentity:
+    'MODNet portrait matting ONNX (Apache-2.0, Xenova/modnet export, SHA-256-pinned) + U^2-Netp salient fallback (Apache-2.0)',
+  revision: 'modnet @ 07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9; u2netp @ 309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8',
+  endpointType: 'local-inference',
+  deploymentMode: 'self-hosted',
+  runtime: 'onnxruntime-node CPU EP — no GPU required; matte runs at a capped working side and the alpha is upsampled to the FULL source resolution',
+  limits: {
+    maxAssetMb: 25,
+    output: 'transparent PNG (source dimensions preserved) or JPEG/PNG flattened on an explicit background color / blurred background',
+    honesty: 'a matte without a usable subject is an honest failure carrying measured coverage stats',
+  },
+  license: {
+    name: 'Apache-2.0 (MODNet upstream + export; U-2-Net upstream)',
+    commercialUse: 'permitted',
+    note: 'Verified 2026-11-18 against ZHKKKe/MODNet (Apache-2.0) and xuebinqin/U-2-Net (Apache-2.0).',
+    sourceUrl: 'https://github.com/ZHKKKe/MODNet',
+    verifiedAt: '2026-11-18',
+  },
+  dataHandling:
+    'Images are processed by the BEAN local worker; the original asset is never modified; outputs live in BEAN per-user storage.',
+  metering: { unit: 'image', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  // ENABLED (2026-11-18): REAL matting acceptance completed through the
+  // actual route/queue/worker path (measured alpha coverage, source-
+  // resolution preservation, transparent-PNG export) — M26_2_RESULTS.md.
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 2 },
+  timeouts: { requestMs: 120_000, queueMs: 30_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
+ * LAXII — REAL local conversational-edit backend (M26.2). Parses the
+ * instruction into a conservative executable plan (tone/look/background ops
+ * via matting, masked removal via LaMa, approved geometry ops) and executes
+ * it with real per-pixel operations. Generative synthesis requests fail
+ * HONESTLY — the hosted lane remains the path for whole-image generative
+ * edits. Enabled after the recorded real edit acceptance run.
+ */
+const LOCAL_IMAGE_EDIT: BackendDescriptor = {
+  id: 'bean-image-local-edit',
+  productId: 'laxii',
+  task: 'image-editing',
+  provider: 'BEAN Intelligence local inference (sharp + onnxruntime-node)',
+  modelIdentity:
+    'LaMa structural inpainting ONNX (Apache-2.0, OpenCV Zoo inpainting_lama, SHA-256-pinned) + MODNet matting for background-scoped ops',
+  revision: 'lama @ 7df918ac3921d3daf0aae1d219776cf0dc4e4935f035af81841b40adcf74fdf2',
+  endpointType: 'local-inference',
+  deploymentMode: 'self-hosted',
+  runtime: 'sharp 0.34 + onnxruntime-node CPU EP — no GPU required; LaMa works at 512x512 internal resolution with exact outside-mask preservation',
+  limits: {
+    maxAssetMb: 25,
+    plan: 'tone/look/background/masked-removal/approved-geometry ops only; unsupported generative instructions are refused with the reason',
+    approval: 'destructive geometry ops (rotate/flip) require explicit user approval in the submit request',
+  },
+  license: {
+    name: 'Apache-2.0 (LaMa OpenCV Zoo; big-lama upstream saic-mdal/lama)',
+    commercialUse: 'permitted',
+    note: 'Verified 2026-11-18 against opencv/opencv_zoo (Apache-2.0) and saic-mdal/lama (Apache-2.0).',
+    sourceUrl: 'https://github.com/opencv/opencv_zoo/tree/main/models/inpainting_lama',
+    verifiedAt: '2026-11-18',
+  },
+  dataHandling:
+    'Instructions and images are processed by the BEAN local worker; original-image retention is structural (results are new assets); edit history is per-user.',
+  metering: { unit: 'image', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  // ENABLED (2026-11-18): REAL edit acceptance completed through the actual
+  // route/queue/worker path (parsed plan, per-pixel ops, LaMa masked removal
+  // with exact outside-mask preservation) — M26_2_RESULTS.md.
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 2 },
+  timeouts: { requestMs: 300_000, queueMs: 30_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
 const HOSTED_CODE_LLM: BackendDescriptor = {
   id: 'bean-code-llm-hosted-primary',
   productId: 'code-giftz',
@@ -688,7 +825,10 @@ export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_IMAGE_EDIT,
   LOCAL_SHARP_ENGINE,
   DIFFUSERS_WORKER,
+  LOCAL_IMAGE_SEGMENTATION,
+  LOCAL_IMAGE_EDIT,
   HOSTED_VIDEO,
+  LOCAL_VIDEO_MOTION,
   VIDEO_PLANNED,
   HOSTED_CODE_LLM,
   HOSTED_AUDIO_TTS,

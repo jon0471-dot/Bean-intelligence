@@ -33,6 +33,7 @@ model User {
   jazmiiConversations JazmiiConversation[]
   projects            Project[]
   clientComputeReports ClientComputeReport[]
+  laxiiEditHistory     LaxiiEditHistory[]
 }
 
 model Session {
@@ -560,4 +561,31 @@ model ClientComputeReport {
   createdAt   DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// LAXII EDIT HISTORY (M26.2, 2026-11-18) — append-only lineage of REAL
+// completed edit jobs so every edit is undoable/restoreable. One row per
+// completed edit: the asset the edit started from (baseAssetId), the
+// produced asset (resultAssetId), the engine that executed it and the
+// executed op plan. Undo/restore are THEMSELVES new rows (append-only),
+// cloning the base pixels into a fresh result asset — no row is ever
+// rewritten, so history stays a truthful record.
+model LaxiiEditHistory {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  baseAssetId   String
+  resultAssetId String
+  jobId         String?
+  // local-edit | hosted-edit | lama-object-removal | restore | hosted-bg-removal | local-bg-removal
+  engine        String
+  mode          String
+  // Executed op plan (JSON) — display data; provenance detail lives in the job row.
+  opsJson       String
+  approval      Boolean   @default(false)
+  undoneAt      DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([userId, baseAssetId, createdAt])
+  @@index([userId, resultAssetId])
 }
