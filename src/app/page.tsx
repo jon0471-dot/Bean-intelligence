@@ -13,6 +13,7 @@ import { Laxii } from '@/components/bean/laxii'
 import { Jazmii } from '@/components/bean/jazmii'
 import { CodeGiftz } from '@/components/bean/code-giftz'
 import { Gangzii } from '@/components/bean/gangzii'
+import { AiDeviceSettings } from '@/components/bean/ai-device-settings'
 import { Portal } from '@/components/bean/portal'
 import { Usage } from '@/components/bean/usage'
 import { Settings } from '@/components/bean/settings'
@@ -97,6 +98,7 @@ export default function Home() {
       {view === 'jazmii' && <Jazmii />}
       {view === 'code-giftz' && <CodeGiftz />}
       {view === 'gangzii' && <Gangzii />}
+      {view === 'ai-device' && <AiDeviceSettings />}
       {view === 'portal' && <Portal />}
       {view === 'usage' && <Usage />}
       {view === 'settings' && <Settings user={user} onUserChanged={() => void refresh()} />}

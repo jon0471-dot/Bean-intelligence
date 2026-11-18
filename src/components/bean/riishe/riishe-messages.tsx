@@ -340,7 +340,18 @@ function AssistantMessage({
     <div className="flex items-start gap-3">
       <AssistantAvatar />
       <div className="min-w-0 flex-1">
-        <div className="mb-1 text-[11px] font-semibold tracking-wide text-[#f0c75e]">RIISHE</div>
+        <div className="mb-1 flex items-center gap-2">
+          <span className="text-[11px] font-semibold tracking-wide text-[#f0c75e]">RIISHE</span>
+          {/* ON-DEVICE LANE honest label (never persisted, no retrieval/tools). */}
+          {msg.onDevice ? (
+            <span
+              className="rounded border border-[rgba(212,175,55,0.3)] bg-[rgba(212,175,55,0.08)] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-[#f0c75e]"
+              title="Generated in this browser (WebGPU). Not saved to any server; no web retrieval, tools or memory in this mode."
+            >
+              on-device · private · unsaved
+            </span>
+          ) : null}
+        </div>
         <div className={cn('bean-prose text-[14.5px] text-white/88', isStreamingThis && 'bean-streaming')}>
           <Markdown content={linkifyCitations(msg.content, msg.meta?.sources)} components={components} />
         </div>

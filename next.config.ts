@@ -47,7 +47,13 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // GANGZII AUDIO WIRING (2026-11-18): live voice records the user's
+          // microphone IN-BROWSER (MediaRecorder) for real transcription —
+          // server ASR or, when enabled, the on-device Whisper lane where the
+          // audio never leaves the device. Same-origin mic access only
+          // (microphone=(self)); cross-origin frames are still denied, and
+          // geolocation/camera remain fully denied.
+          { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
         ],
       },
     ];

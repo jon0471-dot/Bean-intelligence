@@ -72,6 +72,7 @@ import {
   ScanSearch,
   ArrowRightLeft,
   Volume2,
+  Laptop,
 } from 'lucide-react'
 
 const MAX_CHARS = GANGZII_LIMITS.maxCharsPerRequest
@@ -438,6 +439,16 @@ export function Gangzii() {
   const [turns, setTurns] = useState<Turn[]>([])
   const [liveVoice, setLiveVoice] = useState<string>(GANGZII_VOICE_PRESETS[0]?.id ?? 'tongtong')
   const [recordSecs, setRecordSecs] = useState(0)
+
+  // ON-DEVICE ASR LANE (2026-11-18): live-voice transcription in THIS
+  // browser (Whisper-tiny via Transformers.js). Audio never leaves the
+  // device in this mode; the model download needs explicit size confirmation.
+  const [localAsrMode, setLocalAsrMode] = useState(false)
+  const [localAsrReady, setLocalAsrReady] = useState(false)
+  const [localAsrPreparing, setLocalAsrPreparing] = useState(false)
+  const [localAsrProgress, setLocalAsrProgress] = useState<{ note: string; progress: number | null } | null>(null)
+  const [localAsrNeedsDownload, setLocalAsrNeedsDownload] = useState<number | null>(null)
+  const [localAsrAvailable, setLocalAsrAvailable] = useState(false)
 
   const [actionError, setActionError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -829,6 +840,59 @@ export function Gangzii() {
     }
   }
 
+  // ON-DEVICE ASR LANE controls (availability probe + size-confirmed enable).
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      try {
+        const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
+        const manager = getDeviceCapabilityManager()
+        const status = await manager.getStatus()
+        if (!alive) return
+        const cap = status.capabilities.find((c) => c.capability === 'audio.transcription.on-device')
+        setLocalAsrAvailable(cap?.target === 'client-gpu' || cap?.target === 'client-cpu')
+      } catch {
+        if (alive) setLocalAsrAvailable(false)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  async function enableLocalAsr() {
+    setActionError(null)
+    const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
+    const manager = getDeviceCapabilityManager()
+    const status = await manager.getStatus()
+    if (!status.consent?.granted) {
+      setActionError('On-device AI needs your explicit consent once — open AI Device (sidebar) and enable device inference there.')
+      return
+    }
+    const model = status.models.find((m) => m.id === 'gangzii-asr-browser-whisper-tiny')
+    setLocalAsrNeedsDownload(model?.sizeBytes ?? null)
+  }
+
+  async function confirmLocalAsrDownload() {
+    setLocalAsrNeedsDownload(null)
+    setLocalAsrPreparing(true)
+    setActionError(null)
+    const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
+    const manager = getDeviceCapabilityManager()
+    try {
+      await manager.ensureBrowserAsrReady({ onProgress: (p) => setLocalAsrProgress(p) })
+      setLocalAsrReady(true)
+      setLocalAsrMode(true)
+      setNotice('On-device transcription is ready — your voice turns are transcribed in this browser.')
+    } catch (error) {
+      const err = error as { message?: string; recovery?: string }
+      setActionError(`${err.message ?? 'The on-device ASR model failed to load.'} ${err.recovery ?? ''}`.trim())
+    } finally {
+      setLocalAsrPreparing(false)
+      setLocalAsrProgress(null)
+    }
+  }
+
   async function processTurn(blob: Blob) {
     if (blob.size === 0) {
       setLivePhase('idle')
@@ -838,19 +902,33 @@ export function Gangzii() {
     setLivePhase('transcribing')
     setActionError(null)
     try {
-      // 1. Transcribe the recorded turn through the REAL ASR pipeline.
-      const fd = new FormData()
-      fd.append('file', new File([blob], 'turn.webm', { type: blob.type || 'audio/webm' }))
-      const res = await fetch('/api/gangzii/transcribe', { method: 'POST', body: fd })
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; job?: { id: string }; error?: { message?: string } }
-      if (!res.ok || data.ok === false || !data.job) {
-        throw new Error(data.error?.message ?? 'The recorded turn could not be transcribed.')
+      // 1. Transcribe the recorded turn. ON-DEVICE LANE: Whisper runs in this
+      // browser and the audio never leaves the device. Server lane: the real
+      // ASR pipeline (WAV/WebM upload). Both are real; the UI states which.
+      let transcript: string
+      let turnId = `turn-${Date.now()}`
+      if (localAsrMode && localAsrReady) {
+        const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
+        const result = await getDeviceCapabilityManager().transcribeLocally(blob, {
+          onProgress: (p) => setLocalAsrProgress(p),
+        })
+        transcript = result.text
+        if (!transcript) throw new Error('The on-device transcript was empty for this turn.')
+      } else {
+        const fd = new FormData()
+        fd.append('file', new File([blob], 'turn.webm', { type: blob.type || 'audio/webm' }))
+        const res = await fetch('/api/gangzii/transcribe', { method: 'POST', body: fd })
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; job?: { id: string }; error?: { message?: string } }
+        if (!res.ok || data.ok === false || !data.job) {
+          throw new Error(data.error?.message ?? 'The recorded turn could not be transcribed.')
+        }
+        const tJob = await pollJob<LabJob>(data.job.id, (id) => `/api/gangzii/jobs/${id}`)
+        if (!tJob || tJob.status !== 'completed' || !tJob.transcript) {
+          throw new Error(tJob?.errorMessage ?? 'Transcription failed for this turn.')
+        }
+        transcript = tJob.transcript
+        turnId = tJob.id
       }
-      const tJob = await pollJob<LabJob>(data.job.id, (id) => `/api/gangzii/jobs/${id}`)
-      if (!tJob || tJob.status !== 'completed' || !tJob.transcript) {
-        throw new Error(tJob?.errorMessage ?? 'Transcription failed for this turn.')
-      }
-      const transcript = tJob.transcript
 
       // 2. Ask the BEAN conversation model for a spoken-style reply.
       setLivePhase('thinking')
@@ -873,7 +951,7 @@ export function Gangzii() {
         if (done && done.status === 'completed' && done.audioUrl) audioUrl = done.audioUrl
       }
 
-      const turn: Turn = { id: tJob.id, transcript, reply: live.reply, audioUrl, error: null }
+      const turn: Turn = { id: turnId, transcript, reply: live.reply, audioUrl, error: null }
       historyRef.current = [...historyRef.current, { role: 'user' as const, content: transcript }, { role: 'assistant' as const, content: live.reply }].slice(-12)
       setTurns((prev) => [...prev, turn])
 
@@ -1520,6 +1598,73 @@ export function Gangzii() {
               Each turn: record → real speech recognition → the BEAN conversation model → real speech synthesis. This is an
               honest turn-based pipeline, not a low-latency duplex stream. Grab the mic any time to interrupt playback.
             </p>
+            {/* ON-DEVICE ASR LANE (Tier A): transcription in this browser. */}
+            {localAsrAvailable ? (
+              <div className="mt-3 border-t border-white/10 pt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (localAsrMode) {
+                        setLocalAsrMode(false)
+                      } else {
+                        void enableLocalAsr()
+                      }
+                    }}
+                    disabled={localAsrPreparing}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] transition-colors disabled:opacity-40',
+                      localAsrMode && localAsrReady
+                        ? 'border-[rgba(212,175,55,0.55)] bg-[rgba(212,175,55,0.14)] text-[#f0c75e]'
+                        : 'border-white/15 text-white/60 hover:bg-white/10 hover:text-white/85',
+                    )}
+                    aria-pressed={localAsrMode && localAsrReady}
+                  >
+                    <Laptop className="h-3.5 w-3.5" />
+                    {localAsrMode && localAsrReady ? 'Transcribing on-device (private)' : 'Transcribe on-device'}
+                  </button>
+                  <span className="text-[10px] text-white/35">
+                    {localAsrMode && localAsrReady
+                      ? 'Your microphone audio never leaves this browser.'
+                      : 'Whisper-tiny (~43.6 MB) downloads once into this browser after confirmation.'}
+                  </span>
+                </div>
+                {localAsrNeedsDownload !== null ? (
+                  <div className="mt-2 rounded-lg border border-[rgba(212,175,55,0.35)] bg-[rgba(212,175,55,0.06)] p-3 text-xs text-white/75">
+                    <div className="mb-1 font-semibold text-[#f0c75e]">Download the on-device transcription model?</div>
+                    <p>
+                      Approx. size: <span className="text-[#f0c75e]">{(localAsrNeedsDownload / (1024 * 1024)).toFixed(1)} MB</span>{' '}
+                      (Whisper-tiny, Apache-2.0). Runs entirely in this browser; the recording is never uploaded in this mode.
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        onClick={() => void confirmLocalAsrDownload()}
+                        className="rounded bg-[#d4af37] px-3 py-1.5 text-[11px] font-medium text-black hover:bg-[#e6c25a]"
+                      >
+                        Download and enable
+                      </button>
+                      <button
+                        onClick={() => setLocalAsrNeedsDownload(null)}
+                        className="rounded border border-white/20 px-3 py-1.5 text-[11px] text-white/70 hover:bg-white/10"
+                      >
+                        Not now
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                {localAsrPreparing && localAsrProgress ? (
+                  <div className="mt-2 rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-white/70">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span>Preparing the on-device model…</span>
+                      <span className="text-white/45">{localAsrProgress.progress !== null ? `${Math.round(localAsrProgress.progress * 100)}%` : ''}</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-[#d4af37] transition-all" style={{ width: `${Math.round((localAsrProgress.progress ?? 0) * 100)}%` }} />
+                    </div>
+                    <div className="mt-1 truncate text-[10px] text-white/40">{localAsrProgress.note}</div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="bean-glass flex flex-col items-center rounded-xl p-8">

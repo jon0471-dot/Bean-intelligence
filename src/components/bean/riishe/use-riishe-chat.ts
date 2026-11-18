@@ -73,6 +73,10 @@ export interface Msg {
   partial?: boolean
   pending?: boolean
   meta?: MsgMeta
+  /** ON-DEVICE LANE (2026-11-18): produced by the visitor's own browser
+   *  (WebGPU). Honest labels: never persisted server-side, no retrieval,
+   *  no tools, no memory, no citations. */
+  onDevice?: boolean
 }
 
 export const MAX_FILES = 3
@@ -101,6 +105,18 @@ export function useRiisheChat(refs: RiisheChatRefs) {
   const [files, setFiles] = useState<FileMeta[]>([])
   const [uploadingCount, setUploadingCount] = useState(0)
   const [dragOver, setDragOver] = useState(false)
+
+  // ON-DEVICE LANE (2026-11-18): visitor's-browser chat via the shared
+  // DeviceCapabilityManager. Availability/status come from MEASURED device
+  // facts; the download confirmation shows the REAL model size first.
+  const [onDeviceMode, setOnDeviceMode] = useState(false)
+  const [onDeviceReady, setOnDeviceReady] = useState(false)
+  const [onDevicePreparing, setOnDevicePreparing] = useState(false)
+  const [onDeviceProgress, setOnDeviceProgress] = useState<{ note: string; progress: number | null } | null>(null)
+  /** Bytes shown in the size-confirmation dialog (null = nothing pending). */
+  const [onDeviceNeedsDownload, setOnDeviceNeedsDownload] = useState<number | null>(null)
+  const [onDeviceAvailable, setOnDeviceAvailable] = useState(false)
+  const ON_DEVICE_MODEL_ID = 'riishe-chat-webllm-qwen2.5-0.5b'
 
   const nearBottomRef = useRef(true)
   const streamedRef = useRef('')
@@ -600,6 +616,209 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // ON-DEVICE LANE (2026-11-18): enable-with-size-confirmation → local
+  // streaming. The server chat path above is UNTOUCHED; on-device turns are
+  // honestly labeled (no persistence, no retrieval/tools/memory/citations).
+  // ---------------------------------------------------------------------------
+
+  /** Mirror of the thread for building the local history window. */
+  const messagesRef = useRef<Msg[]>([])
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  // Availability probe: measured device facts once per mount.
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      try {
+        const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
+        const manager = getDeviceCapabilityManager()
+        const status = await manager.getStatus()
+        if (!alive) return
+        const cap = status.capabilities.find((c) => c.capability === 'chat.on-device')
+        setOnDeviceAvailable(cap?.target === 'client-gpu')
+        setOnDeviceReady(status.activeHeavyModel === ON_DEVICE_MODEL_ID)
+      } catch {
+        if (alive) setOnDeviceAvailable(false)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** Activate the on-device toggle. First activation in a tab shows the
+   * model's REAL size for explicit confirmation (never an auto-download). */
+  async function enableOnDevice(): Promise<void> {
+    setError(null)
+    const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
+    const manager = getDeviceCapabilityManager()
+    const status = await manager.getStatus()
+    if (!status.consent?.granted) {
+      setError('On-device AI needs your explicit consent once — open AI Device (sidebar) and enable device inference there.')
+      return
+    }
+    const cap = status.capabilities.find((c) => c.capability === 'chat.on-device')
+    if (cap?.target !== 'client-gpu') {
+      setError(`On-device chat is not available on this device: ${cap?.reason ?? 'capability gate failed'}`)
+      return
+    }
+    if (status.activeHeavyModel === ON_DEVICE_MODEL_ID) {
+      setOnDeviceReady(true)
+      setOnDeviceMode(true)
+      return
+    }
+    const model = status.models.find((m) => m.id === ON_DEVICE_MODEL_ID)
+    // Size confirmation BEFORE any model download (non-negotiable policy).
+    setOnDeviceNeedsDownload(model?.sizeBytes ?? null)
+  }
+
+  async function confirmOnDeviceDownload(): Promise<void> {
+    setOnDeviceNeedsDownload(null)
+    setOnDevicePreparing(true)
+    setError(null)
+    const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
+    const manager = getDeviceCapabilityManager()
+    try {
+      await manager.ensureOnDeviceChatReady({ onProgress: (p) => setOnDeviceProgress(p) })
+      setOnDeviceReady(true)
+      setOnDeviceMode(true)
+    } catch (error) {
+      const err = error as { message?: string; recovery?: string }
+      setError(`${err.message ?? 'The on-device model failed to load.'} ${err.recovery ?? ''}`.trim())
+    } finally {
+      setOnDevicePreparing(false)
+      setOnDeviceProgress(null)
+    }
+  }
+
+  function cancelOnDeviceDownload(): void {
+    setOnDeviceNeedsDownload(null)
+  }
+
+  function disableOnDevice(): void {
+    setOnDeviceMode(false)
+  }
+
+  /** TIER D — persistent background turn: submit the message to the durable
+   * job queue (POST /api/ai/jobs). The worker runs the SAME RIISHE turn core
+   * server-side; the result is appended to the conversation even if this tab
+   * closes. Honest notice with the job id; no fabricated completion here. */
+  async function runInBackground(): Promise<void> {
+    const message = input.trim()
+    if (!message || sendingRef.current) return
+    setError(null)
+    try {
+      const data = await beanFetch<{ job: { id: string } }>('/api/ai/jobs', {
+        method: 'POST',
+        json: { product: 'riishe', message, ...(activeId ? { conversationId: activeId } : {}) },
+      })
+      setInput('')
+      setError(null)
+      // Honest user-visible confirmation as plain status text (never a fake
+      // answer): the real reply is appended to the conversation by the worker.
+      setMessages((prev) => [
+        ...prev,
+        { id: `u-${Date.now()}`, role: 'user', content: message },
+        {
+          id: `bg-${data.job.id}`,
+          role: 'assistant',
+          content: `**Background turn queued** — job \`${data.job.id}\`. The full answer is appended to this conversation when the worker completes; this tab can be closed safely in the meantime.`,
+        },
+      ])
+      if (activeId) void openConversation(activeId)
+    } catch (error) {
+      const err = error as { message?: string }
+      setError(err.message ?? 'The background job could not be submitted.')
+    }
+  }
+
+  /** One on-device turn: runs in THIS browser, never persisted server-side. */
+  async function sendOnDevice() {
+    const message = input.trim()
+    if (!message || sendingRef.current) return
+    if (!onDeviceReady) {
+      setError('The on-device model is not loaded yet. Enable the on-device toggle and confirm the download first.')
+      return
+    }
+    sendingRef.current = true
+    setInput('')
+    setError(null)
+    setStreaming(true)
+    setResearching(false)
+    setRunningTool(null)
+    nearBottomRef.current = true
+    streamedRef.current = ''
+
+    const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: message }
+    const asstId = `a-${Date.now()}`
+    setMessages((prev) => [...prev, userMsg, { id: asstId, role: 'assistant', content: '', pending: true, onDevice: true }])
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    try {
+      const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
+      const manager = getDeviceCapabilityManager()
+      const history = messagesRef.current
+        .filter((m) => !m.pending && m.content.trim().length > 0)
+        .slice(-12)
+        .map((m) => ({ role: m.role, content: m.content }))
+      const result = await manager.streamOnDeviceChat(
+        [
+          {
+            role: 'system',
+            content:
+              'You are RIISHE running fully on-device in the visitor\u2019s browser (BEAN Intelligence privacy lane). Answer helpfully and concisely. You have no web access, no tools and no saved memory in this mode — say so honestly if asked. The conversation is not stored on any server.',
+          },
+          ...history,
+        ],
+        {
+          onDelta: (delta: string) => {
+            streamedRef.current += delta
+            setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current } : m)))
+          },
+          signal: controller.signal,
+          maxTokens: 1024,
+        },
+      )
+      const truncated = result.finishReason === 'length'
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === asstId
+            ? { ...m, content: result.text || streamedRef.current, pending: false, partial: truncated || undefined }
+            : m,
+        ),
+      )
+      if (truncated) {
+        setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, meta: { states: [], sources: [], degraded: [], verificationNote: 'Stopped at the on-device output limit — the answer may be incomplete. The server lane has a much larger budget.' } } : m)))
+      }
+    } catch (error) {
+      const err = error as { message?: string; recovery?: string; code?: string }
+      const cancelled = err.code === 'AI_GENERATION_CANCELLED'
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === asstId
+            ? {
+                ...m,
+                pending: false,
+                content: streamedRef.current,
+                partial: !cancelled && streamedRef.current.length > 0 ? true : undefined,
+              }
+            : m,
+        ),
+      )
+      if (!cancelled) setError(`${err.message ?? 'On-device generation failed.'} ${err.recovery ?? ''}`.trim())
+    } finally {
+      sendingRef.current = false
+      setStreaming(false)
+      abortRef.current = null
+      setMessages((prev) => prev.map((m) => ({ ...m, pending: false })))
+    }
+  }
+
   return {
     // state
     conversations,
@@ -616,12 +835,25 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     files,
     uploadingCount,
     dragOver,
+    // on-device lane state (Tier A)
+    onDeviceMode,
+    onDeviceReady,
+    onDevicePreparing,
+    onDeviceProgress,
+    onDeviceNeedsDownload,
+    onDeviceAvailable,
     // actions
     setInput,
     setSearchQuery,
     setDragOver,
     setError,
     send,
+    sendOnDevice,
+    enableOnDevice,
+    confirmOnDeviceDownload,
+    cancelOnDeviceDownload,
+    disableOnDevice,
+    runInBackground,
     stopGeneration,
     regenerateFrom,
     newConversation,

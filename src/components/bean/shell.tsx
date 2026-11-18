@@ -15,6 +15,7 @@ import {
   Video,
   Code2,
   AudioLines,
+  Cpu,
   BarChart3,
   Settings,
   ShieldCheck,
@@ -31,6 +32,7 @@ export type ViewId =
   | 'jazmii'
   | 'code-giftz'
   | 'gangzii'
+  | 'ai-device'
   | 'portal'
   | 'usage'
   | 'settings'
@@ -43,6 +45,7 @@ const NAV: Array<{ id: ViewId; label: string; icon: React.ElementType; group: st
   { id: 'jazmii', label: 'JAZMII', icon: Video, group: 'Products' },
   { id: 'code-giftz', label: 'CODE GIFTZ', icon: Code2, group: 'Products' },
   { id: 'gangzii', label: 'GANGZII', icon: AudioLines, group: 'Products' },
+  { id: 'ai-device', label: 'AI Device', icon: Cpu, group: 'Platform' },
   { id: 'portal', label: 'Developer portal', icon: FolderKey, group: 'Account' },
   { id: 'usage', label: 'Usage & quotas', icon: BarChart3, group: 'Account' },
   { id: 'settings', label: 'Settings', icon: Settings, group: 'Account' },
