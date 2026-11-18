@@ -46,6 +46,10 @@ local-*
 # so it could never be committed and its absence broke the build with
 # "Module not found: Can't resolve '@/lib/laxii/local-adapter'".
 !src/lib/laxii/local-adapter.ts
+# M26.3 (carried from the M26.2 review): the llama.cpp desktop-engine client
+# is REAL source imported by the committed device-capability manager — same
+# class of silent-ignore build break as local-adapter.ts above.
+!src/lib/local-engine/
 .claude
 .z-ai-config
 *.log
