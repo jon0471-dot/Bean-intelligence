@@ -88,6 +88,16 @@ export const BEAN_PRODUCTS: BeanProduct[] = [
     accent: '#C9A227',
     icon: 'code-2',
   },
+  {
+    id: 'gangzii',
+    name: 'GANGZII',
+    tagline: 'Voice, audio & speech studio',
+    description:
+      'Speech synthesis with seven studio voices, speech-to-text transcription, live voice conversation and deterministic audio format conversion. Music generation has no configured backend and is reported truthfully rather than simulated.',
+    task: 'speech-synthesis',
+    accent: '#B98A2F',
+    icon: 'audio-lines',
+  },
 ]
 
 export function getProduct(id: string): BeanProduct | undefined {

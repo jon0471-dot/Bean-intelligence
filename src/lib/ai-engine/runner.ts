@@ -348,7 +348,7 @@ export function startEmbeddedEngine(): void {
     logger.info('engine.embedded_disabled', {})
     return
   }
-  const products: BeanProductId[] = ['riishe', 'laxii', 'jazmii', 'code-giftz']
+  const products: BeanProductId[] = ['riishe', 'laxii', 'jazmii', 'code-giftz', 'gangzii']
   for (const p of products) startWorkerPool(p, 'embedded')
   logger.info('engine.embedded_started', {})
 }

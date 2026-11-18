@@ -11,7 +11,8 @@
  *   bun scripts/ai-workers/worker.ts --product laxii
  *   bun scripts/ai-workers/worker.ts --product jazmii
  *   bun scripts/ai-workers/worker.ts --product code-giftz
- *   bun scripts/ai-workers/worker.ts --all              (all four pools)
+ *   bun scripts/ai-workers/worker.ts --product gangzii
+ *   bun scripts/ai-workers/worker.ts --all              (all five pools)
  *
  * Stop: SIGINT/SIGTERM (graceful — in-flight jobs finish, then exit).
  */
@@ -28,7 +29,7 @@ async function main() {
   const all = args.includes('--all')
   const concurrency = getArg('--concurrency') ? Number(getArg('--concurrency')) : undefined
   if (!product && !all) {
-    console.error('usage: worker.ts --product <riishe|laxii|jazmii|code-giftz> [--concurrency N] | --all')
+    console.error('usage: worker.ts --product <riishe|laxii|jazmii|code-giftz|gangzii> [--concurrency N] | --all')
     process.exit(2)
   }
 
@@ -37,8 +38,8 @@ async function main() {
   const cfg = engineConfig()
 
   const products = all
-    ? (['riishe', 'laxii', 'jazmii', 'code-giftz'] as const)
-    : [product as 'riishe' | 'laxii' | 'jazmii' | 'code-giftz']
+    ? (['riishe', 'laxii', 'jazmii', 'code-giftz', 'gangzii'] as const)
+    : [product as 'riishe' | 'laxii' | 'jazmii' | 'code-giftz' | 'gangzii']
 
   const handles: Array<{ stop: () => Promise<void> }> = []
   for (const p of products) {

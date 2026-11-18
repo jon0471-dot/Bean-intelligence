@@ -540,6 +540,145 @@ const LOCAL_LLAMACPP_LLM: BackendDescriptor = {
   retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
+/**
+ * GANGZII — authorized hosted SPEECH SYNTHESIS (2026-11-18 wiring).
+ *
+ * ENABLED: the adapter executes REAL chunked synthesis through the gateway.
+ * Every limit below is a MEASURED constraint from the 2026-10-27 live probe
+ * evidence (models/licenses/gangzii-stage0-audio-probe-evidence.json and
+ * scripts/beep-probe-out/): WAV containers only (mp3 rejected upstream),
+ * 24 kHz mono 16-bit output, 1024 chars per chunk, speed [0.5, 2.0],
+ * fixed 7-voice set, and the documented leading-tone artifact handled at
+ * the source (per-chunk WAV) plus a defensive deterministic guard.
+ */
+const HOSTED_AUDIO_TTS: BackendDescriptor = {
+  id: 'bean-audio-tts-hosted-primary',
+  productId: 'gangzii',
+  task: 'speech-synthesis',
+  provider: 'Z.ai authorized hosted inference gateway',
+  modelIdentity:
+    'Provider-managed text-to-speech model; exact checkpoint not disclosed to tenant (7 fixed voices)',
+  revision: null,
+  endpointType: 'managed-sdk',
+  deploymentMode: 'authorized-hosted',
+  runtime: 'Provider-managed runtime (no tenant-side GPU required); BEAN-side WAV assembly + artifact guard',
+  limits: {
+    maxCharsPerRequest: 6000,
+    maxCharsPerChunk: 1024,
+    maxChunksPerRequest: 12,
+    speedMin: 0.5,
+    speedMax: 2.0,
+    outputFormat: 'wav',
+    sampleRateHz: 24_000,
+    channels: 1,
+    bitDepth: 16,
+    voices: 'fixed 7-voice set (see GANGZII_VOICES)',
+    chunkTimeoutMs: 60_000,
+  },
+  license: {
+    name: 'Access governed by platform inference agreement',
+    commercialUse: 'authorized',
+    note:
+      'Synthesized audio is delivered to the customer; upstream model weights are not redistributed by BEAN.',
+    sourceUrl: 'https://z.ai',
+    verifiedAt: '2026-10-27',
+  },
+  dataHandling:
+    'Submitted text and synthesized audio are processed by the provider under its platform terms. Artifacts are stored under BEAN storage with per-user access checks and user-controlled deletion.',
+  metering: { unit: 'request', costUnit: null },
+  secrets: ['ZAI_GATEWAY_CREDENTIALS (managed by platform runtime)'],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 8 },
+  timeouts: { requestMs: 120_000, queueMs: 5_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
+ * GANGZII — authorized hosted SPEECH RECOGNITION (2026-11-18 wiring).
+ *
+ * ENABLED: real ASR through the gateway. Measured constraints (2026-10-27):
+ * only WAV and WebM containers are accepted (upstream error text verbatim),
+ * output is plain text — no timestamps, no diarization.
+ */
+const HOSTED_AUDIO_ASR: BackendDescriptor = {
+  id: 'bean-audio-asr-hosted-primary',
+  productId: 'gangzii',
+  task: 'audio-transcription',
+  provider: 'Z.ai authorized hosted inference gateway',
+  modelIdentity:
+    'Provider-managed speech-recognition model; exact checkpoint not disclosed to tenant',
+  revision: null,
+  endpointType: 'managed-sdk',
+  deploymentMode: 'authorized-hosted',
+  runtime: 'Provider-managed runtime (no tenant-side GPU required)',
+  limits: {
+    acceptedContainers: ['wav', 'webm'],
+    maxUploadBytes: 26_214_400,
+    output: 'plain text transcript (no word timestamps, no speaker diarization)',
+    callTimeoutMs: 90_000,
+  },
+  license: {
+    name: 'Access governed by platform inference agreement',
+    commercialUse: 'authorized',
+    note:
+      'Transcripts are delivered to the customer; upstream model weights are not redistributed by BEAN.',
+    sourceUrl: 'https://z.ai',
+    verifiedAt: '2026-10-27',
+  },
+  dataHandling:
+    'Uploaded audio is processed by the provider under its platform terms. Uploads are stored under BEAN storage with per-user access checks and are deletable by the user (data-rights control).',
+  metering: { unit: 'request', costUnit: null },
+  secrets: ['ZAI_GATEWAY_CREDENTIALS (managed by platform runtime)'],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 8 },
+  timeouts: { requestMs: 120_000, queueMs: 5_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
+ * GANGZII — deterministic local audio conversion (ffmpeg, in-process).
+ * ENABLED: real local transcode with no model involved. Stereo "export" is
+ * an explicitly-labeled DUAL-MONO duplication (the provider emits mono) and
+ * the produced file is verified with ffprobe before it may be labeled.
+ */
+const LOCAL_AUDIO_TOOLS: BackendDescriptor = {
+  id: 'bean-audio-tools-local',
+  productId: 'gangzii',
+  task: 'audio-conversion',
+  provider: 'BEAN Intelligence (in-process deterministic ffmpeg engine)',
+  modelIdentity: 'Deterministic ffmpeg transcode — no ML model involved',
+  revision: null,
+  endpointType: 'local-process',
+  deploymentMode: 'self-hosted',
+  runtime: 'ffmpeg on the application host (CPU, deterministic)',
+  limits: {
+    targetFormats: ['mp3', 'ogg', 'flac', 'm4a', 'wav'],
+    maxUploadBytes: 26_214_400,
+    stereoLabeling: 'dual-mono duplication — NOT spatial stereo (provider emits mono only)',
+    verification: 'produced channels verified with ffprobe before completion',
+    timeoutMs: 120_000,
+  },
+  license: {
+    name: 'Not applicable — BEAN-local deterministic processing (ffmpeg is LGPL-2.1/GPL depending on build)',
+    commercialUse: 'not-applicable',
+    note:
+      'Customer audio is processed by BEAN-owned code on the BEAN host. No upstream provider sees the file.',
+    sourceUrl: 'https://ffmpeg.org',
+    verifiedAt: '2026-11-18',
+  },
+  dataHandling:
+    'Audio never leaves the application host for conversion. Artifacts are stored under BEAN storage with per-user access checks.',
+  metering: { unit: 'request', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 8 },
+  timeouts: { requestMs: 150_000, queueMs: 5_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
 /** Private registry — the only place product→backend mappings exist. */
 export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_LLM,
@@ -552,6 +691,9 @@ export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_VIDEO,
   VIDEO_PLANNED,
   HOSTED_CODE_LLM,
+  HOSTED_AUDIO_TTS,
+  HOSTED_AUDIO_ASR,
+  LOCAL_AUDIO_TOOLS,
 ]
 
 export function getBackendsForProduct(productId: BeanProductId): BackendDescriptor[] {

@@ -12,6 +12,11 @@ import type { WorkerHandler } from './types'
 import { processImageJob } from '@/lib/jobs/image-worker'
 import { processEnhancementJob, processEditJob } from '@/lib/laxii/jobs'
 import { isVideoPollerActive, processVideoJob } from '@/lib/jobs/video-worker'
+import {
+  processSpeechSynthesisJob,
+  processTranscriptionJob,
+  processConversionJob,
+} from '@/lib/jobs/audio-worker'
 import { handleRiisheChatJob } from './riishe-chat-handler'
 import { handleGiftzCodingJob } from './giftz-coding-handler'
 
@@ -54,4 +59,21 @@ export const engineHandlers: Record<string, WorkerHandler> = {
   },
   chat: handleRiisheChatJob,
   'coding-task': handleGiftzCodingJob,
+  // GANGZII AUDIO WIRING (2026-11-18): the three GANGZII task types gain
+  // REAL processors, replacing the previous honest NO_BACKEND settle (the
+  // M26 F-G1 regression documented the orphan; this is its fix). The
+  // handlers run the same measured adapter paths the routes were built
+  // against (chunked TTS, gateway ASR, local ffmpeg conversion).
+  'speech-synthesis': async (job) => {
+    await processSpeechSynthesisJob(job)
+    return { result: {} } // the processor settles the row itself
+  },
+  'audio-transcription': async (job) => {
+    await processTranscriptionJob(job)
+    return { result: {} }
+  },
+  'audio-conversion': async (job) => {
+    await processConversionJob(job)
+    return { result: {} }
+  },
 }

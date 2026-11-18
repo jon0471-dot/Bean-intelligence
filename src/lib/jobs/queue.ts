@@ -108,8 +108,8 @@ export function enqueueJob(jobId: string): void {
         })
       }
       // Wake every product pool: the first idle slot to claim wins; the other
-      // wakes find an empty queue and sleep again (four cheap queries).
-      for (const p of ['riishe', 'laxii', 'jazmii', 'code-giftz']) kickProduct(p)
+      // wakes find an empty queue and sleep again (cheap queries).
+      for (const p of ['riishe', 'laxii', 'jazmii', 'code-giftz', 'gangzii']) kickProduct(p)
     })()
     return
   }

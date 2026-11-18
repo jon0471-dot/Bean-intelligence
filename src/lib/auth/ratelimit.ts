@@ -58,6 +58,9 @@ export const PRODUCT_RATE_LIMITS: Record<string, number> = {
   laxii: 6,
   jazmii: 6,
   'code-giftz': 15,
+  // GANGZII AUDIO WIRING (2026-11-18): matches the audio gateway's measured
+  // tightness (probe evidence showed quick 429s under rapid calls) — 8/min.
+  gangzii: 8,
 }
 
 /** Durable daily quotas per product (successful billable units/day). */
@@ -70,6 +73,10 @@ export const PRODUCT_DAILY_QUOTAS: Record<string, number> = {
   // tier. Video jobs are metered in UsageRecord like every other product.
   jazmii: 6,
   'code-giftz': 150,
+  // GANGZII AUDIO WIRING (2026-11-18): bounded daily budget for synthesis +
+  // transcription calls against the authorized gateway (conversion is local
+  // ffmpeg but still passes through the product gate for a coherent budget).
+  gangzii: 80,
 }
 
 export async function checkDailyQuota(

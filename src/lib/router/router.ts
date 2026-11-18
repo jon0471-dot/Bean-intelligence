@@ -21,6 +21,7 @@ import { checkDailyQuota, checkRateLimit, PRODUCT_RATE_LIMITS } from '@/lib/auth
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
 import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
+import { hostedAudioAdapter } from '@/lib/adapters/hosted-audio'
 import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
 import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import { openAiCompatibleAdapter } from '@/lib/providers/openai-compatible'
@@ -65,6 +66,22 @@ const ADAPTERS: Record<string, TaskAdapter> = {
       latencyMs: null,
       detail: 'The self-hosted video worker candidate is not deployed (planned open-weight path, hardware-gated).',
     }),
+  },
+  // GANGZII AUDIO WIRING (2026-11-18): the measured audio adapters become
+  // routable. Health probes are the adapters' REAL cached probes (tiny
+  // payloads, 60s TTL; a 429 is cached briefly as rate-limited evidence —
+  // never rendered as an outage).
+  'bean-audio-tts-hosted-primary': {
+    backendId: 'bean-audio-tts-hosted-primary',
+    health: () => hostedAudioAdapter.healthTts(),
+  },
+  'bean-audio-asr-hosted-primary': {
+    backendId: 'bean-audio-asr-hosted-primary',
+    health: () => hostedAudioAdapter.healthAsr(),
+  },
+  'bean-audio-tools-local': {
+    backendId: 'bean-audio-tools-local',
+    health: () => hostedAudioAdapter.healthFfmpeg(),
   },
 }
 

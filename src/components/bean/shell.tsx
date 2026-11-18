@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   Video,
   Code2,
+  AudioLines,
   BarChart3,
   Settings,
   ShieldCheck,
@@ -29,6 +30,7 @@ export type ViewId =
   | 'laxii'
   | 'jazmii'
   | 'code-giftz'
+  | 'gangzii'
   | 'portal'
   | 'usage'
   | 'settings'
@@ -40,6 +42,7 @@ const NAV: Array<{ id: ViewId; label: string; icon: React.ElementType; group: st
   { id: 'laxii', label: 'LAXII', icon: ImageIcon, group: 'Products' },
   { id: 'jazmii', label: 'JAZMII', icon: Video, group: 'Products' },
   { id: 'code-giftz', label: 'CODE GIFTZ', icon: Code2, group: 'Products' },
+  { id: 'gangzii', label: 'GANGZII', icon: AudioLines, group: 'Products' },
   { id: 'portal', label: 'Developer portal', icon: FolderKey, group: 'Account' },
   { id: 'usage', label: 'Usage & quotas', icon: BarChart3, group: 'Account' },
   { id: 'settings', label: 'Settings', icon: Settings, group: 'Account' },

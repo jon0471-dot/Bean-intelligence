@@ -3,6 +3,7 @@ import { getSessionUser } from '@/lib/auth/session'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
 import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
+import { hostedAudioAdapter } from '@/lib/adapters/hosted-audio'
 import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
 import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import { lastHealthyAtFor, HEALTH_CACHE_TTL_MS } from '@/lib/adapters/health-cache'
@@ -123,7 +124,7 @@ import {
  */
 
 /** Registry truth: does the product have ANY enabled backend right now? */
-function registryEnabled(productId: 'riishe' | 'laxii' | 'jazmii' | 'code-giftz'): boolean {
+function registryEnabled(productId: 'riishe' | 'laxii' | 'jazmii' | 'code-giftz' | 'gangzii'): boolean {
   return getBackendsForProduct(productId).some((b) => b.enabled)
 }
 
@@ -184,7 +185,7 @@ function generationSlot(
 export async function GET() {
   return handle(async () => {
     // LOCAL probes (no network — provider invisible): parallel as before.
-    const [sandbox, laxiiLocal, laxiiWorker] = await Promise.all([
+    const [sandbox, laxiiLocal, laxiiWorker, audioFfmpeg] = await Promise.all([
       safeProbe('sandbox-runtime-primary', () => probeSandboxHealth()),
       // LAXII preservation engine sub-states (2026-10-31):
       //  deterministic -> real local Sharp capability (executed, not claimed)
@@ -192,6 +193,9 @@ export async function GET() {
       //                   host; registry-gated for traffic)
       safeProbe('laxii-local-sharp', () => localLaxiiAdapter.health()),
       safeProbe('laxii-diffusers-worker', () => diffusersWorkerAdapter.health()),
+      // GANGZII AUDIO WIRING (2026-11-18): deterministic local ffmpeg is a
+      // local binary probe (no network) — it belongs with the local probes.
+      safeProbe('audio-tools-local', () => hostedAudioAdapter.healthFfmpeg()),
     ])
 
     // REMOTE probes (network — same gateway host): SERIALIZED with a 250ms
@@ -200,7 +204,7 @@ export async function GET() {
     // on a fresh poll; while a class breaker is open the LLM/research
     // probes make NO network call at all (deferred honestly), keeping the
     // "never probe repeatedly while a breaker is open" guarantee.
-    const [riishe, giftz, research, image, video] = await staggeredRemoteProbes([
+    const [riishe, giftz, research, image, video, audioTts, audioAsr] = await staggeredRemoteProbes([
       () => safeProbe('llm-hosted-primary', () => hostedLlmAdapter.health()),
       // CODE GIFTZ probes its own backend descriptor independently (the
       // registry separates bean-llm-hosted-primary from
@@ -212,6 +216,12 @@ export async function GET() {
       // JAZMII (2026-11-04): real reachability probe of the hosted video
       // backend + video-class breaker state — NEVER a synthetic generation.
       () => safeProbe('video-hosted-primary', () => hostedVideoAdapter.health()),
+      // GANGZII AUDIO WIRING (2026-11-18): real cached audio probes of the
+      // authorized gateway (tiny payloads, 60s TTL). They ride the 'audio'
+      // endpoint class, so an open audio-class breaker throttles them
+      // honestly instead of hammering the provider.
+      () => safeProbe('audio-tts-hosted-primary', () => hostedAudioAdapter.healthTts()),
+      () => safeProbe('audio-asr-hosted-primary', () => hostedAudioAdapter.healthAsr()),
     ])
 
     const videoBackend = getBackendsForProduct('jazmii')[0]
@@ -431,14 +441,42 @@ export async function GET() {
       }),
     ]
 
+    // GANGZII AUDIO WIRING (2026-11-18): capability rows for the newly wired
+    // audio product. TTS + ASR are the core capabilities (real gateway
+    // probes); conversion is a local deterministic capability (display-only
+    // row); music-generation has NO configured backend and is rendered
+    // honestly as not-configured (registry evidence, not a probe).
+    const gangziiCapabilities: CapabilityHealth[] = [
+      probeCapability('speech-synthesis', 'Speech synthesis', true, {
+        probe: audioTts,
+        note: 'chunked TTS through the authorized gateway (measured 2026-10-27)',
+      }),
+      probeCapability('audio-transcription', 'Speech-to-text', true, {
+        probe: audioAsr,
+        note: 'gateway ASR; WAV/WebM containers only',
+      }),
+      probeCapability('audio-conversion', 'Format conversion', false, {
+        probe: audioFfmpeg,
+        statusAffecting: false,
+        note: 'local deterministic ffmpeg (no model involved)',
+      }),
+      probeCapability('music-generation', 'Music generation', false, {
+        probe: audioFfmpeg,
+        registryEnabled: false,
+        statusAffecting: false,
+        note: 'no music backend is deployed; the route refuses honestly (NO_BACKEND) rather than simulating audio',
+      }),
+    ]
+
     // QUEUE DEPTH + WORKER AVAILABILITY (OPERATIONAL-TRANSFORMATION, Phase 8,
     // 2026-11-11): real per-product counts of jobs waiting for a worker
     // (queued / retry_wait) and the embedded engine pools actually alive in
     // this process. Both are cheap DB/local reads — never fabricated.
-    const [queueLaxii, queueJazmii, queueGiftz] = await Promise.all([
+    const [queueLaxii, queueJazmii, queueGiftz, queueGangzii] = await Promise.all([
       db.generationJob.count({ where: { product: 'laxii', status: { in: ['queued', 'retry_wait'] } } }),
       db.generationJob.count({ where: { product: 'jazmii', status: { in: ['queued', 'retry_wait'] } } }),
       db.generationJob.count({ where: { product: 'code-giftz', status: { in: ['queued', 'retry_wait'] } } }),
+      db.generationJob.count({ where: { product: 'gangzii', status: { in: ['queued', 'retry_wait'] } } }),
     ])
     const engine = { embeddedPools: runningPools(), kind: 'embedded' as const }
 
@@ -542,6 +580,24 @@ export async function GET() {
       },
     }
 
+    // GANGZII AUDIO WIRING (2026-11-18): the audio product gets its own
+    // entry — real TTS/ASR probes as availability evidence, the local ffmpeg
+    // probe as the conversion sub-state, and the wired audio worker pool.
+    const gangziiEntry: ProductEntry = {
+      status: productStatus(registryEnabled('gangzii'), {
+        available: audioTts.healthy,
+        capabilities: gangziiCapabilities,
+      }),
+      available: audioTts.healthy,
+      probe: audioTts,
+      lastHealthyAt: lastHealthyAtFor('audio-tts-hosted-primary'),
+      transcription: { available: audioAsr.healthy, probe: audioAsr },
+      conversion: { available: audioFfmpeg.healthy, probe: audioFfmpeg },
+      capabilities: gangziiCapabilities,
+      queueDepth: queueGangzii,
+      engine,
+    }
+
     // M26 (audit S-11/O-3): liveness stays PUBLIC (uptime checks, the
     // platform ingress); the OPERATIONAL DETAIL (breaker windows, probe
     // evidence chains, per-attempt timestamps, queue depth) is now visible
@@ -563,6 +619,7 @@ export async function GET() {
           laxii: { status: laxiiEntry.status },
           jazmii: { status: jazmiiEntry.status },
           'code-giftz': { status: giftzEntry.status },
+          gangzii: { status: gangziiEntry.status },
         },
       })
     }
@@ -591,6 +648,7 @@ export async function GET() {
         laxii: laxiiEntry,
         jazmii: jazmiiEntry,
         'code-giftz': giftzEntry,
+        gangzii: gangziiEntry,
       },
     })
   })

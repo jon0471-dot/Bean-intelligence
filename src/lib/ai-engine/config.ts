@@ -68,6 +68,9 @@ export function engineConfig(): EngineConfig {
       laxii: clampInt(envIntOf('BEAN_ENGINE_CONCURRENCY_LAXII', 2), 1, 4),
       jazmii: clampInt(envIntOf('BEAN_ENGINE_CONCURRENCY_JAZMII', 2), 1, 4),
       'code-giftz': clampInt(envIntOf('BEAN_ENGINE_CONCURRENCY_GIFTZ', 2), 1, 8),
+      // GANGZII AUDIO WIRING (2026-11-18): dedicated pool for the now-wired
+      // speech-synthesis / audio-transcription / audio-conversion tasks.
+      gangzii: clampInt(envIntOf('BEAN_ENGINE_CONCURRENCY_GANGZII', 2), 1, 4),
     },
     perUserActiveLimit: clampInt(envIntOf('BEAN_ENGINE_PER_USER_ACTIVE', 3), 1, 10),
     eventRetentionHours: clampInt(envIntOf('BEAN_ENGINE_EVENT_RETENTION_HOURS', 72), 1, 24 * 30),
