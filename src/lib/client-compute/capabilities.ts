@@ -119,7 +119,10 @@ async function probeWebGPU(): Promise<CapabilitySnapshot['webgpu']> {
   try {
     const gpu = (typeof navigator !== 'undefined' ? (navigator as Navigator & { gpu?: StructGPU }).gpu : undefined) ?? null
     if (!gpu?.requestAdapter) return empty
-    const adapter: StructGPUAdapter | null = (await gpu.requestAdapter()) ?? null
+    // Cast: the ambient GPUAdapter type (brought in by @webgpu/types via the
+    // onnxruntime-web dependency) differs structurally from this module's
+    // narrow StructGPU shim; the probe reads only features/limits/isFallbackAdapter.
+    const adapter = ((await gpu.requestAdapter()) ?? null) as unknown as StructGPUAdapter | null
     if (!adapter) return { ...empty, supported: true }
     // requestAdapterInfo is deprecated/partial; only limits + features are
     // read (both real GPU facts, no vendor/architecture strings collected).

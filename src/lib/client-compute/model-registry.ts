@@ -19,15 +19,30 @@
  * Client-safe: no Node-only imports.
  */
 
-export type ClientModelRuntime = 'onnxruntime-web' | 'transformers.js' | 'wasm-binary' | 'custom'
+export type ClientModelRuntime = 'onnxruntime-web' | 'transformers.js' | 'web-llm' | 'wasm-binary' | 'custom'
+
+/** How the artifact bytes are verified (non-negotiable honesty field):
+ *  - 'pinned-artifact-sha256': BEAN downloads + verifies the exact SHA-256
+ *    itself (bean-managed-cache path; the strict gate in requestDownload).
+ *  - 'runtime-managed-pinned-revision': the runtime (WebLLM / Transformers.js)
+ *    fetches the weights itself into ITS OWN browser cache, from an upstream
+ *    repo revision that BEAN pins by measured commit SHA. The revision is
+ *    recorded per entry; sizes are measured from the upstream file tree at
+ *    pin time. requestDownload REFUSES this class — it never pretends to
+ *    checksum-manage what it does not checksum-manage.
+ */
+export type ClientModelIntegrity = 'pinned-artifact-sha256' | 'runtime-managed-pinned-revision'
+
+export type ClientModelDownloadPath = 'bean-managed-cache' | 'runtime-managed-cache'
 
 export interface ClientModelEntry {
   id: string
   version: string
   /** Trusted source origin (HTTPS). Downloads from any other origin are refused. */
   sourceUrl: string
-  /** Human-readable license identity. `verify-before-distribute` means the
-   * upstream license must be reviewed before the entry may be enabled. */
+  /** Pinned upstream revision (commit SHA) when the source repo exposes one. */
+  revision: string | null
+  /** Human-readable license identity. */
   license: string
   licenseUrl?: string
   runtime: ClientModelRuntime
@@ -41,8 +56,12 @@ export interface ClientModelEntry {
   /** Exact byte size — null until a real HEAD measurement fills it in. */
   sizeBytes: number | null
   sizeUnverified: boolean
-  /** Trusted SHA-256 of the exact artifact. null ⇒ downloads are refused. */
+  /** Trusted SHA-256 of the exact artifact. null ⇒ bean-managed downloads are refused. */
   sha256: string | null
+  /** How this entry's bytes are verified (see ClientModelIntegrity). */
+  integrity: ClientModelIntegrity
+  /** Who owns the download + cache (see ClientModelDownloadPath). */
+  downloadPath: ClientModelDownloadPath
   /** Task kinds this model supports (checked by the scheduler). */
   supportedTasks: string[]
   /** Known limitations (honest, user-displayable). */
@@ -56,6 +75,7 @@ export type ModelDownloadCode =
   | 'REFUSED_NO_INTEGRITY_METADATA'
   | 'REFUSED_APPROVAL_REQUIRED'
   | 'REFUSED_RUNTIME_UNAVAILABLE'
+  | 'REFUSED_RUNTIME_MANAGED'
   | 'STORAGE_INSUFFICIENT'
   | 'FETCH_FAILED'
   | 'CHECKSUM_FAILED'
@@ -109,30 +129,101 @@ function runtimeAvailable(runtime: ClientModelRuntime): boolean {
 
 /**
  * The registry. Entries are code-defined honest facts about candidate models.
- * Sizes and checksums stay null until measured/pinned; nothing is invented.
+ * Sizes, revisions and checksums below were MEASURED (Hugging Face API, file
+ * downloads and sha256sum, 2026-11-18) — nothing is invented; where a value
+ * cannot be known without a runtime probe it stays null.
+ *
+ * Integrity models (both deliberate):
+ *  - laxii-bgremoval-modnet is BEAN-managed: the exact ONNX artifact is
+ *    fetched through requestDownload and its bytes must match the pinned
+ *    SHA-256 (measured: 92e49898c3e05a6d7a944fc67a8cb87c4aad754ffb6ebd949528c7d1105fee3a).
+ *  - The web-llm chat model and the whisper ASR model are RUNTIME-managed:
+ *    WebLLM / Transformers.js fetch them into their own browser caches from
+ *    a revision BEAN pins by measured commit SHA. requestDownload refuses
+ *    them (REFUSED_RUNTIME_MANAGED) instead of faking a checksum gate.
  */
 export const CLIENT_MODEL_REGISTRY: ClientModelEntry[] = [
   {
+    id: 'riishe-chat-webllm-qwen2.5-0.5b',
+    version: '1',
+    sourceUrl: 'https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+    revision: '32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad',
+    license: 'Apache-2.0 (Qwen2.5-0.5B-Instruct; MLC build)',
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct',
+    runtime: 'web-llm',
+    runtimeAvailable: () => runtimeAvailable('web-llm'),
+    gpuCompatible: true,
+    cpuCompatible: false,
+    // vram_required_MB 944.62 from the pinned WebLLM 0.2.89 prebuilt model record.
+    memoryEstimateMb: 945,
+    // Measured: 289,693,824 bytes across 17 files (HF tree API, 2026-11-18).
+    sizeBytes: 289_693_824,
+    sizeUnverified: false,
+    sha256: null,
+    integrity: 'runtime-managed-pinned-revision',
+    downloadPath: 'runtime-managed-cache',
+    supportedTasks: ['chat.on-device'],
+    limitations: [
+      'WebGPU required (q4f16 weights) — no CPU/WASM fallback for this quantization; the server path is the honest fallback.',
+      'Small on-device model: quality is far below the server-hosted chat model; retrieval, tools, memory and citations are NOT part of the on-device lane.',
+      'Weights download once into the browser cache (WebLLM-managed) after explicit user approval; the pinned upstream revision is 32ff081f….',
+    ],
+    enabled: true,
+  },
+  {
+    id: 'gangzii-asr-browser-whisper-tiny',
+    version: '1',
+    sourceUrl: 'https://huggingface.co/Xenova/whisper-tiny',
+    revision: '5332fcc35e32a33b86612b9a57a89be7906102b1',
+    license: 'Apache-2.0 (Whisper tiny, OpenAI; ONNX build by Xenova)',
+    licenseUrl: 'https://huggingface.co/Xenova/whisper-tiny',
+    runtime: 'transformers.js',
+    runtimeAvailable: () => runtimeAvailable('transformers.js'),
+    gpuCompatible: true,
+    cpuCompatible: true,
+    // Runtime + pipeline working set, labeled approximate (policy estimate).
+    memoryEstimateMb: 500,
+    // Measured q8 set: encoder q8 10,124,910 + decoder-merged q8 30,727,765 +
+    // tokenizer 2,480,466 + configs 2,248/3,716/339/282,683 = 43,622,127 bytes.
+    sizeBytes: 43_622_127,
+    sizeUnverified: false,
+    sha256: null,
+    integrity: 'runtime-managed-pinned-revision',
+    downloadPath: 'runtime-managed-cache',
+    supportedTasks: ['audio.transcription.on-device'],
+    limitations: [
+      'Tiny multilingual Whisper: accuracy is far below the server ASR; long recordings are chunked at 30s.',
+      'Weights download once into the Transformers.js browser cache after explicit user approval; pinned revision 5332fcc3….',
+      'Audio never leaves the device — this lane exists for privacy, not for peak accuracy.',
+    ],
+    enabled: true,
+  },
+  {
     id: 'laxii-bgremoval-modnet',
     version: '1',
-    sourceUrl: 'https://huggingface.co/Xenova/modnet',
-    license: 'verify-before-distribute',
+    // Pinned EXACT artifact (resolve/<revision>/onnx/model_quantized.onnx).
+    sourceUrl: 'https://huggingface.co/Xenova/modnet/resolve/fa2fa546052fba4c08921230a26cc69a333fca12/onnx/model_quantized.onnx',
+    revision: 'fa2fa546052fba4c08921230a26cc69a333fca12',
+    license: 'Apache-2.0 (MODNet; ONNX build by Xenova)',
     licenseUrl: 'https://huggingface.co/Xenova/modnet',
     runtime: 'onnxruntime-web',
     runtimeAvailable: () => runtimeAvailable('onnxruntime-web'),
     gpuCompatible: true,
     cpuCompatible: true,
     memoryEstimateMb: 300, // policy estimate for the runtime + working buffers, labeled approximate
-    sizeBytes: null,
-    sizeUnverified: true,
-    sha256: null,
+    // Measured: downloaded + sha256sum'd 2026-11-18 (6,632,188 bytes).
+    sizeBytes: 6_632_188,
+    sizeUnverified: false,
+    sha256: '92e49898c3e05a6d7a944fc67a8cb87c4aad754ffb6ebd949528c7d1105fee3a',
+    integrity: 'pinned-artifact-sha256',
+    downloadPath: 'bean-managed-cache',
     supportedTasks: ['image.segmentation'],
     limitations: [
-      'Requires an explicit user-approved download before first use.',
-      'Download stays refused until a trusted SHA-256 checksum is configured for this model version.',
+      'Requires an explicit user-approved download before first use (size shown before approval).',
       'Background removal via segmentation is a different algorithm than the LAXII server pipeline; results will differ.',
+      'Runs through onnxruntime-web (WASM SIMD, WebGPU EP attempted first); the artifact must match the pinned SHA-256 or it is refused.',
     ],
-    enabled: false,
+    enabled: true,
   },
 ]
 
@@ -203,6 +294,9 @@ export class ModelRegistry {
     sizeBytes: number | null
     sizeUnverified: boolean
     license: string
+    revision: string | null
+    integrity: ClientModelIntegrity
+    downloadPath: ClientModelDownloadPath
     enabled: boolean
     supportedTasks: string[]
     limitations: string[]
@@ -217,6 +311,9 @@ export class ModelRegistry {
       sizeBytes: m.sizeBytes,
       sizeUnverified: m.sizeUnverified,
       license: m.license,
+      revision: m.revision,
+      integrity: m.integrity,
+      downloadPath: m.downloadPath,
       enabled: m.enabled,
       supportedTasks: m.supportedTasks,
       limitations: m.limitations,
@@ -257,6 +354,18 @@ export class ModelRegistry {
     if (!entry) return { ok: false, code: 'REFUSED_NOT_ENABLED', reason: 'Unknown model id.' }
     if (entry.enabled !== true) {
       return { ok: false, code: 'REFUSED_NOT_ENABLED', reason: 'This model is not enabled for download (license/config gate).' }
+    }
+    // RUNTIME-MANAGED MODELS: their weights are fetched by WebLLM /
+    // Transformers.js into their OWN caches. This BEAN-managed path refuses
+    // them honestly rather than pretending to checksum-manage what it does
+    // not checksum-manage (the runtime path uses pinned-revision integrity;
+    // see ClientModelIntegrity).
+    if (entry.downloadPath === 'runtime-managed-cache') {
+      return {
+        ok: false,
+        code: 'REFUSED_RUNTIME_MANAGED',
+        reason: 'This model is downloaded by its browser runtime (pinned upstream revision), not through this BEAN-managed checksum gate.',
+      }
     }
     if (!entry.runtimeAvailable()) {
       return { ok: false, code: 'REFUSED_RUNTIME_UNAVAILABLE', reason: `The "${entry.runtime}" runtime is not available in this app.` }
@@ -365,6 +474,28 @@ export class ModelRegistry {
       return { installed: true, bytes: Number.isFinite(bytes) ? bytes : 0, verifiedAt: this.installedAt.get(id)?.verifiedAt ?? new Date(0).toISOString() }
     } catch {
       return { installed: false, reason: 'Model cache read failed.' }
+    }
+  }
+
+  /**
+   * Read the verified artifact bytes (bean-managed cache only). Runtime-
+   * managed models are fetched by their own runtimes and return null here —
+   * never a fabricated byte stream.
+   */
+  async getArtifact(id: string): Promise<Uint8Array | null> {
+    const entry = this.getEntry(id)
+    if (!entry || entry.downloadPath !== 'bean-managed-cache') return null
+    const cache = await this.cacheFactory()
+    if (!cache) return null
+    try {
+      const res = await cache.match(cacheKey(entry))
+      if (!res) return null
+      const metaOk = res.headers.get('x-bean-model') === entry.id && res.headers.get('x-bean-model-version') === entry.version
+      if (!metaOk) return null
+      const buf = await res.arrayBuffer()
+      return new Uint8Array(buf)
+    } catch {
+      return null
     }
   }
 

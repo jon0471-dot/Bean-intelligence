@@ -136,12 +136,37 @@ export function buildLaxiiKinds(cpu: CpuEngine): Array<RegisteredTaskKind<unknow
       timeoutMs: 60_000,
     },
     {
-      // Honest placeholder: model-gated. No handlers — the scheduler's model
-      // gate fires FIRST and reports the truthful unavailability state.
+      // ML segmentation (2026-11-18): REAL handler wired to the pinned,
+      // SHA-256-verified MODNet artifact through onnxruntime-web (WebGPU EP
+      // attempted first, honest WASM/SIMD fallback). The scheduler's model
+      // gate still fires first — no handler runs before the verified model
+      // is installed and the runtime probe reports true.
       kind: SEGMENTATION_KIND,
       productId: 'laxii',
-      preferredOrder: ['client-gpu', 'client-cpu'],
-      handlers: {},
+      preferredOrder: ['client-cpu'],
+      handlers: {
+        'client-cpu': (async (ctx) => {
+          const { input, signal } = ctx as { input: unknown; signal: AbortSignal; reportProgress: (fraction: number, note?: string) => void }
+          if (!(input instanceof Blob) && !(input instanceof Object && (input as { blob?: Blob }).blob instanceof Blob)) {
+            throw new Error('Segmentation input must be an image blob.')
+          }
+          const blob = input instanceof Blob ? input : (input as { blob: Blob }).blob
+          const { decodeImage, encodeImage } = await import('./image-io')
+          const { runModnetSegmentation } = await import('../inference/ort-segmentation')
+          const decoded = await decodeImage(blob)
+          const result = await runModnetSegmentation(decoded, { signal })
+          const outBlob = await encodeImage(result.payload, 'image/png')
+          return {
+            blob: outBlob,
+            bytes: outBlob.size,
+            width: result.payload.width,
+            height: result.payload.height,
+            pixels: result.payload.pixels,
+            provider: result.provider,
+            durationMs: result.durationMs,
+          }
+        }) as TargetHandler<unknown, unknown>,
+      },
       feasibility: { gpuSupported: true, cpuSupported: true, requiredModelId: 'laxii-bgremoval-modnet', estimatedMemoryMb: 300 },
       resourceClass: 'heavy',
       privacy: 'device-preferred',
@@ -153,7 +178,7 @@ export function buildLaxiiKinds(cpu: CpuEngine): Array<RegisteredTaskKind<unknow
 export function registerLaxiiAdapter(client: Pick<ClientCompute, 'scheduler' | 'cpu'>): void {
   client.scheduler.registerProductAdapter({
     productId: 'laxii',
-    summary: 'Client-side image preprocessing (downscale/compress before upload) and deterministic chroma-key cutout; ML segmentation stays model-gated and honestly unavailable.',
+    summary: 'Client-side image preprocessing (downscale/compress before upload), deterministic chroma-key cutout, and on-device ML background removal via the pinned MODNet artifact (onnxruntime-web; model-gated + checksum-verified).',
     kinds: buildLaxiiKinds(client.cpu),
   })
 }
