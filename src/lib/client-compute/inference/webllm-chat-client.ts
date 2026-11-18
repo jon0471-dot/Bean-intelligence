@@ -60,7 +60,10 @@ export class WebLlmChatClient {
   private ensureWorker(): Worker {
     if (this.worker) return this.worker
     if (typeof Worker !== 'function') throw new AiErrorImpl('AI_RUNTIME_UNAVAILABLE', 'This browser does not support Web Workers.')
-    this.worker = new Worker(new URL('../../../workers/webllm-worker.ts', import.meta.url), { type: 'module' })
+    // The WebLLM runtime lives in a self-hosted worker bundle (public/workers,
+    // built by scripts/build-workers.mjs) OUTSIDE the Next compile graph —
+    // same-origin, no third-party CDN.
+    this.worker = new Worker('/workers/webllm-worker.js', { type: 'module' })
     this.worker.addEventListener('message', (event: MessageEvent<WorkerEvent>) => this.onEvent(event.data))
     this.worker.addEventListener('error', (event) => {
       // Worker-level crash: fail every pending call honestly.

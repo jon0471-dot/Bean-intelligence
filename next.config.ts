@@ -1,8 +1,17 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
+  // WORKSPACE ROOT SCOPING (2026-11-18): this clone lives inside a parent
+  // directory that has its own bun.lock (the outer workspace). Without an
+  // explicit root, Turbopack selects the parent directory and walks the
+  // entire outer tree (including ~1.7 GB of local recovery bundles), which
+  // OOM-kills the 4 GB build sandbox (exit 137, measured twice). Scoping the
+  // root to THIS project directory is the documented fix.
+  turbopack: {
+    root: path.resolve(process.cwd()),
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -10,7 +19,18 @@ const nextConfig: NextConfig = {
   // pdf-parse embeds pdfjs-dist, which resolves its worker module relative to
   // the real node_modules tree. Bundling it breaks that resolution ("Cannot
   // find module pdf.worker.mjs"), so it must stay an external server package.
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
+  serverExternalPackages: [
+    "pdf-parse",
+    "pdfjs-dist",
+    // 2026-11-18: the browser AI runtimes are pure client/worker packages
+    // (WebGPU/WASM). Keeping them external on the SERVER build avoids
+    // double-bundling the full runtimes into the SSR graph — they are only
+    // ever dynamically imported inside 'use client' modules, where the
+    // client/worker bundles handle them.
+    "@mlc-ai/web-llm",
+    "@huggingface/transformers",
+    "onnxruntime-web",
+  ],
   // Frontend Intelligence Toolkit: the CODE GIFTZ generation route reads
   // (a) the curated React Bits kit sources (src/components/giftz-kit) to emit
   // them into generated React projects, and (b) the pinned minified UMD

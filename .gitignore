@@ -143,3 +143,6 @@ scripts/*-out/*.db-*
 scripts/*.db
 scripts/e2e-verify-out/verify.db
 scripts/giftz-verify-out/verify.db
+public/workers
+src/workers/node_modules
+src/workers/bun.lock*

@@ -3,9 +3,9 @@
   "version": "0.2.1",
   "private": true,
   "scripts": {
-    "dev": "node scripts/copy-ort-assets.mjs && next dev -p 3000 2>&1 | tee dev.log",
+    "dev": "node scripts/build-workers.mjs && node scripts/copy-ort-assets.mjs && next dev -p 3000 2>&1 | tee dev.log",
     "test": "bun test --isolate tests/",
-    "build": "node scripts/copy-ort-assets.mjs && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "node scripts/build-workers.mjs && node scripts/copy-ort-assets.mjs && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 DATABASE_URL=file:/home/z/my-project/db/custom.db bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "db:push": "prisma db push --accept-data-loss",
@@ -14,7 +14,8 @@
     "db:reset": "prisma migrate reset",
     "workers": "bun scripts/ai-workers/worker.ts --all",
     "worker": "bun scripts/ai-workers/worker.ts",
-    "ort:assets": "node scripts/copy-ort-assets.mjs"
+    "ort:assets": "node scripts/copy-ort-assets.mjs",
+    "workers:build": "node scripts/build-workers.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -22,9 +23,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@gsap/react": "2.1.2",
     "@hookform/resolvers": "^5.1.1",
-    "@huggingface/transformers": "4.3.2",
     "@mdxeditor/editor": "^3.39.1",
-    "@mlc-ai/web-llm": "0.2.89",
     "@prisma/client": "^6.11.1",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -70,7 +69,6 @@
     "next-auth": "^4.24.11",
     "next-intl": "^4.3.4",
     "next-themes": "^0.4.6",
-    "onnxruntime-web": "1.31.1",
     "pdf-parse": "^2.4.5",
     "prisma": "^6.11.1",
     "react": "^19.0.0",

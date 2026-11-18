@@ -59,7 +59,10 @@ export class BrowserAsrClient {
   private ensureWorker(): Worker {
     if (this.worker) return this.worker
     if (typeof Worker !== 'function') throw new AiErrorImpl('AI_RUNTIME_UNAVAILABLE', 'This browser does not support Web Workers.')
-    this.worker = new Worker(new URL('../../../workers/asr-worker.ts', import.meta.url), { type: 'module' })
+    // The Transformers.js runtime lives in a self-hosted worker bundle
+    // (public/workers, built by scripts/build-workers.mjs) OUTSIDE the Next
+    // compile graph — same-origin, no third-party CDN.
+    this.worker = new Worker('/workers/asr-worker.js', { type: 'module' })
     this.worker.addEventListener('message', (event: MessageEvent<WorkerEvent>) => this.onEvent(event.data))
     this.worker.addEventListener('error', (event) => {
       const error = new AiErrorImpl('AI_WORKER_CRASHED', event.message?.slice(0, 200))

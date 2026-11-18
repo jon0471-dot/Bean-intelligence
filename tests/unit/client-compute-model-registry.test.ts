@@ -95,6 +95,10 @@ describe('client-compute model registry policy', () => {
   test('refused while disabled (license/config gate)', async () => {
     registerModelRuntime('onnxruntime-web', () => true)
     const reg = registryWith()
+    // 2026-11-18: the entry is ENABLED with a real measured checksum (the
+    // artifact was downloaded + sha256sum'd and pinned), so the disabled gate
+    // is pinned by explicitly disabling it — the gate itself is unchanged.
+    entry().enabled = false
     entry().sha256 = 'a'.repeat(64)
     const out = await reg.requestDownload(MODEL_ID, { approval: true })
     expect(out.ok).toBe(false)
@@ -193,17 +197,28 @@ describe('client-compute model registry policy', () => {
     if (!res2.ok) expect(res2.reason).toMatch(/content length/)
   })
 
-  test('public listing carries no fabricated sizes and exposes the honest gate flags', () => {
+  test('public listing carries MEASURED facts and honest gate flags (operationalized entry)', () => {
     registerModelRuntime('onnxruntime-web', () => false) // honest default probe
     const reg = registryWith()
     const listed = reg.listPublic()
     const m = listed.find((x) => x.id === MODEL_ID)!
-    expect(m.sizeUnverified).toBe(true)
-    expect(m.sizeBytes).toBeNull()
-    expect(m.runtimeAvailable).toBe(false) // no runtime registered yet in this test scope
-    expect(m.enabled).toBe(false)
+    // 2026-11-18 OPERATIONALIZATION: the artifact was downloaded and its
+    // real SHA-256 + byte size pinned — the listing now states measured
+    // facts instead of the old all-null placeholder (never fabricated).
+    expect(m.sizeUnverified).toBe(false)
+    expect(m.sizeBytes).toBe(6_632_188)
+    expect(m.runtimeAvailable).toBe(false) // probe forced false in this scope
+    expect(m.enabled).toBe(true)
     expect(m.limitations.length).toBeGreaterThan(0)
-    expect(m.license).toBe('verify-before-distribute')
+    expect(m.license).toContain('Apache-2.0')
+    expect(m.integrity).toBe('pinned-artifact-sha256')
+    expect(m.downloadPath).toBe('bean-managed-cache')
+    // The runtime-managed entries must also appear with their honest flags.
+    const chat = listed.find((x) => x.id === 'riishe-chat-webllm-qwen2.5-0.5b')!
+    expect(chat.downloadPath).toBe('runtime-managed-cache')
+    expect(chat.sizeBytes).toBe(289_693_824)
+    const asr = listed.find((x) => x.id === 'gangzii-asr-browser-whisper-tiny')!
+    expect(asr.sizeBytes).toBe(43_622_127)
   })
 
   test('unknown model ids are refused everywhere', async () => {

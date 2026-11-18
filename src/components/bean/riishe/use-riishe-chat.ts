@@ -647,7 +647,6 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     return () => {
       alive = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /** Activate the on-device toggle. First activation in a tab shows the

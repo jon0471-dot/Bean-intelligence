@@ -190,10 +190,15 @@ describe('LAXII adapter kind metadata (honest capability surface)', () => {
     expect(cutout.handlers['client-cpu']).toBeDefined()
   })
 
-  test('segmentation is registered model-gated with NO handlers (honest placeholder)', () => {
+  test('segmentation is model-gated with a REAL on-device handler (2026-11-18 operationalization)', () => {
     const seg = kinds.find((k) => k.kind === SEGMENTATION_KIND)!
-    expect(Object.keys(seg.handlers)).toHaveLength(0)
+    // Was: zero handlers + honest placeholder. Now: the pinned, SHA-256-
+    // verified MODNet artifact runs through onnxruntime-web (WebGPU EP
+    // attempted, WASM fallback) — the scheduler's model gate still fires
+    // first, so nothing runs before the verified model is installed.
+    expect(Object.keys(seg.handlers)).toContain('client-cpu')
     expect(seg.feasibility?.requiredModelId).toBe('laxii-bgremoval-modnet')
+    expect(seg.feasibility?.cpuSupported).toBe(true)
     expect(seg.resourceClass).toBe('heavy')
   })
 })
