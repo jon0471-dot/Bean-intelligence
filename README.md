@@ -15,8 +15,9 @@ benchmarks.
 | --- | --- | --- |
 | **RIISHE** | Conversational AI — chat, reasoning, summarization, writing, multilingual, structured output | ✅ Operational (real inference, SSE streaming) |
 | **LAXII** | Image generation studio — prompts → downloadable images, live job status | ✅ Operational (real inference, ~60 s per image, JPEG output) |
-| **JAZMII** | Video generation engine — async jobs, previews, export | ⛔ Truthfully unavailable — no licensed video backend deployed; requests are rejected, never simulated |
+| **JAZMII** | Video generation engine — async jobs, previews, export | ✅ Operational on the authorized hosted video backend (text-to-video live-verified 2026-11-04); image-to-video is truthfully blocked (provider throttle — never completed a real run) |
 | **CODE GIFTZ** | Coding AI — generate/explain/review/plan + restricted sandbox execution | ✅ Operational end-to-end (real LLM + real sandbox, explicit-run approval) |
+| **GANGZII** | Voice, audio & speech studio — TTS (7 voices), speech-to-text, live voice, deterministic conversion | ✅ Operational (wired 2026-11-18: real chunked TTS + ASR through the authorized gateway, ffprobe-verified local conversion; music generation honestly refuses — no backend). Optional on-device transcription runs in your browser |
 
 Availability is **measured, not assumed**: the dashboard reflects live backend probes.
 
@@ -57,15 +58,18 @@ tests/unit/                 unit tests
 ## Core guarantees
 
 1. **Brand-owned products, private backend.** Customers pick RIISHE/LAXII/JAZMII/CODE
-   GIFTZ — never GPT-x, Claude, Qwen, Flux or any upstream id. Mapping lives server-side
+   GIFTZ/GANGZII — never GPT-x, Claude, Qwen, Flux or any upstream id. Mapping lives server-side
    in `src/lib/registry/backends.ts`; enforced by routing and RBAC, not CSS.
 2. **Truthful status only.** Jobs reach `completed` only when real artifacts exist
    (magic-byte checked). Unavailable products say so. Partial streams are labeled.
    Token counts are estimates; cost fields stay `null` when providers report none.
 3. **Server-side controls.** Auth, ownership, rate limits, daily quotas, concurrency and
    capability validation all happen in the API layer.
-4. **No Ollama dependency.** Adapters target the authorized gateway (today) and
-   standard serving runtimes (vLLM-class, documented for future self-hosting).
+4. **No Ollama dependency.** Adapters target the authorized gateway (today), standard
+   serving runtimes (vLLM-class), and llama.cpp GGUF lanes where configured (server lane
+   plus an OPTIONAL loopback pairing to a llama-server on the visitor's own computer —
+   see BEAN_AI_DEPLOYMENT_GUIDE.md). Browser-local lanes use WebGPU/WASM runtimes
+   (WebLLM + Transformers.js) with explicit consent — see BEAN_DEVICE_COMPUTE_PRIVACY.md.
 5. **Sandboxed execution with explicit approval.** Generated code runs only after the
    user presses "Run in sandbox", in an isolated child process with timeout and minimal
    environment. Limitations documented honestly (SECURITY.md §6).
@@ -82,8 +86,15 @@ tests/unit/                 unit tests
 
 ## Known limitations (honest register)
 
-- **JAZMII** requires a licensed GPU deployment path (candidate: Wan2.2, Apache-2.0 —
-  verified); until then the product reports unavailable and rejects jobs.
+- **JAZMII image-to-video** requires one completed live run on the provider (measured
+  throttling blocker); text-to-video is operational on the authorized hosted backend.
+- **LAXII generative masked editing** requires the local Diffusers GPU worker (preflight +
+  real inference acceptance pending); deterministic enhancement and on-device background
+  removal are available.
+- **GANGZII music generation** has no configured backend and refuses honestly (NO_BACKEND).
+- **Browser AI lanes** are device-dependent: the on-device chat lane needs a WebGPU adapter
+  (no CPU chat model is shipped — the server lane is the honest fallback); ASR/segmentation
+  fall back to WASM on CPU (slower, reported).
 - **LAXII** output is JPEG and takes ~60 s per image (measured gateway behavior).
 - **CODE GIFTZ sandbox** is process-level isolation; container hardening is required for
   untrusted multi-tenant scale.
