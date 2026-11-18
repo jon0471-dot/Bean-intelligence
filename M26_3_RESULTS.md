@@ -22,12 +22,10 @@ at the root, plus the prompt/quality/report improvements:
    swallowed by the `local-*` ignore pattern (the base commit's fresh-clone
    build was broken by committed code importing it — measured `Module not
    found` on `next build`).
-2. (implementation commit) — the complete M26.3 fix: aspect system, viewer,
-   watermark handling, quality report, prompt conditioning, UI.
-3. (docs commit) — the four M26.3 deliverables.
-
-Exact SHAs are recorded in the commit list at the end of this file and in
-the publication section.
+2. `0330a6c71cd36a7070113d7332e70c1a47a4e234` — the complete M26.3 fix:
+   aspect system, viewer, watermark handling, quality report, prompt
+   conditioning, UI (34 files, +1,634/−70).
+3. `(this commit)` — the four M26.3 deliverables.
 
 ## 3. Consolidated validation (run once, after implementation)
 
@@ -100,6 +98,15 @@ $ git ls-remote https://github.com/jon0471-dot/Bean-intelligence.git refs/heads/
 ```
 
 The branch is committed locally and pushes as a normal non-force new branch
-from any environment with credentials. The exact local head SHA at
-publication: `8f61599271b1aa66e86a2c4956f6dc01eef8b737`-lineage — see the
-commit list below for the final values recorded at commit time.
+from any environment with credentials. Local publication tips (verified at
+commit time):
+
+- `fix/laxii-image-output-ux` chain (3 commits on
+  `411437144ee01abac07d7f0693cfaac0f6101e41`):
+  `9db41fe` (build fix) → `0330a6c71cd36a7070113d7332e70c1a47a4e234`
+  (the complete M26.3 implementation) → the docs commit that adds the
+  four deliverables (its exact tip SHA is `git rev-parse HEAD` of the
+  branch at push time — a document cannot pin its own commit hash).
+- Public remote refs remain: main `a01486289149e0347b41d111c376b8a2b078ad80`,
+  feature `6a84481c6ebc893ccb97e97ac5a353937194eac3`, no new branches —
+  nothing published from this milestone.
