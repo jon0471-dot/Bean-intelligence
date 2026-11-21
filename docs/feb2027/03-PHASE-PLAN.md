@@ -1,0 +1,23 @@
+# 03 — Phase Implementation Plan
+
+Phases follow the owner's brief §10. Status column is maintained as work
+completes. Rule: **substantive implementation over audit-only milestones** —
+each coherent phase ends with consolidated verification at its integration
+boundary (full suite, tsc, lint, build), not per-commit test runs.
+
+| Phase | Scope | Exit criteria | Status (2026-11-20) |
+|---|---|---|---|
+| **0 — Baseline & safety** | Repository + security-gate inspection; architecture/feature inventory; reproducible clean-clone setup; known issues + test baseline recorded | inventory measured (02); gates verified unresolved; baseline tests recorded | **DONE** — `02-BASELINE-INVENTORY.md`; 2224/0 measured |
+| **1 — Trust Engine** | Lifecycle; execution receipts; evidence; approval; checkpoints; recovery | truthful 8-state lifecycle enforced in DB ops; receipts composed from the real ledger with digest; consume-once approvals; append-only checkpoints; ≥1 real product wired end-to-end | **FOUNDATION DONE** — schema + `src/lib/trust/*` + `/api/trust/*` + Tasks UI + RIISHE background adapter live-verified. **REMAINING:** interactive SSE turn receipts; CODE GIFTZ adapter; LAXII/JAZMII job adapters; checkpoint-based resume in an executor |
+| **2 — RIISHE** | Unified chat polish; Project Memory completion (edit/export/conflict/explanation); model transparency in UI; task progress + receipt display in chat | memory CRUD+export+explanation live; provider/runtime info visible without leaking private registry; receipts linkable from answers | planned — Phase 1 foundation is the prerequisite |
+| **3 — Agents** | Research Agent (task-shaped reports + receipts); Document Intelligence Agent (grounded answers + locators); CODE GIFTZ Engineering Agent integration (receipts per coding task) | each agent records plan/steps/evidence/receipt; document mode refuses ungrounded substitution; coding tasks carry receipts | planned; building directly on existing pipelines (`research/pipeline.ts`, `files/extract.ts`, `giftz/turn.ts`) |
+| **4 — Zero-budget & reliability** | Local/browser capability verification surfaced; explicit provider configuration; fallback/error honesty; resource limits; privacy/authorization verification | no unexplained fallback (fallback already audit-logged — verify UI); device-fit recommendation honest; authorization/isolation tests pass | planned |
+| **5 — Release preparation** | User docs; onboarding; supported-capability matrix; privacy/retention explanations; incident + rollback procedures; release candidate | 07 checklist green; 08 evaluation sets measured with numerators/denominators | planned — **blocked for publication steps by the standing freeze** (02 §2); non-publication release prep proceeds |
+
+## Standing work rules
+
+1. Additive-only schema changes (nullable/defaulted columns, new tables) — never destructive migrations, never `--accept-data-loss` in deployment.
+2. Reuse existing infrastructure: `GenerationJob` queue, capability registry, file-ops approval ledger pattern, versioning, health semantics. No second chat/job/trust architecture.
+3. Never report a percentage without numerator, denominator and conditions (08).
+4. Never claim tested/pushed/recovered/available without verified evidence; failures and flakes are reported by name.
+5. Commits land on a safe local working branch per completed phase; publication only if/when the owner explicitly lifts the freeze with verified remote-history safety (07).
