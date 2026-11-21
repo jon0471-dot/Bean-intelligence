@@ -2,13 +2,22 @@
 
 Milestone: **M28-SLM** · Date: 2026-11-21 · Scope: **actual unresolved decisions only**. Nothing below was decided silently. The recommended direction (sanitized lineage as the integration line) is stated but explicitly left as the owner's call.
 
-## D1 — Disposition of the old public lineage  **DECISION REQUIRED**
+## D1 — Disposition of the old public lineage  **RESOLVED (owner approval, 2026-11-21)**
 
-Local `main` (`6f0a2b0`) is a continuation of the old public lineage (it descends from `a0148628`, the previously verified public main) and carries every approved milestone (Trust, JAZMII, M27, M28) as original objects, including the historical sensitive content in old M26/M26.1 objects. The sanitized lineage (`4d134c5` → `e96d83a`) carries the same pre-M26 content in rewritten form but none of the milestone work yet.
+The owner explicitly approved making the sanitized Git lineage the canonical future BEAN
+Intelligence development history, with the old public lineage preserved as a private,
+read-only historical archive (M29 authorization, 21 November 2026). Execution record:
 
-- **Recommended direction:** keep the sanitized lineage as the only publication line (migrate G1–G8 content onto `e96d83a` per the manifest), and keep the old-line refs only as local recovery material until the February 2027 publication.
-- **Open sub-decisions:** (a) retain or eventually delete old-line branches (`main`, `m26-audit`, `m26-release`, `m261-security-closure`, milestone branches) once migration lands — deletion is prohibited during this milestone; (b) whether `origin/main` (old line) is eventually replaced by a sanitized publication (a remote action, gated by the publication freeze and owner gates).
-- **Not decided here.** No old-line ref was touched.
+- The sanitized lineage is the integration line: G1–G7 were migrated onto
+  `e96d83a` on `reconcile/sanitized-m27-m28-migration` (destination head `d2c232a`).
+- The old lineage is retained read-only: every old-line branch, backup ref, recovery
+  manifest and bundle preserved untouched; no new development on old-line branches;
+  no old refs deleted; no history rewritten.
+- Sub-decision (a): old-line branch RETENTION — resolved as "preserve" (deletion remains
+  prohibited; any future cleanup needs separate authorization).
+- Sub-decision (b): remote publication of the sanitized line — remains GATED by the
+  publication freeze and the outstanding owner gates (M26.1.3 recovery,
+  collaborator notification, credential confirmation). Nothing was pushed.
 
 ## D2 — WIP auto-commit snapshot migration (G9)  **DECISION REQUIRED**
 
@@ -28,9 +37,23 @@ Scratch ref → `bf47b8c1cacf70170e7f19d86dfa2693892a9af4` (2026-11-14 auto-comm
 
 The February 2027 docs and M26.1.2–4 recovery records cite old-line SHA values (`4114371`, `aba5d4b`, `19a04e9`, `4d134c5`, bundle SHA-256s). After migration these SHAs describe commits that will not exist on the sanitized publication line. Recommended: keep verbatim as historical records (they describe the rewrite process itself, which the sanitized line inherits by reference, not by ancestry). Alternative: add a provenance note per document during migration.
 
-## D6 — `feat/gangzii-audio-production` branch name  **DECISION OPTIONAL**
+## D6 — `feat/gangzii-audio-production` branch name  **RESOLVED (M29 inspection, 2026-11-21)**
 
-The branch points at `e983c41` (trust specialist coverage), not at `ae41561` (the actual GANGZII audio engine). M27/M28 work lives on `main` + `feat/m28-audio-reliability-quality`. No action taken under the freeze. Owner may re-point or rename in a later authorized cleanup to avoid future confusion.
+Resolved by direct branch/commit/tree inspection during M29 (as required by the owner's
+conditional resolution):
+
+- Branch tip verified: `feat/gangzii-audio-production` → `e983c41b9393217508d9632fbeaadaaa6dc7acc6`
+  (Trust specialist coverage — the M26.2-milestone trust work), NOT the M27 audio engine.
+- `git merge-base --is-ancestor ae4156157348720fb74f68b26f1325089813f9cf
+  feat/gangzii-audio-production` → FALSE: the branch is missing the actual M27
+  implementation commit.
+- The M27 implementation commit `ae41561` has parent `e983c41` and is preserved on the
+  old-line `main` and `feat/m28-audio-reliability-quality` ancestry; backup refs and the
+  M29 pre-migration bundle capture it.
+- Migration action: M29 G6 migrated the verified M27 content from the ACTUAL source
+  commit `ae41561` (never from the branch name). The branch pointer itself was left
+  untouched (re-pointing is a ref update the owner may authorize separately; the
+  anomaly is now documented here and in the commit record).
 
 ## D7 — Remote PR #4 fate at publication time  **DECISION REQUIRED (later, gated)**
 
