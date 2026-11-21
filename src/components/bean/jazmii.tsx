@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { beanFetch, GoldBadge, Spinner, StatusDot, timeAgo } from './shared'
+import { JazmiiDirector } from './jazmii-director'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import {
@@ -50,6 +51,7 @@ import {
   X,
   SlidersHorizontal,
   Film,
+  Clapperboard,
   CheckCircle2,
   XCircle,
   Clock,
@@ -162,6 +164,11 @@ function jobStatusLine(job: JazmiiJob): { label: string; active: boolean } {
 
 export function Jazmii() {
   const { toast } = useToast()
+
+  // AUTO DIRECTOR (2026-11-20): two workspaces, one product — the existing
+  // conversational studio and the story-to-finished-video Director. The
+  // toggle changes ONLY the main panel; conversations and jobs are untouched.
+  const [mode, setMode] = useState<'studio' | 'director'>('studio')
 
   // ---- conversations -------------------------------------------------------
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
@@ -553,12 +560,37 @@ export function Jazmii() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-semibold tracking-wide">JAZMII — video studio</h1>
             <p className="hidden truncate text-[10px] text-white/35 sm:block">
-              Describe a video, attach a reference image for image-to-video, and keep creating through follow-ups
+              {mode === 'studio'
+                ? 'Describe a video, attach a reference image for image-to-video, and keep creating through follow-ups'
+                : 'Story to finished video — plan, approve, generate scenes, compose and export'}
             </p>
+          </div>
+          {/* workspace toggle: conversational studio | Auto Director */}
+          <div className="flex shrink-0 items-center rounded-lg border border-[rgba(212,175,55,0.25)] p-0.5">
+            <button
+              onClick={() => setMode('studio')}
+              aria-pressed={mode === 'studio'}
+              className={cn(
+                'rounded-md px-2 py-1 text-[10px] font-medium transition-colors sm:px-3',
+                mode === 'studio' ? 'bg-[#d4af37] text-black' : 'text-white/55 hover:text-white/85',
+              )}
+            >
+              Studio
+            </button>
+            <button
+              onClick={() => setMode('director')}
+              aria-pressed={mode === 'director'}
+              className={cn(
+                'flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors sm:px-3',
+                mode === 'director' ? 'bg-[#d4af37] text-black' : 'text-white/55 hover:text-white/85',
+              )}
+            >
+              <Clapperboard className="h-3 w-3" /> Auto Director
+            </button>
           </div>
           <span
             className={cn(
-              'hidden rounded-full border px-2 py-0.5 text-[10px] sm:inline',
+              'hidden rounded-full border px-2 py-0.5 text-[10px] md:inline',
               operational && !throttled ? 'border-emerald-400/30 text-emerald-300' : 'border-amber-400/30 text-amber-300',
             )}
             title={availability?.reason ?? 'Checking backend availability…'}
@@ -567,7 +599,13 @@ export function Jazmii() {
           </span>
         </header>
 
-        {/* Thread */}
+        {/* Thread / Auto Director workspace */}
+        {mode === 'director' ? (
+          <div className="min-h-0 flex-1">
+            <JazmiiDirector />
+          </div>
+        ) : (
+          <>
         <div ref={scrollRef} className="bean-scroll min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-4">
           <div className="mx-auto max-w-3xl space-y-5">
             {loadingThread ? (
@@ -660,6 +698,8 @@ export function Jazmii() {
             </p>
           </div>
         </div>
+          </>
+        )}
       </main>
     </div>
   )

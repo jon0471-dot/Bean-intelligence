@@ -59,13 +59,17 @@ describe('private backend registry (server-only source of truth)', () => {
     // under, and is a known BeanTask.
     const laxiiTasks = new Set(['image-generation', 'image-enhancement', 'image-editing'])
     const gangziiTasks = new Set(['speech-synthesis', 'audio-transcription', 'audio-conversion'])
+    // JAZMII AUTO DIRECTOR (2026-11-20): jazmii serves video-generation AND
+    // the local story-to-finished-video orchestration task.
+    const jazmiiTasks = new Set(['video-generation', 'video-production'])
     for (const b of BACKEND_REGISTRY) {
       const product = getProduct(b.productId)
       expect(product).toBeDefined()
       const valid =
         b.task === product!.task ||
         (b.productId === 'laxii' && laxiiTasks.has(b.task)) ||
-        (b.productId === 'gangzii' && gangziiTasks.has(b.task))
+        (b.productId === 'gangzii' && gangziiTasks.has(b.task)) ||
+        (b.productId === 'jazmii' && jazmiiTasks.has(b.task))
       expect(valid).toBe(true)
     }
   })

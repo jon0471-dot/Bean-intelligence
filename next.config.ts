@@ -2,6 +2,39 @@ import type { NextConfig } from "next";
 import path from "node:path";
 
 const nextConfig: NextConfig = {
+  // AUTO DIRECTOR constrained-host build (2026-11-20): BEAN_BUILD_NO_STANDALONE=1
+  // compiles the full production build WITHOUT the standalone trace+package
+  // step. Measured on the ₹0 sandbox: the standalone trace peaks ~5 GB and
+  // hits ENOSPC when the recovery bundles and owner deliverables share the
+  // same 10 GB disk. The default (standalone) is unchanged for normal hosts;
+  // this flag only relaxes PACKAGING, never compilation or validation.
+  output: process.env.BEAN_BUILD_NO_STANDALONE ? undefined : "standalone",
+  // AUTO DIRECTOR build hardening (2026-11-20): the standalone server bundle
+  // must never trace working-tree artifacts — recovery material, test
+  // fixtures, scripts and owner deliverables are not runtime dependencies,
+  // and tracing them measured ENOSPC build failures on the ₹0 host.
+  outputFileTracingExcludes: {
+    "/**/*": [
+      "./scripts/**",
+      "./tests/**",
+      "./recovery/**",
+      "./docs/**",
+      "./download/**",
+      "./upload/**",
+      "./storage/**",
+    ],
+    "*": [
+      "./scripts/**",
+      "./tests/**",
+      "./recovery/**",
+      "./docs/**",
+      "./download/**",
+      "./upload/**",
+      "./storage/**",
+    ],
+  },
+  /* config options here */
+
   output: "standalone",
   // WORKSPACE ROOT SCOPING (2026-11-18): this clone lives inside a parent
   // directory that has its own bun.lock (the outer workspace). Without an

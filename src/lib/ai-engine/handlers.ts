@@ -17,6 +17,7 @@ import {
   processTranscriptionJob,
   processConversionJob,
 } from '@/lib/jobs/audio-worker'
+import { processProductionJob } from '@/lib/jobs/director-worker'
 import { handleRiisheChatJob } from './riishe-chat-handler'
 import { handleGiftzCodingJob } from './giftz-coding-handler'
 
@@ -56,6 +57,15 @@ export const engineHandlers: Record<string, WorkerHandler> = {
     }
     await processVideoJob(legacyRow(job))
     return { result: {} } // the legacy processor settles the row itself
+  },
+  // JAZMII AUTO DIRECTOR (2026-11-20): one claimed production job
+  // orchestrates scene generation jobs + local composition to a terminal
+  // outcome; it settles its own row (same ownership contract as the video
+  // worker). Checkpoint-resumable: delivered scene assets are never
+  // re-generated on a re-claim (director-worker.ts).
+  'video-production': async (job) => {
+    await processProductionJob(job)
+    return { result: {} } // the orchestrator settles the row itself
   },
   chat: handleRiisheChatJob,
   'coding-task': handleGiftzCodingJob,

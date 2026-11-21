@@ -818,6 +818,52 @@ const LOCAL_AUDIO_TOOLS: BackendDescriptor = {
   retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
+/**
+ * JAZMII AUTO DIRECTOR (2026-11-20) — LOCAL composition backend.
+ *
+ * The story-to-finished-video orchestration runs ON this host: scene clips
+ * come from HOSTED_VIDEO (the only video-generation backend), but assembly,
+ * titles, transitions, audio mixing and the final encode are local FFmpeg /
+ * pinned local HyperFrames processes (₹0 infrastructure, no paid rendering).
+ * The engine actually used is recorded per production — the registry entry
+ * describes the LOCAL stage only and never claims GPU or provider work.
+ */
+const LOCAL_VIDEO_COMPOSITION: BackendDescriptor = {
+  id: 'bean-video-composition-local',
+  productId: 'jazmii',
+  task: 'video-production',
+  provider: 'BEAN Intelligence (local composition engines)',
+  modelIdentity: 'No model — deterministic local media assembly (FFmpeg filtergraph; pinned HyperFrames CLI when probed available)',
+  revision: null,
+  endpointType: 'local-process',
+  deploymentMode: 'self-hosted',
+  runtime: 'ffmpeg + ffprobe on the BEAN host; optional hyperframes@<pinned> with its managed headless Chrome (local render only)',
+  limits: {
+    maxProductionSeconds: 60,
+    maxScenes: 8,
+    sceneDurationRange: [3, 12],
+    aspects: ['9:16', '16:9', '1:1'],
+    engines: ['ffmpeg (always available)', 'hyperframes (probe + check gated)'],
+  },
+  license: {
+    name: 'FFmpeg/LGPL+x264/GPL build per distro; HyperFrames Apache-2.0 (local CLI use)',
+    commercialUse: 'authorized',
+    note:
+      'Composition runs local open-source tooling already present on the host. Scene footage comes from the authorized hosted video backend. No third-party cloud rendering is involved.',
+    sourceUrl: 'https://github.com/heygen-com/hyperframes',
+    verifiedAt: '2026-11-20',
+  },
+  dataHandling:
+    'Scene clips and audio stay on the BEAN host through composition; nothing leaves the machine at this stage. Final files are stored under BEAN storage with per-user access checks.',
+  metering: { unit: 'production', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 2 },
+  timeouts: { requestMs: 60 * 60_000, queueMs: 5_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
 /** Private registry — the only place product→backend mappings exist. */
 export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_LLM,
@@ -832,6 +878,7 @@ export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_VIDEO,
   LOCAL_VIDEO_MOTION,
   VIDEO_PLANNED,
+  LOCAL_VIDEO_COMPOSITION,
   HOSTED_CODE_LLM,
   HOSTED_AUDIO_TTS,
   HOSTED_AUDIO_ASR,

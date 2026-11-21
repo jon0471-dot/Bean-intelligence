@@ -22,6 +22,10 @@ export type BeanTask =
     'image-enhancement'
   | 'image-editing'
   | 'video-generation'
+  // JAZMII AUTO DIRECTOR (2026-11-20): story-to-finished-video production.
+  // Scene clips are still 'video-generation' jobs; 'video-production' is the
+  // LOCAL orchestration + composition task on the durable queue.
+  | 'video-production'
   | 'coding-task'
   // GANGZII audio tasks (server-side API surface):
   | 'speech-synthesis'

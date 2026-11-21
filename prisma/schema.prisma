@@ -31,6 +31,7 @@ model User {
   apiKeys             ApiKey[]
   laxiiConversations  LaxiiConversation[]
   jazmiiConversations JazmiiConversation[]
+  jazmiiProductions   JazmiiProduction[]
   projects            Project[]
   clientComputeReports ClientComputeReport[]
   laxiiEditHistory     LaxiiEditHistory[]
@@ -541,6 +542,86 @@ model JazmiiMessage {
   conversation   JazmiiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// JAZMII AUTO DIRECTOR (2026-11-20) — additive story-to-finished-video
+// production models. A JazmiiProduction is one creative project: a
+// schema-validated storyboard (the creative contract), per-scene generation
+// state, and the composed deliverables. Scene GENERATION still lives in
+// GenerationJob rows (task 'video-generation') — every scene row only LINKS
+// to its job by id, so provider recovery, cancellation, receipts and media
+// serving keep working untouched. Additive only: no existing model changes.
+// ---------------------------------------------------------------------------
+model JazmiiProduction {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String    @default("Untitled production")
+  // draft | awaiting_approval | generating | composing | rendering | validating
+  // | completed | completed_with_limitations | partially_completed | failed | cancelled
+  status         String    @default("draft")
+  // The ORIGINAL validated planner proposal (awaiting approval) — display
+  // only; the authoritative generation contract is storyboardJson below.
+  briefJson      String?
+  // The APPROVED plan (ApprovedPlan: storyboard + engine preference + audio).
+  storyboardJson String?
+  storyboardRev  Int       @default(0)
+  style          String? // creative mode (display)
+  aspect         String    @default("9:16")
+  width          Int       @default(1080)
+  height         Int       @default(1920)
+  fps            Int       @default(30)
+  requestedDurationSec Int?
+  // Composition engine ACTUALLY used ('ffmpeg' | 'hyperframes') — recorded
+  // after composition, never assumed.
+  engine         String?
+  progress       Int       @default(0)
+  cancelRequested Boolean  @default(false)
+  approvedAt     DateTime?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  errorClass     String?
+  errorCode      String?
+  errorMessage   String? // safe, customer-displayable
+  // Final deliverables manifest (storage-relative paths + measured facts).
+  deliverableJson String?
+  // LINK to the orchestration GenerationJob (task 'video-production').
+  jobId          String?
+  // LINK to the Trust Engine task carrying this production's receipt.
+  trustTaskId    String?
+  scenes         JazmiiScene[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId, updatedAt])
+  @@index([userId, status])
+}
+
+// One storyboard scene = one video-generation GenerationJob + its media.
+// Asset paths are STORAGE-RELATIVE (raw/ keeps the provider output verbatim —
+// never overwritten; clips/ holds the normalized composition input).
+model JazmiiScene {
+  id            String   @id @default(cuid())
+  productionId  String
+  production    JazmiiProduction @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  idx           Int // 1-based timeline order
+  sceneJson     String // the scene spec copied from the approved storyboard
+  // pending | generating | ready | failed
+  status        String   @default("pending")
+  // LINK to the scene's GenerationJob (video-generation). One scene row per
+  // generation attempt slot — a regeneration creates a NEW job id here.
+  jobId         String?
+  rawAssetPath  String?
+  assetPath     String?
+  probeJson     String? // ffprobe facts of assetPath
+  attempts      Int      @default(0)
+  errorClass    String?
+  errorMessage  String?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([productionId, idx])
+  @@index([productionId, status])
 }
 
 // CLIENT COMPUTE (2026-11-16) — additive, sanitized capability-report
