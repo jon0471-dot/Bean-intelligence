@@ -24,6 +24,17 @@ import {
 } from '@/lib/trust/types'
 import { addTrustEvidence, finalizeTrustTask, planTrustSteps, startTrustTask, updateTrustStepStatus } from '@/lib/trust/tasks'
 import { cancelTrustTask, failTrustTask } from '@/lib/trust/tasks'
+import { registerResumableKind, writeResumeCheckpoint } from '@/lib/trust/resume'
+
+/**
+ * The RIISHE background-turn pipeline is checkpoint-resumable: the recorder
+ * persists a safe checkpoint after every step the ledger shows `done`, and
+ * recovery refuses to blindly re-run an interrupted step (stages are NOT
+ * declared idempotent — an interrupted stage is truthfully failed and the
+ * receipt reflects that). Registered here so resume support is exactly as
+ * broad as the executors that actually checkpoint.
+ */
+registerResumableKind('chat', { retryRunningStep: false })
 
 /** Structural view of the orchestrator metadata we may attach as evidence. */
 interface RiisheMetadataLike {
@@ -61,7 +72,9 @@ const STAGE_TO_STEP: Record<string, TrustStepKind> = {
   verifying: 'verification',
 }
 
-const STEP_SEQ: Record<TrustStepKind, number> = {
+type OrchestratedStepKind = Extract<TrustStepKind, 'retrieval' | 'tool' | 'generation' | 'verification'>
+
+const STEP_SEQ: Record<OrchestratedStepKind, number> = {
   retrieval: 1,
   tool: 2,
   generation: 3,
@@ -69,7 +82,8 @@ const STEP_SEQ: Record<TrustStepKind, number> = {
 }
 
 export interface RiisheTurnRecorderInput {
-  jobId: string
+  /** GenerationJob id for background turns; null/omitted for interactive turns. */
+  jobId?: string | null
   userId: string
   message: string
   conversationId: string
@@ -120,7 +134,7 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
           title: input.message.slice(0, TRUST_LIMITS.title),
           requestPreview: input.message.slice(0, TRUST_LIMITS.requestPreview),
           requestChars: input.message.length,
-          jobId: input.jobId,
+          jobId: input.jobId ?? null,
           conversationId: input.conversationId,
           status: 'planned',
         },
@@ -150,7 +164,7 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
             d.note ? d.note.slice(0, 200) : null,
           ]
             .filter(Boolean)
-            .join('; ') || null,
+            .join('; ') || undefined,
           origin: 'extracted',
         })
       }
@@ -163,12 +177,19 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
         const kind = STAGE_TO_STEP[e.stage]
         if (!kind) return
         const seq = STEP_SEQ[kind]
-        // Advance the previous running step to done, then start this one.
-        if (lastRunningStage && lastRunningStage !== kind) {
-          void updateTrustStepStatus(taskId, STEP_SEQ[lastRunningStage], 'done').catch(() => undefined)
-        }
+        // Advance the previous running step to done, persist the resume
+        // checkpoint for it, then start this one. Ordered inside one async
+        // chain so the checkpoint always follows the ledger write it claims.
+        const previousStage = lastRunningStage
         lastRunningStage = kind
-        void updateTrustStepStatus(taskId, seq, 'running').catch(() => undefined)
+        void (async () => {
+          if (previousStage && previousStage !== kind) {
+            const prevSeq = STEP_SEQ[previousStage]
+            await updateTrustStepStatus(taskId!, prevSeq, 'done')
+            await writeResumeCheckpoint(taskId!, { completedThroughSeq: prevSeq })
+          }
+          await updateTrustStepStatus(taskId!, seq, 'running')
+        })().catch(() => undefined)
       } else if (e.type === 'tool') {
         if (e.name && e.status === 'started' && !toolNames.includes(e.name)) {
           toolNames = [...toolNames, e.name]
@@ -182,14 +203,18 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
   const flushStepState = async (verificationFailed: boolean) =>
     guard('flushSteps', async () => {
       if (!taskId) return
-      // Mark every still-planned/running step truthfully.
+      // Mark every still-planned/running step truthfully, persisting a resume
+      // checkpoint after each completed step (seq order keeps the checkpoint
+      // prefix-claim consistent with the ledger).
       const steps = await db.trustStep.findMany({ where: { taskId }, orderBy: { seq: 'asc' } })
       for (const step of steps) {
         if (step.status === 'planned' || step.status === 'running') {
           if (step.kind === 'retrieval' || step.kind === 'tool') {
             await updateTrustStepStatus(taskId, step.seq, 'done')
+            await writeResumeCheckpoint(taskId, { completedThroughSeq: step.seq })
           } else if (step.kind === 'generation') {
             await updateTrustStepStatus(taskId, step.seq, 'done')
+            await writeResumeCheckpoint(taskId, { completedThroughSeq: step.seq })
           } else if (step.kind === 'verification') {
             await updateTrustStepStatus(taskId, step.seq, verificationFailed ? 'failed' : 'done')
           } else {
@@ -225,7 +250,7 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
           kind: 'source',
           ref: ref.slice(0, TRUST_LIMITS.refChars),
           title: (s.title ?? s.hostName ?? 'source').slice(0, TRUST_LIMITS.summaryField),
-          note: provenance || null,
+          note: provenance || undefined,
           origin: 'extracted',
         })
       }

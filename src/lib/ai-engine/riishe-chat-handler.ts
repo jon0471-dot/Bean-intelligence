@@ -184,7 +184,9 @@ export async function handleRiisheChatJob(
   }
 
   // Attached documents become document evidence in the execution receipt.
-  await trust.addDocuments(documents)
+  await trust.addDocuments(
+    documents.map((d) => ({ id: d.id, name: d.name, truncated: d.truncated, note: d.kind ? `kind ${d.kind}` : null })),
+  )
 
   const toolContext: ToolContext = {
     permissions: new Set(['allowCodeExecution']),

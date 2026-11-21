@@ -17,6 +17,7 @@ import { recordAudit } from '@/lib/observability/metering'
 import { executeOperation } from '@/lib/code/file-ops/execute'
 import { FileOpError } from '@/lib/code/file-ops/types'
 import { executeRefactorOperation } from '@/lib/code/refactoring/execute'
+import { createCodeGiftzFileOpRecorder } from '@/lib/trust/adapters/code-giftz'
 
 const schema = z.object({
   opId: z.string().min(1).max(100),
@@ -43,29 +44,71 @@ export async function POST(
         if (opRow.projectId !== id) {
           throw new BeanApiError('NOT_FOUND', 'This refactoring operation was not found for this project.')
         }
-        const result = await executeRefactorOperation(body.opId, id)
+        // Trust Engine: the confirmed coding action gets an inspectable
+        // receipt (best-effort — recording never breaks the operation).
+        const trust = createCodeGiftzFileOpRecorder({
+          userId: user.id,
+          projectId: id,
+          projectName: project.title,
+          opId: body.opId,
+          planHash: opRow.planHash,
+          kind: 'refactor',
+          requestPreview: planPreview(opRow.planJson, 'refactor'),
+        })
+        await trust.begin()
+        try {
+          const result = await executeRefactorOperation(body.opId, id)
+          await trust.executed(result)
+          await recordAudit({
+            actorId: user.id,
+            action: 'code-giftz.refactor_execute',
+            target: id,
+            meta: {
+              opId: body.opId,
+              kind: result.kind,
+              applied: result.applied.length,
+              versionSeq: result.versionSeq,
+              replayed: result.replayed === true,
+            },
+          })
+          return ok({ result })
+        } catch (e) {
+          if (e instanceof FileOpError) {
+            await trust.failed({ code: e.code, message: e.message })
+          }
+          throw e
+        }
+      }
+      // Trust Engine: same receipt contract for the M23 executor kinds.
+      const opForTrust = opRow
+      const trust = opForTrust
+        ? createCodeGiftzFileOpRecorder({
+            userId: user.id,
+            projectId: id,
+            projectName: project.title,
+            opId: body.opId,
+            planHash: opForTrust.planHash,
+            kind: opForTrust.kind,
+            requestPreview: planPreview(opForTrust.planJson, opForTrust.kind),
+          })
+        : null
+      if (trust) await trust.begin()
+      try {
+        const result = await executeOperation(body.opId, id)
+        if (trust) await trust.executed(result)
         await recordAudit({
           actorId: user.id,
-          action: 'code-giftz.refactor_execute',
+          action: 'code-giftz.file_op_execute',
           target: id,
-          meta: {
-            opId: body.opId,
-            kind: result.kind,
-            applied: result.applied.length,
-            versionSeq: result.versionSeq,
-            replayed: result.replayed === true,
-          },
+          meta: { opId: body.opId, kind: result.kind, applied: result.applied.length, versionSeq: result.versionSeq, replayed: result.replayed === true },
         })
         return ok({ result })
+      } catch (e) {
+        if (trust && e instanceof FileOpError) {
+          await trust.failed({ code: e.code, message: e.message })
+        }
+        throw e
       }
-      const result = await executeOperation(body.opId, id)
-      await recordAudit({
-        actorId: user.id,
-        action: 'code-giftz.file_op_execute',
-        target: id,
-        meta: { opId: body.opId, kind: result.kind, applied: result.applied.length, versionSeq: result.versionSeq, replayed: result.replayed === true },
-      })
-      return ok({ result })
     } catch (e) {
       if (e instanceof FileOpError) {
         // Honest typed failures: NOT_FOUND, CONFLICT, STALE, INVALID,
@@ -78,4 +121,15 @@ export async function POST(
       throw e
     }
   })
+}
+
+/** Bounded, secret-free plan description for the receipt preview. */
+function planPreview(planJson: string, kind: string): string {
+  try {
+    const plan = JSON.parse(planJson) as { moves?: unknown[]; creates?: unknown[]; deletes?: unknown[]; edits?: unknown[] }
+    const count = (plan.moves ?? plan.creates ?? plan.deletes ?? plan.edits ?? []).length
+    return `Confirmed ${kind} operation over ${count} target(s) in the project workspace.`
+  } catch {
+    return `Confirmed ${kind} operation in the project workspace.`
+  }
 }

@@ -40,7 +40,7 @@ export async function POST(
     let jobSignal: string | null = null
     if (task.jobId) {
       try {
-        const result = await requestCancel(task.jobId)
+        const result = await requestCancel(task.jobId, user.id)
         jobSignal = result
       } catch {
         jobSignal = null

@@ -45,6 +45,7 @@ import { storeResultAsset } from '@/lib/laxii/assets'
 import { prepareImageIntelligence } from '@/lib/intel/grounding'
 import { verifyGeneratedImage, imageBufferToDataUrl, unwantedTextDefects } from '@/lib/intel/continuity'
 import { automatedQuotaState, automatedSkipReason } from '@/lib/providers/account-quota'
+import { recordMediaJobCancelled, recordMediaJobCompletion } from '@/lib/trust/adapters/media'
 import fs from 'fs'
 import path from 'path'
 
@@ -266,6 +267,29 @@ async function settleCancelled(job: { id: string; userId: string }, workerId: st
     }).catch(() => undefined)
   }
   logger.info('laxii.job_cancelled_at_checkpoint', { jobId: job.id, when })
+  // Trust Engine: the cancelled job gets an honest receipt (best-effort).
+  await recordMediaJobCancelled(
+    {
+      userId: job.userId,
+      product: 'laxii',
+      kind: 'image-generation',
+      jobId: job.id,
+      requestPreview: await jobPromptPreview(job.id),
+    },
+    when,
+  )
+}
+
+/** Bounded prompt preview straight from the job row (owner's own data). */
+async function jobPromptPreview(jobId: string): Promise<string> {
+  try {
+    const row = await db.generationJob.findUnique({ where: { id: jobId }, select: { paramsJson: true } })
+    if (!row) return 'image generation job'
+    const p = JSON.parse(row.paramsJson) as { prompt?: unknown }
+    return typeof p.prompt === 'string' ? p.prompt : 'image generation job'
+  } catch {
+    return 'image generation job'
+  }
 }
 
 export async function processImageJob(job: ImageJobRow): Promise<void> {
@@ -418,6 +442,29 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       await settleCancelled(job, job.workerId, 'at completion', true)
       return
     }
+    // Trust Engine: the delivered artifact gets an inspectable receipt from
+    // the ACTUAL result — the bounded vision check is recorded as checked or
+    // not-run, never inflated (best-effort; never breaks the worker).
+    await recordMediaJobCompletion(
+      {
+        userId: job.userId,
+        product: 'laxii',
+        kind: 'image-generation',
+        jobId: job.id,
+        backendId: backend.id,
+        requestPreview: typeof params?.prompt === 'string' ? params.prompt : 'image generation job',
+      },
+      {
+        artifactUrl: `/api/laxii/images/${job.id}`,
+        assetId: assetId ?? null,
+        width: target.width,
+        height: target.height,
+        format: io.format,
+        bytes: io.bytes.length,
+        durationMs: io.durationMs,
+        verification: io.verification ?? null,
+      },
+    )
     await recordUsage({
       userId: job.userId,
       product: 'laxii',

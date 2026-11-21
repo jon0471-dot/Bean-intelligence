@@ -7,6 +7,7 @@ import { preflight, assertChatRequest } from '@/lib/router/router'
 import { recordUsage } from '@/lib/observability/metering'
 import { logger } from '@/lib/observability/logger'
 import { orchestrateTurn } from '@/lib/riishe/orchestrator'
+import { createRiisheTurnRecorder } from '@/lib/trust/adapters/riishe'
 import { CHAT_BACKEND_CAPABILITIES } from '@/lib/riishe/classify'
 import { buildConversationDigest } from '@/lib/riishe/summarize'
 import type { AttachedDocument } from '@/lib/riishe/orchestrator'
@@ -280,6 +281,16 @@ export async function POST(request: Request) {
     const memoryOutcome = await performMemoryCommandIfPresent(user.id, conversationId, body.message)
     if (memoryOutcome) {
       const { content, meta } = memoryOutcome
+      // Trust Engine: memory commands are REAL database actions on both
+      // execution paths, so the interactive path records the same receipt
+      // (one receipt system — the shared recorder, no second pipeline).
+      const memoryTrust = createRiisheTurnRecorder({
+        userId: user.id,
+        message: body.message,
+        conversationId,
+      })
+      await memoryTrust.begin()
+      await memoryTrust.completeMemory(memoryOutcome)
       releaseOnce()
       if (!wantsStream) {
         return ok({ conversationId, content, durationMs: 0, metadata: meta })
@@ -410,6 +421,18 @@ export async function POST(request: Request) {
         let firstTokenAt: number | null = null
         let finalMetadata: MessageMetadata | null = null
         let assistantMessageId: string | null = null
+        // Trust Engine: the interactive turn gets the SAME receipt contract
+        // as background turns — one recorder, no second receipt system.
+        // Best-effort: recording failures never affect the streamed turn.
+        const trust = createRiisheTurnRecorder({
+          userId: user.id,
+          message: body.message,
+          conversationId: convId,
+        })
+        await trust.begin()
+        await trust.addDocuments(
+          documents.map((d) => ({ id: d.id, name: d.name, truncated: d.truncated, note: (d.kind ? `kind ${d.kind}` : null) })),
+        )
         try {
           // First bytes on the wire immediately — establishes the response
           // before any slow research/model work begins.
@@ -426,6 +449,9 @@ export async function POST(request: Request) {
             memories,
             userId: user.id,
             onEvent: (e) => {
+              // Feed the same orchestrator events into the receipt ledger
+              // (stage transitions → steps, tool starts → names).
+              trust.onEvent(e)
               if (e.type === 'delta') {
                 if (firstTokenAt === null) firstTokenAt = Date.now()
                 full += e.delta
@@ -447,6 +473,9 @@ export async function POST(request: Request) {
           })
           finalMetadata = result.metadata
           succeeded = full.trim().length > 0
+          // Honest settlement from ACTUAL execution — identical semantics to
+          // the background path (persisted answer + assigned states).
+          await trust.complete(result, { persisted: succeeded })
           logger.info('riishe.performance', {
             path: 'sse',
             conversationId: convId,
@@ -496,13 +525,6 @@ export async function POST(request: Request) {
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : String(e)
           logger.warn('riishe.stream_failed', { message: errorMessage.slice(0, 300) })
-          // Honest failure classification: the upstream status (embedded by the
-          // SDK in the error text) decides the story. A 429 is temporary
-          // throttling; 401/403 is an operator action; 402 is an account
-          // action; anything else is an application failure. Research-layer
-          // failures never reach this catch — they degrade into the evidence
-          // pack — so a rate-limit here is the chat/LLM endpoint, and the
-          // wording says so instead of blaming the research gateway.
           const payload = upstreamStreamErrorPayload(e)
           const errorCode =
             payload.code === 'UPSTREAM_RATE_LIMITED'
@@ -526,6 +548,8 @@ export async function POST(request: Request) {
             success: false,
             errorCode,
           })
+          // Truthful failure receipt with the same classification the user saw.
+          await trust.failed({ errorCode, errorMessage })
           writer.send(payload)
         } finally {
           releaseOnce()

@@ -46,6 +46,7 @@ import { extractSceneState, verifyVideoContinuity, type SceneState } from '@/lib
 import { imageReferenceToDataUrl } from '@/lib/intel/vision'
 import { parseMotionProgram, generateLocalI2VFrames, encodeFramesToMp4, localI2VReady } from '@/lib/jazmii/i2v-local'
 import { resolveReferenceBytes } from '@/lib/jazmii/reference-image'
+import { recordMediaJobCompletion } from '@/lib/trust/adapters/media'
 import fs from 'fs'
 import path from 'path'
 
@@ -654,6 +655,28 @@ export async function processVideoJob(job: JobRow): Promise<void> {
       durationMs: Date.now() - startedAt.getTime(),
       success: true,
     })
+    // Trust Engine: the delivered video gets an inspectable receipt from the
+    // ACTUAL result — ffprobe-measured stream facts recorded as real
+    // validation, never inflated (best-effort; never breaks the worker).
+    await recordMediaJobCompletion(
+      {
+        userId: job.userId,
+        product: 'jazmii',
+        kind: 'video-generation',
+        jobId: job.id,
+        backendId: backend.id,
+        requestPreview: typeof params?.prompt === 'string' ? params.prompt : 'video generation job',
+      },
+      {
+        artifactUrl: result.videoUrl,
+        format: result.format,
+        bytes: result.bytes,
+        durationMs: result.durationMs,
+        width: result.width,
+        height: result.height,
+        stream: result.stream ?? null,
+      },
+    )
     // LAXII-JAZMII RESTORATION (2026-11-14, SSE-log parity): video jobs used
     // to persist ONLY on the row — the JobEvent log (the jobs drawer's event
     // stream) stayed empty for jazmii while chat/coding jobs streamed events.
