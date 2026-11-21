@@ -53,6 +53,22 @@ export interface CompositionPlan {
     musicAttribution: string | null
     voiceoverPath: string | null
     voiceoverVolume: number
+    /**
+     * M27 (2026-11-21): scene-timed sound effects. Each entry is an absolute
+     * local path placed at an exact timeline position. The FFmpeg engine
+     * mixes them with adelay+volume; the HyperFrames engine does NOT apply
+     * them and records an honest limitation note instead (never a silent
+     * drop).
+     */
+    sfx?: Array<{
+      path: string
+      /** Timeline placement in seconds from video start. */
+      startSec: number
+      /** Volume multiplier (0..1). */
+      volume: number
+      /** Attribution/label recorded verbatim in the render metadata. */
+      label: string | null
+    }>
   }
   /** Work directory (absolute) the engine may use for intermediates. */
   workDir: string

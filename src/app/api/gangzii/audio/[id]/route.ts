@@ -38,6 +38,14 @@ export async function GET(
       const p = JSON.parse(job.paramsJson) as { target?: string }
       ext = p.target ?? 'wav'
       relPath = `${job.userId}/convert/${job.id}.${ext}`
+    } else if (job.task === 'audio-production') {
+      // M27: audio-production masters (mixes, narration joins) live at the
+      // storage-relative path recorded in the job's result — the same file
+      // the join/attach flow reads. The result path is containment-checked
+      // again by readGangziiFile below.
+      const result = job.resultJson ? (JSON.parse(job.resultJson) as { relPath?: string }) : null
+      relPath = result?.relPath ?? null
+      ext = relPath?.split('.').pop() ?? 'wav'
     } else {
       // Live-voice spoken replies land here too (task speech-synthesis
       // with source 'live') — same artifact layout.

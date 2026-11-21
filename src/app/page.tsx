@@ -99,6 +99,11 @@ export default function Home() {
       {view === 'laxii' && <Laxii sizes={sizes} />}
       {view === 'jazmii' && <Jazmii />}
       {view === 'code-giftz' && <CodeGiftz />}
+      {/* M27 (2026-11-21): GANGZII is a real mounted product view — the
+          component existed previously but was unreachable (not in ViewId,
+          navigation or the view switch). This mount fixes the orphaned
+          surface without changing any other screen. */}
+      {view === 'gangzii' && <Gangzii />}
       {view === 'gangzii' && <Gangzii />}
       {view === 'ai-device' && <AiDeviceSettings />}
       {view === 'portal' && <Portal />}

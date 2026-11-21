@@ -1,42 +1,59 @@
 /**
  * GANGZII — per-capability availability, MEASURED on request.
  *
- * Probes are real (tiny TTS call, chained ASR call, ffmpeg binary check) and
- * TTL-cached inside the adapters (shared process-wide via globalThis) so this
- * endpoint is cheap on repeat loads. The LLM conversation probe is cached by
- * hostedLlmAdapter.health() itself (60s healthy / 10s rate-limited) — the
- * former route-level second cache layer was removed during the 2026-10-27
- * rate-limit incident: two divergent TTL layers let stale "unavailable"
- * reports outlive the adapter's fast-recovery window.
- * Music generation and the audio-tools family are reported from the private
- * registry: disabled backends are unavailable — with their truthful reason.
+ * Probes are real (tiny TTS call, chained ASR call, ffmpeg binary check,
+ * local ONNX model check) and TTL-cached inside the adapters (shared
+ * process-wide via globalThis) so this endpoint is cheap on repeat loads.
+ * The LLM conversation probe is cached by hostedLlmAdapter.health() itself
+ * (60s healthy / 10s rate-limited) — the former route-level second cache
+ * layer was removed during the 2026-10-27 rate-limit incident: two
+ * divergent TTL layers let stale "unavailable" reports outlive the
+ * adapter's fast-recovery window.
+ * Music generation is reported from the private registry: disabled backends
+ * are unavailable — with their truthful reason.
+ * M27 (2026-11-21): the LOCAL engine (Kokoro-82M) and the audio-production
+ * family are measured and reported; speechSynthesis aggregates BOTH engines
+ * (served = local OR hosted), each carrying its own detail.
  */
 import { handle, ok } from '@/lib/api/errors'
 import { requireUser } from '@/lib/auth/session'
 import { hostedAudioAdapter } from '@/lib/adapters/hosted-audio'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
+import { kokoroTtsEngine } from '@/lib/gangzii/tts-engine'
 import { getBackend } from '@/lib/registry/backends'
 
 export async function GET() {
   return handle(async () => {
     await requireUser()
 
-    const [tts, asr, ffmpeg, llm] = await Promise.all([
+    const [tts, asr, ffmpeg, llm, localTts] = await Promise.all([
       hostedAudioAdapter.healthTts(),
       hostedAudioAdapter.healthAsr(),
       hostedAudioAdapter.healthFfmpeg(),
       hostedLlmAdapter.health(),
+      kokoroTtsEngine.health(),
     ])
 
     const musicBackend = getBackend('bean-music-selfhosted-candidate')
-    const toolsBackend = getBackend('bean-audio-tools-selfhosted-candidate')
 
     const capabilities = {
       speechSynthesis: {
-        available: tts.healthy,
-        detail: tts.detail,
-        latencyMs: tts.latencyMs,
-        checkedAt: tts.checkedAt,
+        available: tts.healthy || localTts.healthy,
+        detail: localTts.healthy
+          ? `Two engines serve speech: the local Kokoro-82M engine (${localTts.detail}) and the hosted gateway when you pick a hosted voice.`
+          : tts.detail,
+        latencyMs: tts.healthy ? tts.latencyMs : localTts.latencyMs,
+        checkedAt: tts.healthy ? tts.checkedAt : new Date().toISOString(),
+      },
+      localTts: {
+        available: localTts.healthy,
+        detail: localTts.detail,
+        latencyMs: localTts.latencyMs,
+        checkedAt: new Date().toISOString(),
+        installed: kokoroTtsEngine.getRuntimeStatus().installed,
+        installing: kokoroTtsEngine.getRuntimeStatus().installing,
+        installProgress: kokoroTtsEngine.getRuntimeStatus().installProgress,
+        approxDownloadMb: 92,
       },
       transcription: {
         available: asr.healthy,
@@ -55,6 +72,14 @@ export async function GET() {
         detail: ffmpeg.healthy
           ? 'Mono/stereo WAV & MP3 export ready. The speech source is mono (provider output); stereo is a dual-mono export — the mono signal duplicated to L/R, not spatial stereo. Every export is ffprobe-verified before it is labeled.'
           : 'Export requires the local ffmpeg transcoder, which is not usable right now.',
+        latencyMs: ffmpeg.latencyMs,
+        checkedAt: ffmpeg.checkedAt,
+      },
+      audioProduction: {
+        available: ffmpeg.healthy,
+        detail: ffmpeg.healthy
+          ? 'Audio production ready: trim, fade, volume, static ducking, basic EQ, compression, limiting, one-pass loudness normalization and master export, with EBUR128 loudness measured on every result. A transcoded track is never labeled mastered unless a mastering operation ran.'
+          : 'Audio production requires the local ffmpeg toolchain, which is not usable right now.',
         latencyMs: ffmpeg.latencyMs,
         checkedAt: ffmpeg.checkedAt,
       },
@@ -80,8 +105,12 @@ export async function GET() {
         checkedAt: new Date().toISOString(),
       },
       audioTools: {
+        // M27 honesty: separation/denoise/cloning remain UNSUPPORTED — the
+        // ffmpeg production family (trim/fade/duck/EQ/loudness) is a
+        // DIFFERENT capability and is reported by audioProduction above.
         available: false,
-        detail: toolsBackend?.unavailableReason ?? 'No audio-tools backend configured.',
+        detail:
+          'Source separation, denoising and voice cloning are not supported. Voice cloning is out of scope for this release and requires its own consent + rights design before any implementation.',
         latencyMs: null as number | null,
         checkedAt: new Date().toISOString(),
       },
@@ -90,7 +119,8 @@ export async function GET() {
     const coreAvailable =
       capabilities.speechSynthesis.available ||
       capabilities.transcription.available ||
-      capabilities.conversion.available
+      capabilities.conversion.available ||
+      capabilities.audioProduction.available
 
     return ok({
       product: 'gangzii',

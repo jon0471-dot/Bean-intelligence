@@ -24,6 +24,13 @@ import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
 import { hostedAudioAdapter } from '@/lib/adapters/hosted-audio'
 import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
 import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
+import {
+  localKokoroAdapter,
+  hostedGangziiTtsAdapter,
+  hostedGangziiAsrAdapter,
+  localAudioToolsAdapter,
+  localAudioConvertAdapter,
+} from '@/lib/adapters/gangzii-audio'
 import { openAiCompatibleAdapter } from '@/lib/providers/openai-compatible'
 import { llamaCppAdapter } from '@/lib/providers/llamacpp'
 import { wrapWithProviderFallback } from '@/lib/providers/routing'
@@ -69,22 +76,14 @@ const ADAPTERS: Record<string, TaskAdapter> = {
       detail: 'The self-hosted video worker candidate is not deployed (planned open-weight path, hardware-gated).',
     }),
   },
-  // GANGZII AUDIO WIRING (2026-11-18): the measured audio adapters become
-  // routable. Health probes are the adapters' REAL cached probes (tiny
-  // payloads, 60s TTL; a 429 is cached briefly as rate-limited evidence —
-  // never rendered as an outage).
-  'bean-audio-tts-hosted-primary': {
-    backendId: 'bean-audio-tts-hosted-primary',
-    health: () => hostedAudioAdapter.healthTts(),
-  },
-  'bean-audio-asr-hosted-primary': {
-    backendId: 'bean-audio-asr-hosted-primary',
-    health: () => hostedAudioAdapter.healthAsr(),
-  },
-  'bean-audio-tools-local': {
-    backendId: 'bean-audio-tools-local',
-    health: () => hostedAudioAdapter.healthFfmpeg(),
-  },
+  // GANGZII AUDIO PRODUCTION (M27, 2026-11-21): the four audio backends.
+  // The router uses these for gates + MEASURED health; execution happens in
+  // the audio worker on the durable queue (audio-worker.ts).
+  'bean-audio-tts-local-kokoro': localKokoroAdapter,
+  'bean-audio-tts-hosted-primary': hostedGangziiTtsAdapter,
+  'bean-audio-asr-hosted-primary': hostedGangziiAsrAdapter,
+  'bean-audio-tools-local-ffmpeg': localAudioToolsAdapter,
+  'bean-audio-convert-local-ffmpeg': localAudioConvertAdapter,
   // M26.2 — REAL local inference lanes. Health = the model manager's real
   // on-disk states (installed + SHA-256-verified), never configuration
   // optimism; a not-installed model is an honest unhealthy probe.

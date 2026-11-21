@@ -177,3 +177,88 @@ describe('ffprobe gate parity', () => {
     expect(gate.video!.frames).toBe(150) // 3s + 2s end card = 5s * 30fps
   }, 60_000)
 })
+
+// ---------------------------------------------------------------------------
+// M27 (2026-11-21): GANGZII audio integration — voiceover + scene-timed SFX
+// mixed by the REAL engine into the REAL MP4 (ffprobe-verified audio).
+// ---------------------------------------------------------------------------
+
+describe('ffmpeg composition engine — M27 audio (voiceover + SFX)', () => {
+  test('a real narration WAV mixes into the MP4 as the voiceover track', async () => {
+    const engine = createFfmpegCompositionEngine()
+    const voice = await makeMusic(6) // a real 6s audio file (tone stands in for narration bytes)
+    const clipA = await makeClip('m27-a.mp4', 540, 960, 3, false)
+    const result = await engine.compose(
+      plan({
+        scenes: [
+          { idx: 1, clipPath: clipA, durationSec: 3, caption: null, transitionOut: 'cut' },
+        ],
+        audio: { musicPath: null, musicVolume: 0.32, musicAttribution: null, voiceoverPath: voice, voiceoverVolume: 1.0 },
+        outputPath: path.join(dir, 'm27-voice.mp4'),
+      }),
+    )
+    expect(result.probe.ok).toBe(true)
+    expect(result.probe.audio).not.toBeNull()
+    expect(result.probe.audio!.codec).toBe('aac')
+    // The voiceover content actually shaped the mix (duration tracks it).
+    expect(result.measuredDurationSec).toBeGreaterThan(4)
+    expect(result.notes.some((n) => n.includes('No audio track'))).toBe(false)
+  }, 120_000)
+
+  test('music + voiceover + scene-timed SFX all mix into one audio stream', async () => {
+    const engine = createFfmpegCompositionEngine()
+    const music = await makeMusic(8)
+    const voice = await makeMusic(6)
+    const sfx = await makeMusic(1)
+    const clipA = await makeClip('m27-b1.mp4', 540, 960, 3, false)
+    const clipB = await makeClip('m27-b2.mp4', 540, 960, 3, false)
+    const result = await engine.compose(
+      plan({
+        scenes: [
+          { idx: 1, clipPath: clipA, durationSec: 3, caption: null, transitionOut: 'cut' },
+          { idx: 2, clipPath: clipB, durationSec: 3, caption: null, transitionOut: 'cut' },
+        ],
+        audio: {
+          musicPath: music,
+          musicVolume: 0.32,
+          musicAttribution: 'test music tone',
+          voiceoverPath: voice,
+          voiceoverVolume: 1.0,
+          sfx: [{ path: sfx, startSec: 2.0, volume: 0.9, label: 'impact tone' }],
+        },
+        outputPath: path.join(dir, 'm27-mix.mp4'),
+      }),
+    )
+    expect(result.probe.ok).toBe(true)
+    expect(result.probe.audio).not.toBeNull()
+    expect(result.probe.audio!.codec).toBe('aac')
+    // Honest note: the effect count is recorded in the render metadata.
+    expect(result.notes.some((n) => n.includes('1 sound effect(s) mixed'))).toBe(true)
+    expect(result.notes.some((n) => n.includes('static ducking'))).toBe(true)
+  }, 150_000)
+
+  test('a SFX-only plan still produces a real audio stream (single-source pad path)', async () => {
+    const engine = createFfmpegCompositionEngine()
+    const sfx = await makeMusic(2)
+    const clipA = await makeClip('m27-c.mp4', 540, 960, 3, false)
+    const result = await engine.compose(
+      plan({
+        scenes: [
+          { idx: 1, clipPath: clipA, durationSec: 3, caption: null, transitionOut: 'cut' },
+        ],
+        audio: {
+          musicPath: null,
+          musicVolume: 0.32,
+          musicAttribution: null,
+          voiceoverPath: null,
+          voiceoverVolume: 1.0,
+          sfx: [{ path: sfx, startSec: 1.0, volume: 0.8, label: null }],
+        },
+        outputPath: path.join(dir, 'm27-sfx-only.mp4'),
+      }),
+    )
+    expect(result.probe.ok).toBe(true)
+    expect(result.probe.audio).not.toBeNull()
+    expect(result.probe.audio!.codec).toBe('aac')
+  }, 120_000)
+})

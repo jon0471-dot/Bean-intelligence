@@ -228,9 +228,14 @@ function generateProject(
     ease: 'power2.out',
   })
 
-  const audioEl = audio.musicPath
-    ? `\n    <audio id="music-bed" src="assets/music${path.extname(audio.musicPath) || '.mp3'}" data-start="0" data-duration="${total}" data-volume="${audio.musicVolume}" data-fade-in="0.6" data-fade-out="1.2"></audio>`
-    : ''
+  const audioEl = [
+    audio.musicPath
+      ? `\n    <audio id="music-bed" src="assets/music${path.extname(audio.musicPath) || '.mp3'}" data-start="0" data-duration="${total}" data-volume="${audio.musicVolume}" data-fade-in="0.6" data-fade-out="1.2"></audio>`
+      : '',
+    audio.voiceoverPath
+      ? `\n    <audio id="voiceover" src="assets/voiceover${path.extname(audio.voiceoverPath) || '.mp3'}" data-start="0" data-duration="${total}" data-volume="${audio.voiceoverVolume}"></audio>`
+      : '',
+  ].join('')
 
   const tlJs = timeline
     .map(
@@ -375,6 +380,13 @@ export function createHyperframesCompositionEngine(): CompositionEngine {
       if (plan.audio.musicPath) {
         await copyFile(plan.audio.musicPath, path.join(assetsDir, `music${path.extname(plan.audio.musicPath) || '.mp3'}`))
       }
+      // M27: the voiceover uses the SAME pinned-runtime <audio> mechanism as
+      // the music bed (measured: the HyperFrames renderer plays timed audio
+      // elements) — narration therefore works on BOTH engines. Sound effects
+      // are NOT applied here and get an honest limitation note instead.
+      if (plan.audio.voiceoverPath) {
+        await copyFile(plan.audio.voiceoverPath, path.join(assetsDir, `voiceover${path.extname(plan.audio.voiceoverPath) || '.mp3'}`))
+      }
 
       const run = async (args: string[], timeout: number) => {
         const cli = resolveCli()!
@@ -427,8 +439,16 @@ export function createHyperframesCompositionEngine(): CompositionEngine {
           `Measured duration ${probeOut.video.durationSec.toFixed(2)}s differs from the planned ${totalDuration.toFixed(2)}s.`,
         )
       }
-      if (!plan.audio.musicPath && !plan.audio.voiceoverPath) {
+      if (!plan.audio.musicPath && !plan.audio.voiceoverPath && (plan.audio.sfx?.length ?? 0) === 0) {
         notes.push('No audio track in the final video (no music or voiceover was supplied).')
+      }
+      if ((plan.audio.sfx?.length ?? 0) > 0) {
+        // M27 HONEST LIMITATION: the HyperFrames engine does not apply
+        // scene-timed sound effects — the FFmpeg engine does. Stated in the
+        // render notes (and therefore the receipt), never silently dropped.
+        notes.push(
+          `${plan.audio.sfx!.length} sound effect(s) were NOT applied: the HyperFrames engine path does not support scene-timed SFX in this milestone — compose with the FFmpeg engine to include them.`,
+        )
       }
 
       // --- poster (ffmpeg extraction from the rendered file) --------------------

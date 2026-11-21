@@ -1,14 +1,15 @@
 /**
- * BEAN Intelligence — M26 F-G1 regression: unwired task types are settled
- * honestly (NO_BACKEND) instead of being parked `queued` forever.
+ * BEAN Intelligence — M26 F-G1 regression, updated by M27 (2026-11-21):
+ * unwired task types are settled honestly (NO_BACKEND) instead of being
+ * parked `queued` forever.
  *
- * The audit found GANGZII's speech-synthesis / audio-transcription /
- * audio-conversion jobs are enqueued into a queue NO pool can claim (no
- * gangzii pool, no handler) — with embedded pools running the rows stayed
- * `queued` forever (worse than the documented honest NO_BACKEND).
- *
- * Pinned: with pools running, a task with no wired handler settles failed
- * NO_BACKEND; wired tasks still wake their pools untouched.
+ * M26 measured: GANGZII's audio tasks had NO pool and NO handler, so with
+ * embedded pools running the rows stayed `queued` forever. M27 WIRED them
+ * (real audio worker + a gangzii pool), so the invariant evolves: wired
+ * gangzii audio tasks now wake the pools (including the new gangzii pool)
+ * and wait to be claimed, while a GENUINELY unwired task (music-generation,
+ * rejected upstream before enqueue but still queue-reachable) settles
+ * failed NO_BACKEND exactly as before.
  *
  * Mocks: Prisma boundary, the runner (pools running, kick recorded), job
  * events. finishFailed itself runs REAL (the settle semantics are the
@@ -89,42 +90,28 @@ beforeEach(() => {
   kickLog.length = 0
 })
 
-describe('M26 F-G1 — unwired tasks settle honestly', () => {
-  // GANGZII AUDIO WIRING (2026-11-18): speech-synthesis / transcription /
-  // conversion now have REAL handlers and are claimed by the gangzii pool
-  // like every other wired task (pinned by the wake expectations below).
-  // The NO_BACKEND settle contract itself is preserved — pinned here with
-  // music-generation, which still has no configured backend (the route
-  // refuses honestly; nothing may park forever).
-  test('a task with no wired handler settles failed NO_BACKEND (never parked forever)', async () => {
-    const row = makeJob({ task: 'music-generation' })
+
+describe('M27 update of F-G1 — GANGZII audio tasks are now WIRED; unwired tasks still settle honestly', () => {
+  test('a GANGZII speech-synthesis job (wired since M27) wakes its pools and stays queued for the worker', async () => {
+    const row = makeJob()
     enqueueJob(row.id as string)
-    // the settle runs inside the fire-and-forget envelope
+    await new Promise((r) => setTimeout(r, 20))
+    // NOT settled by the submission path anymore: the gangzii pool claims it.
+    expect(row.status).toBe('queued')
+    expect(row.errorCode).toBeUndefined()
+    // every product pool is woken — including the NEW gangzii pool.
+    expect(kickLog).toEqual(['riishe', 'laxii', 'jazmii', 'code-giftz', 'gangzii'])
+  })
+
+  test('a genuinely unwired task (music-generation) still settles failed NO_BACKEND', async () => {
+    const row = makeJob({ id: 'job-fg1-music', task: 'music-generation' })
+    enqueueJob(row.id as string)
     await new Promise((r) => setTimeout(r, 20))
     expect(row.status).toBe('failed')
     expect(row.errorCode).toBe('NO_BACKEND')
     expect(row.errorClass).toBe('permanent')
     expect(row.finishedAt).toBeTruthy()
-    // an honest terminal error event was recorded
     expect(jobEvents.some((e) => e.type === 'error' && (e.data as Record<string, unknown>).code === 'NO_BACKEND')).toBe(true)
-    // no pool was woken for a task nothing can claim
-    expect(kickLog.length).toBe(0)
-  })
-
-  test('the wired GANGZII audio tasks wake their pool like every wired task', async () => {
-    const t1 = makeJob({ id: 'job-fg1-tts2', task: 'speech-synthesis' })
-    const t2 = makeJob({ id: 'job-fg1-conv', task: 'audio-transcription' })
-    const t3 = makeJob({ id: 'job-fg1-conv2', task: 'audio-conversion' })
-    enqueueJob(t1.id as string)
-    enqueueJob(t2.id as string)
-    enqueueJob(t3.id as string)
-    await new Promise((r) => setTimeout(r, 20))
-    expect(t1.status).toBe('queued') // untouched — the pool will claim it
-    expect(t2.status).toBe('queued')
-    expect(t3.status).toBe('queued')
-    expect(t1.errorCode).toBeUndefined()
-    expect(t2.errorCode).toBeUndefined()
-    expect(t3.errorCode).toBeUndefined()
   })
 
   test('a wired task (video-generation) still wakes its pools untouched', async () => {

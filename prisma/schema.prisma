@@ -36,6 +36,8 @@ model User {
   clientComputeReports ClientComputeReport[]
   laxiiEditHistory     LaxiiEditHistory[]
   trustTasks          TrustTask[]
+  narrationProjects   NarrationProject[]
+  gangziiAudioAssets  GangziiAudioAsset[]
 }
 
 model Session {
@@ -803,4 +805,85 @@ model TrustCheckpoint {
 
   @@unique([taskId, seq])
   @@index([taskId, status])
+}
+
+// ---------------------------------------------------------------------------
+// GANGZII NARRATION STUDIO (M27, 2026-11-21).
+//
+// One NarrationProject per narration script; segments are the user-editable
+// units (a sentence change regenerates ONE segment, never the whole track).
+// The original visible script is preserved separately from the normalized
+// synthesis text — normalization never silently changes the user's wording.
+// Segment timing is MEASURED from the produced audio (segment-level,
+// approximate — never word-level alignment, which no installed engine
+// provides). JAZMII linkage records WHERE a narration came from without
+// coupling GANGZII storage to JAZMII internals.
+// ---------------------------------------------------------------------------
+model NarrationProject {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String   @default("Untitled narration")
+  language           String   @default("en")
+  // manual | jazmii-storyboard — the honest provenance of the script.
+  source             String   @default("manual")
+  // JAZMII production this narration is attached to (optional; no FK on
+  // purpose: GANGZII narration must survive JAZMII production deletion).
+  jazmiiProductionId String?
+  // Associations: [{ sceneIdx, segmentIdx, caption }] — scene-aligned timing.
+  sceneAssociationsJson String?
+  // original | approved — the approved flag gates the join/export actions.
+  status             String   @default("draft") // draft | approved | joined
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  segments           NarrationSegment[]
+
+  @@index([userId, updatedAt])
+  @@index([jazmiiProductionId])
+}
+
+model NarrationSegment {
+  id                 String   @id @default(cuid())
+  projectId          String
+  project            NarrationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  idx                Int      // 1-based deterministic order
+  // The user's OWN text (never rewritten) and the normalized synthesis text.
+  text               String
+  normalizedText     String
+  voice              String   // voice id from either engine catalog
+  speed              Float    @default(1.0)
+  // pending | generating | ready | failed — ready requires a real artifact.
+  status             String   @default("pending")
+  generationJobId    String?  // the speech-synthesis job for THIS segment
+  artifactRelPath    String?  // storage-relative master segment audio
+  durationMs         Int?     // MEASURED (ffprobe) after synthesis
+  errorNote          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([projectId, idx])
+  @@index([projectId, status])
+}
+
+// GANGZII AUDIO LIBRARY (M27): user-uploaded / user-provided audio assets
+// with license + attribution metadata. BEAN bundles NO third-party media —
+// every library asset is either user-uploaded or BEAN-owned with verified
+// licensing, recorded here per asset.
+model GangziiAudioAsset {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName    String
+  relPath        String   // storage-relative under storage/gangzii/<userId>/assets
+  kind           String   @default("music") // music | sfx | voiceover-upload
+  container      String   // magic-byte verified container
+  bytes          Int
+  durationMs     Int?
+  // Rights metadata (user-provided, shown in receipts and UI).
+  license        String?  // e.g. "CC-BY 4.0", "Owned", "Licensed — <source>"
+  attribution    String?
+  sourceUrl      String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, kind])
 }

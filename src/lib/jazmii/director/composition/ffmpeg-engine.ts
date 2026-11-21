@@ -158,6 +158,10 @@ export function createFfmpegCompositionEngine(opts: FfmpegEngineOptions = {}): C
       args.push('-f', 'lavfi', '-i', `color=c=${bg}:s=${W}x${H}:r=${fps}:d=${endCard.durationSec}`)
       if (audio.musicPath) args.push('-i', audio.musicPath)
       if (audio.voiceoverPath) args.push('-i', audio.voiceoverPath)
+      // M27: scene-timed sound effects (each gets its own input, mixed with
+      // adelay at its exact timeline position below).
+      const sfx = audio.sfx ?? []
+      for (const s of sfx) args.push('-i', s.path)
 
       // ---- video filtergraph ---------------------------------------------------
       const filterComplex: string[] = []
@@ -242,31 +246,42 @@ export function createFfmpegCompositionEngine(opts: FfmpegEngineOptions = {}): C
       let audioArg: string[] = []
       const musicIdx = scenes.length + 1
       const voiceIdx = musicIdx + (audio.musicPath ? 1 : 0)
-      if (audio.musicPath && audio.voiceoverPath) {
-        // Music sits lower under narration (honest static ducking).
+      const firstSfxIdx = voiceIdx + (audio.voiceoverPath ? 1 : 0)
+      // M27: every audio source is processed into a labeled stream and mixed
+      // with ONE amix (N inputs) — music + voiceover + any sound effects —
+      // so the graph stays exactly the honest static-ducking behavior plus
+      // precisely-placed effects.
+      const mixLabels: string[] = []
+      if (audio.musicPath) {
         filterComplex.push(
           `[${musicIdx}:a]atrim=0:${total.toFixed(3)},asetpts=PTS-STARTPTS,` +
             `volume=${(audio.musicVolume * 0.55).toFixed(3)},afade=t=in:st=0:d=0.6,` +
             `afade=t=out:st=${Math.max(0, total - 1.2).toFixed(3)}:d=1.2[am]`,
         )
+        mixLabels.push('[am]')
+      }
+      if (audio.voiceoverPath) {
         filterComplex.push(
           `[${voiceIdx}:a]atrim=0:${total.toFixed(3)},asetpts=PTS-STARTPTS,volume=${audio.voiceoverVolume}[av]`,
         )
+        mixLabels.push('[av]')
+      }
+      sfx.forEach((s, i) => {
+        const delayMs = Math.max(0, Math.round(s.startSec * 1000))
         filterComplex.push(
-          `[am][av]amix=inputs=2:duration=longest:normalize=0,apad=whole_dur=${total.toFixed(3)},atrim=0:${total.toFixed(3)}[aout]`,
+          `[${firstSfxIdx + i}:a]volume=${Math.max(0, Math.min(1, s.volume)).toFixed(3)},` +
+            `adelay=${delayMs}:all=1,apad=whole_dur=${total.toFixed(3)},atrim=0:${total.toFixed(3)},asetpts=PTS-STARTPTS[as${i}]`,
         )
+        mixLabels.push(`[as${i}]`)
+      })
+      if (mixLabels.length === 1) {
+        // Single source: still pad/trim to the exact timeline length.
+        filterComplex.push(`${mixLabels[0]}apad=whole_dur=${total.toFixed(3)},atrim=0:${total.toFixed(3)}[aout]`)
         audioArg = ['-map', '[aout]']
-      } else if (audio.musicPath) {
+      } else if (mixLabels.length > 1) {
         filterComplex.push(
-          `[${musicIdx}:a]atrim=0:${total.toFixed(3)},asetpts=PTS-STARTPTS,` +
-            `volume=${audio.musicVolume},afade=t=in:st=0:d=0.6,` +
-            `afade=t=out:st=${Math.max(0, total - 1.2).toFixed(3)}:d=1.2[aout]`,
-        )
-        audioArg = ['-map', '[aout]']
-      } else if (audio.voiceoverPath) {
-        filterComplex.push(
-          `[${voiceIdx}:a]atrim=0:${total.toFixed(3)},asetpts=PTS-STARTPTS,` +
-            `volume=${audio.voiceoverVolume},apad=whole_dur=${total.toFixed(3)},atrim=0:${total.toFixed(3)}[aout]`,
+          `${mixLabels.join('')}amix=inputs=${mixLabels.length}:duration=longest:normalize=0,` +
+            `apad=whole_dur=${total.toFixed(3)},atrim=0:${total.toFixed(3)}[aout]`,
         )
         audioArg = ['-map', '[aout]']
       }
@@ -320,11 +335,17 @@ export function createFfmpegCompositionEngine(opts: FfmpegEngineOptions = {}): C
           `Measured frame count ${probe.video.frames} differs from the exact expected ${expectedFrames} (fps normalization rounding).`,
         )
       }
-      if (!audio.musicPath && !audio.voiceoverPath) {
+      if (!audio.musicPath && !audio.voiceoverPath && sfx.length === 0) {
         notes.push('No audio track in the final video (no music or voiceover was supplied).')
       }
       if (audio.musicPath && audio.voiceoverPath) {
         notes.push('Music ducks to a fixed lower bed under the voiceover (static ducking).')
+      }
+      if (sfx.length > 0) {
+        notes.push(
+          `${sfx.length} sound effect(s) mixed at their planned timeline positions` +
+            (audio.musicPath && audio.voiceoverPath ? ' (music ducks statically under the voiceover).' : '.'),
+        )
       }
 
       // ---- poster frame -----------------------------------------------------------

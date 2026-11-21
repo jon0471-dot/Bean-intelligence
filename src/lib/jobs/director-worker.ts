@@ -417,6 +417,7 @@ async function runProductionOrchestration(job: JobRow): Promise<void> {
       musicAttribution: audioTrackAttribution(plan, 'music'),
       voiceoverPath: audioTrackAbs(plan, workspace, 'voiceover'),
       voiceoverVolume: 1.0,
+      sfx: audioSfxInputs(plan, workspace),
     },
     workDir: workspace,
     outputPath,
@@ -1060,6 +1061,36 @@ function audioTrackVolume(plan: ApprovedPlan, role: 'music' | 'voiceover'): numb
 function audioTrackAttribution(plan: ApprovedPlan, role: 'music' | 'voiceover'): string | null {
   const track = plan.audioTracks.find((t) => t.role === role)
   return track?.attribution ?? null
+}
+
+/**
+ * M27: scene-timed SFX from the approved plan (bounded to 4). Paths resolve
+ * against the production audio dir; a missing file is DROPPED WITH A NOTE —
+ * never silently mixed as silence, never a hard failure of the whole
+ * production.
+ */
+function audioSfxInputs(plan: ApprovedPlan, workspace: string): Array<{ path: string; startSec: number; volume: number; label: string | null }> {
+  return plan.audioTracks
+    .filter((t) => t.role === 'sfx')
+    .slice(0, 4)
+    .map((t) => {
+      const abs = path.join(workspace, 'audio', path.basename(t.path))
+      return {
+        path: abs,
+        startSec: Math.max(0, t.startSec ?? 0),
+        volume: Math.max(0.05, Math.min(1, t.volume ?? 0.9)),
+        label: t.attribution ?? null,
+        exists: fs.existsSync(abs),
+      }
+    })
+    .filter((s) => {
+      if (!s.exists) {
+        logger.warn('jazmii.composition.sfx_missing', { path: path.basename(s.path) })
+        return false
+      }
+      return true
+    })
+    .map(({ path: p, startSec, volume, label }) => ({ path: p, startSec, volume, label }))
 }
 
 export { latestValidTrustCheckpoint }

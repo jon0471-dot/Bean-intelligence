@@ -236,13 +236,18 @@ export const directorRequestSchema = z.object({
 })
 export type DirectorRequest = z.infer<typeof directorRequestSchema>
 
-/** User-supplied audio the composition layer may mix (music / voiceover). */
+/** User-supplied audio the composition layer may mix (music / voiceover / SFX). */
 export const audioTrackSchema = z.object({
   /** Storage-relative path under the production's assets dir (set server-side
    *  after upload validation — never a client-controlled filesystem path). */
   path: z.string().min(1).max(400),
-  role: z.enum(['music', 'voiceover']),
+  // M27: 'sfx' joins the vocabulary — scene-timed sound effects, placed by
+  // startSec on the exact timeline. The FFmpeg engine applies them; the
+  // HyperFrames engine records an honest limitation note instead.
+  role: z.enum(['music', 'voiceover', 'sfx']),
   volume: z.number().min(MUSIC_VOLUME_MIN).max(MUSIC_VOLUME_MAX).optional(),
+  /** SFX-only: timeline placement in seconds from video start. */
+  startSec: z.number().min(0).max(600).optional(),
   /** Declared for attribution metadata; displayed in the deliverables. */
   attribution: z.string().max(200).optional(),
 })
@@ -258,7 +263,8 @@ export const approvedPlanSchema = z.object({
   approvedAt: z.string(),
   approvedRev: z.number().int().min(1),
   enginePreference: z.enum(['auto', 'hyperframes', 'ffmpeg']).default('auto'),
-  audioTracks: z.array(audioTrackSchema).max(2).default([]),
+  // M27: up to 2 beds (music + voiceover) + 4 scene-timed SFX.
+  audioTracks: z.array(audioTrackSchema).max(6).default([]),
   /** Scene 3..12s bound acknowledged by the approval UI. */
   sceneLimitAck: z.boolean().default(true),
 })

@@ -12,10 +12,7 @@ import { hashPassword, verifyPassword, validatePasswordStrength } from '../../sr
 import { checkRateLimit } from '../../src/lib/auth/ratelimit'
 
 describe('public product catalog (customer-facing identity)', () => {
-  test('exposes exactly the five flagship products', () => {
-    // 2026-11-18 GANGZII AUDIO WIRING: the audio product joins the catalog
-    // (its type, routes, adapter and UI existed since 2026-10 but the catalog
-    // entry was missing — every /api/gangzii/* route 404'd with NOT_FOUND).
+  test('exposes exactly the five flagship products (M27: GANGZII is real)', () => {
     expect(BEAN_PRODUCTS.map((p) => p.id).sort()).toEqual([
       'code-giftz', 'gangzii', 'jazmii', 'laxii', 'riishe',
     ])
@@ -58,18 +55,19 @@ describe('private backend registry (server-only source of truth)', () => {
     // holds: every backend task belongs to the product it is registered
     // under, and is a known BeanTask.
     const laxiiTasks = new Set(['image-generation', 'image-enhancement', 'image-editing'])
-    const gangziiTasks = new Set(['speech-synthesis', 'audio-transcription', 'audio-conversion'])
     // JAZMII AUTO DIRECTOR (2026-11-20): jazmii serves video-generation AND
     // the local story-to-finished-video orchestration task.
     const jazmiiTasks = new Set(['video-generation', 'video-production'])
+    // GANGZII AUDIO PRODUCTION (M27, 2026-11-21): the audio task families.
+    const gangziiTasks = new Set(['speech-synthesis', 'audio-transcription', 'audio-conversion', 'audio-production', 'music-generation'])
     for (const b of BACKEND_REGISTRY) {
       const product = getProduct(b.productId)
       expect(product).toBeDefined()
       const valid =
         b.task === product!.task ||
         (b.productId === 'laxii' && laxiiTasks.has(b.task)) ||
-        (b.productId === 'gangzii' && gangziiTasks.has(b.task)) ||
-        (b.productId === 'jazmii' && jazmiiTasks.has(b.task))
+        (b.productId === 'jazmii' && jazmiiTasks.has(b.task)) ||
+        (b.productId === 'gangzii' && gangziiTasks.has(b.task))
       expect(valid).toBe(true)
     }
   })

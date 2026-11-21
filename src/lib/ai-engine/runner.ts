@@ -338,7 +338,7 @@ export function startWorkerPool(
   return handle
 }
 
-/** Start the embedded engine (all four product pools). Idempotent. */
+/** Start the embedded engine (all five product pools). Idempotent. */
 export function startEmbeddedEngine(): void {
   const flag = globalThis as unknown as { __bean_engine_embedded__?: boolean }
   if (flag.__bean_engine_embedded__) return
@@ -348,6 +348,9 @@ export function startEmbeddedEngine(): void {
     logger.info('engine.embedded_disabled', {})
     return
   }
+  // GANGZII joined the engine (M27, 2026-11-21): audio jobs are real
+  // background work now (speech synthesis / transcription / conversion /
+  // production) and get their own claim pool like every other product.
   const products: BeanProductId[] = ['riishe', 'laxii', 'jazmii', 'code-giftz', 'gangzii']
   for (const p of products) startWorkerPool(p, 'embedded')
   logger.info('engine.embedded_started', {})

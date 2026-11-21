@@ -6,8 +6,12 @@ import { requireUser } from '@/lib/auth/session'
 import { preflight } from '@/lib/router/router'
 import { enqueueJob } from '@/lib/jobs/queue'
 import { recordAudit } from '@/lib/observability/metering'
-import { GANGZII_VOICES, GANGZII_LIMITS } from '@/lib/registry/products'
+import { GANGZII_LIMITS } from '@/lib/registry/products'
+import { GANGZII_VOICES, KOKORO_VOICE_PRESETS, isHostedVoice, isKokoroVoice } from '@/lib/registry/gangzii-presets'
 import { TTS_SPEED_MIN, TTS_SPEED_MAX, chunkTextForTts } from '@/lib/adapters/hosted-audio'
+
+const HOSTED_VOICE_IDS = GANGZII_VOICES.map((v) => v.value) as [string, ...string[]]
+const KOKORO_VOICE_IDS = KOKORO_VOICE_PRESETS.map((v) => v.id) as [string, ...string[]]
 
 const schema = z.object({
   text: z
@@ -15,22 +19,33 @@ const schema = z.object({
     .trim()
     .min(1, 'Enter the text GANGZII should speak.')
     .max(GANGZII_LIMITS.maxCharsPerRequest),
-  voice: z.enum(GANGZII_VOICES.map((v) => v.value) as [string, ...string[]], {
-    message: 'Choose one of the seven GANGZII voices.',
-  }),
+  /** Voice id from EITHER engine catalog (hosted 7-voice set or the local
+   *  Kokoro-82M set) — engine selection is voice-driven and never swaps. */
+  voice: z
+    .union([z.enum(HOSTED_VOICE_IDS), z.enum(KOKORO_VOICE_IDS)], {
+      message: 'Choose one of the GANGZII voices (hosted or local-engine presets).',
+    })
+    .refine((v) => isHostedVoice(v) || isKokoroVoice(v), 'Unknown voice.'),
   speed: z
     .number()
     .min(TTS_SPEED_MIN, `Speed must be between ${TTS_SPEED_MIN} and ${TTS_SPEED_MAX}.`)
     .max(TTS_SPEED_MAX, `Speed must be between ${TTS_SPEED_MIN} and ${TTS_SPEED_MAX}.`),
   /** Which studio surface submitted the job — used for truthful labeling in history. */
-  source: z.enum(['studio', 'voice-preview', 'song-preview', 'live']).optional(),
+  source: z.enum(['studio', 'voice-preview', 'song-preview', 'live', 'narration', 'narration-segment']).optional(),
+  /** Narration linkage: segment id for per-segment regeneration receipts. */
+  narrationSegmentId: z.string().regex(/^\w[\w-]{0,60}$/).optional(),
 })
 
 /**
- * GANGZII — submit a speech-synthesis job.
- * The queue chunks the text on sentence boundaries (upstream limit: 1024
- * chars per call), synthesizes each chunk as raw PCM and assembles ONE
- * valid 24 kHz WAV. Jobs reach `completed` only when real audio is stored.
+ * GANGZII — submit a speech-synthesis job (M27: real audio worker).
+ * Engine selection is VOICE-DRIVEN (deterministic, never a silent swap):
+ *  - hosted preset (tongtong, …) → the authorized hosted gateway;
+ *  - Kokoro voice (af_heart, …) → the local ONNX engine (an honest
+ *    MODEL_NOT_INSTALLED failure if the owner has not installed it —
+ *    no voice substitution).
+ * The queue chunks text on sentence boundaries per the selected engine's
+ * REAL limits, synthesizes each chunk and assembles ONE valid 24 kHz WAV.
+ * Jobs reach `completed` only when real audio is stored and ffprobe-read.
  */
 export async function POST(request: Request) {
   return handle(async () => {
@@ -39,8 +54,12 @@ export async function POST(request: Request) {
     const { backend, release } = await preflight(user.id, 'gangzii', 'speech-synthesis')
     release() // queue slot is held by the worker, not by this HTTP request
 
-    // Fail fast on chunk overflow BEFORE persisting a doomed job.
-    chunkTextForTts(body.text)
+    // Fail fast on chunk overflow BEFORE persisting a doomed job. The hosted
+    // engine caps calls at 1024 chars; the local Kokoro engine splits at 400
+    // — both are handled inside the worker, so only the REQUEST cap needs a
+    // pre-flight here (chunkTextForTts also enforces the hosted chunk math
+    // for hosted voices; local voices skip the 1024-chunk cap check).
+    if (isHostedVoice(body.voice)) chunkTextForTts(body.text)
 
     const job = await db.generationJob.create({
       data: {
@@ -54,6 +73,7 @@ export async function POST(request: Request) {
           voice: body.voice,
           speed: body.speed,
           source: body.source ?? 'studio',
+          narrationSegmentId: body.narrationSegmentId ?? null,
         }),
       },
     })

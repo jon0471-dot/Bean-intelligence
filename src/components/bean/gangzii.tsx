@@ -59,7 +59,6 @@ import {
   RotateCcw,
   Music,
   FileAudio,
-  Wand2,
   PenLine,
   ShieldAlert,
   Info,
@@ -73,7 +72,11 @@ import {
   ArrowRightLeft,
   Volume2,
   Laptop,
+  Wand2,
+  SlidersHorizontal,
 } from 'lucide-react'
+import { GangziiNarration } from '@/components/bean/gangzii-narration'
+import { GangziiSoundtrack } from '@/components/bean/gangzii-soundtrack'
 
 const MAX_CHARS = GANGZII_LIMITS.maxCharsPerRequest
 const PREFERENCES_STORAGE_KEY = 'bean.gangzii.studio.v1'
@@ -156,12 +159,14 @@ interface SongCatalog {
   presets: SongPresetView[]
 }
 
-type TabId = 'voice' | 'song' | 'lab' | 'live'
+type TabId = 'voice' | 'narration' | 'soundtrack' | 'song' | 'lab' | 'live'
 type LivePhase = 'idle' | 'recording' | 'transcribing' | 'thinking' | 'speaking'
 type RiisheBusy = null | 'draft' | 'analyze' | 'improve'
 
 const TABS: Array<{ id: TabId; label: string; icon: React.ElementType }> = [
   { id: 'voice', label: 'Voice Studio', icon: AudioLines },
+  { id: 'narration', label: 'Narration', icon: Wand2 },
+  { id: 'soundtrack', label: 'Soundtrack', icon: SlidersHorizontal },
   { id: 'song', label: 'Song Studio', icon: Music },
   { id: 'lab', label: 'Audio Lab', icon: FileAudio },
   { id: 'live', label: 'Live Voice', icon: Mic },
@@ -1064,6 +1069,12 @@ export function Gangzii() {
 
       {/* Hidden audio element for Live Voice playback */}
       <audio ref={liveAudioRef} className="hidden" />
+
+      {/* ============ NARRATION STUDIO (M27) ============ */}
+      {tab === 'narration' && <GangziiNarration />}
+
+      {/* ============ SOUNDTRACK STUDIO (M27) ============ */}
+      {tab === 'soundtrack' && <GangziiSoundtrack />}
 
       {/* ============ VOICE STUDIO ============ */}
       {tab === 'voice' && (

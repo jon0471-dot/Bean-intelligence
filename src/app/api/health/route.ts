@@ -4,6 +4,7 @@ import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
 import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
 import { hostedAudioAdapter } from '@/lib/adapters/hosted-audio'
+import { kokoroTtsEngine } from '@/lib/gangzii/tts-engine'
 import { localLaxiiAdapter } from '@/lib/laxii/local-adapter'
 import { diffusersWorkerAdapter } from '@/lib/laxii/diffusers-adapter'
 import { lastHealthyAtFor, HEALTH_CACHE_TTL_MS } from '@/lib/adapters/health-cache'
@@ -441,33 +442,6 @@ export async function GET() {
       }),
     ]
 
-    // GANGZII AUDIO WIRING (2026-11-18): capability rows for the newly wired
-    // audio product. TTS + ASR are the core capabilities (real gateway
-    // probes); conversion is a local deterministic capability (display-only
-    // row); music-generation has NO configured backend and is rendered
-    // honestly as not-configured (registry evidence, not a probe).
-    const gangziiCapabilities: CapabilityHealth[] = [
-      probeCapability('speech-synthesis', 'Speech synthesis', true, {
-        probe: audioTts,
-        note: 'chunked TTS through the authorized gateway (measured 2026-10-27)',
-      }),
-      probeCapability('audio-transcription', 'Speech-to-text', true, {
-        probe: audioAsr,
-        note: 'gateway ASR; WAV/WebM containers only',
-      }),
-      probeCapability('audio-conversion', 'Format conversion', false, {
-        probe: audioFfmpeg,
-        statusAffecting: false,
-        note: 'local deterministic ffmpeg (no model involved)',
-      }),
-      probeCapability('music-generation', 'Music generation', false, {
-        probe: audioFfmpeg,
-        registryEnabled: false,
-        statusAffecting: false,
-        note: 'no music backend is deployed; the route refuses honestly (NO_BACKEND) rather than simulating audio',
-      }),
-    ]
-
     // QUEUE DEPTH + WORKER AVAILABILITY (OPERATIONAL-TRANSFORMATION, Phase 8,
     // 2026-11-11): real per-product counts of jobs waiting for a worker
     // (queued / retry_wait) and the embedded engine pools actually alive in
@@ -580,19 +554,48 @@ export async function GET() {
       },
     }
 
-    // GANGZII AUDIO WIRING (2026-11-18): the audio product gets its own
-    // entry — real TTS/ASR probes as availability evidence, the local ffmpeg
-    // probe as the conversion sub-state, and the wired audio worker pool.
+    // GANGZII AUDIO PRODUCTION (M27, 2026-11-21): local engine health is a
+    // REAL filesystem+ONNX check; hosted TTS/ASR ride the audio-class
+    // probes; ffmpeg is a local binary probe. All cached by the adapters.
+    const [gangziiLocalTts, gangziiHostedTts, gangziiFfmpeg] = await Promise.all([
+      safeProbe('audio-tts-local-kokoro', async () => {
+        const h = await kokoroTtsEngine.health()
+        return { healthy: h.healthy, checkedAt: new Date().toISOString(), latencyMs: h.latencyMs, detail: h.detail, failureCategory: h.healthy ? null : 'not-configured' } as HealthReport
+      }),
+      safeProbe('audio-tts-hosted-primary', () => hostedAudioAdapter.healthTts()),
+      safeProbe('audio-tools-local-ffmpeg', () => hostedAudioAdapter.healthFfmpeg()),
+    ])
+    const gangziiAvailable = gangziiLocalTts.healthy || gangziiHostedTts.healthy || gangziiFfmpeg.healthy
+    const gangziiCapabilities: CapabilityHealth[] = [
+      probeCapability('speech-synthesis', 'Speech synthesis (local engine)', true, {
+        probe: gangziiLocalTts.healthy ? gangziiLocalTts : gangziiHostedTts,
+        note: gangziiLocalTts.healthy
+          ? 'local Kokoro-82M engine serving (CPU ONNX)'
+          : 'served by the authorized hosted gateway while the local model is not installed',
+      }),
+      probeCapability('local-tts-engine', 'Local TTS engine (Kokoro-82M)', false, {
+        probe: gangziiLocalTts,
+        statusAffecting: false,
+        note: 'install is an explicit user action; the hosted gateway covers synthesis meanwhile',
+      }),
+      probeCapability('audio-production', 'Audio production (local ffmpeg)', true, {
+        probe: gangziiFfmpeg,
+        note: 'deterministic local mixing/trim/fade/loudness tooling',
+      }),
+    ]
     const gangziiEntry: ProductEntry = {
       status: productStatus(registryEnabled('gangzii'), {
-        available: audioTts.healthy,
+        available: gangziiAvailable,
         capabilities: gangziiCapabilities,
       }),
-      available: audioTts.healthy,
-      probe: audioTts,
-      lastHealthyAt: lastHealthyAtFor('audio-tts-hosted-primary'),
-      transcription: { available: audioAsr.healthy, probe: audioAsr },
-      conversion: { available: audioFfmpeg.healthy, probe: audioFfmpeg },
+      available: gangziiAvailable,
+      probe: gangziiLocalTts.healthy ? gangziiLocalTts : gangziiHostedTts,
+      lastHealthyAt: gangziiLocalTts.healthy ? new Date().toISOString() : lastHealthyAtFor('audio-tts-hosted-primary'),
+      engines: {
+        localKokoro: { available: gangziiLocalTts.healthy, probe: gangziiLocalTts },
+        hostedGateway: { available: gangziiHostedTts.healthy, probe: gangziiHostedTts },
+        localTools: { available: gangziiFfmpeg.healthy, probe: gangziiFfmpeg },
+      },
       capabilities: gangziiCapabilities,
       queueDepth: queueGangzii,
       engine,

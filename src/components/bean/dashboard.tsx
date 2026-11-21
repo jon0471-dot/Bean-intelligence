@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * BEAN Intelligence — dashboard: four flagship products + live availability.
+ * BEAN Intelligence — dashboard: the five flagship products + live availability.
  *
  * MEASURED CHANGE (2026-11-04 connectivity audit) — availability information
  * only; the card design, colors, typography and grid are unchanged:
@@ -255,7 +255,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
           Welcome to <span className="bean-gold-text">BEAN Intelligence</span>
         </h1>
         <p className="mt-1.5 text-sm text-white/50">
-          Four flagship products, one private routing layer. Availability below reflects measured backend probes — never assumptions.
+          Five flagship products, one private routing layer. Availability below reflects measured backend probes — never assumptions.
         </p>
       </div>
 

@@ -40,6 +40,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  AudioLines,
   AlertTriangle,
 } from 'lucide-react'
 
@@ -245,6 +246,8 @@ export function JazmiiDirector({ onOpenTrustTask }: { onOpenTrustTask?: (taskId:
       // returning to the tab) restores the live view without hunting.
       const activeProduction = list.find((p) => ACTIVE_STATUSES.has(p.status))
       if (activeProduction) await loadProduction(activeProduction.id)
+      // M27: the GANGZII narration picker needs the owner's narration list.
+      void loadGangziiNarrations()
     })()
   }, [refreshProductions, loadProduction])
 
@@ -413,14 +416,82 @@ export function JazmiiDirector({ onOpenTrustTask }: { onOpenTrustTask?: (taskId:
     }
   }
 
-  async function clearAudio(role: 'music' | 'voiceover') {
+  async function clearAudio(role: 'music' | 'voiceover' | 'sfx') {
     const pid = active?.production.id
     if (!pid) return
     try {
-      await beanFetch(`/api/jazmii/director/${pid}/audio?role=${role}`, { method: 'DELETE' })
+      // M27 FIX: the clear endpoint requires a JSON body — the previous
+      // body-less DELETE with a query param measured a VALIDATION_ERROR and
+      // silently failed to remove the track.
+      await beanFetch(`/api/jazmii/director/${pid}/audio`, { method: 'DELETE', json: { role } })
       setAudioInfo((prev) => ({ ...prev, [role]: false }))
     } catch (e) {
       toast({ title: 'Could not remove audio', description: (e as Error).message, variant: 'destructive' })
+    }
+  }
+
+  // ---- GANGZII narration (M27): storyboard → narration hand-off -----------
+  const [gangziiNarrations, setGangziiNarrations] = useState<Array<{ id: string; title: string; status: string; jazmiiProductionId: string | null; segments: Array<{ status: string }> }>>([])
+  const [attachingNarration, setAttachingNarration] = useState<string | null>(null)
+  const [creatingNarration, setCreatingNarration] = useState(false)
+
+  const loadGangziiNarrations = useCallback(async () => {
+    try {
+      const res = await beanFetch<{ projects: Array<{ id: string; title: string; status: string; jazmiiProductionId: string | null; segments: Array<{ status: string }> }> }>('/api/gangzii/narration')
+      setGangziiNarrations(res.projects)
+    } catch {
+      setGangziiNarrations([])
+    }
+  }, [])
+
+  /** Create a GANGZII narration script FROM this storyboard (explicit user
+   *  action — captions become the narration draft; nothing auto-runs). */
+  async function createNarrationFromStoryboard(pid: string, storyboard: { title: string; scenes: Array<{ caption: string | null; audioDirection?: string | null }> }) {
+    setCreatingNarration(true)
+    try {
+      const lines = storyboard.scenes
+        .map((s, i) => (s.caption ? s.caption : null))
+        .filter(Boolean) as string[]
+      if (lines.length === 0) {
+        toast({ title: 'No captions to narrate', description: 'Add captions to the storyboard scenes first — GANGZII narrates the captions, never invents a script.', variant: 'destructive' })
+        return
+      }
+      const res = await beanFetch<{ project: { id: string; title: string } }>('/api/gangzii/narration', {
+        method: 'POST',
+        json: {
+          title: `Narration — ${storyboard.title}`.slice(0, 120),
+          text: lines.join(' '),
+          language: 'en',
+          voice: 'af_heart',
+          jazmiiProductionId: pid,
+          sceneAssociations: lines.map((_, i) => ({ sceneIdx: i + 1, segmentIdx: i + 1 })),
+        },
+      })
+      toast({ title: 'Narration script created in GANGZII', description: `${res.project.title} — open GANGZII → Narration to generate the segments and join the track.` })
+      await loadGangziiNarrations()
+    } catch (e) {
+      toast({ title: 'Narration hand-off failed', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setCreatingNarration(false)
+    }
+  }
+
+  async function attachNarration(pid: string, narrationProjectId: string) {
+    setAttachingNarration(narrationProjectId)
+    try {
+      const res = await beanFetch<{ segments: number; measuredTotalMs: number | null; timingNote: string }>(`/api/jazmii/director/${pid}/narration`, {
+        method: 'POST',
+        json: { narrationProjectId },
+      })
+      setAudioInfo((prev) => ({ ...prev, voiceover: true }))
+      toast({
+        title: 'GANGZII narration attached as voiceover',
+        description: `${res.segments} segment(s)${res.measuredTotalMs ? `, measured ${(res.measuredTotalMs / 1000).toFixed(1)}s` : ''}. ${res.timingNote}`,
+      })
+    } catch (e) {
+      toast({ title: 'Narration attach refused', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setAttachingNarration(null)
     }
   }
 
@@ -620,6 +691,47 @@ export function JazmiiDirector({ onOpenTrustTask }: { onOpenTrustTask?: (taskId:
                 ) : null}
                 {uploadingAudio ? <Spinner className="h-3.5 w-3.5" /> : null}
                 <span className="ml-auto text-[10px] text-white/30">nothing is auto-narrated</span>
+              </div>
+
+              {/* M27: GANGZII narration — optional, explicit, never automatic */}
+              <div className="mt-2 rounded-lg border border-[rgba(212,175,55,0.25)] bg-[rgba(212,175,55,0.05)] px-2.5 py-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <AudioLines className="h-3.5 w-3.5 text-[#d4af37]" />
+                  <span className="text-[11px] text-[#f0c75e]">AI narration via GANGZII (optional)</span>
+                  <Button
+                    onClick={() => sb && void createNarrationFromStoryboard(active!.production.id, sb as unknown as { title: string; scenes: Array<{ caption: string | null; audioDirection?: string | null }> })}
+                    variant="outline"
+                    className="h-6 border-[rgba(212,175,55,0.4)] px-2 text-[10px] text-[#f0c75e] hover:bg-[rgba(212,175,55,0.1)]"
+                    disabled={creatingNarration}
+                  >
+                    {creatingNarration ? 'Creating…' : 'Draft narration from captions'}
+                  </Button>
+                  <span className="ml-auto text-[10px] text-white/30">generate + join in GANGZII → Narration, then attach here</span>
+                </div>
+                {gangziiNarrations.length > 0 ? (
+                  <div className="mt-2 space-y-1">
+                    {gangziiNarrations.slice(0, 4).map((n) => {
+                      const ready = n.segments.length > 0 && n.segments.every((s) => s.status === 'ready')
+                      return (
+                        <div key={n.id} className="flex items-center gap-2 text-[10px] text-white/50">
+                          <span className="min-w-0 flex-1 truncate">{n.title}</span>
+                          <span className="shrink-0">{n.segments.filter((s) => s.status === 'ready').length}/{n.segments.length} ready</span>
+                          <Button
+                            onClick={() => void attachNarration(active!.production.id, n.id)}
+                            variant="outline"
+                            className="h-5 border-white/15 px-1.5 text-[10px] text-white/70 hover:bg-white/5"
+                            disabled={!ready || attachingNarration === n.id}
+                            title={ready ? 'Attach as the production voiceover' : 'Generate and join every segment in GANGZII first'}
+                          >
+                            {attachingNarration === n.id ? 'attaching…' : 'Attach'}
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[10px] text-white/30">No GANGZII narration scripts yet — drafting one from the captions is the fastest start.</p>
+                )}
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">

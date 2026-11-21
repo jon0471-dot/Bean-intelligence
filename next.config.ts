@@ -33,9 +33,6 @@ const nextConfig: NextConfig = {
       "./storage/**",
     ],
   },
-  /* config options here */
-
-  output: "standalone",
   // WORKSPACE ROOT SCOPING (2026-11-18): this clone lives inside a parent
   // directory that has its own bun.lock (the outer workspace). Without an
   // explicit root, Turbopack selects the parent directory and walks the
@@ -52,6 +49,11 @@ const nextConfig: NextConfig = {
   // pdf-parse embeds pdfjs-dist, which resolves its worker module relative to
   // the real node_modules tree. Bundling it breaks that resolution ("Cannot
   // find module pdf.worker.mjs"), so it must stay an external server package.
+  // GANGZII audio engine (M27): the local TTS stack must stay an external
+  // server package chain — onnxruntime-node loads native .node binaries,
+  // phonemizer loads its espeak-ng WASM + data by relative path, and
+  // kokoro-js reads its bundled voices/*.bin from its package directory.
+  // Bundling any of them breaks those path resolutions.
   serverExternalPackages: [
     "pdf-parse",
     "pdfjs-dist",
@@ -63,6 +65,11 @@ const nextConfig: NextConfig = {
     "@mlc-ai/web-llm",
     "@huggingface/transformers",
     "onnxruntime-web",
+    // M27: local TTS stack (native .node binaries + WASM + voice .bin paths)
+    "kokoro-js",
+    "phonemizer",
+    "onnxruntime-node",
+    "sharp",
   ],
   // Frontend Intelligence Toolkit: the CODE GIFTZ generation route reads
   // (a) the curated React Bits kit sources (src/components/giftz-kit) to emit

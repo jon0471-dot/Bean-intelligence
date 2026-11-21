@@ -31,6 +31,11 @@ export type BeanTask =
   | 'speech-synthesis'
   | 'audio-transcription'
   | 'audio-conversion'
+  // GANGZII AUDIO PRODUCTION (M27): deterministic local mixing/trim/fade/
+  // ducking/loudness-master task on the durable queue. Distinct from
+  // 'audio-conversion' (single-file transcode) so receipts can state WHICH
+  // family of operations ran.
+  | 'audio-production'
   | 'music-generation'
 
 export interface ProductCapability {
@@ -93,13 +98,17 @@ export const BEAN_PRODUCTS: BeanProduct[] = [
     icon: 'code-2',
   },
   {
+    // M27 (2026-11-21): GANGZII is a REAL audio-production specialist —
+    // local-first TTS (Kokoro-82M), the authorized hosted gateway, narration
+    // production and deterministic ffmpeg audio tooling. Availability is
+    // reported from measured engine health, never assumed.
     id: 'gangzii',
     name: 'GANGZII',
-    tagline: 'Voice, audio & speech studio',
+    tagline: 'Audio production studio',
     description:
-      'Speech synthesis with seven studio voices, speech-to-text transcription, live voice conversation and deterministic audio format conversion. Music generation has no configured backend and is reported truthfully rather than simulated.',
+      'Local-first text-to-speech narration, voice selection and preview, segment-level regeneration, audio mixing and mastering, and synchronized soundtracks for JAZMII videos. Engine availability is measured, not assumed.',
     task: 'speech-synthesis',
-    accent: '#B98A2F',
+    accent: '#E8C96A',
     icon: 'audio-lines',
   },
 ]
@@ -109,10 +118,12 @@ export function getProduct(id: string): BeanProduct | undefined {
 }
 
 /**
- * GANGZII limits — the values the gateway GENUINELY enforces (measured
+ * GANGZII limits — the values the engines GENUINELY enforce (measured
  * probes recorded in models/manifests/bean-audio-tts-hosted-primary.json;
  * speed 0.3 was rejected upstream, mp3 response_format is rejected, >1024
- * chars per chunk rejected — BEAN pre-validates all of these).
+ * chars per chunk rejected — BEAN pre-validates all of these). M27: the
+ * LOCAL Kokoro engine additionally caps each synthesis chunk at 400 chars
+ * (its own split limit) — the request-level cap below covers both engines.
  */
 export const GANGZII_LIMITS = {
   speedMin: 0.5,

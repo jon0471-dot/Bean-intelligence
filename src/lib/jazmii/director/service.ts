@@ -10,6 +10,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { db } from '@/lib/db'
 import { BeanApiError } from '@/lib/api/errors'
 import { logger } from '@/lib/observability/logger'
@@ -235,8 +236,8 @@ export async function approveProduction(
 export async function setProductionAudio(
   userId: string,
   productionId: string,
-  role: 'music' | 'voiceover',
-  input: { dataUrl: string; attribution?: string; volume?: number },
+  role: 'music' | 'voiceover' | 'sfx',
+  input: { dataUrl: string; attribution?: string; volume?: number; startSec?: number },
 ) {
   const production = await getProductionForOwner(userId, productionId)
   if (!production) throw new BeanApiError('NOT_FOUND', 'Production not found.')
@@ -262,22 +263,32 @@ export async function setProductionAudio(
 
   const dir = path.join(productionDir(userId, productionId), 'audio')
   fs.mkdirSync(dir, { recursive: true })
-  const fileName = `${role}.${kind.ext}`
+  // M27: SFX accumulate (each is its own file + timeline placement); beds
+  // replace by role.
+  const fileName = role === 'sfx' ? `${role}-${randomUUID()}.${kind.ext}` : `${role}.${kind.ext}`
   fs.writeFileSync(path.join(dir, fileName), bytes)
 
-  // Replace the track of this role (one track per role).
-  const existing = readAudioTracks(productionId, userId).filter((t) => t.role !== role)
+  const existing = readAudioTracks(productionId, userId)
+  // SFX accumulate with a FIFO cap of 4 (room is left for the new one);
+  // beds replace by role.
+  let sfxKept = 0
+  const kept = existing.filter((t) => {
+    if (t.role !== 'sfx') return true
+    sfxKept += 1
+    return sfxKept <= 3
+  })
   const track: AudioTrack = {
     path: fileName,
     role,
     volume: input.volume ?? (role === 'music' ? MUSIC_VOLUME_DEFAULT : 1.0),
+    ...(role === 'sfx' ? { startSec: Math.max(0, input.startSec ?? 0) } : {}),
     attribution: input.attribution?.slice(0, 200),
   }
-  await writeAudioTracks(productionId, userId, [...existing, track])
-  return { audio: [...existing, track], bytes: bytes.length, type: kind.type }
+  await writeAudioTracks(productionId, userId, [...kept, track])
+  return { audio: [...kept, track], bytes: bytes.length, type: kind.type }
 }
 
-export async function clearProductionAudio(userId: string, productionId: string, role: 'music' | 'voiceover') {
+export async function clearProductionAudio(userId: string, productionId: string, role: 'music' | 'voiceover' | 'sfx') {
   const production = await getProductionForOwner(userId, productionId)
   if (!production) throw new BeanApiError('NOT_FOUND', 'Production not found.')
   if (production.status !== 'awaiting_approval') {
@@ -285,11 +296,12 @@ export async function clearProductionAudio(userId: string, productionId: string,
   }
   const remaining = readAudioTracks(productionId, userId).filter((t) => t.role !== role)
   await writeAudioTracks(productionId, userId, remaining)
-  // Remove the file (best effort).
+  // Remove the file (best effort) — SFX files carry a uuid suffix, so a
+  // prefix match removes every sfx file (per-effect removal = re-upload).
   try {
     const dir = path.join(productionDir(userId, productionId), 'audio')
     for (const f of fs.readdirSync(dir)) {
-      if (f.startsWith(`${role}.`)) fs.rmSync(path.join(dir, f), { force: true })
+      if (f.startsWith(`${role}.`) || (role === 'sfx' && f.startsWith('sfx-'))) fs.rmSync(path.join(dir, f), { force: true })
     }
   } catch {
     /* nothing to clean */
@@ -301,12 +313,157 @@ function audioMetaPath(productionId: string, userId: string): string {
   return path.join(productionDir(userId, productionId), 'audio', 'tracks.json')
 }
 
+// ---------------------------------------------------------------------------
+// GANGZII narration attachment (M27, 2026-11-21)
+// ---------------------------------------------------------------------------
+
+export interface NarrationAttachmentResult {
+  attached: true
+  narrationProjectId: string
+  voiceover: AudioTrack
+  segments: number
+  measuredTotalMs: number | null
+  timingNote: string
+}
+
+/**
+ * Attach a COMPLETED GANGZII narration project as the production's
+ * voiceover track. The narration must belong to the same owner and be
+ * fully ready with a completed JOIN job (a real concatenated track — never
+ * a synthetic merge). The WAV is copied into the production audio dir and
+ * measured scene timings are written alongside for caption alignment.
+ * The narration text was generated from the storyboard captions/scene
+ * notes by the user's EXPLICIT action in the GANGZII narration studio —
+ * the pipeline still never auto-narrates.
+ */
+export async function attachNarrationToProduction(
+  userId: string,
+  productionId: string,
+  narrationProjectId: string,
+): Promise<NarrationAttachmentResult> {
+  const production = await getProductionForOwner(userId, productionId)
+  if (!production) throw new BeanApiError('NOT_FOUND', 'Production not found.')
+  if (production.status !== 'awaiting_approval') {
+    throw new BeanApiError('VALIDATION_ERROR', 'Narration is attached while the storyboard is awaiting approval.')
+  }
+
+  // The narration project must exist, belong to the owner and be READY.
+  const { reconcileNarrationSegments } = await import('@/lib/gangzii/narration-service')
+  await reconcileNarrationSegments(userId, narrationProjectId)
+  const narration = await db.narrationProject.findUnique({
+    where: { id: narrationProjectId },
+    include: { segments: { orderBy: { idx: 'asc' } } },
+  })
+  if (!narration || narration.userId !== userId) {
+    throw new BeanApiError('NOT_FOUND', 'Narration project not found.')
+  }
+  const segments = narration.segments
+  if (segments.length === 0 || segments.some((s) => s.status !== 'ready' || !s.artifactRelPath)) {
+    throw new BeanApiError(
+      'VALIDATION_ERROR',
+      'The narration is not fully generated yet — every segment must have real audio before it can become the production voiceover.',
+    )
+  }
+  // The joined track must be a COMPLETED audio-production job of THIS owner
+  // for THIS narration project (the join is a real concat, not a promise).
+  const joinJob = await db.generationJob.findFirst({
+    where: {
+      userId,
+      product: 'gangzii',
+      task: 'audio-production',
+      status: 'completed',
+      paramsJson: { contains: `narration:${narrationProjectId}` },
+    },
+    orderBy: { queuedAt: 'desc' },
+  })
+  if (!joinJob || !joinJob.resultJson) {
+    throw new BeanApiError('VALIDATION_ERROR', 'Join the narration segments first (Narration Studio → Join track), then attach it.')
+  }
+  const joinParams = JSON.parse(joinJob.paramsJson) as { sourceLabel?: string }
+  if (joinParams.sourceLabel !== `narration:${narrationProjectId}`) {
+    throw new BeanApiError('VALIDATION_ERROR', 'The joined track does not belong to this narration project.')
+  }
+  const joinResult = JSON.parse(joinJob.resultJson) as { relPath?: string; operations?: string[] }
+  if (!joinResult.relPath || !fs.existsSync(gangziiNarrationFile(joinResult.relPath))) {
+    throw new BeanApiError('VALIDATION_ERROR', 'The joined narration master is missing from storage. Re-join and attach again.')
+  }
+
+  // Copy the measured master into the production workspace as voiceover.wav
+  // (RIFF/WAV passes the production's magic-byte gate by construction).
+  const dir = path.join(productionDir(userId, productionId), 'audio')
+  fs.mkdirSync(dir, { recursive: true })
+  fs.copyFileSync(gangziiNarrationFile(joinResult.relPath), path.join(dir, 'voiceover.wav'))
+
+  const measuredTotalMs = segments.reduce((a, s) => a + (s.durationMs ?? 0), 0)
+  const track: AudioTrack = {
+    path: 'voiceover.wav',
+    role: 'voiceover',
+    volume: 1.0,
+    attribution: `GANGZII narration "${narration.title.slice(0, 60)}" (${segments.length} segments, ${narration.language})`.slice(0, 200),
+  }
+  const existing = readAudioTracks(productionId, userId).filter((t) => t.role !== 'voiceover')
+  await writeAudioTracks(productionId, userId, [...existing, track])
+
+  // Scene-aligned timing metadata for captions/review (measured, segment
+  // level — explicitly approximate; scene duration changes require review).
+  let associations: Array<{ sceneIdx: number; segmentIdx: number }> = []
+  try {
+    associations = narration.sceneAssociationsJson ? JSON.parse(narration.sceneAssociationsJson) : []
+  } catch {
+    associations = []
+  }
+  let cursor = 0
+  const timing = segments.map((s) => {
+    const start = cursor
+    cursor += s.durationMs ?? 0
+    const assoc = associations.find((a) => a.segmentIdx === s.idx)
+    return {
+      segmentIdx: s.idx,
+      sceneIdx: assoc?.sceneIdx ?? null,
+      approximateStartSec: Math.round(start / 100) / 10,
+      durationMs: s.durationMs,
+    }
+  })
+  fs.writeFileSync(
+    path.join(dir, 'narration-timing.json'),
+    JSON.stringify({
+      narrationProjectId: narration.id,
+      approximationNote: 'Segment-level MEASURED timings (not word alignment). Recompute if scene durations change before composing.',
+      segments: timing,
+    }, null, 2),
+    'utf8',
+  )
+  logger.info('jazmii.narration.attached', { productionId, narrationProjectId, segments: segments.length })
+  return {
+    attached: true,
+    narrationProjectId: narration.id,
+    voiceover: track,
+    segments: segments.length,
+    measuredTotalMs,
+    timingNote: 'Scene-aligned segment timings recorded in narration-timing.json (measured, approximate). If scene durations change, the audio must be recomputed or flagged for review before composition.',
+  }
+}
+
+/** GANGZII storage root resolution for narration masters. */
+function gangziiNarrationFile(relPath: string): string {
+  // The relPath recorded by the join job is already storage-relative under
+  // storage/gangzii; resolve + containment-check without importing the
+  // GANGZII storage module (the director stays independent of GANGZII code).
+  const root = path.join(process.cwd(), 'storage', 'gangzii')
+  const resolved = path.join(root, relPath)
+  if (!resolved.startsWith(root)) throw new BeanApiError('VALIDATION_ERROR', 'Invalid narration master path.')
+  return resolved
+}
+
 function readAudioTracks(productionId: string, userId: string): AudioTrack[] {
   try {
     const raw = fs.readFileSync(audioMetaPath(productionId, userId), 'utf8')
     const parsed = JSON.parse(raw) as AudioTrack[]
     if (!Array.isArray(parsed)) return []
-    return parsed.filter((t) => t && (t.role === 'music' || t.role === 'voiceover') && typeof t.path === 'string').slice(0, 2)
+    // M27: sfx tracks join music/voiceover (2 beds + up to 4 SFX).
+    return parsed
+      .filter((t) => t && ['music', 'voiceover', 'sfx'].includes(t.role) && typeof t.path === 'string')
+      .slice(0, 6)
   } catch {
     return []
   }

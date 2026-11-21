@@ -64,7 +64,7 @@ export function Landing({ onAuthed }: { onAuthed: (u: BeanUser) => void }) {
             <ShieldCheck className="h-3.5 w-3.5" /> Private multi-model backend
           </div>
           <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-            One platform. <span className="bean-gold-text">Four flagship</span> AI products.
+            One platform. <span className="bean-gold-text">Five flagship</span> AI products.
           </h1>
           <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-white/60">
             BEAN Intelligence runs its own products, experience and routing on top of authorized
