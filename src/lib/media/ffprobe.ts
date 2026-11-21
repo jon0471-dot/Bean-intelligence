@@ -18,10 +18,13 @@
  *  - the probe is read-only on a temp file and bounded by a hard timeout.
  */
 import { execFile } from 'child_process'
+import { promisify } from 'util'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { logger } from '@/lib/observability/logger'
+
+const execFileP = promisify(execFile)
 
 export interface VideoStreamProbe {
   ok: boolean
@@ -199,4 +202,26 @@ export async function validateVideoArtifact(
     })
   }
   return probe
+}
+
+/**
+ * M28: measured duration of a local audio asset (ffprobe format duration —
+ * the real bytes, never a filename). Used by both composition engines for
+ * SFX duration clamping and fade-out placement. Returns null when the file
+ * cannot be probed; callers keep an honest limitation note instead of
+ * pretending the duration is known.
+ */
+export async function probeAudioDurationSec(file: string, timeoutMs = 15_000): Promise<number | null> {
+  try {
+    const res = await execFileP(
+      'ffprobe',
+      ['-v', 'error', '-show_entries', 'format=duration', '-of', 'json', file],
+      { timeout: timeoutMs, maxBuffer: 1_000_000 },
+    )
+    const d = (JSON.parse(res.stdout) as { format?: { duration?: string } }).format?.duration
+    const n = d ? Number(d) : Number.NaN
+    return Number.isFinite(n) && n > 0 ? n : null
+  } catch {
+    return null
+  }
 }

@@ -33,6 +33,7 @@ import {
   type PronunciationOverride,
 } from '@/lib/gangzii/text-normalize'
 import { isHostedVoice, isKokoroVoice } from '@/lib/registry/gangzii-presets'
+import { buildTimelineTiming } from '@/lib/gangzii/timing'
 import { enqueueJob } from '@/lib/jobs/queue'
 import { hostedAudioAdapter } from '@/lib/adapters/hosted-audio'
 import { logger } from '@/lib/observability/logger'
@@ -442,7 +443,7 @@ export async function narrationSubtitles(id: string, userId: string, format: 'sr
   }
 }
 
-/** Scene associations with MEASURED timings (for JAZMII sync + review). */
+/** Scene associations with MEASURED timings + explicit confidence (M28 Priority E). */
 export async function narrationSceneTiming(id: string, userId: string) {
   await reconcileNarrationSegments(userId, id)
   const project = await getNarrationProjectForOwner(id, userId)
@@ -453,31 +454,46 @@ export async function narrationSceneTiming(id: string, userId: string) {
   } catch {
     associations = []
   }
-  // Cumulative measured start per segment (approximate — stated as such).
-  let cursorMs = 0
-  const timing = project.segments
-    .slice()
-    .sort((a, b) => a.idx - b.idx)
-    .map((s) => {
-      const startMs = s.durationMs !== null ? cursorMs : null
-      if (s.durationMs !== null) cursorMs += s.durationMs
-      const assoc = associations.find((a) => a.segmentIdx === s.idx)
-      return {
-        segmentId: s.id,
-        idx: s.idx,
-        sceneIdx: assoc?.sceneIdx ?? null,
-        text: s.text,
-        status: s.status,
-        durationMs: s.durationMs,
-        approximateStartMs: startMs,
-        approximate: s.durationMs !== null,
-      }
-    })
+  // M28 Priority E: one honest confidence vocabulary for every consumer.
+  // Measured cumulative starts where the measured chain is intact; after an
+  // unmeasured segment the chain is broken — later segments are labeled
+  // `unavailable` with an EXPLICIT estimate field for preview/planning only
+  // (never exported to subtitles, never used for ducking regions).
+  const timing = buildTimelineTiming(
+    project.segments
+      .slice()
+      .sort((a, b) => a.idx - b.idx)
+      .map((s) => {
+        const assoc = associations.find((a) => a.segmentIdx === s.idx)
+        return {
+          segmentId: s.id,
+          idx: s.idx,
+          sceneIdx: assoc?.sceneIdx ?? null,
+          text: s.text,
+          status: s.status,
+          durationMs: s.durationMs,
+        }
+      }),
+  )
+  const measuredCount = timing.filter((t) => t.confidence === 'segment-measured').length
   return {
     projectId: project.id,
     title: project.title,
     jazmiiProductionId: project.jazmiiProductionId,
-    approximateNote: 'Start times accumulate MEASURED segment durations; they are approximate (segment-level), not word-aligned. If JAZMII scene durations changed since association, recompute or review before composing.',
-    segments: timing,
+    timingLevel: measuredCount === timing.length && timing.length > 0 ? 'segment-measured (full)' : 'mixed',
+    confidenceNote:
+      'Confidence vocabulary: segment-measured = boundaries derived from the real audio artifact durations; unavailable = no trustworthy timing (the measured chain is broken before this segment; an explicit estimate may accompany it for preview). Word-level alignment is NOT performed by any GANGZII engine — approximate timestamps are never presented as word alignment. If JAZMII scene durations changed since association, recompute or review before composing.',
+    segments: timing.map((t) => ({
+      segmentId: t.segmentId,
+      idx: t.idx,
+      sceneIdx: t.sceneIdx,
+      text: t.text,
+      status: t.status,
+      durationMs: t.durationMs,
+      approximateStartMs: t.startMs,
+      approximate: t.confidence === 'segment-measured',
+      confidence: t.confidence,
+      ...(t.approximatedByEstimateMs !== undefined ? { estimatedDurationMs: t.approximatedByEstimateMs } : {}),
+    })),
   }
 }

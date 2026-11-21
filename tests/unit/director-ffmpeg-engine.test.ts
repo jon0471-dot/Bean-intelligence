@@ -164,6 +164,48 @@ describe('ffmpeg composition engine — real render', () => {
   })
 })
 
+
+  test('M28: SFX fade-out is applied against the MEASURED asset duration', async () => {
+    const engine = createFfmpegCompositionEngine()
+    // 2 s tone placed at 1.0 s with a 1 s fade-out (so [1.9, 2.4] is mostly faded).
+    const sfxPath = path.join(dir, 'fade-sfx.wav')
+    await execFileP('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', '-af', 'volume=0.5', '-c:a', 'pcm_s16le', sfxPath])
+    const clipA = await makeClip('m28-fade.mp4', 540, 960, 3, false)
+    const result = await engine.compose(
+      plan({
+        scenes: [
+          { idx: 1, clipPath: clipA, durationSec: 3, caption: null, transitionOut: 'cut' },
+        ],
+        audio: {
+          musicPath: null,
+          musicVolume: 0.32,
+          musicAttribution: null,
+          voiceoverPath: null,
+          voiceoverVolume: 1.0,
+          sfx: [{ path: sfxPath, startSec: 1.0, volume: 1.0, label: 'decay', fadeOutSeconds: 1.0 }],
+        },
+        outputPath: path.join(dir, 'm28-fade-out.mp4'),
+      }),
+    )
+    expect(result.probe.ok).toBe(true)
+    expect(result.probe.audio).not.toBeNull()
+    const rmsOf = async (start: number, end: number) => {
+      const res = await execFileP(
+        'ffmpeg',
+        ['-nostats', '-hide_banner', '-i', result.videoPath, '-af', `atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS,astats=measure_perchannel=none:measure_overall=RMS_level`, '-f', 'null', '-'],
+        { timeout: 60_000, maxBuffer: 8 * 1024 * 1024 },
+      )
+      const m = res.stderr.match(/RMS level dB:\s*(-?(?:[\d.]+|inf))/)
+      return m ? (m[1] === '-inf' ? -Infinity : Number(m[1])) : Number.NaN
+    }
+    // afade is linear: fade zone is [2.0, 3.0]; near its end the level is
+    // 0.1-0.4 of full — a real decay, measurable against the full zone.
+    const full = await rmsOf(1.2, 1.8)
+    const faded = await rmsOf(2.6, 2.9)
+    expect(Number.isNaN(full)).toBe(false)
+    expect(full - faded).toBeGreaterThan(4)
+  }, 120_000)
+
 describe('ffprobe gate parity', () => {
   test('the produced file passes the SAME validation the delivery worker uses', async () => {
     const engine = createFfmpegCompositionEngine()
@@ -261,4 +303,100 @@ describe('ffmpeg composition engine — M27 audio (voiceover + SFX)', () => {
     expect(result.probe.audio).not.toBeNull()
     expect(result.probe.audio!.codec).toBe('aac')
   }, 120_000)
+})
+
+describe('ffmpeg composition engine — M28 dynamic ducking (real render + real audio measurement)', () => {
+  /** Very quiet tone so the mix inside narration windows ≈ the ducked music. */
+  async function makeQuietVoice(seconds: number): Promise<string> {
+    const out = path.join(dir, 'quiet-voice.wav')
+    await execFileP('ffmpeg', [
+      '-y', '-loglevel', 'error',
+      '-f', 'lavfi', '-i', `sine=frequency=880:duration=${seconds}`,
+      '-af', 'volume=0.01',
+      '-c:a', 'pcm_s16le', out,
+    ])
+    return out
+  }
+
+  /** Mean RMS of the composed MP4's audio over a window (real astats). */
+  async function windowRmsDb(mp4: string, start: number, end: number): Promise<number> {
+    const res = await execFileP(
+      'ffmpeg',
+      ['-nostats', '-hide_banner', '-i', mp4, '-af', `atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS,astats=measure_perchannel=none:measure_overall=RMS_level`, '-f', 'null', '-'],
+      { timeout: 60_000, maxBuffer: 8 * 1024 * 1024 },
+    )
+    const m = res.stderr.match(/RMS level dB:\s*(-?[\d.]+)/)
+    return m ? Number(m[1]) : Number.NaN
+  }
+
+  test('music follows the measured narration curve: ducked window ≈ full window − duck depth', async () => {
+    const engine = createFfmpegCompositionEngine()
+    const music = await makeMusic(9)
+    const voice = await makeQuietVoice(9)
+    const clipA = await makeClip('m28-a.mp4', 540, 960, 3, false)
+    const clipB = await makeClip('m28-b.mp4', 540, 960, 3, false)
+    // Scenes [0,3) + [3,6) + end card [6,8): narration region spans the first scene gap.
+    const result = await engine.compose(
+      plan({
+        scenes: [
+          { idx: 1, clipPath: clipA, durationSec: 3, caption: null, transitionOut: 'cut' },
+          { idx: 2, clipPath: clipB, durationSec: 3, caption: null, transitionOut: 'cut' },
+        ],
+        audio: {
+          musicPath: music,
+          musicVolume: 0.32,
+          musicAttribution: null,
+          voiceoverPath: voice,
+          voiceoverVolume: 1.0,
+          voiceoverActiveRegions: [{ startSec: 1.5, endSec: 4.5 }],
+          duck: { duckTo: 0.35, attackMs: 150, releaseMs: 400, curve: 'cosine' },
+        },
+        outputPath: path.join(dir, 'm28-duck.mp4'),
+      }),
+    )
+    expect(result.probe.ok).toBe(true)
+    expect(result.probe.audio).not.toBeNull()
+    // Honest note: the render metadata says exactly what ducking did.
+    expect(result.notes.some((n) => n.includes('ducks dynamically'))).toBe(true)
+    expect(result.notes.some((n) => n.includes('NOT sidechain compression'))).toBe(true)
+
+    // REAL measurement: narration window [2.0, 4.0] vs narration-free [5.0, 5.9]
+    // (region ends at 4.5 + release 0.4; end card starts at 6.0).
+    const inside = await windowRmsDb(result.videoPath, 2.0, 4.0)
+    const outside = await windowRmsDb(result.videoPath, 5.0, 5.9)
+    expect(Number.isFinite(inside)).toBe(true)
+    expect(Number.isFinite(outside)).toBe(true)
+    const delta = inside - outside
+    const expectedDuckDb = 20 * Math.log10(0.35) // ≈ -9.1 dB
+    // The quiet voiceover contributes negligibly; tolerance covers the mix
+    // sum and AAC encode artifacts.
+    expect(Math.abs(delta - expectedDuckDb)).toBeLessThan(2.0)
+  }, 180_000)
+
+  test('without narration regions the honest static-duck note is preserved (M27 behavior intact)', async () => {
+    const engine = createFfmpegCompositionEngine()
+    const music = await makeMusic(8)
+    const voice = await makeMusic(6)
+    const clipA = await makeClip('m28-b1.mp4', 540, 960, 3, false)
+    const clipB = await makeClip('m28-b2.mp4', 540, 960, 3, false)
+    const result = await engine.compose(
+      plan({
+        scenes: [
+          { idx: 1, clipPath: clipA, durationSec: 3, caption: null, transitionOut: 'cut' },
+          { idx: 2, clipPath: clipB, durationSec: 3, caption: null, transitionOut: 'cut' },
+        ],
+        audio: {
+          musicPath: music,
+          musicVolume: 0.32,
+          musicAttribution: null,
+          voiceoverPath: voice,
+          voiceoverVolume: 1.0,
+        },
+        outputPath: path.join(dir, 'm28-static.mp4'),
+      }),
+    )
+    expect(result.probe.ok).toBe(true)
+    expect(result.notes.some((n) => n.includes('static ducking'))).toBe(true)
+    expect(result.notes.some((n) => n.includes('ducks dynamically'))).toBe(false)
+  }, 150_000)
 })

@@ -63,6 +63,17 @@ export interface KokoroManifest {
   files: Array<{ file: string; bytes: number; sha256: string | null }>
   installMs: number
   engineVersion: string
+  /**
+   * M28 provenance: where the recorded sha256 values came from.
+   * 'huggingface-canonical' = HF API LFS OIDs (canonical source);
+   * 'modelscope-mirror' = the mirror's own published hashes — proves the
+   * install matches the mirror, NOT the canonical HF revision (honest
+   * distinction; canonical cross-verification stays pending until the
+   * owner utility runs: scripts/m28-verify-kokoro-provenance.ts).
+   */
+  checksumSource?: 'huggingface-canonical' | 'modelscope-mirror' | null
+  /** Resolved source revision identity when the API exposed it. */
+  revisionCommit?: string | null
 }
 
 // ---- install state (single-flight; process-wide via globalThis) --------------
@@ -113,6 +124,18 @@ export interface EngineRuntimeStatus {
   loadedInProcess: boolean
   installing: boolean
   installProgress: InstallState['progress'] | null
+  /** M28: artifact provenance/integrity summary (null when not installed). */
+  integrity: {
+    state: import('./model-integrity').ArtifactProvenance
+    canonicalCommitSha: string | null
+    checksumSource: 'huggingface-canonical' | 'modelscope-mirror' | 'owner-canonical-reference' | null
+    filesVerified: number
+    filesTotal: number
+    missing: string[]
+    unexpected: string[]
+    modifiedCount: number
+    notes: string[]
+  } | null
 }
 
 // ---- WAV encoding (Float32 ONNX output → 16-bit PCM mono 24 kHz) -------------
@@ -270,10 +293,39 @@ export class KokoroTtsEngine {
       const started = Date.now()
       const files: KokoroManifest['files'] = []
 
-      // sha256 metadata from the HF API (LFS OID) — verify AFTER download.
-      const sha256s = await this.fetchSha256s()
+      // sha256 metadata — canonical HF API (LFS OID) first; when HF is
+      // throttled, the mirror's OWN published hashes are used and recorded
+      // as mirror provenance (M28: never silently treated as canonical).
+      const { sha256s, listedPaths, source, revisionCommit } = await this.fetchSha256s()
 
-      for (const rel of [...REQUIRED_FILES, ...OPTIONAL_FILES]) {
+      // M28 integrity fix: the hash APIs enumerate the files that actually
+      // exist upstream. A listed-but-unhashed REQUIRED file means the hash
+      // source is degraded; an UNLISTED file (e.g. optional
+      // special_tokens_map.json, absent from this repo revision) must NOT be
+      // downloaded — measured 2026-11-21: ModelScope answers HTTP 200 with a
+      // plain "Entry not found" body for absent paths, which previously got
+      // written to disk as a poisoned artifact and burned the retry budget.
+      const installable: Array<{ rel: string; required: boolean }> = []
+      for (const rel of REQUIRED_FILES) {
+        installable.push({ rel, required: true })
+        // Existence and hash availability are different facts: a listed file
+        // without a published hash installs unverifiable (recorded honestly
+        // in the manifest); an UNLISTED file does not exist upstream at all.
+        if (source !== null && !listedPaths.has(rel)) {
+          throw new Error(`INSTALL_REFUSED: required file ${rel} is not listed by the ${source} file source — refusing an install of a file the upstream revision does not have.`)
+        }
+      }
+      for (const rel of OPTIONAL_FILES) {
+        if (source !== null && !listedPaths.has(rel)) continue // genuinely absent upstream
+        installable.push({ rel, required: false })
+      }
+      if (source === null && installable.length === REQUIRED_FILES.length) {
+        logger.warn('gangzii.tts_engine.install_without_hash_source', {
+          note: 'No hash source available; required files will be downloaded WITHOUT upstream checksum verification. A canonical re-verification is strongly advised.',
+        })
+      }
+
+      for (const { rel, required } of installable) {
         state.progress = { file: rel, receivedBytes: 0, totalBytes: null }
         const dest = path.join(KOKORO_LOCAL_DIR, rel)
         const expected = sha256s.get(rel) ?? null
@@ -289,7 +341,7 @@ export class KokoroTtsEngine {
           await this.downloadFile(rel, dest, state, expected)
           files.push({ file: rel, bytes: fs.statSync(dest).size, sha256: expected })
         } catch (e) {
-          if (REQUIRED_FILES.includes(rel)) throw e
+          if (required) throw e
           logger.warn('gangzii.tts_engine.optional_file_skipped', {
             file: rel,
             message: e instanceof Error ? e.message : String(e),
@@ -305,16 +357,29 @@ export class KokoroTtsEngine {
         files,
         installMs: Date.now() - started,
         engineVersion: this.engineVersion(),
+        checksumSource: source,
+        revisionCommit,
       }
       fs.writeFileSync(KOKORO_MANIFEST, JSON.stringify(manifest, null, 2))
       state.installing = false
       state.progress = undefined
+      // M28: run the read-only integrity verifier once so the very first
+      // status response carries an honest provenance state.
+      const { verifyKokoroModelIntegrity } = await import('./model-integrity')
+      const integrity = verifyKokoroModelIntegrity()
       logger.info('gangzii.tts_engine.installed', {
         files: files.length,
         bytes: files.reduce((a, f) => a + f.bytes, 0),
         installMs: manifest.installMs,
+        checksumSource: source,
+        integrityState: integrity.state,
+        integrityIssues: integrity.modified.length + integrity.missing.length,
       })
-      return { ok: true, manifest, message: 'Local TTS engine installed and checksum-verified.' }
+      const provenanceNote =
+        source === 'modelscope-mirror'
+          ? ' Hashes verified against the ModelScope mirror; canonical HF cross-verification pending (run scripts/m28-verify-kokoro-provenance.ts on an unthrottled host).'
+          : ''
+      return { ok: true, manifest, message: `Local TTS engine installed and checksum-verified.${provenanceNote}` }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       state.installing = false
@@ -325,25 +390,79 @@ export class KokoroTtsEngine {
     }
   }
 
-  /** Published sha256s from the HF API (LFS OIDs). Missing entries = unverifiable. */
-  private async fetchSha256s(): Promise<Map<string, string>> {
-    const map = new Map<string, string>()
+  /**
+   * Published sha256s for the install file set. Order of truth:
+   *  1. canonical Hugging Face API (LFS OIDs are sha256 for LFS objects) —
+   *     records checksumSource 'huggingface-canonical' + resolved commit;
+   *  2. ModelScope mirror API (its own published hashes) — records
+   *     'modelscope-mirror'; provenance stays explicitly non-canonical.
+   * One attempt per source per install: no endpoint hammering; a failure
+   * means unverifiable entries, which the integrity verifier surfaces.
+   */
+  private async fetchSha256s(): Promise<{
+    sha256s: Map<string, string>
+    listedPaths: Set<string>
+    source: 'huggingface-canonical' | 'modelscope-mirror' | null
+    revisionCommit: string | null
+  }> {
     try {
       const res = await fetch(
         `https://huggingface.co/api/models/${KOKORO_MODEL_REPO}/tree/${KOKORO_MODEL_REVISION}?recursive=true`,
         { headers: { 'User-Agent': 'BEAN-Intelligence/1.0 (+model install)' }, signal: AbortSignal.timeout(30_000) },
       )
-      if (!res.ok) return map
-      const entries = (await res.json()) as Array<{ path: string; lfs?: { oid?: string } }>
-      for (const entry of entries) {
-        if (entry.lfs?.oid) map.set(entry.path, entry.lfs.oid)
+      if (res.ok) {
+        const entries = (await res.json()) as Array<{ path: string; type?: string; lfs?: { oid?: string } }>
+        const listed = new Set(entries.filter((e) => e.type !== 'directory').map((e) => e.path))
+        const map = new Map<string, string>()
+        for (const entry of entries) {
+          // LFS OIDs are sha256 content hashes; small text files (config.json,
+          // tokenizer.json) are plain git blobs WITHOUT one on HF — they stay
+          // in `listed` but not in the hash map (verified by the owner
+          // utility, which downloads and hashes them from the exact commit).
+          if (entry.lfs?.oid) map.set(entry.path, entry.lfs.oid)
+        }
+        if (listed.size > 0) return { sha256s: map, listedPaths: listed, source: 'huggingface-canonical', revisionCommit: null }
+      } else {
+        logger.warn('gangzii.tts_engine.canonical_hash_source_unavailable', {
+          source: 'huggingface',
+          httpStatus: res.status,
+          note: 'Falling back to the mirror hash source; provenance stays non-canonical.',
+        })
       }
     } catch (e) {
       logger.warn('gangzii.tts_engine.sha256_lookup_failed', {
+        source: 'huggingface',
         message: e instanceof Error ? e.message : String(e),
       })
     }
-    return map
+    // Mirror fallback (same repo id on ModelScope, master revision).
+    try {
+      const res = await fetch(
+        `https://modelscope.cn/api/v1/models/${KOKORO_MODEL_REPO}/repo/files?Revision=master&Recursive=true`,
+        { headers: { 'User-Agent': 'BEAN-Intelligence/1.0 (+model install)' }, signal: AbortSignal.timeout(30_000) },
+      )
+      if (res.ok) {
+        const body = (await res.json()) as {
+          Data?: { Files?: Array<{ Path?: string; Sha256?: string; Size?: number }> }
+        }
+        const listed = new Set<string>()
+        const map = new Map<string, string>()
+        for (const f of body.Data?.Files ?? []) {
+          if (!f.Path) continue
+          listed.add(f.Path)
+          if (f.Sha256) map.set(f.Path, f.Sha256)
+        }
+        if (listed.size > 0) return { sha256s: map, listedPaths: listed, source: 'modelscope-mirror', revisionCommit: null }
+      } else {
+        logger.warn('gangzii.tts_engine.mirror_hash_source_unavailable', { source: 'modelscope', httpStatus: res.status })
+      }
+    } catch (e) {
+      logger.warn('gangzii.tts_engine.sha256_lookup_failed', {
+        source: 'modelscope',
+        message: e instanceof Error ? e.message : String(e),
+      })
+    }
+    return { sha256s: new Map(), listedPaths: new Set(), source: null, revisionCommit: null }
   }
 
   private sha256File(file: string): string {
@@ -425,10 +544,20 @@ export class KokoroTtsEngine {
   private startsWithHtml(file: string): boolean {
     try {
       const fd = fs.openSync(file, 'r')
-      const buf = Buffer.alloc(15)
-      fs.readSync(fd, buf, 0, 15, 0)
+      const buf = Buffer.alloc(64)
+      fs.readSync(fd, buf, 0, 64, 0)
       fs.closeSync(fd)
-      return buf.toString('utf8').startsWith('<!DOCTYPE')
+      const head = buf.toString('utf8').trimStart()
+      // HTML error/throttle pages AND plain-text "Entry not found" bodies
+      // (ModelScope's HTTP-200 response for absent files) are both poison:
+      // measured 2026-11-21, never acceptable artifact content.
+      return (
+        head.startsWith('<!DOCTYPE') ||
+        head.startsWith('<html') ||
+        /^entry not found/i.test(head) ||
+        /^not found/i.test(head) ||
+        /^error/i.test(head)
+      )
     } catch {
       return false
     }
@@ -628,6 +757,14 @@ export class KokoroTtsEngine {
     if (fs.existsSync(KOKORO_LOCAL_DIR)) {
       fs.rmSync(KOKORO_LOCAL_DIR, { recursive: true, force: true })
     }
+    // The integrity cache must not survive a model removal.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- cache invalidation inside sync removal path
+      const { invalidateKokoroIntegrityCache } = require('./model-integrity') as typeof import('./model-integrity')
+      invalidateKokoroIntegrityCache()
+    } catch {
+      /* cache module unavailable — nothing cached to invalidate */
+    }
     logger.info('gangzii.tts_engine.removed', {})
     return { ok: true, message: 'The local TTS engine model was removed from disk.' }
   }
@@ -635,26 +772,58 @@ export class KokoroTtsEngine {
   getRuntimeStatus(): EngineRuntimeStatus {
     const { installed, manifest, filesBytes } = this.installStatus()
     const state = installState()
+    let integrity: import('./model-integrity').ModelIntegrityReport | null = null
+    if (installed) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- sync integrity lookup inside a sync status method (heavy deps stay dynamic)
+        const { verifyKokoroModelIntegrity } = require('./model-integrity') as typeof import('./model-integrity')
+        integrity = verifyKokoroModelIntegrity()
+      } catch {
+        integrity = null
+      }
+    }
     return {
       installed,
       healthy: installed, // load health is measured separately via health()
       detail: installed
-        ? `Kokoro-82M (${KOKORO_MODEL_DTYPE}) installed${manifest ? ` at ${manifest.installedAt}` : ''}.`
+        ? `Kokoro-82M (${KOKORO_MODEL_DTYPE}) installed${manifest ? ` at ${manifest.installedAt}` : ''}${integrity ? `; artifacts ${integrity.state.replace(/-/g, ' ')}` : ''}.`
         : (state.lastError ? `Not installed. Last install error: ${state.lastError}` : 'Not installed. The model download is an explicit user action (size shown before install).'),
       revision: manifest?.revision ?? null,
       filesBytes: filesBytes || null,
       loadedInProcess: Boolean(engineCache().instance),
       installing: state.installing,
       installProgress: state.progress ?? null,
+      integrity: integrity
+        ? {
+            state: integrity.state,
+            canonicalCommitSha: integrity.canonicalCommitSha,
+            checksumSource: integrity.checksumSource,
+            filesVerified: integrity.filesVerified,
+            filesTotal: integrity.filesTotal,
+            missing: integrity.missing,
+            unexpected: integrity.unexpected,
+            modifiedCount: integrity.modified.length,
+            notes: integrity.notes,
+          }
+        : null,
     }
   }
 
   getModelMetadata(): Record<string, unknown> {
     const { manifest } = this.installStatus()
+    let integrity: import('./model-integrity').ModelIntegrityReport | null = null
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- sync integrity lookup inside a sync metadata method (heavy deps stay dynamic)
+      const { verifyKokoroModelIntegrity } = require('./model-integrity') as typeof import('./model-integrity')
+      integrity = verifyKokoroModelIntegrity()
+    } catch {
+      integrity = null
+    }
     return {
       engine: this.engineId,
       repo: KOKORO_MODEL_REPO,
       revision: manifest?.revision ?? KOKORO_MODEL_REVISION,
+      revisionCommit: manifest?.revisionCommit ?? null,
       dtype: KOKORO_MODEL_DTYPE,
       licenses: {
         weights: 'Apache-2.0 (hexgrad/Kokoro-82M v1.0 model card)',
@@ -663,6 +832,8 @@ export class KokoroTtsEngine {
       },
       sampleRateHz: 24_000,
       channels: 1,
+      artifactProvenance: integrity?.state ?? 'not-installed',
+      integrity,
       manifest,
     }
   }

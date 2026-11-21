@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "description": "GANGZII speech-quality evaluation corpus (M28 Priority B). Owner-approved, non-sensitive synthetic content: no real customer data, no private documents, no personal information. Each item is synthesized exactly as written after GANGZII's bounded text normalization; the normalized form is recorded per run alongside the original.",
+  "reviewNote": "The owner approves this corpus by review/commit; any text change re-baselines the comparison.",
+  "categories": [
+    {
+      "id": "short",
+      "label": "Short sentences",
+      "items": [
+        { "id": "short-1", "text": "Bean Intelligence turns ideas into finished media." },
+        { "id": "short-2", "text": "GANGZII is the audio specialist." }
+      ]
+    },
+    {
+      "id": "long",
+      "label": "Long sentences",
+      "items": [
+        { "id": "long-1", "text": "The production pipeline measures every generated segment, validates each artifact with a real decoder, records loudness and true peak next to the receipt, and only then hands the finished narration to the video studio." },
+        { "id": "long-2", "text": "When the narrator finishes recording the introduction that spans nearly a full minute of continuous speech, the timeline editor still keeps every sentence boundary editable without touching the music bed underneath it." }
+      ]
+    },
+    {
+      "id": "paragraph",
+      "label": "Paragraphs",
+      "items": [
+        { "id": "para-1", "text": "Welcome to GANGZII. This paragraph is a listening sample with several sentences of different lengths. Some are short. Others carry a longer thought across two clauses, so the narrator has to breathe somewhere in the middle. The paragraph ends with a plain closing sentence." }
+      ]
+    },
+    {
+      "id": "question",
+      "label": "Questions",
+      "items": [
+        { "id": "question-1", "text": "What can GANGZII do for my channel this week?" },
+        { "id": "question-2", "text": "Where does the music bed start, and when does the narration come in?" }
+      ]
+    },
+    {
+      "id": "exclamation",
+      "label": "Exclamations",
+      "items": [
+        { "id": "excl-1", "text": "We shipped the launch!" },
+        { "id": "excl-2", "text": "That mix sounds incredible!" }
+      ]
+    },
+    {
+      "id": "numbers-currency",
+      "label": "Numbers and currency",
+      "items": [
+        { "id": "num-1", "text": "The launch budget is ₹0 per month, with 3 products, 12,500 monthly visitors, and a 42 percent completion rate." },
+        { "id": "num-2", "text": "Chapter 7 costs $4.99, chapter 8 is £12, and the bundle saves you ₹350." }
+      ]
+    },
+    {
+      "id": "dates-times",
+      "label": "Dates and times",
+      "items": [
+        { "id": "date-1", "text": "The webinar starts on February 15, 2027 at 9:30 AM and ends around 11:45 AM." },
+        { "id": "date-2", "text": "Releases shipped on 2026-11-21, 2027-01-05, and 2027-02-02." }
+      ]
+    },
+    {
+      "id": "abbreviations",
+      "label": "Abbreviations",
+      "items": [
+        { "id": "abbr-1", "text": "Dr. Patel and Mr. Rao joined the project at 8 p.m. and left at approx. 10 p.m." },
+        { "id": "abbr-2", "text": "The API docs list HTTP, JSON, and LLM endpoints; see FAQ §4." }
+      ]
+    },
+    {
+      "id": "urls",
+      "label": "URLs",
+      "items": [
+        { "id": "url-1", "text": "Visit https://bean.example.com/docs for the API guide." },
+        { "id": "url-2", "text": "Read the changelog at bean.example.com/changelog#v1-2." }
+      ]
+    },
+    {
+      "id": "names-uncommon",
+      "label": "Names and uncommon words",
+      "items": [
+        { "id": "name-1", "text": "Anaya read the manuscript about Quixote, Zzyzx, and the small town of Kerfuddle." },
+        { "id": "name-2", "text": "The phonemizer maps foreign names like Hiroshi and Priyanka into English sounds." }
+      ]
+    },
+    {
+      "id": "punctuation-pauses",
+      "label": "Punctuation and pauses",
+      "items": [
+        { "id": "punct-1", "text": "Wait... let me think. Three things matter: clarity, pace, and silence." },
+        { "id": "punct-2", "text": "First — the hook; second, the story; third: the call to action." }
+      ]
+    },
+    {
+      "id": "mixed-lengths",
+      "label": "Mixed sentence lengths",
+      "items": [
+        { "id": "mix-1", "text": "Go. The next scene needs a slower, warmer tone with a deliberate pause after the opening line. Right. Now let the music swell." }
+      ]
+    }
+  ]
+}

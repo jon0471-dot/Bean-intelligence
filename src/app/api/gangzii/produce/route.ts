@@ -20,6 +20,18 @@ const opSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('fade-out'), params: z.object({ durationSec: z.number().min(0.05).max(15) }).optional() }),
   z.object({ op: z.literal('volume'), params: z.object({ gain: z.number().min(0).max(2) }).optional() }),
   z.object({ op: z.literal('duck'), params: z.object({ duckTo: z.number().min(0.05).max(1) }).optional() }),
+  z.object({
+    // M28 Priority C: timeline-aware ducking from measured narration regions.
+    op: z.literal('duck-dynamic'),
+    params: z.object({
+      regions: z.array(z.object({ startSec: z.number().min(0).max(7200), endSec: z.number().min(0).max(7200) })).min(1).max(50),
+      duckTo: z.number().min(0.05).max(1).optional(),
+      attackMs: z.number().int().min(0).max(2000).optional(),
+      releaseMs: z.number().int().min(0).max(2000).optional(),
+      curve: z.enum(['linear', 'cosine']).optional(),
+      minMusicLevel: z.number().min(0).max(1).optional(),
+    }),
+  }),
   z.object({ op: z.literal('eq'), params: z.object({ lowGainDb: z.number().min(-12).max(12).optional(), lowFreqHz: z.number().min(40).max(500).optional(), highGainDb: z.number().min(-12).max(12).optional(), highFreqHz: z.number().min(2000).max(16000).optional() }).optional() }),
   z.object({ op: z.literal('compress'), params: z.object({ thresholdDb: z.number().min(-50).max(0).optional(), ratio: z.number().min(1).max(20).optional(), attackMs: z.number().min(1).max(200).optional(), releaseMs: z.number().min(10).max(2000).optional() }).optional() }),
   z.object({ op: z.literal('limit'), params: z.object({ limitDbtp: z.number().min(-6).max(0).optional() }).optional() }),

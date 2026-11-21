@@ -17,6 +17,7 @@ import { logger } from '@/lib/observability/logger'
 import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { enqueueJob } from '@/lib/jobs/queue'
 import { requestVideoCancel } from '@/lib/jobs/video-worker'
+import { buildTimelineTiming, computeTimingReviewFlags } from '@/lib/gangzii/timing'
 import { validateVideoReferenceImage } from '@/lib/jazmii/reference-image'
 import { generateStoryboard, StoryboardPlannerError } from './planner'
 import {
@@ -171,6 +172,32 @@ export async function approveProduction(
 
   // Audio intent recorded while awaiting approval (upload endpoints set it).
   const audioTracks = readAudioTracks(production.id, userId)
+
+  // M28 Priority F: when a GANGZII narration is attached, RECOMPUTE the
+  // narration timing against the CURRENT proposal scenes — scene duration or
+  // order changes since attach are reflected (measured durations preserved,
+  // unrelated audio untouched, review flags written for anything needing a
+  // human decision). Timing is derived data; re-computing it is cheap and
+  // honest, re-synthesizing speech would not be.
+  const narrationTimingPath = path.join(productionDir(userId, productionId), 'audio', 'narration-timing.json')
+  if (audioTracks.some((t) => t.role === 'voiceover') && fs.existsSync(narrationTimingPath)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(narrationTimingPath, 'utf8')) as { narrationProjectId?: string }
+      if (existing.narrationProjectId) {
+        await writeNarrationTimingPayload(
+          userId,
+          productionId,
+          existing.narrationProjectId,
+          proposal.storyboard.scenes.map((s, i) => ({ idx: i + 1, durationSec: s.durationSeconds })),
+        )
+      }
+    } catch (e) {
+      logger.warn('jazmii.narration_timing.recompute_failed', {
+        productionId,
+        message: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
 
   const plan: ApprovedPlan = {
     storyboard: proposal.storyboard,
@@ -327,6 +354,91 @@ export interface NarrationAttachmentResult {
 }
 
 /**
+ * M28 Priority F: build (and persist) the narration timing payload from the
+ * CURRENT scene layout. Shared by attach time and approval time — when scene
+ * durations or order change after narration was attached, the timing is
+ * RECOMPUTED from the same measured segment durations (never re-synthesized),
+ * unrelated audio assets are untouched, and anything requiring human review
+ * is recorded as an explicit reviewFlag (never silently moved).
+ */
+export async function writeNarrationTimingPayload(
+  userId: string,
+  productionId: string,
+  narrationProjectId: string,
+  scenes: Array<{ idx: number; durationSec: number }>,
+): Promise<void> {
+  const production = await getProductionForOwner(userId, productionId)
+  const dir = path.join(productionDir(userId, productionId), 'audio')
+  if (!production || !fs.existsSync(dir)) throw new BeanApiError('NOT_FOUND', 'Production audio workspace not found.')
+
+  const { reconcileNarrationSegments } = await import('@/lib/gangzii/narration-service')
+  await reconcileNarrationSegments(userId, narrationProjectId)
+  const narration = await db.narrationProject.findUnique({
+    where: { id: narrationProjectId },
+    include: { segments: { orderBy: { idx: 'asc' } } },
+  })
+  if (!narration || narration.userId !== userId) {
+    throw new BeanApiError('NOT_FOUND', 'Narration project not found.')
+  }
+
+  let associations: Array<{ sceneIdx: number; segmentIdx: number }> = []
+  try {
+    associations = narration.sceneAssociationsJson ? JSON.parse(narration.sceneAssociationsJson) : []
+  } catch {
+    associations = []
+  }
+
+  const timing = buildTimelineTiming(
+    narration.segments.map((s) => {
+      const assoc = associations.find((a) => a.segmentIdx === s.idx)
+      return {
+        idx: s.idx,
+        segmentId: s.id,
+        sceneIdx: assoc?.sceneIdx ?? null,
+        text: s.text,
+        status: s.status,
+        durationMs: s.durationMs,
+      }
+    }),
+  )
+
+  // M28 review flags — pure computation from the shared timing module
+  // (explicit, per-segment, computed from the CURRENT scenes; nothing is
+  // silently moved or guessed).
+  const reviewFlags = computeTimingReviewFlags(timing, scenes)
+  const segmentFlags = new Map<number, string[]>()
+  for (const f of reviewFlags) {
+    const list = segmentFlags.get(f.segmentIdx) ?? []
+    list.push(f.flag)
+    segmentFlags.set(f.segmentIdx, list)
+  }
+
+  fs.writeFileSync(
+    path.join(dir, 'narration-timing.json'),
+    JSON.stringify({
+      narrationProjectId: narration.id,
+      capturedAt: new Date().toISOString(),
+      recomputedForScenes: scenes.map((s) => ({ idx: s.idx, durationSec: s.durationSec })),
+      timingLevel: timing.every((t) => t.confidence === 'segment-measured') ? 'segment-measured (full)' : 'mixed',
+      approximationNote: 'Segment-level MEASURED timings (not word alignment). Recompute if scene durations change before composing.',
+      confidenceNote: 'confidence: segment-measured = from the real audio artifact durations; unavailable = measured chain broken (explicit estimate attached for preview only). Word-verified timing is reserved for an actually-performed word aligner.',
+      reviewFlags,
+      segments: timing.map((t) => ({
+        segmentIdx: t.idx,
+        sceneIdx: t.sceneIdx,
+        approximateStartSec: t.startMs !== null ? Math.round(t.startMs / 100) / 10 : null,
+        durationMs: t.durationMs,
+        confidence: t.confidence,
+        ...(t.approximatedByEstimateMs !== undefined ? { estimatedDurationMs: t.approximatedByEstimateMs } : {}),
+        ...(segmentFlags.get(t.idx) ? { review: segmentFlags.get(t.idx) } : {}),
+      })),
+    }, null, 2),
+    'utf8',
+  )
+  logger.info('jazmii.narration_timing.recomputed', { productionId, narrationProjectId, flags: reviewFlags.length })
+}
+
+/**
  * Attach a COMPLETED GANGZII narration project as the production's
  * voiceover track. The narration must belong to the same owner and be
  * fully ready with a completed JOIN job (a real concatenated track — never
@@ -404,35 +516,12 @@ export async function attachNarrationToProduction(
   const existing = readAudioTracks(productionId, userId).filter((t) => t.role !== 'voiceover')
   await writeAudioTracks(productionId, userId, [...existing, track])
 
-  // Scene-aligned timing metadata for captions/review (measured, segment
-  // level — explicitly approximate; scene duration changes require review).
-  let associations: Array<{ sceneIdx: number; segmentIdx: number }> = []
-  try {
-    associations = narration.sceneAssociationsJson ? JSON.parse(narration.sceneAssociationsJson) : []
-  } catch {
-    associations = []
-  }
-  let cursor = 0
-  const timing = segments.map((s) => {
-    const start = cursor
-    cursor += s.durationMs ?? 0
-    const assoc = associations.find((a) => a.segmentIdx === s.idx)
-    return {
-      segmentIdx: s.idx,
-      sceneIdx: assoc?.sceneIdx ?? null,
-      approximateStartSec: Math.round(start / 100) / 10,
-      durationMs: s.durationMs,
-    }
-  })
-  fs.writeFileSync(
-    path.join(dir, 'narration-timing.json'),
-    JSON.stringify({
-      narrationProjectId: narration.id,
-      approximationNote: 'Segment-level MEASURED timings (not word alignment). Recompute if scene durations change before composing.',
-      segments: timing,
-    }, null, 2),
-    'utf8',
-  )
+  // M28 Priority F: timing is RECOMPUTED from the current scene layout via
+  // the shared helper (attach and approval use the same path — one truth).
+  // Scene idx is the 1-based timeline position (scenes are ordered).
+  const proposal = parseProposal(production)
+  const scenes = (proposal?.storyboard.scenes ?? []).map((s, i) => ({ idx: i + 1, durationSec: s.durationSeconds }))
+  await writeNarrationTimingPayload(userId, productionId, narrationProjectId, scenes)
   logger.info('jazmii.narration.attached', { productionId, narrationProjectId, segments: segments.length })
   return {
     attached: true,

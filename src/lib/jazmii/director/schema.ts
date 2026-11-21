@@ -242,12 +242,15 @@ export const audioTrackSchema = z.object({
    *  after upload validation — never a client-controlled filesystem path). */
   path: z.string().min(1).max(400),
   // M27: 'sfx' joins the vocabulary — scene-timed sound effects, placed by
-  // startSec on the exact timeline. The FFmpeg engine applies them; the
-  // HyperFrames engine records an honest limitation note instead.
+  // startSec on the exact timeline. BOTH engines apply them (M28: the
+  // HyperFrames engine generates verified timed <audio> elements).
   role: z.enum(['music', 'voiceover', 'sfx']),
   volume: z.number().min(MUSIC_VOLUME_MIN).max(MUSIC_VOLUME_MAX).optional(),
   /** SFX-only: timeline placement in seconds from video start. */
   startSec: z.number().min(0).max(600).optional(),
+  // M28 Priority D: optional per-effect fades (both engines support them).
+  fadeInSeconds: z.number().min(0).max(5).optional(),
+  fadeOutSeconds: z.number().min(0).max(5).optional(),
   /** Declared for attribution metadata; displayed in the deliverables. */
   attribution: z.string().max(200).optional(),
 })
@@ -265,6 +268,21 @@ export const approvedPlanSchema = z.object({
   enginePreference: z.enum(['auto', 'hyperframes', 'ffmpeg']).default('auto'),
   // M27: up to 2 beds (music + voiceover) + 4 scene-timed SFX.
   audioTracks: z.array(audioTrackSchema).max(6).default([]),
+  /**
+   * M28 Priority C: optional user ducking overrides for dynamic narration
+   * ducking. Absent → engine defaults (duckTo 0.35, attack 150 ms, release
+   * 400 ms, cosine, min level 0.05). Values are re-bounded by the duck
+   * module before use — the schema bounds are the outer safety envelope.
+   */
+  duckParams: z
+    .object({
+      duckTo: z.number().min(0.05).max(1).optional(),
+      attackMs: z.number().int().min(0).max(2000).optional(),
+      releaseMs: z.number().int().min(0).max(2000).optional(),
+      curve: z.enum(['linear', 'cosine']).optional(),
+      minMusicLevel: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
   /** Scene 3..12s bound acknowledged by the approval UI. */
   sceneLimitAck: z.boolean().default(true),
 })

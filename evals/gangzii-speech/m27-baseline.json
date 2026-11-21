@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "description": "M27 measured baseline for GANGZII local TTS performance — the reference M28 regression comparison runs against. Recorded from scripts/m27-kokoro-smoke.ts and tests/integration/gangzii-audio-worker.e2e.test.ts on the M27 sandbox host (2 vCPU / 3.9 GB RAM). These numbers are MEASURED evidence from the M27 session, not targets.",
+  "source": "docs/M27-RESULTS.md sections 5-6",
+  "environment": {
+    "vcpus": 2,
+    "ramGbApprox": 3.9,
+    "gpu": null,
+    "note": "GPU-less CPU host; RTX-class hardware was explicitly NOT assumed in M27 or M28."
+  },
+  "metrics": {
+    "modelLoadMs": { "low": 824, "high": 885 },
+    "realtimeFactor": { "measured": 1.3, "toleranceNote": "RTF within ±0.35 of baseline on comparable hardware is acceptable; higher = regression to flag." },
+    "rssMbDuringLoadedInference": { "measured": 642, "toleranceMb": 120 },
+    "sampleSmoke": {
+      "text": "GANGZII is the audio production specialist of BEAN Intelligence. This narration was synthesized locally on this machine.",
+      "audioDurationSec": 8.225,
+      "wallSec": 10.7,
+      "format": "pcm_s16le",
+      "sampleRateHz": 24000,
+      "channels": 1
+    }
+  },
+  "qualityGates": {
+    "note": "Subjective quality (pronunciation/intelligibility) has NO automatic baseline: the M27 session did not perform a human listening review. Any listening-review comparison is the owner's; this file only anchors TECHNICAL regressions.",
+    "technicalChecks": [
+      "segment ordering preserved (chunks == expected segment count)",
+      "no clipping (peak < -0.1 dBTP) for default-speed narration",
+      "integrated loudness measured and finite",
+      "output always 24 kHz mono PCM16 WAV"
+    ]
+  }
+}

@@ -30,8 +30,9 @@ import { promisify } from 'node:util'
 import { mkdir, writeFile } from 'node:fs/promises'
 import fs from 'node:fs'
 import path from 'node:path'
-import { probeVideoFile } from '@/lib/media/ffprobe'
+import { probeVideoFile, probeAudioDurationSec } from '@/lib/media/ffprobe'
 import { FADE_DURATION_SEC } from '../schema'
+import { buildDynamicDuckPlan, duckPlanToVolumeFilter } from '@/lib/gangzii/ducking'
 import type { CompositionEngine, CompositionPlan, CompositionResult } from './types'
 
 const execFileP = promisify(execFile)
@@ -243,19 +244,35 @@ export function createFfmpegCompositionEngine(opts: FfmpegEngineOptions = {}): C
       filterComplex.push(`[vcat]format=yuv420p[vout]`)
 
       // ---- audio filtergraph ----------------------------------------------------
+      // Notes accumulate from the graph build onward (SFX fade-out skips etc.).
+      const notes: string[] = []
       let audioArg: string[] = []
       const musicIdx = scenes.length + 1
       const voiceIdx = musicIdx + (audio.musicPath ? 1 : 0)
       const firstSfxIdx = voiceIdx + (audio.voiceoverPath ? 1 : 0)
       // M27: every audio source is processed into a labeled stream and mixed
-      // with ONE amix (N inputs) — music + voiceover + any sound effects —
-      // so the graph stays exactly the honest static-ducking behavior plus
-      // precisely-placed effects.
+      // with ONE amix (N inputs) — music + voiceover + any sound effects.
+      // M28 Priority C: when measured narration regions are available, the
+      // music bed follows a deterministic timeline-aware ducking curve
+      // (attack/release/depth from the duck module — still NOT sidechain
+      // compression); without regions the honest M27 static duck applies.
       const mixLabels: string[] = []
+      const sfxFadeOutPending: Array<{ i: number; s: { path: string; startSec: number; volume: number; label: string | null; fadeInSeconds?: number; fadeOutSeconds?: number }; fo: number }> = []
+      let duckNote: string | null = null
+      let duckFilterFragment: string | null = null
+      if (audio.musicPath && audio.voiceoverPath && (audio.voiceoverActiveRegions?.length ?? 0) > 0) {
+        const plan = buildDynamicDuckPlan(audio.voiceoverActiveRegions ?? [], audio.duck)
+        duckFilterFragment = duckPlanToVolumeFilter(plan, audio.musicVolume).replace(/^volume=/, '')
+        duckNote =
+          `Music ducks dynamically under the voiceover: ${plan.regions.length} measured narration region(s), ` +
+          `duckTo ${plan.config.duckTo}, attack ${plan.config.attackMs} ms, release ${plan.config.releaseMs} ms, ${plan.config.curve} curve, ` +
+          `min level ${plan.config.minMusicLevel} (timeline-driven automation from narration timing — NOT sidechain compression).`
+      }
       if (audio.musicPath) {
+        const duckPart = duckFilterFragment ?? `${(audio.musicVolume * 0.55).toFixed(3)}`
         filterComplex.push(
           `[${musicIdx}:a]atrim=0:${total.toFixed(3)},asetpts=PTS-STARTPTS,` +
-            `volume=${(audio.musicVolume * 0.55).toFixed(3)},afade=t=in:st=0:d=0.6,` +
+            `volume=${duckPart},afade=t=in:st=0:d=0.6,` +
             `afade=t=out:st=${Math.max(0, total - 1.2).toFixed(3)}:d=1.2[am]`,
         )
         mixLabels.push('[am]')
@@ -268,12 +285,46 @@ export function createFfmpegCompositionEngine(opts: FfmpegEngineOptions = {}): C
       }
       sfx.forEach((s, i) => {
         const delayMs = Math.max(0, Math.round(s.startSec * 1000))
+        // M28 Priority D: optional per-effect fades measured against the real
+        // asset duration (a fade-out without a probed duration would guess —
+        // skipped with a note instead).
+        const fadeParts: string[] = []
+        const fi = Math.max(0, Math.min(5, s.fadeInSeconds ?? 0))
+        const fo = Math.max(0, Math.min(5, s.fadeOutSeconds ?? 0))
+        if (fi > 0) fadeParts.push(`afade=t=in:st=${s.startSec.toFixed(3)}:d=${fi.toFixed(3)}`)
+        if (fo > 0) {
+          fadeParts.push(`__SFX_FADE_OUT_${i}__`)
+        }
         filterComplex.push(
           `[${firstSfxIdx + i}:a]volume=${Math.max(0, Math.min(1, s.volume)).toFixed(3)},` +
-            `adelay=${delayMs}:all=1,apad=whole_dur=${total.toFixed(3)},atrim=0:${total.toFixed(3)},asetpts=PTS-STARTPTS[as${i}]`,
+            `adelay=${delayMs}:all=1,apad=whole_dur=${total.toFixed(3)},atrim=0:${total.toFixed(3)},asetpts=PTS-STARTPTS` +
+            (fadeParts.length > 0 ? `,${fadeParts.join(',')}` : '') +
+            `[as${i}]`,
         )
         mixLabels.push(`[as${i}]`)
+        if (fo > 0) sfxFadeOutPending.push({ i, s, fo })
       })
+      // Resolve fade-out placements now that the chain knows each asset's
+      // measured end (probe failures keep the effect WITHOUT a fade-out and
+      // add an explicit note — never a guessed timestamp).
+      for (const { i, s, fo } of sfxFadeOutPending) {
+        const dur = await probeAudioDurationSec(s.path)
+        if (dur === null) {
+          // Remove the placeholder from the already-pushed filter line.
+          const idx = filterComplex.findIndex((f) => f.includes(`__SFX_FADE_OUT_${i}__`))
+          if (idx >= 0) {
+            filterComplex[idx] = filterComplex[idx].replace(/,__SFX_FADE_OUT_\d+__/, '')
+          }
+          notes.push(`Sound effect "${s.label ?? `#${i}`}" could not be duration-probed; its fade-out was skipped rather than guessed.`)
+          continue
+        }
+        const st = Math.max(s.startSec, s.startSec + dur - fo)
+        for (let k = 0; k < filterComplex.length; k += 1) {
+          if (filterComplex[k].includes(`__SFX_FADE_OUT_${i}__`)) {
+            filterComplex[k] = filterComplex[k].replace(`__SFX_FADE_OUT_${i}__`, `afade=t=out:st=${st.toFixed(3)}:d=${fo.toFixed(3)}`)
+          }
+        }
+      }
       if (mixLabels.length === 1) {
         // Single source: still pad/trim to the exact timeline length.
         filterComplex.push(`${mixLabels[0]}apad=whole_dur=${total.toFixed(3)},atrim=0:${total.toFixed(3)}[aout]`)
@@ -323,7 +374,6 @@ export function createFfmpegCompositionEngine(opts: FfmpegEngineOptions = {}): C
           `The composed video failed stream validation: ${probe.error ?? 'ffprobe could not read the output'}. Nothing is delivered.`,
         )
       }
-      const notes: string[] = []
       const measured = probe.video.durationSec
       if (Math.abs(measured - total) > 0.35) {
         notes.push(
@@ -339,12 +389,19 @@ export function createFfmpegCompositionEngine(opts: FfmpegEngineOptions = {}): C
         notes.push('No audio track in the final video (no music or voiceover was supplied).')
       }
       if (audio.musicPath && audio.voiceoverPath) {
-        notes.push('Music ducks to a fixed lower bed under the voiceover (static ducking).')
+        notes.push(
+          duckNote ??
+            'Music ducks to a fixed lower bed under the voiceover (static ducking — no narration timing was available for dynamic ducking).',
+        )
       }
       if (sfx.length > 0) {
         notes.push(
           `${sfx.length} sound effect(s) mixed at their planned timeline positions` +
-            (audio.musicPath && audio.voiceoverPath ? ' (music ducks statically under the voiceover).' : '.'),
+            (audio.musicPath && audio.voiceoverPath
+              ? duckNote
+                ? ' (music ducks dynamically under the voiceover).'
+                : ' (music ducks statically under the voiceover).'
+              : '.'),
         )
       }
 

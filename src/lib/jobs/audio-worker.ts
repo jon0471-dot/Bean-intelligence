@@ -26,6 +26,7 @@ import { db } from '@/lib/db'
 import { logger } from '@/lib/observability/logger'
 import { GANGZII_STORAGE_ROOT } from '@/lib/gangzii/audio-upload'
 import { hostedAudioAdapter, type AudioStreamMetadata } from '@/lib/adapters/hosted-audio'
+import * as duckingModule from '@/lib/gangzii/ducking'
 import {
   kokoroTtsEngine,
   KOKORO_APPROX_DOWNLOAD_MB,
@@ -93,28 +94,20 @@ async function runFfprobe(file: string, timeoutMs = 15_000): Promise<AudioStream
   return hostedAudioAdapter.probeAudio(file, timeoutMs)
 }
 
-/** Measured loudness (EBUR128): integrated LUFS + true peak, via ffmpeg. */
-async function measureLoudness(file: string, timeoutMs = 60_000): Promise<{ integratedLufs: number | null; truePeakDbtp: number | null }> {
-  return new Promise((resolve) => {
-    execFile(
-      'ffmpeg',
-      ['-nostats', '-hide_banner', '-i', file, '-af', 'ebur128=peak=true', '-f', 'null', '-'],
-      { timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024 },
-      (_err, _stdout, stderr) => {
-        try {
-          const out = String(stderr)
-          const lufs = out.match(/I:\s*(-?\d+\.?\d*)\s*LUFS/)
-          const peak = out.match(/Peak:\s*(-?\d+\.?\d*)\s*dBTP/)
-          resolve({
-            integratedLufs: lufs ? Number(lufs[1]) : null,
-            truePeakDbtp: peak ? Number(peak[1]) : null,
-          })
-        } catch {
-          resolve({ integratedLufs: null, truePeakDbtp: null })
-        }
-      },
-    )
-  })
+/** Measured loudness (EBUR128): shared, section-aware parser (M28 — the
+ *  previous first-match parsing grabbed a transient window value for I: and
+ *  never matched the dBFS-labeled true-peak line). The loudness-range LRA is
+ *  recorded additively for mixing/ducking evidence. */
+async function measureLoudness(file: string, timeoutMs = 60_000): Promise<{ integratedLufs: number | null; truePeakDbtp: number | null; truePeakUnit: 'dBFS' | 'dBTP' | null; loudnessRangeLu: number | null }> {
+  const { measureLoudnessEbur128 } = await import('@/lib/media/loudness')
+  const m = await measureLoudnessEbur128(file, timeoutMs)
+  return {
+    integratedLufs: m.integratedLufs,
+    // Same receipt-facing field name as M27; the unit travels alongside it.
+    truePeakDbtp: m.truePeak,
+    truePeakUnit: m.truePeakUnit,
+    loudnessRangeLu: m.loudnessRangeLu,
+  }
 }
 
 /** Real ffmpeg execution with bounded timeout; stderr tail on failure. */
@@ -324,6 +317,35 @@ async function processSpeechSynthesis(job: ClaimedJob, signal: { aborted: boolea
       finishedAt: new Date(),
     })
     if (settled) {
+      // M28 Priority G: model identity + artifact provenance recorded for
+      // local-engine synthesis (hosted engines carry no local artifact and
+      // the receipt says so via the six-state block).
+      const isLocalEngine = /kokoro/i.test(engineLabel)
+      const modelIdentity = isLocalEngine
+        ? (() => {
+            try {
+              const meta = kokoroTtsEngine.getModelMetadata() as {
+                repo?: string
+                revision?: string
+                revisionCommit?: string | null
+                dtype?: string
+                artifactProvenance?: string
+                integrity?: { checksumSource?: string | null; canonicalCommitSha?: string | null } | null
+              }
+              return {
+                repo: meta.repo,
+                revision: meta.revision ?? null,
+                revisionCommit: meta.revisionCommit ?? null,
+                dtype: meta.dtype,
+                artifactProvenance: meta.artifactProvenance ?? null,
+                checksumSource: meta.integrity?.checksumSource ?? null,
+                canonicalCommitSha: meta.integrity?.canonicalCommitSha ?? null,
+              }
+            } catch {
+              return null
+            }
+          })()
+        : null
       await recordAudioJobCompletion(
         { userId: job.userId, product: 'gangzii', kind: 'speech-synthesis', jobId: job.id, backendId, requestPreview },
         {
@@ -338,6 +360,7 @@ async function processSpeechSynthesis(job: ClaimedJob, signal: { aborted: boolea
           chunks: result.chunks,
           speed: params.speed,
           generationMs: result.generationMs,
+          modelIdentity,
           warnings,
         },
       )
@@ -553,9 +576,15 @@ async function processAudioConversion(job: ClaimedJob): Promise<HandlerOutcome> 
 // ---------------------------------------------------------------------------
 
 export interface MixOperation {
-  op: 'trim' | 'fade-in' | 'fade-out' | 'volume' | 'duck' | 'concat' | 'normalize-loudness' | 'eq' | 'compress' | 'limit'
+  op: 'trim' | 'fade-in' | 'fade-out' | 'volume' | 'duck' | 'duck-dynamic' | 'concat' | 'normalize-loudness' | 'eq' | 'compress' | 'limit'
   /** All params are bounded and validated by the route before queueing. */
-  params?: Record<string, number | string | boolean>
+  params?: Record<string, unknown>
+}
+
+/** Narration-active region for timeline-aware ducking (M28 Priority C). */
+export interface DuckRegionInput {
+  startSec: number
+  endSec: number
 }
 
 export interface ProductionParams {
@@ -568,9 +597,10 @@ export interface ProductionParams {
   sourceLabel?: string
 }
 
-function buildFilterChain(ops: MixOperation[]): { filters: string[]; warnings: string[] } {
+function buildFilterChain(ops: MixOperation[]): { filters: string[]; warnings: string[]; duckPlans: ReturnType<typeof import('@/lib/gangzii/ducking')['buildDynamicDuckPlan']>[] } {
   const filters: string[] = []
   const warnings: string[] = []
+  const duckPlans: ReturnType<typeof import('@/lib/gangzii/ducking')['buildDynamicDuckPlan']>[] = []
   for (const op of ops) {
     const p = op.params ?? {}
     switch (op.op) {
@@ -592,8 +622,35 @@ function buildFilterChain(ops: MixOperation[]): { filters: string[]; warnings: s
       case 'duck':
         // Sidechain-free static ducking: narration-active volume reduction.
         filters.push(`volume=${Number(p.duckTo ?? 0.35)}`)
-        warnings.push('Static ducking applied: the bed volume is reduced for the whole segment (no sidechain detection).')
+        warnings.push('Static ducking applied: the bed volume is reduced for the whole segment (no sidechain detection, no timeline awareness).')
         break
+      case 'duck-dynamic': {
+        // M28 Priority C: timeline-aware ducking from declared narration
+        // regions. Deterministic curve; the source asset is never modified;
+        // the plan is recorded as evidence. NOT sidechain compression —
+        // the note below says exactly what this is.
+        const { buildDynamicDuckPlan, duckPlanToVolumeFilter, DUCK_LIMITS } = duckingModule
+        const rawRegions = Array.isArray(p.regions) ? p.regions : []
+        if (rawRegions.length === 0) {
+          throw new Error('VALIDATION_ERROR: duck-dynamic requires at least one narration region (startSec/endSec).')
+        }
+        const plan = buildDynamicDuckPlan(
+          rawRegions.map((r) => ({ startSec: Number(r.startSec), endSec: Number(r.endSec) })),
+          {
+            duckTo: p.duckTo as number | undefined,
+            attackMs: p.attackMs as number | undefined,
+            releaseMs: p.releaseMs as number | undefined,
+            curve: p.curve as 'linear' | 'cosine' | undefined,
+            minMusicLevel: p.minMusicLevel as number | undefined,
+          },
+        )
+        filters.push(duckPlanToVolumeFilter(plan))
+        duckPlans.push(plan)
+        warnings.push(
+          `Dynamic ducking applied: ${plan.regions.length} narration region(s) (cap ${DUCK_LIMITS.maxRegions}), duckTo ${plan.config.duckTo}, attack ${plan.config.attackMs} ms, release ${plan.config.releaseMs} ms, ${plan.config.curve} curve, min level ${plan.config.minMusicLevel}. Timeline-driven automation (measured narration timing) — NOT sidechain compression.`,
+        )
+        break
+      }
       case 'eq':
         // Basic EQ: low shelf + high shelf (bounded).
         filters.push(`bass=g=${Number(p.lowGainDb ?? 0)}:f=${Number(p.lowFreqHz ?? 120)}`)
@@ -618,7 +675,7 @@ function buildFilterChain(ops: MixOperation[]): { filters: string[]; warnings: s
         throw new Error(`VALIDATION_ERROR: unknown audio operation "${(op as { op: string }).op}".`)
     }
   }
-  return { filters, warnings }
+  return { filters, warnings, duckPlans }
 }
 
 async function resolveInputs(userId: string, inputs: ProductionParams['inputs']): Promise<string[]> {
@@ -664,7 +721,7 @@ async function processAudioProduction(job: ClaimedJob, signal: { aborted: boolea
     const inputPaths = await resolveInputs(job.userId, params.inputs)
     await updateProgress(job.id, 15, { stage: 'inputs-resolved', inputs: inputPaths.length })
 
-    const { filters, warnings: opWarnings } = buildFilterChain(params.operations)
+    const { filters, warnings: opWarnings, duckPlans } = buildFilterChain(params.operations)
     warnings.push(...opWarnings)
 
     const ext = params.output.format
@@ -710,6 +767,10 @@ async function processAudioProduction(job: ClaimedJob, signal: { aborted: boolea
       durationSec: stream.durationSec,
       codec: stream.codec,
       loudness,
+      // M28 Priority C evidence: the exact deterministic ducking automation
+      // that was applied (regions + resolved config + sampled curve), so the
+      // receipt can show WHAT the timeline automation did.
+      ducking: duckPlans.length > 0 ? duckPlans.map((p) => ({ regions: p.regions, config: p.config, breakpoints: p.breakpoints })) : undefined,
       masterLabel:
         params.operations.some((o) => o.op === 'normalize-loudness' || o.op === 'limit' || o.op === 'compress')
           ? 'measured-master (loudness-normalized; measured values recorded)'
@@ -730,10 +791,25 @@ async function processAudioProduction(job: ClaimedJob, signal: { aborted: boolea
           format: ext,
           bytes,
           stream: { codec: stream.codec, sampleRateHz: stream.sampleRateHz, channels: stream.channels, durationSec: stream.durationSec, container: stream.container, validatedBy: 'ffprobe' },
-          loudness: { integratedLufs: loudness.integratedLufs, truePeakDbtp: loudness.truePeakDbtp, measuredBy: loudness.integratedLufs !== null ? 'ffmpeg ebur128' : 'measurement unavailable' },
+          loudness: {
+            integratedLufs: loudness.integratedLufs,
+            truePeakDbtp: loudness.truePeakDbtp,
+            // M28: true-peak unit as ffmpeg actually printed it (dBFS in
+            // modern ffmpeg summaries) + loudness range, additive evidence.
+            truePeakUnit: loudness.truePeakUnit,
+            loudnessRangeLu: loudness.loudnessRangeLu,
+            measuredBy: loudness.integratedLufs !== null ? 'ffmpeg ebur128' : 'measurement unavailable',
+          },
           operations: resultJson.operations,
           engine: 'local ffmpeg (deterministic)',
           sourceUrl: params.sourceLabel ?? null,
+          // M28 Priority G: ducking automation + honest master label travel
+          // into the receipt verbatim from the measured result.
+          ducking:
+            duckPlans.length > 0 && duckPlans[0].regions.length > 0
+              ? { regions: duckPlans[0].regions, config: duckPlans[0].config }
+              : null,
+          masterLabel: resultJson.masterLabel,
           warnings,
         },
       )

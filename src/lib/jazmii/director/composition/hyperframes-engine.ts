@@ -104,6 +104,26 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;')
 }
 
+/**
+ * M28 Priority D: measured audio duration of a local SFX asset (ffprobe —
+ * the real bytes, never the filename). Returns null when the file cannot be
+ * probed; the caller then keeps the limitation note instead of pretending.
+ */
+async function probeAudioDurationSec(file: string): Promise<number | null> {
+  try {
+    const res = await execFileP(
+      'ffprobe',
+      ['-v', 'error', '-show_entries', 'format=duration', '-of', 'json', file],
+      { timeout: 15_000, maxBuffer: 1_000_000 },
+    )
+    const d = (JSON.parse(res.stdout) as { format?: { duration?: string } }).format?.duration
+    const n = d ? Number(d) : Number.NaN
+    return Number.isFinite(n) && n > 0 ? n : null
+  } catch {
+    return null
+  }
+}
+
 /** JSON-stringified attribute value (safe single-quoted HTML attribute). */
 function attrJson(v: unknown): string {
   return escapeHtml(JSON.stringify(v))
@@ -129,6 +149,15 @@ function generateProject(
   projectDir: string,
   plan: CompositionPlan,
   gsapPath: string,
+  preparedSfx: Array<{
+    assetSrc: string
+    startSec: number
+    volume: number
+    durationSec: number | null
+    fadeInSeconds: number
+    fadeOutSeconds: number
+    label: string | null
+  }>,
 ): { indexHtml: string; totalDuration: number } {
   const { canvas, scenes, endCard, audio } = plan
   const W = canvas.width
@@ -235,6 +264,23 @@ function generateProject(
     audio.voiceoverPath
       ? `\n    <audio id="voiceover" src="assets/voiceover${path.extname(audio.voiceoverPath) || '.mp3'}" data-start="0" data-duration="${total}" data-volume="${audio.voiceoverVolume}"></audio>`
       : '',
+    // M28 Priority D: scene-timed sound effects use the SAME verified timed
+    // <audio> mechanism (multiple elements mix through the runtime's WebAudio
+    // graph; data-fade-in/out supported per element — measured in the shipped
+    // hyperframes@0.9.72 runtime). Placement/start/volume/fades come from the
+    // plan; the asset duration is MEASURED with ffprobe and clamped to the
+    // timeline end. Unsupported cases keep the honest limitation note.
+    ...preparedSfx.map((s, i) => {
+      const dur = s.durationSec !== null ? Math.min(s.durationSec, Math.max(0.05, total - s.startSec)) : null
+      return (
+        `\n    <audio id="sfx-${i}" src="${s.assetSrc}" data-start="${s.startSec.toFixed(3)}"` +
+        (dur !== null ? ` data-duration="${dur.toFixed(3)}"` : '') +
+        ` data-volume="${s.volume.toFixed(3)}"` +
+        (s.fadeInSeconds > 0 ? ` data-fade-in="${s.fadeInSeconds.toFixed(3)}"` : '') +
+        (s.fadeOutSeconds > 0 ? ` data-fade-out="${s.fadeOutSeconds.toFixed(3)}"` : '') +
+        `></audio>`
+      )
+    }),
   ].join('')
 
   const tlJs = timeline
@@ -370,7 +416,42 @@ export function createHyperframesCompositionEngine(): CompositionEngine {
       const gsap = resolveGsap()!
       await copyFile(gsap, path.join(assetsDir, 'vendor', 'gsap.min.js'))
 
-      const { indexHtml, totalDuration } = generateProject(projectDir, plan, gsap)
+      // M28 Priority D: scene-timed SFX are REAL now — each asset is copied
+      // into the composition, its duration MEASURED with ffprobe, and a timed
+      // <audio> element is generated with the verified data-* contract. The
+      // runtime mixes all elements through its WebAudio graph (same mechanism
+      // as the verified music bed + voiceover). An asset that cannot be
+      // probed keeps its element with a runtime-derived duration and an
+      // explicit note — never a silent drop, never a pretend success.
+      const preparedSfx: Array<{
+        assetSrc: string
+        startSec: number
+        volume: number
+        durationSec: number | null
+        fadeInSeconds: number
+        fadeOutSeconds: number
+        label: string | null
+      }> = []
+      const sfxProbeFailures: string[] = []
+      for (let i = 0; i < (plan.audio.sfx ?? []).length; i += 1) {
+        const s = plan.audio.sfx![i]
+        const ext = path.extname(s.path) || '.mp3'
+        const assetName = `sfx-${String(i).padStart(2, '0')}${ext}`
+        await copyFile(s.path, path.join(assetsDir, assetName))
+        const measured = await probeAudioDurationSec(path.join(assetsDir, assetName))
+        if (measured === null) sfxProbeFailures.push(s.label ?? assetName)
+        preparedSfx.push({
+          assetSrc: `assets/${assetName}`,
+          startSec: Math.max(0, s.startSec),
+          volume: Math.max(0, Math.min(1, s.volume)),
+          durationSec: measured,
+          fadeInSeconds: Math.max(0, Math.min(5, s.fadeInSeconds ?? 0)),
+          fadeOutSeconds: Math.max(0, Math.min(5, s.fadeOutSeconds ?? 0)),
+          label: s.label,
+        })
+      }
+
+      const { indexHtml, totalDuration } = generateProject(projectDir, plan, gsap, preparedSfx)
       await writeFile(path.join(projectDir, 'index.html'), indexHtml, 'utf8')
 
       // Scene clips (muted copies — the music bed carries the audio).
@@ -382,8 +463,7 @@ export function createHyperframesCompositionEngine(): CompositionEngine {
       }
       // M27: the voiceover uses the SAME pinned-runtime <audio> mechanism as
       // the music bed (measured: the HyperFrames renderer plays timed audio
-      // elements) — narration therefore works on BOTH engines. Sound effects
-      // are NOT applied here and get an honest limitation note instead.
+      // elements) — narration therefore works on BOTH engines.
       if (plan.audio.voiceoverPath) {
         await copyFile(plan.audio.voiceoverPath, path.join(assetsDir, `voiceover${path.extname(plan.audio.voiceoverPath) || '.mp3'}`))
       }
@@ -443,11 +523,29 @@ export function createHyperframesCompositionEngine(): CompositionEngine {
         notes.push('No audio track in the final video (no music or voiceover was supplied).')
       }
       if ((plan.audio.sfx?.length ?? 0) > 0) {
-        // M27 HONEST LIMITATION: the HyperFrames engine does not apply
-        // scene-timed sound effects — the FFmpeg engine does. Stated in the
-        // render notes (and therefore the receipt), never silently dropped.
+        // M28 Priority D: SFX ARE applied — the note records WHAT was mixed,
+        // and the real-render integration tests verify the audio stream.
         notes.push(
-          `${plan.audio.sfx!.length} sound effect(s) were NOT applied: the HyperFrames engine path does not support scene-timed SFX in this milestone — compose with the FFmpeg engine to include them.`,
+          `${preparedSfx.length} sound effect(s) mixed as timed audio elements at their planned positions ` +
+            `(${preparedSfx.map((s) => `${s.startSec.toFixed(2)}s@${s.volume.toFixed(2)}`).join(', ')})` +
+            (preparedSfx.some((s) => s.fadeInSeconds > 0 || s.fadeOutSeconds > 0) ? ', with requested fades' : '') +
+            '.',
+        )
+        if (sfxProbeFailures.length > 0) {
+          notes.push(
+            `${sfxProbeFailures.length} sound effect asset(s) could not be duration-probed (${sfxProbeFailures.join(', ')}); their elements rely on the runtime's media-derived duration — verify in the rendered output.`,
+          )
+        }
+        // Measured cross-engine honesty (2026-11-21, hyperframes@0.9.72):
+        // the runtime's WebAudio render graph applies a constant ≈ −18 dB
+        // offset vs source unity while data-volume stays linear (measured
+        // −6.02 dB per ×0.5). Absolute loudness therefore differs from the
+        // FFmpeg engine's unity mix; relative levels (ducking, fades, SFX
+        // balance) match. Delivery-critical mixes should finish with
+        // GANGZII loudness normalization (loudnorm), which both paths
+        // measure with EBUR128 afterwards.
+        notes.push(
+          'HyperFrames WebAudio mix gain staging measured ≈ −18 dB vs source unity (data-volume linear) — absolute loudness differs from the FFmpeg engine; normalize loudness for delivery-critical masters.',
         )
       }
 

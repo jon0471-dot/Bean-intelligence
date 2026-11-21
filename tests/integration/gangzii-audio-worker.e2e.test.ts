@@ -155,7 +155,7 @@ describe('GANGZII audio worker — real local speech end-to-end', () => {
     expect(receipt!.verificationSummary).toContain('ffprobe')
     expect(receipt!.verificationSummary).toContain('NOT a claim')
     const evidence = await db.trustEvidence.findMany({ where: { taskId: receipt!.id } })
-    expect(evidence.some((e) => e.kind === 'measurement' && e.title.includes('ffprobe'))).toBe(true)
+    expect(evidence.some((e) => e.kind === 'measurement' && e.title?.includes('ffprobe'))).toBe(true)
 
     // 4. Honest metering recorded the real work.
     const usage = await db.usageRecord.findFirst({ where: { userId: user.id, product: 'gangzii', kind: 'speech-synthesis' } })

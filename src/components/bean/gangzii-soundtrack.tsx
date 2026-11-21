@@ -53,6 +53,7 @@ interface ProductionJobView {
     durationSec?: number | null
     operations?: string[]
     warnings?: string[]
+    ducking?: Array<{ regions: Array<{ startSec: number; endSec: number }>; config: { duckTo: number; attackMs: number; releaseMs: number; curve: string; minMusicLevel: number } }>
   } | null
   queuedAt: string
 }
@@ -84,7 +85,14 @@ export function GangziiSoundtrack() {
   const [fadeIn, setFadeIn] = useState(0)
   const [fadeOut, setFadeOut] = useState(0)
   const [gain, setGain] = useState(1)
-  const [duck, setDuck] = useState(false)
+  const [duckMode, setDuckMode] = useState<'none' | 'static' | 'dynamic'>('none')
+  // M28 Priority C: dynamic ducking controls (deterministic automation from
+  // measured narration regions — the plan is recorded in the result).
+  const [duckRegions, setDuckRegions] = useState('')
+  const [duckDepth, setDuckDepth] = useState(0.35)
+  const [duckAttackMs, setDuckAttackMs] = useState(150)
+  const [duckReleaseMs, setDuckReleaseMs] = useState(400)
+  const [duckCurve, setDuckCurve] = useState<'cosine' | 'linear'>('cosine')
   const [loudnessTarget, setLoudnessTarget] = useState<number | null>(null)
   const [outputFormat, setOutputFormat] = useState<'wav' | 'mp3' | 'm4a'>('wav')
   const [producing, setProducing] = useState(false)
@@ -151,12 +159,32 @@ export function GangziiSoundtrack() {
       setError('Pick a source asset to process.')
       return
     }
-    const operations: Array<{ op: string; params?: Record<string, number | string | boolean> }> = []
+    const operations: Array<{ op: string; params?: Record<string, unknown> }> = []
     if (trimStart > 0 || trimEnd > 0) operations.push({ op: 'trim', params: { startSec: trimStart, endSec: trimEnd } })
     if (fadeIn > 0) operations.push({ op: 'fade-in', params: { durationSec: fadeIn } })
     if (fadeOut > 0) operations.push({ op: 'fade-out', params: { durationSec: fadeOut } })
     if (gain !== 1) operations.push({ op: 'volume', params: { gain } })
-    if (duck) operations.push({ op: 'duck', params: { duckTo: 0.35 } })
+    if (duckMode === 'static') operations.push({ op: 'duck', params: { duckTo: 0.35 } })
+    if (duckMode === 'dynamic') {
+      // Regions are typed "start-end, start-end" in seconds and parsed
+      // client-side for preview; the server re-bounds everything anyway.
+      const regions = duckRegions
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => {
+          const [a, b] = part.split('-').map((v) => Number(v.trim()))
+          return { startSec: a, endSec: b }
+        })
+      if (regions.length === 0 || regions.some((r) => !Number.isFinite(r.startSec) || !Number.isFinite(r.endSec))) {
+        setError('Dynamic ducking needs narration regions like "1.5-4.5, 8.0-10.0" (seconds).')
+        return
+      }
+      operations.push({
+        op: 'duck-dynamic',
+        params: { regions, duckTo: duckDepth, attackMs: duckAttackMs, releaseMs: duckReleaseMs, curve: duckCurve },
+      })
+    }
     if (loudnessTarget !== null) operations.push({ op: 'normalize-loudness', params: { targetLufs: loudnessTarget } })
     if (operations.length === 0) {
       setError('Pick at least one operation (trim, fade, volume, duck or loudness).')
@@ -325,14 +353,58 @@ export function GangziiSoundtrack() {
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 text-xs text-[#bfa860]">
-                <input type="checkbox" checked={duck} onChange={(e) => setDuck(e.target.checked)} className="accent-[#d4af37]" />
-                Duck under narration (static −65% bed volume)
+                <span>Ducking</span>
+                <select
+                  className={inputCls + ' w-44'}
+                  value={duckMode}
+                  onChange={(e) => setDuckMode(e.target.value as 'none' | 'static' | 'dynamic')}
+                >
+                  <option value="none">None</option>
+                  <option value="static">Static (whole track −65%)</option>
+                  <option value="dynamic">Dynamic (timeline-aware)</option>
+                </select>
               </label>
               <label className="flex items-center gap-2 text-xs text-[#bfa860]">
                 <input type="checkbox" checked={loudnessTarget !== null} onChange={(e) => setLoudnessTarget(e.target.checked ? -16 : null)} className="accent-[#d4af37]" />
                 Loudness normalize (one-pass loudnorm → −16 LUFS / −1.5 dBTP)
               </label>
             </div>
+            {duckMode === 'dynamic' && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <label className="text-xs text-[#bfa860] sm:col-span-3">
+                  Narration regions (seconds, "start-end", comma-separated — from the narration timing panel)
+                  <input
+                    className={inputCls}
+                    value={duckRegions}
+                    onChange={(e) => setDuckRegions(e.target.value)}
+                    placeholder="1.5-4.5, 8.0-10.0"
+                  />
+                </label>
+                <label className="text-xs text-[#bfa860]">
+                  Depth (bed level under speech)
+                  <input type="number" min={0.05} max={1} step={0.05} className={inputCls} value={duckDepth} onChange={(e) => setDuckDepth(Number(e.target.value) || 0.35)} />
+                </label>
+                <label className="text-xs text-[#bfa860]">
+                  Attack (ms)
+                  <input type="number" min={0} max={2000} step={10} className={inputCls} value={duckAttackMs} onChange={(e) => setDuckAttackMs(Number(e.target.value) || 0)} />
+                </label>
+                <label className="text-xs text-[#bfa860]">
+                  Release (ms)
+                  <input type="number" min={0} max={2000} step={10} className={inputCls} value={duckReleaseMs} onChange={(e) => setDuckReleaseMs(Number(e.target.value) || 0)} />
+                </label>
+                <label className="text-xs text-[#bfa860]">
+                  Curve
+                  <select className={inputCls} value={duckCurve} onChange={(e) => setDuckCurve(e.target.value as 'cosine' | 'linear')}>
+                    <option value="cosine">Cosine (smooth)</option>
+                    <option value="linear">Linear</option>
+                  </select>
+                </label>
+                <p className="text-[11px] text-[#8a7326] sm:col-span-3">
+                  Deterministic timeline automation from the declared narration regions — not sidechain compression. The applied plan
+                  (regions, depth, attack, release, sampled curve) is recorded with the result and in the Trust receipt.
+                </p>
+              </div>
+            )}
             <button className={btnCls} onClick={produce} disabled={producing}>
               {producing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SlidersHorizontal className="h-3.5 w-3.5" />}
               Queue production job
@@ -357,6 +429,11 @@ export function GangziiSoundtrack() {
                     </span>
                   )}
                   {j.result?.masterLabel && <span className="text-[11px] text-[#8a7326]">{j.result.masterLabel}</span>}
+                  {j.result?.ducking && Array.isArray(j.result.ducking) && j.result.ducking.length > 0 && (
+                    <span className="text-[11px] text-[#7dd87d]">
+                      dynamic ducking: {j.result.ducking[0].regions?.length ?? 0} region(s), depth {j.result.ducking[0].config?.duckTo}, attack {j.result.ducking[0].config?.attackMs} ms
+                    </span>
+                  )}
                 </div>
                 {j.status === 'failed' && <p className="mt-1 text-xs text-red-300">{j.errorMessage}{j.errorCode ? ` (${j.errorCode})` : ''}</p>}
                 {j.result?.warnings && j.result.warnings.length > 0 && (

@@ -72,8 +72,36 @@ interface EngineStatus {
     installing: boolean
     installProgress: { file: string; receivedBytes: number } | null
     health: { healthy: boolean; detail: string; latencyMs: number | null }
+    /** M28: artifact provenance/integrity summary (null when not installed). */
+    integrity: {
+      state: string
+      canonicalCommitSha: string | null
+      checksumSource: string | null
+      filesVerified: number
+      filesTotal: number
+      missing: string[]
+      unexpected: string[]
+      modifiedCount: number
+      notes: string[]
+    } | null
   }
   metadata: { licenses: Record<string, string> }
+}
+
+/** M28: honest, human-readable provenance state for the engine card. */
+function provenanceLabel(state: string): string {
+  switch (state) {
+    case 'canonical-verified':
+      return 'canonically verified (Hugging Face revision pinned by exact commit)'
+    case 'mirror-hash-verified':
+      return 'verified against the download mirror — canonical Hugging Face cross-verification still pending'
+    case 'pending-verification':
+      return 'installed, provenance pending verification'
+    case 'not-installed':
+      return 'not installed'
+    default:
+      return state
+  }
 }
 
 function fmtBytes(n: number): string {
@@ -326,6 +354,24 @@ export function GangziiNarration() {
           <p className="mt-2 text-[11px] leading-relaxed text-[#8a7326]">
             Licenses — weights: {engine.metadata.licenses.weights}; code: {engine.metadata.licenses.code}; phonemizer dependency: {engine.metadata.licenses.dependency}
           </p>
+        )}
+        {engine?.status.installed && engine.status.integrity && (
+          <div className="mt-2 rounded-lg border border-[rgba(212,175,55,0.12)] bg-black/20 p-2.5">
+            <p className="text-[11px] text-[#bfa860]">
+              Artifact provenance:{' '}
+              <span className={engine.status.integrity.state === 'canonical-verified' ? 'text-[#7dd87d]' : 'text-[#e0c184]'}>
+                {provenanceLabel(engine.status.integrity.state)}
+              </span>
+              {engine.status.integrity.checksumSource ? ` — checksum source: ${engine.status.integrity.checksumSource}` : ''}
+              {engine.status.integrity.canonicalCommitSha ? ` — canonical commit ${engine.status.integrity.canonicalCommitSha.slice(0, 12)}` : ''}
+              {`. Files verified ${engine.status.integrity.filesVerified}/${engine.status.integrity.filesTotal}, ${engine.status.integrity.modifiedCount} modified, ${engine.status.integrity.missing.length} missing, ${engine.status.integrity.unexpected.length} unexpected.`}
+            </p>
+            {engine.status.integrity.state !== 'canonical-verified' && (
+              <p className="mt-1 text-[10px] leading-relaxed text-[#8a7326]">
+                Final canonical verification runs on a machine with Hugging Face access: <code>bun scripts/m28-verify-kokoro-provenance.ts</code> — it pins the exact commit, compares every artifact byte-for-byte and upgrades this state. Nothing here claims more than was actually checked.
+              </p>
+            )}
+          </div>
         )}
       </div>
 

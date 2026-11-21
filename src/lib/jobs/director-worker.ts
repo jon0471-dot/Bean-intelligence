@@ -418,6 +418,12 @@ async function runProductionOrchestration(job: JobRow): Promise<void> {
       voiceoverPath: audioTrackAbs(plan, workspace, 'voiceover'),
       voiceoverVolume: 1.0,
       sfx: audioSfxInputs(plan, workspace),
+      // M28 Priority C: narration-active regions from the MEASURED segment
+      // timing written at attach time (narration-timing.json). Only measured
+      // durations become ducking regions — unknown timings are never guessed;
+      // without regions the honest static duck applies.
+      voiceoverActiveRegions: narrationDuckRegions(production.id, production.userId) ?? undefined,
+      duck: storyboardDuckParams(plan),
     },
     workDir: workspace,
     outputPath,
@@ -1064,12 +1070,44 @@ function audioTrackAttribution(plan: ApprovedPlan, role: 'music' | 'voiceover'):
 }
 
 /**
+ * M28 Priority C: narration-active regions for dynamic ducking, read from
+ * the MEASURED narration-timing.json written when the voiceover was attached.
+ * Only segments with a measured duration contribute; the returned regions
+ * are the union of the segment windows (bounded by the duck module's cap).
+ * No file / no measured timings → null (the engine then applies the honest
+ * static duck and says so — timings are never guessed).
+ */
+function narrationDuckRegions(productionId: string, userId: string): Array<{ startSec: number; endSec: number }> | null {
+  try {
+    const timingPath = path.join(productionDir(userId, productionId), 'audio', 'narration-timing.json')
+    if (!fs.existsSync(timingPath)) return null
+    const parsed = JSON.parse(fs.readFileSync(timingPath, 'utf8')) as {
+      segments?: Array<{ approximateStartSec?: number; durationMs?: number | null }>
+    }
+    const regions = (parsed.segments ?? [])
+      .filter((s) => Number.isFinite(s.approximateStartSec) && Number.isFinite(s.durationMs) && (s.durationMs ?? 0) > 0)
+      .map((s) => ({ startSec: Math.max(0, s.approximateStartSec as number), endSec: (s.approximateStartSec as number) + (s.durationMs as number) / 1000 }))
+      .sort((a, b) => a.startSec - b.startSec)
+      .slice(0, 50)
+    return regions.length > 0 ? regions : null
+  } catch {
+    logger.warn('jazmii.composition.narration_timing_unreadable', { productionId })
+    return null
+  }
+}
+
+/** M28: user-configured ducking overrides from the approved plan (optional). */
+function storyboardDuckParams(plan: ApprovedPlan): { duckTo?: number; attackMs?: number; releaseMs?: number; curve?: 'linear' | 'cosine'; minMusicLevel?: number } | undefined {
+  return plan.duckParams
+}
+
+/**
  * M27: scene-timed SFX from the approved plan (bounded to 4). Paths resolve
  * against the production audio dir; a missing file is DROPPED WITH A NOTE —
  * never silently mixed as silence, never a hard failure of the whole
  * production.
  */
-function audioSfxInputs(plan: ApprovedPlan, workspace: string): Array<{ path: string; startSec: number; volume: number; label: string | null }> {
+function audioSfxInputs(plan: ApprovedPlan, workspace: string): Array<{ path: string; startSec: number; volume: number; label: string | null; fadeInSeconds?: number; fadeOutSeconds?: number }> {
   return plan.audioTracks
     .filter((t) => t.role === 'sfx')
     .slice(0, 4)
@@ -1080,6 +1118,9 @@ function audioSfxInputs(plan: ApprovedPlan, workspace: string): Array<{ path: st
         startSec: Math.max(0, t.startSec ?? 0),
         volume: Math.max(0.05, Math.min(1, t.volume ?? 0.9)),
         label: t.attribution ?? null,
+        // M28 Priority D: per-effect fades pass through to both engines.
+        fadeInSeconds: t.fadeInSeconds,
+        fadeOutSeconds: t.fadeOutSeconds,
         exists: fs.existsSync(abs),
       }
     })
@@ -1090,7 +1131,14 @@ function audioSfxInputs(plan: ApprovedPlan, workspace: string): Array<{ path: st
       }
       return true
     })
-    .map(({ path: p, startSec, volume, label }) => ({ path: p, startSec, volume, label }))
+    .map(({ path: p, startSec, volume, label, fadeInSeconds, fadeOutSeconds }) => ({
+      path: p,
+      startSec,
+      volume,
+      label,
+      ...(fadeInSeconds !== undefined ? { fadeInSeconds } : {}),
+      ...(fadeOutSeconds !== undefined ? { fadeOutSeconds } : {}),
+    }))
 }
 
 export { latestValidTrustCheckpoint }

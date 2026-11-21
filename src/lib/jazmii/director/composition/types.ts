@@ -54,11 +54,12 @@ export interface CompositionPlan {
     voiceoverPath: string | null
     voiceoverVolume: number
     /**
-     * M27 (2026-11-21): scene-timed sound effects. Each entry is an absolute
-     * local path placed at an exact timeline position. The FFmpeg engine
-     * mixes them with adelay+volume; the HyperFrames engine does NOT apply
-     * them and records an honest limitation note instead (never a silent
-     * drop).
+     * M27/M28: scene-timed sound effects. Each entry is an absolute local
+     * path placed at an exact timeline position. BOTH engines apply them:
+     * the FFmpeg engine mixes them with adelay+volume (+afade); the
+     * HyperFrames engine generates timed <audio> elements with the runtime's
+     * verified data-* contract (M28 Priority D). Unsupported behaviors keep
+     * explicit limitation notes — never a silent drop.
      */
     sfx?: Array<{
       path: string
@@ -68,7 +69,31 @@ export interface CompositionPlan {
       volume: number
       /** Attribution/label recorded verbatim in the render metadata. */
       label: string | null
+      /**
+       * M28 Priority D: optional per-effect fades (seconds, 0–5). The FFmpeg
+       * engine applies them via afade; the HyperFrames engine maps them to
+       * the runtime's verified data-fade-in/data-fade-out element contract.
+       */
+      fadeInSeconds?: number
+      fadeOutSeconds?: number
     }>
+    /**
+     * M28 Priority C: narration-active regions on the composition timeline
+     * (from MEASURED narration segment timing — never waveform guessing).
+     * When present AND a voiceover exists, the FFmpeg engine drives the
+     * music with timeline-aware dynamic ducking (deterministic curve from
+     * src/lib/gangzii/ducking.ts — NOT sidechain compression). When absent,
+     * the M27 static duck applies with its honest note.
+     */
+    voiceoverActiveRegions?: Array<{ startSec: number; endSec: number }>
+    /** User-configurable ducking overrides (depth/attack/release/shape/floor). */
+    duck?: {
+      duckTo?: number
+      attackMs?: number
+      releaseMs?: number
+      curve?: 'linear' | 'cosine'
+      minMusicLevel?: number
+    }
   }
   /** Work directory (absolute) the engine may use for intermediates. */
   workDir: string

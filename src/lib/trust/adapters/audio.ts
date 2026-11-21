@@ -51,7 +51,26 @@ export interface AudioStreamFacts {
 export interface AudioLoudnessFacts {
   integratedLufs?: number | null
   truePeakDbtp?: number | null
+  /** M28: unit exactly as ffmpeg printed it (dBFS in modern summaries). */
+  truePeakUnit?: 'dBFS' | 'dBTP' | null
+  loudnessRangeLu?: number | null
   measuredBy?: string // e.g. 'ffmpeg ebur128'
+}
+
+export interface AudioModelIdentity {
+  repo?: string
+  revision?: string | null
+  revisionCommit?: string | null
+  dtype?: string
+  /** M28 provenance state from the integrity verifier (verbatim). */
+  artifactProvenance?: string | null
+  checksumSource?: string | null
+  canonicalCommitSha?: string | null
+}
+
+export interface AudioDuckingFacts {
+  regions: Array<{ startSec: number; endSec: number }>
+  config: { duckTo: number; attackMs: number; releaseMs: number; curve: string; minMusicLevel: number }
 }
 
 export interface AudioReceiptResult {
@@ -80,6 +99,14 @@ export interface AudioReceiptResult {
   sourceUrl?: string | null
   /** Mixing op summary (operations actually applied). */
   operations?: string[] | null
+  /** M28 Priority G: the exact model identity + artifact provenance used. */
+  modelIdentity?: AudioModelIdentity | null
+  /** M28 Priority G: the deterministic ducking automation actually applied. */
+  ducking?: AudioDuckingFacts | null
+  /** M28 Priority G: segment timing facts (narration joins). */
+  timelineFacts?: { segments: number; timingLevel: string } | null
+  /** M28: honest master label (measured-master vs processed-audio). */
+  masterLabel?: string | null
 }
 
 export interface AudioJobFailure {
@@ -160,6 +187,55 @@ function streamFactsNote(stream: AudioStreamFacts): string {
 }
 
 /**
+ * M28 Priority G: the SIX verification states, recorded structurally and
+ * kept distinct — never collapsed into a generic `verified`.
+ *  1. model-artifact-integrity        — provenance state of the exact model
+ *                                       revision used (not-applicable for
+ *                                       hosted engines; stated, not hidden)
+ *  2. speech-generated                — the engine actually produced audio
+ *  3. audio-technically-validated     — ffprobe stream facts measured
+ *  4. audio-timeline-synchronized     — measured segment timing present
+ *  5. user-listened-and-approved      — ALWAYS false from automation: only a
+ *                                       human can set this (GANGZII review
+ *                                       sheet / owner sign-off)
+ *  6. aesthetic-quality-independent-verification — never performed by code
+ */
+export interface AudioVerificationStates {
+  'model-artifact-integrity': string
+  'speech-generated': boolean
+  'audio-technically-validated': 'ffprobe-stream-facts' | 'not-run'
+  'audio-timeline-synchronized': 'measured-segment-timing' | 'not-applicable'
+  'user-listened-and-approved': false
+  'aesthetic-quality-independent-verification': 'not-performed'
+}
+
+function sixStateVerification(result: AudioReceiptResult, input: AudioJobInput): AudioVerificationStates {
+  const hosted = result.engine ? /hosted/i.test(result.engine) : false
+  return {
+    'model-artifact-integrity': hosted
+      ? 'not-applicable (hosted gateway engine — no local artifact to verify)'
+      : result.modelIdentity?.artifactProvenance ?? 'not-recorded',
+    'speech-generated': input.kind === 'speech-synthesis' || input.kind === 'audio-production',
+    'audio-technically-validated': result.stream?.validatedBy === 'ffprobe' ? 'ffprobe-stream-facts' : 'not-run',
+    'audio-timeline-synchronized': result.timelineFacts ? 'measured-segment-timing' : 'not-applicable',
+    'user-listened-and-approved': false,
+    'aesthetic-quality-independent-verification': 'not-performed',
+  }
+}
+
+function sixStateNote(states: AudioVerificationStates): string {
+  return (
+    `Verification states (kept distinct, never a generic "verified"): ` +
+    `model-integrity=${states['model-artifact-integrity']}; ` +
+    `speech-generated=${states['speech-generated']}; ` +
+    `technically-validated=${states['audio-technically-validated']}; ` +
+    `timeline-synchronized=${states['audio-timeline-synchronized']}; ` +
+    `user-listened-and-approved=false (awaiting human review); ` +
+    `aesthetic-quality=not-performed (automation cannot judge).`
+  )
+}
+
+/**
  * Record the full receipt for a COMPLETED audio job and settle it honestly
  * from the actual result + the applicable validation.
  */
@@ -195,10 +271,46 @@ export async function recordAudioJobCompletion(input: AudioJobInput, result: Aud
         bytes: result.bytes ?? null,
         durationMs: result.durationMs ?? null,
         operations: result.operations ?? null,
+        // M28 Priority G evidence: exact model identity + provenance, the
+        // ducking automation that ran, timeline facts, master label.
+        modelIdentity: result.modelIdentity ?? null,
+        ducking: result.ducking ?? null,
+        timelineFacts: result.timelineFacts ?? null,
+        masterLabel: result.masterLabel ?? null,
         transcriptChars: result.transcript ? result.transcript.length : null,
         warnings,
       }).slice(0, TRUST_LIMITS.detailJson),
     })
+
+    // M28 Priority G evidence: model identity + artifact provenance state
+    // recorded as its own measurement row (the receipt shows WHAT produced
+    // the audio and how trustworthy that artifact chain is).
+    if (result.modelIdentity?.repo) {
+      await addTrustEvidence(task.id, {
+        kind: 'measurement',
+        stepSeq: AUDIO_STEPS[0].seq,
+        ref: result.modelIdentity.repo,
+        title: 'Model identity and artifact provenance (M28)',
+        note: [
+          result.modelIdentity.revision ? `revision=${result.modelIdentity.revision}` : null,
+          result.modelIdentity.dtype ? `dtype=${result.modelIdentity.dtype}` : null,
+          `artifactProvenance=${result.modelIdentity.artifactProvenance ?? 'not-recorded'}`,
+          result.modelIdentity.checksumSource ? `checksumSource=${result.modelIdentity.checksumSource}` : null,
+          result.modelIdentity.canonicalCommitSha ? `canonicalCommit=${result.modelIdentity.canonicalCommitSha}` : null,
+        ].filter(Boolean).join('; '),
+        origin: 'extracted',
+      })
+    }
+    if (result.ducking && result.ducking.regions.length > 0) {
+      await addTrustEvidence(task.id, {
+        kind: 'measurement',
+        stepSeq: AUDIO_STEPS[0].seq,
+        ref: input.jobId,
+        title: 'Dynamic ducking automation applied (M28)',
+        note: `${result.ducking.regions.length} region(s); duckTo=${result.ducking.config.duckTo}, attack=${result.ducking.config.attackMs} ms, release=${result.ducking.config.releaseMs} ms, ${result.ducking.config.curve} curve — timeline-driven (NOT sidechain compression)`,
+        origin: 'extracted',
+      })
+    }
 
     // Evidence: the delivered artifact (reference, never a copy).
     if (result.artifactUrl) {
@@ -241,6 +353,17 @@ export async function recordAudioJobCompletion(input: AudioJobInput, result: Aud
     // Validation: ffprobe stream facts are the applicable technical check.
     let verificationSummary: string
     let outcome: 'completed' | 'completed_with_limitations' = 'completed'
+    // M28 Priority G: the six verification states are computed from the
+    // ACTUAL result and recorded as evidence + appended to the summary.
+    const states = sixStateVerification(result, input)
+    await addTrustEvidence(task.id, {
+      kind: 'measurement',
+      stepSeq: AUDIO_STEPS[1].seq,
+      ref: result.artifactUrl ?? input.jobId,
+      title: 'Verification states (six distinct states — M28)',
+      note: sixStateNote(states),
+      origin: 'extracted',
+    })
 
     if (result.stream && result.stream.validatedBy === 'ffprobe') {
       const stream = result.stream
@@ -278,7 +401,8 @@ export async function recordAudioJobCompletion(input: AudioJobInput, result: Aud
         (result.loudness?.integratedLufs !== undefined && result.loudness?.integratedLufs !== null
           ? `; loudness measured at ${result.loudness.integratedLufs} LUFS integrated`
           : '') +
-        '. This confirms a real, decodable audio file — it is NOT a claim that the speech content is correct or that the audio sounds good; no listening review was performed by automation.'
+        '. This confirms a real, decodable audio file — it is NOT a claim that the speech content is correct or that the audio sounds good; no listening review was performed by automation. ' +
+        sixStateNote(states)
     } else {
       await updateTrustStepStatus(task.id, AUDIO_STEPS[1].seq, 'skipped', {
         errorNote: 'no ffprobe stream facts were recorded for this artifact',
@@ -287,7 +411,7 @@ export async function recordAudioJobCompletion(input: AudioJobInput, result: Aud
       limitations.push(
         'The audio file exists and was persisted, but no ffprobe stream validation was recorded for it; no technical-quality claim is made.',
       )
-      verificationSummary = 'Audio persisted; automated validation did not run, so no technical-quality claim is made.'
+      verificationSummary = 'Audio persisted; automated validation did not run, so no technical-quality claim is made. ' + sixStateNote(states)
     }
 
     // Honest limitations: warnings (partial chunks, beep guard, engine
