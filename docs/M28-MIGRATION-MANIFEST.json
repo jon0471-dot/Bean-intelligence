@@ -1,0 +1,922 @@
+{
+ "schema": "bean.m28slm.migration-manifest/1.0",
+ "generated": "2026-11-21",
+ "milestone": "M28-SLM",
+ "destination_base": {
+  "sha": "e96d83a5196f45712350aaf41d13a1e5dfcebae7",
+  "short": "e96d83a",
+  "role": "PR #4 local reconciliation \u2014 verified sanitized integration candidate",
+  "verified_ancestry": [
+   "4d134c5794cfe92ff7c8e477f536075e7c8bffb0",
+   "18c93ed7b1e433bb1c06c0a803d5adff0dcaf064",
+   "8f61599271b1aa66e86a2c4956f6dc01eef8b737"
+  ]
+ },
+ "migration_branch": "reconcile/sanitized-m27-m28-migration",
+ "policy": {
+  "history_rewrite": "prohibited",
+  "remote_push": "prohibited",
+  "old_lineage_import": "prohibited",
+  "merge_commit_transplant": "prohibited"
+ },
+ "groups": [
+  {
+   "id": "G1",
+   "order": 1,
+   "feature": "Trust Engine foundation",
+   "technique": "D",
+   "required_predecessors": [],
+   "destination_base": "e96d83a5196f45712350aaf41d13a1e5dfcebae7",
+   "security_review": "review-required: prisma schema merge; trust API routes (owner-checked)",
+   "verification_requirements": "prisma validate + client regen; trust unit suite; tsc/eslint",
+   "migration_status": "Ready for migration (adaptation flagged)",
+   "members": [
+    {
+     "source_sha": "826bf8c8e383e293a4d3dd4ffde01aad476e3479",
+     "short": "826bf8c",
+     "subject": "feat(trust): Trust Engine foundation \u2014 truthful lifecycle, execution receipts, scoped approvals, checkpoints",
+     "is_merge": false,
+     "files": 21,
+     "insertions": 2993,
+     "deletions": 0,
+     "file_paths": [
+      "prisma/schema.prisma",
+      "src/app/api/trust/tasks/[id]/approvals/[approvalId]/route.ts",
+      "src/app/api/trust/tasks/[id]/cancel/route.ts",
+      "src/app/api/trust/tasks/[id]/receipt/route.ts",
+      "src/app/api/trust/tasks/[id]/route.ts",
+      "src/app/api/trust/tasks/route.ts",
+      "src/app/page.tsx",
+      "src/components/bean/shell.tsx",
+      "src/components/bean/tasks.tsx",
+      "src/lib/ai-engine/riishe-chat-handler.ts",
+      "src/lib/trust/adapters/riishe.ts",
+      "src/lib/trust/approvals.ts",
+      "src/lib/trust/checkpoints.ts",
+      "src/lib/trust/digest.ts",
+      "src/lib/trust/receipt.ts",
+      "src/lib/trust/tasks.ts",
+      "src/lib/trust/types.ts",
+      "tests/helpers/trust-fake-db.ts",
+      "tests/unit/trust-approvals.test.ts",
+      "tests/unit/trust-lifecycle.test.ts",
+      "tests/unit/trust-receipt.test.ts"
+     ],
+     "patch_id": "7e9f9f3481cec514cd5e48b374d538c73d667262"
+    }
+   ]
+  },
+  {
+   "id": "G2",
+   "order": 2,
+   "feature": "February 2027 documentation set",
+   "technique": "A/B",
+   "required_predecessors": [],
+   "destination_base": "result-of-G0",
+   "security_review": "clean: docs only; historical old-line SHA references acceptable as record",
+   "verification_requirements": "docs presence; no path collisions",
+   "migration_status": "Ready for migration (adaptation flagged)",
+   "members": [
+    {
+     "source_sha": "b1a21c2a4306086d2adfb12c9c9cc1f1645e15be",
+     "short": "b1a21c2",
+     "subject": "docs(feb2027): February 2027 launch documentation set",
+     "is_merge": false,
+     "files": 10,
+     "insertions": 597,
+     "deletions": 0,
+     "file_paths": [
+      "docs/feb2027/01-PRODUCT-STRATEGY.md",
+      "docs/feb2027/02-BASELINE-INVENTORY.md",
+      "docs/feb2027/03-PHASE-PLAN.md",
+      "docs/feb2027/04-TRUST-ENGINE-SPEC.md",
+      "docs/feb2027/05-AGENT-CAPABILITY-MATRIX.md",
+      "docs/feb2027/06-MODEL-RUNTIME-MATRIX.md",
+      "docs/feb2027/07-SECURITY-RELEASE-CHECKLIST.md",
+      "docs/feb2027/08-LAUNCH-ACCEPTANCE-PLAN.md",
+      "docs/feb2027/09-DEPLOYMENT-RUNBOOK.md",
+      "docs/feb2027/README.md"
+     ],
+     "patch_id": "f4efa906d11ac3af8286f36a970b44e88debb0c4"
+    },
+    {
+     "source_sha": "614557864e04c803a9e07d7d145ee5ab0bbede53",
+     "short": "6145578",
+     "subject": "docs(feb2027): completion report with exact evidence (Phase 0 + Phase 1 foundation)",
+     "is_merge": false,
+     "files": 1,
+     "insertions": 118,
+     "deletions": 0,
+     "file_paths": [
+      "docs/feb2027/10-COMPLETION-REPORT.md"
+     ],
+     "patch_id": "534f9f5a8579da53aaadd1504363aac00d192aa5"
+    },
+    {
+     "source_sha": "7a64e18cf1a96ec399181959666f120293c9960d",
+     "short": "7a64e18",
+     "subject": "docs(feb2027): completion report \u2014 final commit graph + workspace-recycle incident record",
+     "is_merge": false,
+     "files": 1,
+     "insertions": 29,
+     "deletions": 6,
+     "file_paths": [
+      "docs/feb2027/10-COMPLETION-REPORT.md"
+     ],
+     "patch_id": "c46b6eae86525a0522717b9bccef82e5f93c02f6"
+    }
+   ]
+  },
+  {
+   "id": "G3",
+   "order": 3,
+   "feature": "Trust Phase 1 checkpoint resume + product adapters",
+   "technique": "A (fallback B/D)",
+   "required_predecessors": [
+    "G1"
+   ],
+   "destination_base": "result-of-G1",
+   "security_review": "review-required: touches workers + riishe chat route wiring",
+   "verification_requirements": "trust resume/checkpoint unit tests; worker registration smoke",
+   "migration_status": "Ready for migration (adaptation flagged)",
+   "members": [
+    {
+     "source_sha": "2a9b4cbd9d5baebe9aefc3a3006191bf27efa63f",
+     "short": "2a9b4cb",
+     "subject": "feat(trust): Phase 1 \u2014 executor checkpoint resume + product adapters",
+     "is_merge": false,
+     "files": 14,
+     "insertions": 1948,
+     "deletions": 37,
+     "file_paths": [
+      "src/app/api/code-giftz/projects/[id]/file-ops/execute/route.ts",
+      "src/app/api/riishe/chat/route.ts",
+      "src/app/api/trust/tasks/[id]/cancel/route.ts",
+      "src/app/api/trust/tasks/[id]/resume/route.ts",
+      "src/lib/ai-engine/riishe-chat-handler.ts",
+      "src/lib/jobs/image-worker.ts",
+      "src/lib/jobs/video-worker.ts",
+      "src/lib/trust/adapters/code-giftz.ts",
+      "src/lib/trust/adapters/media.ts",
+      "src/lib/trust/adapters/riishe.ts",
+      "src/lib/trust/resume.ts",
+      "tests/unit/trust-code-giftz.test.ts",
+      "tests/unit/trust-media.test.ts",
+      "tests/unit/trust-resume.test.ts"
+     ],
+     "patch_id": "d8a0ac07e2bd6dee23701ac9317ebd0a42d7911a"
+    }
+   ]
+  },
+  {
+   "id": "G4",
+   "order": 4,
+   "feature": "JAZMII Auto Director",
+   "technique": "A/D (schema+lock merge on d2d6a4a3, f91096e1)",
+   "required_predecessors": [
+    "G1",
+    "G3"
+   ],
+   "destination_base": "result-of-G3",
+   "security_review": "review-required: prisma schema merge (director models)",
+   "verification_requirements": "director unit suite; HyperFrames pinned-render composition test (real render)",
+   "migration_status": "Ready for migration (adaptation flagged)",
+   "members": [
+    {
+     "source_sha": "3a28bfe85cb3d3cf36c3b462c9c79b760fc846cb",
+     "short": "3a28bfe",
+     "subject": "feat(jazmii): Auto Director foundation \u2014 storyboard schema, Creative Director planner, composition engine adap",
+     "is_merge": false,
+     "files": 7,
+     "insertions": 1879,
+     "deletions": 0,
+     "file_paths": [
+      "src/lib/jazmii/director/composition/ffmpeg-engine.ts",
+      "src/lib/jazmii/director/composition/hyperframes-engine.ts",
+      "src/lib/jazmii/director/composition/index.ts",
+      "src/lib/jazmii/director/composition/types.ts",
+      "src/lib/jazmii/director/media.ts",
+      "src/lib/jazmii/director/planner.ts",
+      "src/lib/jazmii/director/schema.ts"
+     ],
+     "patch_id": "b3e500c850785d57f1518b928c5ea9fb03c413e0"
+    },
+    {
+     "source_sha": "d2d6a4a3ce0d18faed8e5215430d5d2bbabe7293",
+     "short": "d2d6a4a",
+     "subject": "feat(jazmii): Auto Director production orchestration on the durable queue",
+     "is_merge": false,
+     "files": 5,
+     "insertions": 1075,
+     "deletions": 0,
+     "file_paths": [
+      "prisma/schema.prisma",
+      "src/lib/ai-engine/handlers.ts",
+      "src/lib/jobs/director-worker.ts",
+      "src/lib/registry/backends.ts",
+      "src/lib/registry/products.ts"
+     ],
+     "patch_id": "164a273debbdc98e4067ed84c3e8b20711b3a40f"
+    },
+    {
+     "source_sha": "91fb59cf44ea3c8b3aa5f5f53d4187eac70e42d1",
+     "short": "91fb59c",
+     "subject": "feat(jazmii): Auto Director API + workspace UI",
+     "is_merge": false,
+     "files": 10,
+     "insertions": 1225,
+     "deletions": 4,
+     "file_paths": [
+      "next.config.ts",
+      "src/app/api/jazmii/director/[id]/approve/route.ts",
+      "src/app/api/jazmii/director/[id]/audio/route.ts",
+      "src/app/api/jazmii/director/[id]/cancel/route.ts",
+      "src/app/api/jazmii/director/[id]/deliverables/[file]/route.ts",
+      "src/app/api/jazmii/director/[id]/regenerate/route.ts",
+      "src/app/api/jazmii/director/[id]/route.ts",
+      "src/app/api/jazmii/director/route.ts",
+      "src/components/bean/jazmii-director.tsx",
+      "src/components/bean/jazmii.tsx"
+     ],
+     "patch_id": "b2200a4de3a75842bd9014d4f50f7263ad56528a"
+    },
+    {
+     "source_sha": "f91096e110eba12357418f7228a503751d0dbd98",
+     "short": "f91096e",
+     "subject": "test(jazmii): Auto Director verification suite + pinned HyperFrames dependency",
+     "is_merge": false,
+     "files": 10,
+     "insertions": 1375,
+     "deletions": 5,
+     "file_paths": [
+      "bun.lock",
+      "package.json",
+      "scripts/director-hyperframes-e2e.ts",
+      "tests/helpers/director-fake-db.ts",
+      "tests/unit/core.test.ts",
+      "tests/unit/director-composition-selection.test.ts",
+      "tests/unit/director-ffmpeg-engine.test.ts",
+      "tests/unit/director-planner.test.ts",
+      "tests/unit/director-schema.test.ts",
+      "tests/unit/director-worker.test.ts"
+     ],
+     "patch_id": "3ca42815c0ef4a3d7690e74485c32797ac21f5ee"
+    },
+    {
+     "source_sha": "4ab7f036ce1d9686a43d5de3dcbbb1dad61e2f28",
+     "short": "4ab7f03",
+     "subject": "fix(jazmii): OOM-lean composition presets + composition checkpoint resume",
+     "is_merge": false,
+     "files": 6,
+     "insertions": 566,
+     "deletions": 2,
+     "file_paths": [
+      "src/app/api/jazmii/director/[id]/resume/route.ts",
+      "src/app/api/jazmii/director/[id]/route.ts",
+      "src/components/bean/jazmii-director.tsx",
+      "src/lib/jazmii/director/composition/ffmpeg-engine.ts",
+      "src/lib/jazmii/director/media.ts",
+      "src/lib/jazmii/director/service.ts"
+     ],
+     "patch_id": "290d6a8aa69a23531efce8a027bf5ef0b6c0d742"
+    },
+    {
+     "source_sha": "8de01444bba53d56c278d1a91eda9e9cd251a56a",
+     "short": "8de0144",
+     "subject": "test(jazmii): explicit timeouts for real-render composition tests (CPU-contention safe)",
+     "is_merge": false,
+     "files": 1,
+     "insertions": 3,
+     "deletions": 3,
+     "file_paths": [
+      "tests/unit/director-ffmpeg-engine.test.ts"
+     ],
+     "patch_id": "7470a44cc9a9e4eddb3e04c179f9d22b7d61f888"
+    }
+   ]
+  },
+  {
+   "id": "G5",
+   "order": 5,
+   "feature": "Trust specialist coverage (M26.2 milestone)",
+   "technique": "A (fallback B)",
+   "required_predecessors": [
+    "G1",
+    "G3",
+    "G4"
+   ],
+   "destination_base": "result-of-G4",
+   "security_review": "clean: receipt wiring in existing workers",
+   "verification_requirements": "full receipt unit suite incl. director-worker receipts",
+   "migration_status": "Ready for migration (adaptation flagged)",
+   "members": [
+    {
+     "source_sha": "e983c41b9393217508d9632fbeaadaaa6dc7acc6",
+     "short": "e983c41",
+     "subject": "feat(trust): specialist coverage \u2014 every supported execution path settles honest receipts",
+     "is_merge": false,
+     "files": 17,
+     "insertions": 2329,
+     "deletions": 26,
+     "file_paths": [
+      "docs/M26.2-TRUST-SPECIALIST-COVERAGE-REPORT.md",
+      "scripts/milestone/receipt-e2e-seed.ts",
+      "src/components/bean/tasks.tsx",
+      "src/lib/ai-engine/giftz-coding-handler.ts",
+      "src/lib/giftz/workspace.ts",
+      "src/lib/jobs/director-worker.ts",
+      "src/lib/jobs/image-worker.ts",
+      "src/lib/jobs/video-worker.ts",
+      "src/lib/laxii/jobs.ts",
+      "src/lib/trust/adapters/code-giftz.ts",
+      "src/lib/trust/adapters/media.ts",
+      "tests/helpers/director-fake-db.ts",
+      "tests/unit/director-worker.test.ts",
+      "tests/unit/giftz-background-receipts.test.ts",
+      "tests/unit/jazmii-video-cancel-receipts.test.ts",
+      "tests/unit/laxii-image-failure-receipts.test.ts",
+      "tests/unit/trust-media-coverage.test.ts"
+     ],
+     "patch_id": "32783f33aa7a61aab71243bfd1699c41d702fc86"
+    }
+   ]
+  },
+  {
+   "id": "G6",
+   "order": 6,
+   "feature": "M27 GANGZII audio production engine",
+   "technique": "D (schema+lock merge, base-file adaptations)",
+   "required_predecessors": [
+    "G1",
+    "G3",
+    "G4",
+    "G5"
+   ],
+   "destination_base": "result-of-G5",
+   "security_review": "review-required: auth-session + db-schema + kokoro model artifact handling",
+   "verification_requirements": "M27 acceptance re-run: real local TTS narration, ffprobe outputs, loudness measure",
+   "migration_status": "Ready for migration (adaptation flagged)",
+   "members": [
+    {
+     "source_sha": "ae4156157348720fb74f68b26f1325089813f9cf",
+     "short": "ae41561",
+     "subject": "feat(gangzii): M27 audio production engine \u2014 local Kokoro-82M TTS, narration studio, soundtrack mixing, JAZMII",
+     "is_merge": false,
+     "files": 64,
+     "insertions": 6650,
+     "deletions": 118,
+     "file_paths": [
+      "bun.lock",
+      "docs/M26.2-TRUST-SPECIALIST-COVERAGE-REPORT.md",
+      "docs/M27-RESULTS.md",
+      "docs/models/GANGZII-TTS-ENGINE-EVALUATION.md",
+      "next.config.ts",
+      "package.json",
+      "prisma/schema.prisma",
+      "scripts/ai-workers/worker.ts",
+      "scripts/m27-hf-probe.sh",
+      "scripts/m27-kokoro-download.sh",
+      "scripts/m27-kokoro-smoke.ts",
+      "scripts/m27-ui-inspect.sh",
+      "src/app/api/gangzii/assets/file/[id]/route.ts",
+      "src/app/api/gangzii/assets/route.ts",
+      "src/app/api/gangzii/audio/[id]/route.ts",
+      "src/app/api/gangzii/availability/route.ts",
+      "src/app/api/gangzii/narration/[id]/generate/route.ts",
+      "src/app/api/gangzii/narration/[id]/join/route.ts",
+      "src/app/api/gangzii/narration/[id]/route.ts",
+      "src/app/api/gangzii/narration/[id]/segments/[segmentId]/audio/route.ts",
+      "src/app/api/gangzii/narration/[id]/segments/[segmentId]/route.ts",
+      "src/app/api/gangzii/narration/[id]/subtitles/route.ts",
+      "src/app/api/gangzii/narration/route.ts",
+      "src/app/api/gangzii/produce/route.ts",
+      "src/app/api/gangzii/tts-engine/route.ts",
+      "src/app/api/gangzii/tts/route.ts",
+      "src/app/api/health/route.ts",
+      "src/app/api/jazmii/director/[id]/audio/route.ts",
+      "src/app/api/jazmii/director/[id]/narration/route.ts",
+      "src/app/page.tsx",
+      "src/components/bean/dashboard.tsx",
+      "src/components/bean/gangzii-narration.tsx",
+      "src/components/bean/gangzii-soundtrack.tsx",
+      "src/components/bean/gangzii.tsx",
+      "src/components/bean/jazmii-director.tsx",
+      "src/components/bean/landing.tsx",
+      "src/components/bean/shell.tsx",
+      "src/lib/adapters/gangzii-audio.ts",
+      "src/lib/ai-engine/config.ts",
+      "src/lib/ai-engine/handlers.ts",
+      "src/lib/ai-engine/runner.ts",
+      "src/lib/auth/ratelimit.ts",
+      "src/lib/gangzii/narration-service.ts",
+      "src/lib/gangzii/text-normalize.ts",
+      "src/lib/gangzii/tts-engine.ts",
+      "src/lib/jazmii/director/composition/ffmpeg-engine.ts",
+      "src/lib/jazmii/director/composition/hyperframes-engine.ts",
+      "src/lib/jazmii/director/composition/types.ts",
+      "src/lib/jazmii/director/schema.ts",
+      "src/lib/jazmii/director/service.ts",
+      "src/lib/jobs/audio-worker.ts",
+      "src/lib/jobs/director-worker.ts",
+      "src/lib/jobs/queue.ts",
+      "src/lib/registry/backends.ts",
+      "src/lib/registry/gangzii-presets.ts",
+      "src/lib/registry/products.ts",
+      "src/lib/router/router.ts",
+      "src/lib/trust/adapters/audio.ts",
+      "tests/integration/gangzii-audio-worker.e2e.test.ts",
+      "tests/unit/core.test.ts",
+      "tests/unit/director-ffmpeg-engine.test.ts",
+      "tests/unit/gangzii-narration.test.ts",
+      "tests/unit/queue-unwired-tasks.test.ts",
+      "worklog.md"
+     ],
+     "patch_id": "078b3f30939aec38e7e0d39a971d3b05fd49d337"
+    }
+   ]
+  },
+  {
+   "id": "G7",
+   "order": 7,
+   "feature": "M28 audio reliability & creative quality",
+   "technique": "A/D (base-file adaptations)",
+   "required_predecessors": [
+    "G6"
+   ],
+   "destination_base": "result-of-G6",
+   "security_review": "review-required: model-artifact verifier + audio evidence paths",
+   "verification_requirements": "M28 evidence suite: provenance verifier, ducking determinism, EBU R128 parser, speech eval",
+   "migration_status": "Ready for migration (adaptation flagged)",
+   "members": [
+    {
+     "source_sha": "9a0a9f0d3e8562612ea73249c6710cd1d2534a26",
+     "short": "9a0a9f0",
+     "subject": "feat(gangzii): M28 Priority A \u2014 model-artifact integrity verifier + canonical provenance utility",
+     "is_merge": false,
+     "files": 6,
+     "insertions": 1430,
+     "deletions": 17,
+     "file_paths": [
+      "scripts/m28-install-kokoro.ts",
+      "scripts/m28-verify-kokoro-provenance.ts",
+      "src/lib/gangzii/model-integrity.ts",
+      "src/lib/gangzii/tts-engine.ts",
+      "tests/integration/m28-provenance-utility.test.ts",
+      "tests/unit/gangzii-model-integrity.test.ts"
+     ],
+     "patch_id": "a4dc9666a02f76e6d21a0ed19ccfee92cb9f5f21"
+    },
+    {
+     "source_sha": "735ab8538cc8339a5db10f7b74bde9addf789e09",
+     "short": "735ab85",
+     "subject": "feat(gangzii): M28 Priority B \u2014 repeatable speech-quality evaluation suite + shared EBU R128 parser fix",
+     "is_merge": false,
+     "files": 8,
+     "insertions": 1023,
+     "deletions": 23,
+     "file_paths": [
+      "evals/gangzii-speech/corpus.json",
+      "evals/gangzii-speech/m27-baseline.json",
+      "evals/gangzii-speech/run.ts",
+      "scripts/m28-speech-eval.ts",
+      "scripts/m28-speech-regression.ts",
+      "src/lib/jobs/audio-worker.ts",
+      "src/lib/media/loudness.ts",
+      "tests/unit/media-loudness.test.ts"
+     ],
+     "patch_id": "4d8b7ff0bc2fe0a36be50ddd685f40ac55766170"
+    },
+    {
+     "source_sha": "02a35f48c13f2e0fdcf90953d694a4b5299f3dda",
+     "short": "02a35f4",
+     "subject": "feat(gangzii): M28 Priority C \u2014 dynamic narration ducking with deterministic timeline automation",
+     "is_merge": false,
+     "files": 9,
+     "insertions": 660,
+     "deletions": 12,
+     "file_paths": [
+      "src/app/api/gangzii/produce/route.ts",
+      "src/lib/gangzii/ducking.ts",
+      "src/lib/jazmii/director/composition/ffmpeg-engine.ts",
+      "src/lib/jazmii/director/composition/types.ts",
+      "src/lib/jazmii/director/schema.ts",
+      "src/lib/jobs/audio-worker.ts",
+      "src/lib/jobs/director-worker.ts",
+      "tests/unit/director-ffmpeg-engine.test.ts",
+      "tests/unit/gangzii-ducking.test.ts"
+     ],
+     "patch_id": "7d6d2e5f8f05870300bc526c4818bff4ea20843e"
+    },
+    {
+     "source_sha": "ba93dc7369a9473f8cbb4c42160364d41649cdde",
+     "short": "ba93dc7",
+     "subject": "feat(jazmii): M28 Priority D \u2014 real HyperFrames SFX integration on the pinned runtime's verified audio contrac",
+     "is_merge": false,
+     "files": 9,
+     "insertions": 476,
+     "deletions": 21,
+     "file_paths": [
+      "evals/gangzii-speech/run.ts",
+      "src/lib/jazmii/director/composition/ffmpeg-engine.ts",
+      "src/lib/jazmii/director/composition/hyperframes-engine.ts",
+      "src/lib/jazmii/director/composition/types.ts",
+      "src/lib/jazmii/director/schema.ts",
+      "src/lib/jobs/director-worker.ts",
+      "src/lib/media/ffprobe.ts",
+      "tests/unit/director-ffmpeg-engine.test.ts",
+      "tests/unit/director-hyperframes-sfx.test.ts"
+     ],
+     "patch_id": "193ae8897065ba976c3ddca5c158ac9b7d588f31"
+    },
+    {
+     "source_sha": "ce2dbb24cd6d8e9de20eda0afbf436aaf4f2074a",
+     "short": "ce2dbb2",
+     "subject": "feat(gangzii): M28 Priority E \u2014 narration timing confidence vocabulary + honest forced-alignment evaluation",
+     "is_merge": false,
+     "files": 12,
+     "insertions": 336,
+     "deletions": 62,
+     "file_paths": [
+      "docs/models/GANGZII-TIMING-ALIGNMENT-EVALUATION.md",
+      "src/lib/gangzii/narration-service.ts",
+      "src/lib/gangzii/timing.ts",
+      "src/lib/jazmii/director/service.ts",
+      "src/lib/jobs/audio-worker.ts",
+      "src/lib/jobs/director-worker.ts",
+      "src/lib/trust/adapters/audio.ts",
+      "tests/integration/gangzii-audio-worker.e2e.test.ts",
+      "tests/integration/m28-provenance-utility.test.ts",
+      "tests/unit/director-hyperframes-sfx.test.ts",
+      "tests/unit/gangzii-model-integrity.test.ts",
+      "tests/unit/gangzii-timing.test.ts"
+     ],
+     "patch_id": "c8c48e637714f21f0e72dbd5fc6a351e65dcecb6"
+    },
+    {
+     "source_sha": "597daba77977bfb852305d69b7eab94564474a83",
+     "short": "597daba",
+     "subject": "feat(jazmii): M28 Priority F \u2014 audio timeline synchronization with explicit review flags",
+     "is_merge": false,
+     "files": 3,
+     "insertions": 212,
+     "deletions": 42,
+     "file_paths": [
+      "src/lib/gangzii/timing.ts",
+      "src/lib/jazmii/director/service.ts",
+      "tests/unit/gangzii-timing.test.ts"
+     ],
+     "patch_id": "eb0af82c5d81fd20ef6c3fb858bdf5af1c349b7d"
+    },
+    {
+     "source_sha": "75db418281c3fa350327cebc5b6803cf9b1bfa6c",
+     "short": "75db418",
+     "subject": "feat(gangzii): M28 Priority G \u2014 Trust receipts carry the six distinct verification states + full audio evidenc",
+     "is_merge": false,
+     "files": 3,
+     "insertions": 219,
+     "deletions": 2,
+     "file_paths": [
+      "scripts/m28-receipt-probe.ts",
+      "src/lib/jobs/audio-worker.ts",
+      "src/lib/trust/adapters/audio.ts"
+     ],
+     "patch_id": "105bec24ff8bd81d0065af39ec7de72b7316d2f4"
+    },
+    {
+     "source_sha": "4bdca0b954c36f06cb807d4b45ab81db20863b81",
+     "short": "4bdca0b",
+     "subject": "feat(gangzii): M28 UI \u2014 model-artifact provenance card + dynamic ducking controls (desktop/mobile inspected on",
+     "is_merge": false,
+     "files": 5,
+     "insertions": 372,
+     "deletions": 4,
+     "file_paths": [
+      "scripts/m28-ui-inspect.sh",
+      "scripts/m28-ui-inspect2.sh",
+      "scripts/m28-ui-inspect3.sh",
+      "src/components/bean/gangzii-narration.tsx",
+      "src/components/bean/gangzii-soundtrack.tsx"
+     ],
+     "patch_id": "2c8521ebdd5fa5d6ffab67f3ca3785acf4dbc699"
+    },
+    {
+     "source_sha": "fcf0bf4419b24d5b085385707f3db5a4fb341a3f",
+     "short": "fcf0bf4",
+     "subject": "fix(gangzii): M28 \u2014 soundtrack UI types for the ducking result payload (tsc clean in src/)",
+     "is_merge": false,
+     "files": 1,
+     "insertions": 2,
+     "deletions": 1,
+     "file_paths": [
+      "src/components/bean/gangzii-soundtrack.tsx"
+     ],
+     "patch_id": "c3a7e8e10048f93161f6cc05bdbbf8f2d40b6372"
+    },
+    {
+     "source_sha": "fc7ee8bd0994f1af383c171b43ceeca6269b8277",
+     "short": "fc7ee8b",
+     "subject": "docs(m28): results report \u2014 17-section owner record with precise status labels (Implemented / Verified end-to-",
+     "is_merge": false,
+     "files": 1,
+     "insertions": 144,
+     "deletions": 0,
+     "file_paths": [
+      "docs/M28-RESULTS.md"
+     ],
+     "patch_id": "0e8ba7be1bf6c7f0f8ee174fae47ec347c7082ba"
+    },
+    {
+     "source_sha": "88fa9b3720387312ac066bfe069b495a263b4e3c",
+     "short": "88fa9b3",
+     "subject": "docs(m28): git record amendment \u2014 workspace main-pinning incident and external remote change recorded; feature",
+     "is_merge": false,
+     "files": 1,
+     "insertions": 2,
+     "deletions": 0,
+     "file_paths": [
+      "docs/M28-RESULTS.md"
+     ],
+     "patch_id": "3ecd3ecdf54f6e7b33d88fb7a4cafda876f54aaf"
+    }
+   ]
+  },
+  {
+   "id": "G8",
+   "order": 8,
+   "feature": "Recovery / operations records (named docs commits)",
+   "technique": "A",
+   "required_predecessors": [],
+   "destination_base": "result-of-G0",
+   "security_review": "clean: recovery records + scripts (no secret values expected \u2014 scanned)",
+   "verification_requirements": "docs presence; script syntax check",
+   "migration_status": "Ready for migration (adaptation flagged)",
+   "members": [
+    {
+     "source_sha": "e0254951d74494b3b6e95dde25561540942c70cd",
+     "short": "e025495",
+     "subject": "docs(m2615r2c): M26.1.5-R2.2 recovery re-delivery milestone record",
+     "is_merge": false,
+     "files": 11,
+     "insertions": 1570,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_5_R2_2_REDELIVERY_REPORT.md",
+      "scripts/m2615r2c/00-baseline.sh",
+      "scripts/m2615r2c/01-replica-build.sh",
+      "scripts/m2615r2c/02-create-bundles.sh",
+      "scripts/m2615r2c/03-preverify.sh",
+      "scripts/m2615r2c/04-encrypt-batch.sh",
+      "scripts/m2615r2c/05-rootsums.sh",
+      "scripts/m2615r2c/06-docs.py",
+      "scripts/m2615r2c/07-final-verify.py",
+      "scripts/m2615r2c/08-final-sweep.sh",
+      "scripts/m2615r2c/real-container-proof-r22.sh"
+     ],
+     "patch_id": "770a4c1620a9e8c29d56c2741de3ca949b55ef31"
+    },
+    {
+     "source_sha": "28e034d37ba83ba78ec962485938a92ab804bbe6",
+     "short": "28e034d",
+     "subject": "docs(m26.1.2): publication gate closure verdict C \u2014 M26.1.1 recovery material and rewrite clone lost in worksp",
+     "is_merge": false,
+     "files": 4,
+     "insertions": 666,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_2_GITHUB_SUPPORT_REQUEST.md",
+      "M26_1_2_OWNER_CHECKLIST.md",
+      "M26_1_2_PUBLICATION_MANIFEST.md",
+      "M26_1_2_RESULTS.md"
+     ],
+     "patch_id": "24a825a4a6fc94a66d89198cde5dbe41ecdb83dc"
+    },
+    {
+     "source_sha": "9fc15916d2ab1c30cf148c6d8177a62013566b40",
+     "short": "9fc1591",
+     "subject": "docs(m26.1.3): recovery reconstructed byte-identical to lost records; rewrite exactly reproduced (aba5d4b/19a0",
+     "is_merge": false,
+     "files": 7,
+     "insertions": 915,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_3_OWNER_GATES.md",
+      "M26_1_3_RECOVERY_MANIFEST.md",
+      "M26_1_3_REPRODUCTION_REPORT.md",
+      "M26_1_3_RESULTS.md",
+      "scripts/m2613/encrypt-bundle.py",
+      "scripts/m2613/phase3-reconstruct.sh",
+      "scripts/m2613/phase4b-docs-commit.sh"
+     ],
+     "patch_id": "84c8e8d7efde32d8f7ce3db6d1c118ccb380aabb"
+    },
+    {
+     "source_sha": "77230c5baf8b11d106f73e30fdaeac6df333086a",
+     "short": "77230c5",
+     "subject": "docs(m26.1.4): publication blocked pending owner gates \u2014 all local verification PASS (AI branch 4114371 six-co",
+     "is_merge": false,
+     "files": 6,
+     "insertions": 607,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_4_AI_RELEASE.md",
+      "M26_1_4_GITHUB_SUPPORT_STATUS.md",
+      "M26_1_4_PUBLICATION_MANIFEST.md",
+      "M26_1_4_RESULTS.md",
+      "scripts/m2614/publication-scan.ts",
+      "scripts/m2614/verify-wip-bundles.sh"
+     ],
+     "patch_id": "acb33e110d5fb64125a47f9bf91ca92f5b6e625c"
+    }
+   ]
+  },
+  {
+   "id": "G9",
+   "order": 9,
+   "feature": "WIP auto-commit snapshots (owner decision required)",
+   "technique": "A (owner decision)",
+   "required_predecessors": [],
+   "destination_base": "result-of-G0",
+   "security_review": "mixed: f9d0e33/c472668/6d72f15 scanned clean; 6f0a2b0 = PNG evidence only",
+   "verification_requirements": "per-file review on selection",
+   "migration_status": "Owner decision required",
+   "members": [
+    {
+     "source_sha": "f9d0e332228a6a5b54f5b9393214e4ac8c03d381",
+     "short": "f9d0e33",
+     "subject": "f879c965-47b6-450c-8399-8f9ecdb3545d",
+     "is_merge": false,
+     "files": 33,
+     "insertions": 6545,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_5_R2_WIP_ENCRYPTION.md",
+      "M_FULL_PR1_1_DEPENDENCY_READINESS.md",
+      "M_FULL_PR1_PHASE0_SOURCE_INVENTORY.md",
+      "M_FULL_PR1_PHASE1_INTEGRATION_SEQUENCE.md",
+      "M_FULL_PR1_PHASED_INTEGRATION_REPORT.md",
+      "M_FULL_PR1_RECONCILIATION_ADDENDUM.md",
+      "scripts/m2615r2/00-baseline.sh",
+      "scripts/m2615r2/01-replica-build.sh",
+      "scripts/m2615r2/02-create-bundles.sh",
+      "scripts/m2615r2/03-preencrypt-verify.sh",
+      "scripts/m2615r2/04-encrypt.sh",
+      "scripts/m2615r2/05-final-verify.py",
+      "scripts/m2615r2/06-docs.py",
+      "scripts/m2615r2/07-final-sweep.sh",
+      "scripts/m2615r2b/00-baseline.sh",
+      "scripts/m2615r2b/01-replica-build.sh",
+      "scripts/m2615r2b/02-create-bundles.sh",
+      "scripts/m2615r2b/03-preverify.sh",
+      "scripts/m2615r2b/04-encrypt-batch.sh",
+      "scripts/m2615r2b/05-rootsums.sh",
+      "scripts/m2615r2b/06-docs.py",
+      "scripts/m2615r2b/07-final-verify.py",
+      "scripts/m2615r2b/08-final-sweep.sh",
+      "scripts/pr11-stage1-install.sh",
+      "scripts/pr11-stage2-build.sh",
+      "scripts/pr11-stage3-tests.sh",
+      "scripts/pr11-stage4a-static.sh",
+      "scripts/pr11-stage4b-scans.sh",
+      "scripts/pr1_phase0_data.json",
+      "scripts/pr1_phase0_inventory.py",
+      "scripts/pr1_phase2_workspace.sh",
+      "scripts/r1_crosscheck_register.sh",
+      "scripts/r1_reconcile_register.py"
+     ],
+     "patch_id": "3cf2f9c76d36283e85720dbab20f104f7b83cbe9"
+    },
+    {
+     "source_sha": "d15b3af53203b7eb085f4357ba003227bbc3f603",
+     "short": "d15b3af",
+     "subject": "8576428d-4e94-4ba5-a5d9-3e1b2a9a3fa1",
+     "is_merge": false,
+     "files": 6,
+     "insertions": 819,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_5_R_RECOVERY_RECONSTRUCTION.md",
+      "scripts/m2615r/baseline.sh",
+      "scripts/m2615r/finalize.sh",
+      "scripts/m2615r/investigate-pack.sh",
+      "scripts/m2615r/reconstruct.sh",
+      "scripts/m2615r/replica-experiment.sh"
+     ],
+     "patch_id": "196362539605de0a8efc774515f141199fc4aa69"
+    },
+    {
+     "source_sha": "4accc6d9a3a8668b91def8cb9297dd4990285c30",
+     "short": "4accc6d",
+     "subject": "d305b0d4-a8c0-43ca-8a34-b5f33e037c6c",
+     "is_merge": false,
+     "files": 2,
+     "insertions": 308,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_5_RECOVERY_TRANSFER.md",
+      "scripts/m2615/object-completeness-check.sh"
+     ],
+     "patch_id": "1e031f421039a04a330ce54ac6efde0b1753c01c"
+    },
+    {
+     "source_sha": "c4726683736cb48d320ac897bfb50731b8470706",
+     "short": "c472668",
+     "subject": "7202184d-5426-4790-9866-f5172fb28feb",
+     "is_merge": false,
+     "files": 8,
+     "insertions": 939,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_5_R2_OWNER_VERIFICATION_REPORT.md",
+      "scripts/m2615r21/final-suite-results.txt",
+      "scripts/m2615r21/make-fixtures.py",
+      "scripts/m2615r21/pty-driver.py",
+      "scripts/m2615r21/real-container-proof.sh",
+      "scripts/m2615r21/run-tests.sh",
+      "scripts/m2615r21/sample-fixture-report.md",
+      "scripts/m2615r21/sample-real-report-checksumsonly.md"
+     ],
+     "patch_id": "ba4d77f602dd6be14e103ec79485aae6bc29e8da"
+    },
+    {
+     "source_sha": "6d72f155eece497501e27d7317630dc9a4249d7d",
+     "short": "6d72f15",
+     "subject": "6e4579a7-4d07-43c9-aa10-60d009e0ef3f",
+     "is_merge": false,
+     "files": 1,
+     "insertions": 104,
+     "deletions": 0,
+     "file_paths": [
+      "scripts/m26-publish-scan.py"
+     ],
+     "patch_id": "6154b081b6460be75fd9786a1f3c707e9ed494f1"
+    },
+    {
+     "source_sha": "6f0a2b07d441b7a5ca3b98199d7b65932a8c4dd6",
+     "short": "6f0a2b0",
+     "subject": "c6423191-ebe8-4c3e-b3f6-abb80f0b0d9b",
+     "is_merge": false,
+     "files": 7,
+     "insertions": 0,
+     "deletions": 0,
+     "file_paths": [
+      "scripts/m28-ui-out/m28-gangzii-mobile.png",
+      "scripts/m28-ui-out/m28-narration-desktop.png",
+      "scripts/m28-ui-out/m28-narration-mobile.png",
+      "scripts/m28-ui-out/m28-soundtrack-desktop.png",
+      "scripts/m28-ui-out/m28-soundtrack-ducking-desktop.png",
+      "scripts/m28-ui-out/m28-soundtrack-ducking-params.png",
+      "scripts/m28-ui-out/m28-soundtrack-mobile.png"
+     ],
+     "patch_id": "e7851e88d729f4d7d9b0e7ef0f0c9c6964f0ce25"
+    }
+   ]
+  },
+  {
+   "id": "G10",
+   "order": 10,
+   "feature": "Credential-investigation WIP docs (excluded pending scrub)",
+   "technique": "B (content transplant after owner sign-off)",
+   "required_predecessors": [],
+   "destination_base": "result-of-G0",
+   "security_review": "scanned: fixture-class strings only (sk-disposable vocabulary), 0 real-key-shaped values; credential-forensics docs \u2014 owner sign-off recommended",
+   "verification_requirements": "owner sign-off on credential-forensics content; fixture-class scan re-run",
+   "migration_status": "Owner decision required (scan clean of real values)",
+   "members": [
+    {
+     "source_sha": "b85ba9c72e4e4c9b1e26dd129c3bfb7b4a2b0fd5",
+     "short": "b85ba9c",
+     "subject": "3ec01241-6251-4e51-a689-379ee529a157",
+     "is_merge": false,
+     "files": 2,
+     "insertions": 395,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_4_CREDENTIAL_INVESTIGATION.md",
+      "scripts/m2614-credinvest/analyze-history-dbs.py"
+     ],
+     "patch_id": "c85a08ba49b0e2288131227939133d312f261c21"
+    },
+    {
+     "source_sha": "d2e2dbde0a7b1e1ae97c13be60b9a31c6a673101",
+     "short": "d2e2dbd",
+     "subject": "ac161a25-36b7-4f9e-b769-74706c823ea9",
+     "is_merge": false,
+     "files": 2,
+     "insertions": 413,
+     "deletions": 0,
+     "file_paths": [
+      "M26_1_4_CREDENTIAL_REMEDIATION.md",
+      "scripts/m2614-credinvest/provider-surface-inventory.py"
+     ],
+     "patch_id": "d40c0f5f87472812b7208f7d01b2ec5777c88bc2"
+    }
+   ]
+  }
+ ],
+ "structural_notes": [
+  {
+   "sha": "ea1e074dba38a163499767e855d839b53af395ac",
+   "note": "merge(trust) structural only \u2014 content reaches the sanitized line via its parents (6145578 in G2, 2bf9f7b+826bf8c in G2/G1); never transplant the merge object itself."
+  }
+ ]
+}
