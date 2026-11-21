@@ -29,6 +29,8 @@ import { llamaCppAdapter } from '@/lib/providers/llamacpp'
 import { wrapWithProviderFallback } from '@/lib/providers/routing'
 import { assertProviderBudget } from '@/lib/providers/cost-guard'
 import { assertAccountQuotaForUserRequest } from '@/lib/providers/account-quota'
+import { localModelState } from '@/lib/media/local-models'
+import { localI2VReady } from '@/lib/jazmii/i2v-local'
 import type {
   ChatRequest,
   ChatResult,
@@ -82,6 +84,54 @@ const ADAPTERS: Record<string, TaskAdapter> = {
   'bean-audio-tools-local': {
     backendId: 'bean-audio-tools-local',
     health: () => hostedAudioAdapter.healthFfmpeg(),
+  },
+  // M26.2 — REAL local inference lanes. Health = the model manager's real
+  // on-disk states (installed + SHA-256-verified), never configuration
+  // optimism; a not-installed model is an honest unhealthy probe.
+  'bean-video-local-motion': {
+    backendId: 'bean-video-local-motion',
+    health: async () => {
+      const ready = localI2VReady()
+      return {
+        healthy: ready,
+        checkedAt: new Date().toISOString(),
+        latencyMs: null,
+        detail: ready
+          ? 'RIFE frame-interpolation model installed (SHA-256 verified) — the local motion lane can execute.'
+          : "The RIFE frame-interpolation model is not installed on this host — install it explicitly (model id 'rife').",
+      }
+    },
+  },
+  'bean-image-local-segmentation': {
+    backendId: 'bean-image-local-segmentation',
+    health: async () => {
+      const modnet = localModelState('modnet').state === 'ready'
+      const u2netp = localModelState('u2netp').state === 'ready'
+      return {
+        healthy: modnet || u2netp,
+        checkedAt: new Date().toISOString(),
+        latencyMs: null,
+        detail:
+          modnet || u2netp
+            ? `Matting model installed: ${[modnet ? 'modnet' : null, u2netp ? 'u2netp' : null].filter(Boolean).join(' + ')}.`
+            : "No matting model is installed — install one explicitly (model ids 'modnet' or 'u2netp').",
+      }
+    },
+  },
+  'bean-image-local-edit': {
+    backendId: 'bean-image-local-edit',
+    health: async () => {
+      const lama = localModelState('lama').state === 'ready'
+      const matte = localModelState('modnet').state === 'ready' || localModelState('u2netp').state === 'ready'
+      return {
+        healthy: lama && matte,
+        checkedAt: new Date().toISOString(),
+        latencyMs: null,
+        detail: lama && matte
+          ? 'Local edit engine ready (LaMa inpainting + matting models verified).'
+          : `Local edit engine incomplete: LaMa ${lama ? 'installed' : 'NOT installed'}, matting ${matte ? 'installed' : 'NOT installed'} — install the missing models explicitly.`,
+      }
+    },
   },
 }
 
@@ -139,6 +189,10 @@ export async function preflight(
   userId: string,
   productId: BeanProductId,
   task?: BeanTask,
+  /** M26.2: request a SPECIFIC enabled backend (lane selection). The
+   *  override must match product+task and be genuinely enabled — otherwise
+   *  the honest PROVIDER_UNAVAILABLE surfaces, exactly like auto-routing. */
+  opts?: { backendId?: string },
 ): Promise<PreflightOk> {
   // 1. product + task identity
   const product = getProduct(productId)
@@ -192,13 +246,31 @@ export async function preflight(
   await assertProviderBudget(userId, productId, product.name)
   await assertAccountQuotaForUserRequest(userId, productId, product.name)
 
-  // 4. concurrency (per-user and total, in-flight)
-  acquireSlot(enabled[0], userId)
+  // 5. backend selection — first enabled candidate, or the SPECIFIC backend
+  // requested via opts.backendId (lane selection; must be enabled and match
+  // product+task — an override can never bypass the enabled gate). The
+  // selection runs BEFORE the slot is acquired so acquire and release always
+  // name the SAME backend (M26.2 fix: the previous acquire-on-enabled[0] +
+  // release-on-selected mismatch leaked a concurrency slot on every
+  // lane-selected submission and 429'd the product afterwards).
+  // Fallback happens only via the backend's explicit `fallbacks` list
+  // (credential-verified, audit-logged — see providers/routing.ts).
+  const backend = opts?.backendId
+    ? (() => {
+        const requested = enabled.find((b) => b.id === opts.backendId)
+        if (!requested) {
+          throw new BeanApiError(
+            'PROVIDER_UNAVAILABLE',
+            'The requested engine is not enabled on this deployment. Its availability is reported by the capability endpoints.',
+          )
+        }
+        return requested
+      })()
+    : enabled[0]
 
-  // 5. backend selection — first enabled candidate. Fallback happens only
-  // via the backend's explicit `fallbacks` list (credential-verified,
-  // audit-logged — see providers/routing.ts).
-  const backend = enabled[0]
+  // 4. concurrency (per-user and total, in-flight) — on the SERVING backend.
+  acquireSlot(backend, userId)
+
   const adapter = ADAPTERS[backend.id]
   if (!adapter) {
     releaseSlot(backend.id, userId)

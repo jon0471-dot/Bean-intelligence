@@ -93,6 +93,9 @@ mock.module('@/lib/laxii/assets', () => ({
 }))
 mock.module('@/lib/laxii/provider', () => ({
   resolveProvider: () => 'hosted-edit',
+  // M26.2 lane resolver — the chat route imports it; the partial mock must
+  // carry the full export surface or the module replacement fails at import.
+  resolveEditLane: async () => ({ backendId: 'bean-image-hosted-edit', engine: 'hosted' as const }),
 }))
 mock.module('@/lib/laxii/models', () => ({
   generativeWorkerStatus: () => ({ registryEnabled: workerEnabled, unavailableReason: workerEnabled ? null : 'hardware preflight' }),
@@ -178,6 +181,9 @@ describe('image-backed requests through conversation', () => {
       mode: 'conversational-edit',
       assetId: 'asset-orig',
       prompt: 'Change the bottle cap to gold but preserve everything else.',
+      // M26.2: the resolved lane rides with the job (worker dispatch key) —
+      // the mock resolver answers 'hosted' for this deployment state.
+      engine: 'hosted',
     })
   })
 
@@ -185,7 +191,12 @@ describe('image-backed requests through conversation', () => {
     await POST(jsonRequest({ text: 'Remove the background and make it transparent.', assetId: 'asset-orig' }))
     const job = await lastJob()
     expect(job?.task).toBe('image-editing')
-    expect(JSON.parse(job?.paramsJson as string)).toEqual({ mode: 'background-removal', assetId: 'asset-orig' })
+    expect(JSON.parse(job?.paramsJson as string)).toEqual({
+      mode: 'background-removal',
+      assetId: 'asset-orig',
+      // M26.2: the resolved lane rides with the job (worker dispatch key).
+      engine: 'hosted',
+    })
   })
 
   test('enhance queues the deterministic engine with all steps enabled', async () => {

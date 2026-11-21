@@ -1,0 +1,302 @@
+{
+  "at": "2026-11-18T06:01:44.668Z",
+  "passed": 22,
+  "total": 22,
+  "steps": [
+    {
+      "step": "auth: acceptance session",
+      "ok": true,
+      "status": 200,
+      "detail": "first registered account (admin) logged in",
+      "at": "2026-11-18T06:01:09.267Z"
+    },
+    {
+      "step": "models: all four local models ready (SHA-256 verified)",
+      "ok": true,
+      "status": 200,
+      "detail": "modnet:ready lama:ready rife:ready u2netp:ready",
+      "at": "2026-11-18T06:01:09.451Z",
+      "evidence": [
+        {
+          "id": "modnet",
+          "descriptor": {
+            "sourceUrl": "https://huggingface.co/Xenova/modnet/resolve/main/onnx/model.onnx",
+            "license": {
+              "name": "Apache-2.0 (MODNet upstream ZHKKKe/MODNet; ONNX export Xenova/modnet)",
+              "commercialUse": "permitted",
+              "sourceUrl": "https://github.com/ZHKKKe/MODNet",
+              "verifiedAt": "2026-11-18"
+            },
+            "task": "portrait/subject matting (alpha matte)",
+            "role": "Trimap-free portrait matting — REAL alpha-channel foreground separation for background removal and background effects.",
+            "limitations": "Trained for portrait/people subjects; on strongly non-human subjects the matte can be conservative — every run carries measured coverage stats and fails honestly when no usable subject is found.",
+            "downloadSizeMb": 24.7
+          },
+          "state": "ready",
+          "installedBytes": 25888640,
+          "sha256Ok": true,
+          "error": null
+        },
+        {
+          "id": "lama",
+          "descriptor": {
+            "sourceUrl": "https://huggingface.co/opencv/inpainting_lama/resolve/main/inpainting_lama_2025jan.onnx",
+            "license": {
+              "name": "Apache-2.0 (OpenCV Zoo inpainting_lama; upstream big-lama saic-mdal/lama)",
+              "commercialUse": "permitted",
+              "sourceUrl": "https://github.com/opencv/opencv_zoo/tree/main/models/inpainting_lama",
+              "verifiedAt": "2026-11-18"
+            },
+            "task": "structural image inpainting (512x512 fixed input)",
+            "role": "Large-mask structural inpainting for object removal and approved destructive edits — real model-based region synthesis.",
+            "limitations": "Fixed 512x512 internal resolution (result restored to the working image geometry); not an identity-preserving face generator — identity drift is disclosed in provenance.",
+            "downloadSizeMb": 88.3
+          },
+          "state": "ready",
+          "installedBytes": 92591623,
+          "sha256Ok": true,
+          "error": null
+        },
+        {
+          "id": "rife",
+          "descriptor": {
+            "sourceUrl": "https://huggingface.co/FuryTMP/RIFE_fp32/resolve/main/RIFE_fp32.onnx",
+            "license": {
+              "name": "MIT (RIFE upstream hzwer/Practical-RIFE; ONNX export FuryTMP/RIFE_fp32)",
+              "commercialUse": "permitted",
+              "sourceUrl": "https://github.com/hzwer/Practical-RIFE",
+              "verifiedAt": "2026-11-18"
+            },
+            "task": "neural frame interpolation (two frames -> middle frame, [1,6,H,W] input)",
+            "role": "REAL neural frame synthesis for the JAZMII local image-to-video lane: animates a still with motion programs and generates in-between frames with the model (never a static image).",
+            "limitations": "Frame interpolation of motion trajectories — NOT diffusion scene synthesis. New content/subject motion is out of scope for this lane; provenance states the lane class on every result.",
+            "downloadSizeMb": 20.6
+          },
+          "state": "ready",
+          "installedBytes": 21604631,
+          "sha256Ok": true,
+          "error": null
+        },
+        {
+          "id": "u2netp",
+          "descriptor": {
+            "sourceUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx",
+            "license": {
+              "name": "Apache-2.0 (U-2-Net upstream xuebinqin/U-2-Net; u2netp portable build via rembg)",
+              "commercialUse": "permitted",
+              "sourceUrl": "https://github.com/xuebinqin/U-2-Net",
+              "verifiedAt": "2026-11-18"
+            },
+            "task": "salient-object segmentation (saliency map)",
+            "role": "Lightweight general foreground/saliency map used as the fallback matte when the portrait model finds no usable subject.",
+            "limitations": "Saliency-quality matte; edges are softer than MODNet. Chosen for a 4.6 MB footprint, not for hair quality.",
+            "downloadSizeMb": 4.4
+          },
+          "state": "ready",
+          "installedBytes": 4574861,
+          "sha256Ok": true,
+          "error": null
+        }
+      ]
+    },
+    {
+      "step": "laxii-edit: destructive op refused without approval",
+      "ok": true,
+      "status": 400,
+      "detail": "rotate/flip requires explicit approval before any job is queued",
+      "at": "2026-11-18T06:01:09.516Z"
+    },
+    {
+      "step": "laxii-edit: generative synthesis refused honestly",
+      "ok": true,
+      "status": 422,
+      "detail": "add-content instruction is refused with the precise reason (CAPABILITY_UNSUPPORTED family)",
+      "at": "2026-11-18T06:01:09.526Z"
+    },
+    {
+      "step": "laxii-edit: REAL local edit completed",
+      "ok": true,
+      "status": 202,
+      "detail": "executed ops: brightness+warmth",
+      "at": "2026-11-18T06:01:11.063Z",
+      "evidence": {
+        "executedOps": [
+          {
+            "type": "brightness",
+            "params": {
+              "brightness": 1.25
+            },
+            "engine": "sharp"
+          },
+          {
+            "type": "warmth",
+            "params": {
+              "warmth": 0.25
+            },
+            "engine": "sharp"
+          }
+        ],
+        "imageUrl": "/api/laxii/assets/cmwlpqoe4002srcyukx1ykmhw"
+      }
+    },
+    {
+      "step": "laxii-edit: result is a REAL edited image",
+      "ok": true,
+      "status": null,
+      "detail": "1251786 pixels changed (97.9%), dims 800x533 (source 800x533)",
+      "at": "2026-11-18T06:01:11.113Z"
+    },
+    {
+      "step": "laxii-bgrem: REAL matting completed",
+      "ok": true,
+      "status": 202,
+      "detail": "matte=modnet subjectFraction=0.5738 800x1200",
+      "at": "2026-11-18T06:01:14.586Z",
+      "evidence": {
+        "model": "modnet",
+        "matteWidth": 512,
+        "matteHeight": 768,
+        "sourceWidth": 800,
+        "sourceHeight": 1200,
+        "subjectFraction": 0.5738,
+        "backgroundFraction": 0.3868,
+        "latencyMs": 509
+      }
+    },
+    {
+      "step": "laxii-bgrem: transparent PNG verified",
+      "ok": true,
+      "status": null,
+      "detail": "channels=4 transparentFraction=0.387 opaqueFraction=0.544 dims=800x1200 (source preserved: true)",
+      "at": "2026-11-18T06:01:14.637Z"
+    },
+    {
+      "step": "laxii-bgrem: JPEG-with-background export",
+      "ok": true,
+      "status": 202,
+      "detail": "format=jpeg bg=\"#ffffff\"",
+      "at": "2026-11-18T06:01:16.163Z"
+    },
+    {
+      "step": "laxii-removal: REAL LaMa object removal",
+      "ok": true,
+      "status": 202,
+      "detail": "engine=lama-object-removal (masked-region inpaint)",
+      "at": "2026-11-18T06:01:23.765Z",
+      "evidence": {
+        "engine": "lama-object-removal",
+        "pipeline": "local-lama-inpaint",
+        "mode": "object-removal"
+      }
+    },
+    {
+      "step": "laxii-removal: outside-mask pixels EXACT",
+      "ok": true,
+      "status": null,
+      "detail": "0/439200 pixels beyond the shaped edit band differ from the original (0 = preservation holds)",
+      "at": "2026-11-18T06:01:23.825Z"
+    },
+    {
+      "step": "laxii-history: lineage recorded",
+      "ok": true,
+      "status": 200,
+      "detail": "1 entr(ies): local-edit",
+      "at": "2026-11-18T06:01:23.832Z"
+    },
+    {
+      "step": "laxii-history: REAL undo/restore",
+      "ok": true,
+      "status": 200,
+      "detail": "restore row appended; pre-edit pixels copied to a fresh asset",
+      "at": "2026-11-18T06:01:23.842Z"
+    },
+    {
+      "step": "jazmii-i2v: subject-motion request refused honestly",
+      "ok": true,
+      "status": 422,
+      "detail": "the local motion lane cannot perform subject motion — precise reason returned before any job",
+      "at": "2026-11-18T06:01:23.861Z"
+    },
+    {
+      "step": "jazmii-i2v: accepted on local-motion lane",
+      "ok": true,
+      "status": 202,
+      "detail": "job cmwlpqzdu0042rcyunoj7dcp6 resolved to lane local-motion",
+      "at": "2026-11-18T06:01:23.877Z"
+    },
+    {
+      "step": "jazmii-i2v: REAL video generated",
+      "ok": true,
+      "status": 202,
+      "detail": "stream={\"codec\":\"h264\",\"width\":416,\"height\":320,\"durationSec\":3,\"frames\":36,\"fps\":12,\"validatedBy\":\"ffprobe\"} lane-engine recorded",
+      "at": "2026-11-18T06:01:38.259Z",
+      "evidence": {
+        "engineField": {
+          "engine": "local-motion-rife",
+          "pipeline": "local-motion-animation",
+          "mode": "image-to-video",
+          "laneClass": "motion animation of the provided still (pan/zoom trajectory + RIFE neural in-between frames) — NOT diffusion scene synthesis",
+          "motionProgram": "push-in 11%; subtle intensity",
+          "framesGenerated": 36,
+          "rifeCalls": 35
+        }
+      }
+    },
+    {
+      "step": "jazmii-i2v: real playable artifact (owner-served)",
+      "ok": true,
+      "status": null,
+      "detail": "63902 bytes mp4 magic=true ffprobe frames=36 codec=h264 416x320@12 duration=3s",
+      "at": "2026-11-18T06:01:38.267Z"
+    },
+    {
+      "step": "jazmii-i2v: lane class disclosed (not diffusion)",
+      "ok": true,
+      "status": null,
+      "detail": "provenance/result states the motion-animation lane class honestly",
+      "at": "2026-11-18T06:01:38.267Z"
+    },
+    {
+      "step": "jazmii-i2v: media ownership enforced",
+      "ok": true,
+      "status": 404,
+      "detail": "intruder access attempt answered 404",
+      "at": "2026-11-18T06:01:38.366Z"
+    },
+    {
+      "step": "jazmii-i2v: cancellation honored",
+      "ok": true,
+      "status": 200,
+      "detail": "cancel accepted=true, settled as 'failed/CANCELLED' (no artifact stored)",
+      "at": "2026-11-18T06:01:38.410Z"
+    },
+    {
+      "step": "laxii-bgrem: no-subject image fails honestly",
+      "ok": true,
+      "status": 202,
+      "detail": "honest failure: Background removal could not find a usable subject: no usable subject measured (subject fraction 0.0003) — the matte would remove the whole ",
+      "at": "2026-11-18T06:01:42.222Z"
+    },
+    {
+      "step": "health: capability rows measured",
+      "ok": true,
+      "status": 200,
+      "detail": "conversational-editing=operational background-removal=operational image-to-video=operational",
+      "at": "2026-11-18T06:01:44.668Z",
+      "evidence": [
+        {
+          "id": "conversational-editing",
+          "state": "operational"
+        },
+        {
+          "id": "background-removal",
+          "state": "operational"
+        },
+        {
+          "id": "image-to-video",
+          "state": "operational"
+        }
+      ]
+    }
+  ]
+}

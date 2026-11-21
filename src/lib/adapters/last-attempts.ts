@@ -37,6 +37,10 @@ export type AttemptTask =
   // are recorded separately so one capability's evidence can never mask
   // another's (same pattern as the t2v/i2v keys).
   | 'image-bg-removal'
+  // M26.2 (2026-11-18): the local LaMa object-removal lane records under its
+  // OWN key — a removal success never stands in for conversational-editing
+  // evidence (same isolation rule).
+  | 'image-object-removal'
   | 'video-generation'
   // GO-LIVE (2026-11-05): per-capability video keys — the umbrella
   // 'video-generation' stays the product-level record; t2v/i2v attempts

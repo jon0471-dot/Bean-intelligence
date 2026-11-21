@@ -44,6 +44,8 @@ import { getBackend } from '@/lib/registry/backends'
 import { prepareVideoIntelligence } from '@/lib/intel/grounding'
 import { extractSceneState, verifyVideoContinuity, type SceneState } from '@/lib/intel/continuity'
 import { imageReferenceToDataUrl } from '@/lib/intel/vision'
+import { parseMotionProgram, generateLocalI2VFrames, encodeFramesToMp4, localI2VReady } from '@/lib/jazmii/i2v-local'
+import { resolveReferenceBytes } from '@/lib/jazmii/reference-image'
 import fs from 'fs'
 import path from 'path'
 
@@ -62,6 +64,9 @@ export interface VideoJobParams {
   size?: string
   durationSec?: number
   fps?: number
+  /** M26.2 I2V lane selection: 'auto' (hosted, status quo) | 'hosted' |
+   *  'local-motion' (REAL local motion+RIFE animation lane). */
+  engine?: 'auto' | 'hosted' | 'local-motion'
 }
 
 export interface VideoJobResult {
@@ -85,6 +90,8 @@ export interface VideoJobResult {
     validatedBy: 'ffprobe'
   }
   audio?: { codec: string }
+  /** M26.2: lane disclosure (engine class, motion program) — honest labeling. */
+  provenance?: Record<string, unknown>
   /** Present while job tracking is being throttled upstream (honest UI
    *  display — FINAL FIX 2026-11-07: a throttled status poll never fails an
    *  accepted job, it backs off and keeps tracking). */
@@ -276,6 +283,14 @@ export class VideoArtifactInvalidError extends Error {
  * registry guarantees at most one live loop per job per process.
  */
 export async function processVideoJob(job: JobRow): Promise<void> {
+  // M26.2 — REAL local image-to-video lane: the job row chose the local
+  // motion lane at submission (backendId bean-video-local-motion, set by
+  // the route's engine resolution). Everything else keeps the hosted path.
+  const routeParams = JSON.parse(job.paramsJson) as VideoJobParams
+  if (routeParams.engine === 'local-motion') {
+    await processLocalMotionJob(job)
+    return
+  }
   if (activePollers.has(job.id)) return
   activePollers.add(job.id)
   const backend = getBackend('bean-video-hosted-primary')!
@@ -682,6 +697,200 @@ function upstreamRecord(backendId: string, category: string, status: number | nu
     failureCategory: category as RealAttemptRecord['failureCategory'],
     httpStatus: status,
     upstream,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// M26.2 — REAL local image-to-video lane (motion program + RIFE neural
+// frame interpolation + ffmpeg), executed inside the SAME job lifecycle
+// (durable row, cancellation, ffprobe completion gate, per-user storage).
+// The lane class is disclosed in provenance: it animates the provided still
+// with parsed motion; it is NOT diffusion scene synthesis.
+// ---------------------------------------------------------------------------
+
+async function processLocalMotionJob(job: JobRow): Promise<void> {
+  const startedAt = Date.now()
+  const backend = getBackend('bean-video-local-motion') ?? getBackend('bean-video-hosted-primary')!
+  const params = JSON.parse(job.paramsJson) as VideoJobParams
+  try {
+    // Cancellation first — including the enqueue/cancel race.
+    if (cancelRequested.has(job.id) || (await durableCancelRequested(job.id))) {
+      await markCancelled(job.id)
+      return
+    }
+    if (!params.imageUrl) {
+      throw new Error('The local motion lane animates a provided still — no reference image was submitted.')
+    }
+    if (!localI2VReady()) {
+      throw new Error(
+        "The local image-to-video lane needs the RIFE frame-interpolation model, which is not installed on this host. Install it explicitly ('rife' — see the deployment guide).",
+      )
+    }
+    await updateJob(job.id, { status: 'running', startedAt: new Date(), progress: 5 })
+    if (cancelRequested.has(job.id) || (await durableCancelRequested(job.id))) {
+      await markCancelled(job.id)
+      return
+    }
+
+    // Resolve the REAL bytes behind the (already route-validated) reference.
+    const resolved = await resolveReferenceBytes(params.imageUrl)
+    if (!resolved.bytes) {
+      throw new Error(resolved.reason ?? 'The reference image could not be resolved.')
+    }
+    await updateJob(job.id, { progress: 12 })
+
+    // Motion program from the instruction — conservative parsing, honest
+    // rejection of subject-motion/added-content requests.
+    const motion = parseMotionProgram(params.prompt)
+    if (motion.unsupported.length > 0) {
+      throw new Error(
+        `The local motion lane cannot honestly perform this request: ${motion.unsupported[0]}. Use the hosted image-to-video provider for generative synthesis (it is the 'hosted' engine choice).`,
+      )
+    }
+
+    const [w, h] = params.size ? params.size.split('x').map(Number) : [480, 480]
+    const durationSec = params.durationSec ?? 4
+    const fps = Math.min(params.fps ?? 24, 24) // CPU lane default; higher fps stays requestable but the lane caps cost honestly
+
+    const generated = await generateLocalI2VFrames({
+      width: Math.min(Math.max(w, 360), 1920),
+      height: Math.min(Math.max(h, 360), 1920),
+      durationSec,
+      fps,
+      program: motion.program,
+      sourceBytes: resolved.bytes,
+      onProgress: (fraction) => {
+        void updateJob(job.id, { progress: Math.round(12 + fraction * 68) }).catch(() => undefined)
+      },
+      isCancelled: () => cancelRequested.has(job.id),
+    })
+    if (cancelRequested.has(job.id) || (await durableCancelRequested(job.id))) {
+      await markCancelled(job.id)
+      return
+    }
+    await updateJob(job.id, { progress: 84 })
+
+    const encoded = await encodeFramesToMp4(generated.frames, generated.width, generated.height, generated.fps)
+
+    // FFPROBE COMPLETION GATE — identical contract to the hosted lane.
+    const streamProbe = await validateVideoArtifact(encoded.bytes, encoded.format, { jobId: job.id })
+    if (!streamProbe.ok || !streamProbe.video) {
+      throw new Error(`The local lane produced a payload that is not a playable video: ${streamProbe.error ?? 'stream validation failed'}. No video was stored.`)
+    }
+
+    const dir = path.join(STORAGE_ROOT, job.userId)
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, `${job.id}.${encoded.format}`), encoded.bytes)
+
+    const result: VideoJobResult = {
+      videoUrl: `/api/jazmii/jobs/${job.id}/media`,
+      format: encoded.format,
+      bytes: encoded.bytes.length,
+      durationMs: Date.now() - startedAt,
+      width: streamProbe.video.width,
+      height: streamProbe.video.height,
+      // Lane disclosure rides WITH the result (dashboard/job view reads this)
+      // — the lane class is stated honestly on every artifact.
+      provenance: {
+        engine: 'local-motion-rife',
+        pipeline: 'local-motion-animation',
+        mode: 'image-to-video',
+        laneClass: 'motion animation of the provided still (pan/zoom trajectory + RIFE neural in-between frames) — NOT diffusion scene synthesis',
+        motionProgram: motion.program.description,
+        framesGenerated: generated.frameCount,
+        rifeCalls: generated.rifeCalls,
+      },
+      stream: {
+        codec: streamProbe.video.codec,
+        width: streamProbe.video.width,
+        height: streamProbe.video.height,
+        durationSec: streamProbe.video.durationSec,
+        ...(streamProbe.video.frames !== null ? { frames: streamProbe.video.frames } : {}),
+        ...(streamProbe.video.fps !== null ? { fps: streamProbe.video.fps } : {}),
+        validatedBy: 'ffprobe',
+      },
+    }
+    const completed = await settleActiveGuarded(job.id, {
+      status: 'completed',
+      progress: 100,
+      finishedAt: new Date(),
+      backendId: backend.id,
+      resultJson: JSON.stringify(result),
+    })
+    if (!completed) {
+      logger.warn('jazmii.settle_refused_lost_ownership', { jobId: job.id, kind: 'local-motion-complete' })
+      return
+    }
+    await recordUsage({
+      userId: job.userId,
+      product: 'jazmii',
+      backendId: backend.id,
+      kind: 'video-generation',
+      durationMs: Date.now() - startedAt,
+      success: true,
+    })
+    await appendJobEventSafe(job.id, 'artifact', {
+      video: {
+        url: result.videoUrl,
+        format: encoded.format,
+        bytes: encoded.bytes.length,
+        width: streamProbe.video.width,
+        height: streamProbe.video.height,
+        durationSec: streamProbe.video.durationSec,
+        validatedBy: 'ffprobe',
+        lane: 'local-motion-rife',
+      },
+    })
+    const attempt: RealAttemptRecord = {
+      at: new Date().toISOString(),
+      ok: true,
+      backendId: backend.id,
+      failureCategory: null,
+      httpStatus: null,
+      upstream: false,
+    }
+    noteRealAttempt('video-generation', attempt)
+    noteRealAttempt('video-generation-i2v', attempt)
+    logger.info('jazmii.local_motion_completed', {
+      jobId: job.id,
+      frames: generated.frameCount,
+      rifeCalls: generated.rifeCalls,
+      bytes: encoded.bytes.length,
+    })
+  } catch (e) {
+    const cancelled = (e as { code?: string }).code === 'CANCELLED' || cancelRequested.has(job.id)
+    if (cancelled) {
+      await markCancelled(job.id)
+      return
+    }
+    const message = e instanceof Error ? e.message : 'The local image-to-video lane could not complete.'
+    const attempt: RealAttemptRecord = {
+      at: new Date().toISOString(),
+      ok: false,
+      backendId: backend.id,
+      failureCategory: 'backend-error',
+      httpStatus: null,
+      upstream: false,
+    }
+    noteRealAttempt('video-generation', attempt)
+    noteRealAttempt('video-generation-i2v', attempt)
+    logger.warn('jazmii.local_motion_failed', { jobId: job.id, message: message.slice(0, 200) })
+    await settleActiveGuarded(job.id, {
+      status: 'failed',
+      errorClass: 'permanent',
+      errorCode: 'BACKEND_FAILURE',
+      errorMessage: message.slice(0, 500),
+      finishedAt: new Date(),
+    })
+    await recordUsage({
+      userId: job.userId,
+      product: 'jazmii',
+      backendId: backend.id,
+      kind: 'video-generation',
+      durationMs: Date.now() - startedAt,
+      success: false,
+      errorCode: 'BACKEND_FAILURE',
+    })
   }
 }
 

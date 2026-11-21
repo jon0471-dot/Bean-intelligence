@@ -194,7 +194,7 @@ export async function persistedUpstreamFailure(
       const row = await latestFailedRow({
         product: 'laxii',
         task: 'image-editing',
-        backendId: 'bean-image-hosted-edit',
+        backendId: { in: ['bean-image-hosted-edit', 'bean-image-local-segmentation'] },
         paramsJson: { contains: '"mode":"background-removal"' },
       })
       if (!row) return null
@@ -324,15 +324,18 @@ export async function persistedAttempt(task: PersistedAttemptTask): Promise<Atte
       return recordFrom(row?.finishedAt ?? null)
     }
     if (task === 'image-bg-removal') {
-      // Background-removal rows are image-editing rows whose params carry
-      // the dedicated mode — matched by the persisted params JSON so the
-      // capability's evidence stays separate from conversational editing's.
+      // M26.2: background-removal evidence now spans BOTH lanes — the hosted
+      // two-stage pipeline (bean-image-hosted-edit) AND the local matting
+      // lane (bean-image-local-segmentation). Filtering to the hosted
+      // backend alone made real local completions invisible to the
+      // capability model (measured 2026-11-18: real local matte completions
+      // persisted while the row stayed blocked).
       const row = await db.generationJob.findFirst({
         where: {
           product: 'laxii',
           task: 'image-editing',
           status: 'completed',
-          backendId: 'bean-image-hosted-edit',
+          backendId: { in: ['bean-image-hosted-edit', 'bean-image-local-segmentation'] },
           paramsJson: { contains: '"mode":"background-removal"' },
         },
         orderBy: { finishedAt: 'desc' },

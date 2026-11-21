@@ -91,6 +91,39 @@ export function taskForOp(op: LaxiiOp): 'image-generation' | 'image-enhancement'
   }
 }
 
+/**
+ * M26.2 — shared lane resolution for conversational-edit / background-removal.
+ *
+ *  - explicit 'hosted' / 'local' engines are honored as requested;
+ *  - 'auto' keeps the hosted status quo for conversational edits when the
+ *    hosted lane has real success evidence, otherwise heals to the local
+ *    engine when it is registry-enabled;
+ *  - background removal defaults LOCAL-first when enabled (the hosted
+ *    two-stage depends on the provider with the measured contract blocker);
+ *  - an unavailable requested lane falls back to the hosted lane honestly —
+ *    the router's preflight override then reports the truth per backend.
+ */
+export async function resolveEditLane(
+  mode: 'conversational-edit' | 'background-removal',
+  engine: 'auto' | 'hosted' | 'local' = 'auto',
+): Promise<{ backendId: string; engine: 'hosted' | 'local' }> {
+  const localBackendId =
+    mode === 'background-removal' ? 'bean-image-local-segmentation' : 'bean-image-local-edit'
+  if (engine === 'hosted') return { backendId: 'bean-image-hosted-edit', engine: 'hosted' }
+  if (engine === 'local') return { backendId: localBackendId, engine: 'local' }
+  if (mode === 'background-removal') {
+    return getBackend(localBackendId)?.enabled === true
+      ? { backendId: localBackendId, engine: 'local' }
+      : { backendId: 'bean-image-hosted-edit', engine: 'hosted' }
+  }
+  const { lastRealAttempt } = await import('@/lib/adapters/last-attempts')
+  const hostedOk = lastRealAttempt('image-editing')?.ok === true
+  if (hostedOk) return { backendId: 'bean-image-hosted-edit', engine: 'hosted' }
+  return getBackend(localBackendId)?.enabled === true
+    ? { backendId: localBackendId, engine: 'local' }
+    : { backendId: 'bean-image-hosted-edit', engine: 'hosted' }
+}
+
 export interface ProviderDescriptor {
   backendId:
     | 'bean-image-hosted-primary'

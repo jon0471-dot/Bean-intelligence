@@ -8,8 +8,10 @@ import { enqueueJob } from '@/lib/jobs/queue'
 import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { recordAudit } from '@/lib/observability/metering'
 import { loadAsset } from '@/lib/laxii/assets'
-import { resolveProvider } from '@/lib/laxii/provider'
+import { resolveProvider, resolveEditLane } from '@/lib/laxii/provider'
 import { generativeWorkerStatus } from '@/lib/laxii/models'
+import { parseLocalEditPlan, planRequiresApproval } from '@/lib/laxii/local-edit'
+import { getBackend } from '@/lib/registry/backends'
 import { lastRealAttempt } from '@/lib/adapters/last-attempts'
 import { persistedAttempt } from '@/lib/adapters/persisted-attempts'
 import { LAXII_EDIT_CONTRACT_BLOCKER } from '@/lib/registry/capabilities'
@@ -90,6 +92,20 @@ const schema = z.discriminatedUnion('mode', [
     size: z
       .enum(['1024x1024', '768x1344', '864x1152', '1344x768', '1152x864', '2048x1152', '1152x2048', '2048x1024', '1024x2048'])
       .optional(),
+    // M26.2 engine/lane selection: 'auto' (hosted if it has success evidence,
+    // else the local engine) | 'hosted' | 'local'. The local engine executes
+    // a CONSERVATIVE parsed plan (tone/look/background ops via matting,
+    // masked removal via LaMa, approved geometry) and refuses generative
+    // synthesis honestly.
+    engine: z.enum(['auto', 'hosted', 'local']).optional(),
+    // Optional brush-mask strokes riding along (enables masked removal via
+    // the local engine's LaMa lane without leaving the chat flow).
+    maskStrokes: z
+      .array(z.object({ assetId: z.string().min(1), kind: z.literal('edit') }))
+      .max(8)
+      .default([]),
+    // Destructive geometry ops (rotate/flip) require explicit approval.
+    approved: z.boolean().optional(),
   }),
   // OPERATIONAL-TRANSFORMATION (2026-11-11), Phase 4: REAL background
   // removal — two-stage pipeline (hosted chroma separation + deterministic
@@ -99,6 +115,13 @@ const schema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('background-removal'),
     assetId: z.string().min(1),
+    // M26.2 local lane options (REAL matting): transparent PNG by default;
+    // JPEG requires an explicit background; blur gives a portrait-mode cutout.
+    engine: z.enum(['auto', 'hosted', 'local']).optional(),
+    output: z.enum(['png', 'jpeg']).optional(),
+    backgroundColor: z.string().max(20).optional(),
+    backgroundBlur: z.boolean().optional(),
+    blurSigma: z.number().min(1).max(24).optional(),
   }),
 ])
 
@@ -129,15 +152,52 @@ export async function POST(request: Request) {
       opTask = 'image-enhancement'
       backendId = 'bean-image-local-sharp'
     } else if (body.mode === 'conversational-edit' || body.mode === 'background-removal') {
-      resolveProvider('hosted-edit')
+      // M26.2 lane resolution via the shared resolver (same semantics for the
+      // direct route and the chat studio): explicit engines honored; 'auto'
+      // keeps the hosted status quo for edits / local-first for bg removal.
+      const lane = await resolveEditLane(body.mode, body.engine ?? 'auto')
+      backendId = lane.backendId
+      // The local engine parses the instruction BEFORE queueing: a request
+      // with no executable op, an impossible (generative) op, or destructive
+      // geometry without explicit approval is refused HERE — no job row, no
+      // fake hope, the original image untouched.
+      if (body.mode === 'conversational-edit' && backendId === 'bean-image-local-edit') {
+        const plan = parseLocalEditPlan(body.prompt)
+        if (plan.unsupported.length > 0) {
+          throw new BeanApiError(
+            'CAPABILITY_UNSUPPORTED',
+            `The local edit engine cannot honestly perform this request: ${plan.unsupported[0]}. Available locally: brightness/contrast/saturation/warmth/grayscale/sepia/sharpen/vignette, background blur or recolor, masked removal (brush a mask), and approved rotate/flip. Whole-image generative edits need the hosted engine.`,
+          )
+        }
+        if (plan.ops.length === 0) {
+          throw new BeanApiError(
+            'VALIDATION_ERROR',
+            'The instruction does not match any locally executable edit. Try "brighten", "blur the background", "make it black and white", "rotate right" (approved) or brush a mask and ask to remove it.',
+          )
+        }
+        if (planRequiresApproval(plan) && body.approved !== true) {
+          throw new BeanApiError(
+            'VALIDATION_ERROR',
+            'This edit contains destructive geometry changes (rotate/flip). Resubmit with approval to apply them — the original image was not modified.',
+          )
+        }
+      }
       opTask = 'image-editing'
-      backendId = 'bean-image-hosted-edit'
     } else {
-      // Throws PROVIDER_UNAVAILABLE while the worker is disabled — before
-      // any job is created.
-      resolveProvider(body.mode === 'smart-edit' ? 'masked-inpaint' : body.mode === 'object-removal' ? 'object-removal' : 'reference-guided')
+      // M26.2: masked OBJECT REMOVAL can ride the REAL local LaMa lane when
+      // the GPU Diffusers worker is not deployed (same brush-mask flow,
+      // honest engine disclosure). The other masked modes still require the
+      // worker and throw the truthful 503 while it is disabled.
+      const localEditEnabled = getBackend('bean-image-local-edit')?.enabled === true
+      if (body.mode === 'object-removal' && localEditEnabled) {
+        backendId = 'bean-image-local-edit'
+      } else {
+        // Throws PROVIDER_UNAVAILABLE while the worker is disabled — before
+        // any job is created.
+        resolveProvider(body.mode === 'smart-edit' ? 'masked-inpaint' : body.mode === 'object-removal' ? 'object-removal' : 'reference-guided')
+        backendId = 'bean-image-selfhosted-diffusers'
+      }
       opTask = 'image-editing'
-      backendId = 'bean-image-selfhosted-diffusers'
     }
 
     if (body.mode === 'reference-guided') {
@@ -147,7 +207,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const { backend, release } = await preflight(user.id, 'laxii', opTask)
+    const { release } = await preflight(user.id, 'laxii', opTask, { backendId })
     release()
 
     // ZERO-DOWNTIME RECOVERY (2026-11-11) — duplicate-submission guard: an
@@ -167,7 +227,7 @@ export async function POST(request: Request) {
         product: 'laxii',
         task: opTask,
         status: 'queued',
-        backendId: backend.id,
+        backendId, // the RESOLVED lane backend — the worker dispatches by it
         dedupeKey,
         paramsJson: JSON.stringify(body),
       },
@@ -208,34 +268,55 @@ export async function GET() {
     // FINAL CAPABILITY FIX (2026-11-07): the persisted completed edit job is
     // evidence too — a restart must not forget a real conversational edit.
     const editAttempt = lastRealAttempt('image-editing') ?? (await persistedAttempt('image-editing'))
-    const editAvailable = Boolean(editAttempt?.ok)
+    const hostedEditAvailable = Boolean(editAttempt?.ok)
     // BACKGROUND REMOVAL (2026-11-11): its own evidence chain (per-capability
     // attempt keys) — never advertised from conversational-editing's record.
     const bgAttempt = lastRealAttempt('image-bg-removal') ?? (await persistedAttempt('image-bg-removal'))
+    // M26.2 local lanes: honest registry + model states (real files on disk).
+    const localEditEnabled = getBackend('bean-image-local-edit')?.enabled === true
+    const localSegEnabled = getBackend('bean-image-local-segmentation')?.enabled === true
     return ok({
       capabilities: {
         'strict-preserve': { available: true, engine: 'deterministic-sharp' },
         'conversational-edit': {
-          available: editAvailable,
-          engine: 'hosted-edit',
-          ...(editAvailable
-            ? {}
-            : {
-                note:
-                  'BLOCKED — ' + LAXII_EDIT_CONTRACT_BLOCKER.note,
-                blockerSince: editAttempt?.at ?? LAXII_EDIT_CONTRACT_BLOCKER.measuredAt,
-              }),
+          // Available when ANY lane can genuinely execute: hosted evidence OR
+          // the enabled local engine.
+          available: hostedEditAvailable || localEditEnabled,
+          engine: hostedEditAvailable ? 'hosted-edit' : localEditEnabled ? 'local-edit' : 'hosted-edit',
+          engines: {
+            hosted: {
+              available: hostedEditAvailable,
+              ...(hostedEditAvailable
+                ? {}
+                : { note: 'BLOCKED — ' + LAXII_EDIT_CONTRACT_BLOCKER.note, blockerSince: editAttempt?.at ?? LAXII_EDIT_CONTRACT_BLOCKER.measuredAt }),
+            },
+            local: {
+              available: localEditEnabled,
+              ...(localEditEnabled ? {} : { note: getBackend('bean-image-local-edit')?.unavailableReason ?? 'The local edit engine is not enabled on this deployment.' }),
+            },
+          },
         },
         'background-removal': {
-          available: Boolean(bgAttempt?.ok),
-          engine: 'hosted-edit+chroma-cutout',
-          ...(bgAttempt?.ok
-            ? {}
-            : {
-                note:
-                  'Available only after a real two-stage run completes (hosted chroma separation + deterministic cutout). Measured constraint: the hosted endpoint has no direct alpha output, so the transparent PNG comes from the deterministic stage.',
-                ...(bgAttempt ? { blockerSince: bgAttempt.at } : {}),
-              }),
+          available: Boolean(bgAttempt?.ok) || localSegEnabled,
+          engine: localSegEnabled ? 'local-segmentation' : 'hosted-edit+chroma-cutout',
+          engines: {
+            hosted: {
+              available: Boolean(bgAttempt?.ok),
+              ...(bgAttempt?.ok
+                ? {}
+                : {
+                    note:
+                      'Available only after a real two-stage run completes (hosted chroma separation + deterministic cutout). Measured constraint: the hosted endpoint has no direct alpha output, so the transparent PNG comes from the deterministic stage.',
+                    ...(bgAttempt ? { blockerSince: bgAttempt.at } : {}),
+                  }),
+            },
+            local: {
+              available: localSegEnabled,
+              ...(localSegEnabled
+                ? { note: 'REAL neural matting (MODNet/u2netp) — true alpha at full source resolution, transparent PNG or explicit background export.' }
+                : { note: getBackend('bean-image-local-segmentation')?.unavailableReason ?? 'The local matting lane is not enabled on this deployment.' }),
+            },
+          },
         },
         'smart-edit': { available: worker.registryEnabled, engine: 'diffusers-worker' },
         'object-removal': { available: worker.registryEnabled, engine: 'diffusers-worker' },

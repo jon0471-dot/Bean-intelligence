@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node scripts/build-workers.mjs && node scripts/copy-ort-assets.mjs && next dev -p 3000 2>&1 | tee dev.log",
     "test": "bun test --isolate tests/",
-    "build": "node scripts/build-workers.mjs && node scripts/copy-ort-assets.mjs && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "node scripts/build-workers.mjs && node scripts/copy-ort-assets.mjs && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && node scripts/copy-native-libs.mjs",
     "start": "NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 DATABASE_URL=file:/home/z/my-project/db/custom.db bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "db:push": "prisma db push --accept-data-loss",

@@ -46,10 +46,17 @@ local-*
 # so it could never be committed and its absence broke the build with
 # "Module not found: Can't resolve '@/lib/laxii/local-adapter'".
 !src/lib/laxii/local-adapter.ts
-# M26.3 (carried from the M26.2 review): the llama.cpp desktop-engine client
-# is REAL source imported by the committed device-capability manager — same
-# class of silent-ignore build break as local-adapter.ts above.
+# M26.2/M26.3 (same class of bug caught at both reviews): these are REAL
+# source files and directories of the local inference lanes — never local
+# artifacts. The bare local-* rule above silently ignored them, so a fresh
+# clone missed them and the build broke ("Module not found:
+# '@/lib/media/local-models'", the llama.cpp desktop-engine client imported
+# by the committed device-capability manager, etc.) while the sandbox —
+# where the files exist on disk — built fine. Verified with git check-ignore.
+!src/lib/laxii/local-edit.ts
 !src/lib/local-engine/
+!src/lib/media/local-models.ts
+!src/app/api/laxii/local-models/
 .claude
 .z-ai-config
 *.log

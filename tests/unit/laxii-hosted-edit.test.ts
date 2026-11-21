@@ -137,6 +137,18 @@ const fakeDb = {
       return data
     },
   },
+  // M26.2: every completed edit (hosted lane included) records its lineage
+  // row — the fake db gains the same model (with the timestamp fields the
+  // serializer reads) so the hosted-edit branch completes exactly as it
+  // does against the real database.
+  laxiiEditHistory: {
+    create: async ({ data }: { data: Record<string, unknown> }) => ({
+      ...(data as Record<string, unknown>),
+      id: 'history-fake-1',
+      undoneAt: null,
+      createdAt: new Date(),
+    }),
+  },
 }
 mock.module('@/lib/db', () => ({ db: fakeDb }))
 

@@ -8,7 +8,7 @@ import { enqueueJob } from '@/lib/jobs/queue'
 import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { recordAudit } from '@/lib/observability/metering'
 import { loadAsset } from '@/lib/laxii/assets'
-import { resolveProvider } from '@/lib/laxii/provider'
+import { resolveProvider, resolveEditLane } from '@/lib/laxii/provider'
 import { generativeWorkerStatus } from '@/lib/laxii/models'
 import { MIN_DIMENSION_PX, MAX_DIMENSION_PX } from '@/lib/laxii/dimensions'
 import { detectIntent, titleFromText, normalizeJobStatus, requireImageAsset, resolveConversationImage, serializeLaxiiMessages } from '@/lib/laxii/chat'
@@ -298,12 +298,12 @@ async function submitOrAnswer(ctx: {
     }
     await requireImageAsset(userId, sourceAssetId)
 
-    // ---- background removal ---------------------------------------------------
+    // ---- background removal (M26.2: local matting lane first when enabled) ----
     if (d.intent === 'bg-removal') {
-      resolveProvider('hosted-edit')
-      const { backend, release } = await preflight(userId, 'laxii', 'image-editing')
+      const lane = await resolveEditLane('background-removal', 'auto')
+      const { release } = await preflight(userId, 'laxii', 'image-editing', { backendId: lane.backendId })
       release()
-      const params = { mode: 'background-removal', assetId: sourceAssetId }
+      const params = { mode: 'background-removal', assetId: sourceAssetId, engine: lane.engine }
       const dedupeKey = dedupeKeyFor(userId, 'laxii', 'image-editing', params)
       if (await hasActiveDuplicate(dedupeKey)) {
         throw new BeanApiError('CONCURRENCY_LIMIT', 'An identical edit job is already queued or running. Wait for it to finish.')
@@ -314,7 +314,7 @@ async function submitOrAnswer(ctx: {
           product: 'laxii',
           task: 'image-editing',
           status: 'queued',
-          backendId: 'bean-image-hosted-edit',
+          backendId: lane.backendId,
           dedupeKey,
           paramsJson: JSON.stringify(params),
         },
@@ -409,14 +409,24 @@ async function submitOrAnswer(ctx: {
       })
     }
 
-    // ---- edit / image-to-image (hosted conversational edit) --------------------
+    // ---- edit / image-to-image (M26.2: lane resolution + masks ride along) -----
     if (d.intent === 'edit' || d.intent === 'image-to-image') {
       const prompt = d.prompt.trim()
       if (prompt.length < 3) throw new BeanApiError('VALIDATION_ERROR', 'Describe the edit in a few more words.')
-      resolveProvider('hosted-edit')
-      const { backend, release } = await preflight(userId, 'laxii', 'image-editing')
+      const lane = await resolveEditLane('conversational-edit', 'auto')
+      const { release } = await preflight(userId, 'laxii', 'image-editing', { backendId: lane.backendId })
       release()
-      const params = { mode: 'conversational-edit', assetId: sourceAssetId, prompt: prompt.slice(0, 2000) }
+      const params = {
+        mode: 'conversational-edit',
+        assetId: sourceAssetId,
+        prompt: prompt.slice(0, 2000),
+        engine: lane.engine,
+        // Brush masks riding with the message enable the local engine's
+        // remove-masked (LaMa) lane without leaving the chat flow.
+        ...(maskAssetIds && maskAssetIds.length > 0
+          ? { maskStrokes: maskAssetIds.map((id) => ({ assetId: id, kind: 'edit' as const })) }
+          : {}),
+      }
       const dedupeKey = dedupeKeyFor(userId, 'laxii', 'image-editing', params)
       if (await hasActiveDuplicate(dedupeKey)) {
         throw new BeanApiError('CONCURRENCY_LIMIT', 'An identical edit job is already queued or running. Wait for it to finish.')
@@ -427,7 +437,7 @@ async function submitOrAnswer(ctx: {
           product: 'laxii',
           task: 'image-editing',
           status: 'queued',
-          backendId: 'bean-image-hosted-edit',
+          backendId: lane.backendId,
           dedupeKey,
           paramsJson: JSON.stringify(params),
         },

@@ -25,7 +25,10 @@ import { Progress } from '@/components/ui/progress'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { beanFetch, GoldBadge, Spinner, timeAgo } from './shared'
+// M26.3 image viewer (aspect-ratio-correct lightbox) + M26.2 edit history —
+// both features are part of the reconciled LAXII studio; imports preserved.
 import { ImageLightbox, type LightboxImage } from './laxii/image-lightbox'
+import { EditHistoryPanel } from './laxii/edit-history'
 import { useToast } from '@/hooks/use-toast'
 import { getClientCompute } from '@/lib/client-compute'
 import { scheduleImagePreprocess } from '@/lib/client-compute/adapters/laxii'
@@ -685,6 +688,14 @@ export function Laxii({ sizes }: { sizes: SizeOpt[] }) {
             </p>
           </div>
           <div className="hidden md:block">{capChips}</div>
+          <EditHistoryPanel
+            assetId={sourceRef?.assetId ?? null}
+            onRestored={() => {
+              // A restore created a NEW result asset — clear the stale source
+              // ref so the next message targets the restored state honestly.
+              setSourceRef(null)
+            }}
+          />
         </header>
 
         {/* Thread */}

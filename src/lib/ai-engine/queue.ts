@@ -105,6 +105,7 @@ function toClaimed(row: QueueJobRow, workerId: string, workerKind: string): Clai
     maxAttempts: row.maxAttempts,
     paramsJson: row.paramsJson,
     resultJson: row.resultJson,
+    backendId: row.backendId,
     cancelRequested: row.cancelRequested,
     workerId,
     workerKind: workerKind === 'standalone' ? 'standalone' : 'embedded',
