@@ -142,19 +142,54 @@ export class DirectorFailureError extends Error {
  * Execute (or resume) one production orchestration. Mirrors the video
  * worker's contract: the row is settled by THIS function; the runner's
  * outcome envelope only handles unexpected throws.
+ *
+ * Trust contract (specialist-coverage milestone): an UNEXPECTED throw after
+ * the receipt exists must never leave a stuck `running` receipt — the catch
+ * settles the Trust task failed with the real reason, then rethrows so the
+ * runner still settles the job row.
  */
 export async function processProductionJob(job: JobRow): Promise<void> {
+  try {
+    await runProductionOrchestration(job)
+  } catch (e) {
+    // Unexpected orchestration error: settle the receipt honestly (when one
+    // exists), then let the runner envelope settle the job row.
+    try {
+      const params = JSON.parse(job.paramsJson) as DirectorJobParams
+      const production = await db.jazmiiProduction.findUnique({ where: { id: params.productionId } })
+      const taskId = production?.trustTaskId ?? null
+      const message = e instanceof Error ? e.message : String(e)
+      if (taskId) {
+        await failTrustTask(taskId, {
+          failureNote: `The orchestration failed unexpectedly before it could settle: ${message.slice(0, 400)}`.slice(0, 590),
+          limitations: ['No final video was delivered by this run; the production row records the job-level failure.'],
+        })
+      }
+    } catch (trustError) {
+      logger.warn('jazmii.director_trust_catch_settle_failed', {
+        message: trustError instanceof Error ? trustError.message.slice(0, 160) : String(trustError).slice(0, 160),
+      })
+    }
+    throw e
+  }
+}
+
+async function runProductionOrchestration(job: JobRow): Promise<void> {
   let params: DirectorJobParams
   try {
     params = JSON.parse(job.paramsJson) as DirectorJobParams
   } catch {
-    await settleActiveGuarded(job.id, {
+    const settledRow = await settleActiveGuarded(job.id, {
       status: 'failed',
       finishedAt: new Date(),
       errorCode: 'PARAMS_INVALID',
       errorMessage: 'The production job parameters could not be parsed.',
       errorClass: 'permanent',
     })
+    if (settledRow) {
+      // Trust Engine: an honest receipt for the unparseable orchestration job.
+      await recordOrphanJobTrustFailure(job, 'PARAMS_INVALID', 'The production job parameters could not be parsed; no production work was attempted.')
+    }
     return
   }
 
@@ -163,13 +198,18 @@ export async function processProductionJob(job: JobRow): Promise<void> {
     include: { scenes: { orderBy: { idx: 'asc' } } },
   })
   if (!production || production.userId !== job.userId) {
-    await settleActiveGuarded(job.id, {
+    const settledRow = await settleActiveGuarded(job.id, {
       status: 'failed',
       finishedAt: new Date(),
       errorCode: 'PRODUCTION_NOT_FOUND',
       errorMessage: 'The production referenced by this job no longer exists.',
       errorClass: 'permanent',
     })
+    if (settledRow) {
+      // Trust Engine: even this earliest failure leaves an honest receipt —
+      // the job was claimed, attempted, and produced nothing.
+      await recordOrphanJobTrustFailure(job, 'PRODUCTION_NOT_FOUND', 'The production referenced by this job no longer exists; nothing was generated or modified.')
+    }
     return
   }
 
@@ -816,6 +856,40 @@ async function syncSceneFromJob(
   }
 }
 
+/**
+ * Trust receipt for an orchestration job that failed BEFORE any production
+ * context could exist (unparseable params / missing production row): a
+ * minimal, honest receipt bound to the job — the attempt happened and
+ * produced nothing (best-effort; never breaks the worker).
+ */
+async function recordOrphanJobTrustFailure(job: JobRow, code: string, message: string): Promise<void> {
+  try {
+    const task = await createTrustTask({
+      userId: job.userId,
+      product: 'jazmii',
+      kind: 'video-production',
+      title: 'Auto Director — orchestration failed',
+      jobId: job.id,
+    })
+    await planTrustSteps(task.id, [
+      { kind: 'plan', title: 'Storyboard planning' },
+      { kind: 'generation', title: 'Scene generation and composition' },
+    ])
+    await startTrustTask(task.id)
+    await updateTrustStepStatus(task.id, 1, 'skipped', { errorNote: 'no storyboard could be resolved for this job' })
+    await updateTrustStepStatus(task.id, 2, 'skipped', { errorNote: 'never started — the job failed before any scene work' })
+    await failTrustTask(task.id, {
+      failureNote: `${code}: ${message}`.slice(0, 590),
+      limitations: ['No scene was generated, no composition ran, and no video was delivered.'],
+    })
+  } catch (e) {
+    logger.warn('jazmii.director_orphan_trust_failed', {
+      jobId: job.id,
+      message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
+    })
+  }
+}
+
 async function cancelActiveSceneJobs(productionId: string): Promise<void> {
   const scenes = await db.jazmiiScene.findMany({ where: { productionId }, select: { jobId: true, status: true } })
   for (const s of scenes) {
@@ -839,8 +913,58 @@ async function cancelProduction(productionId: string, jobId: string, trustTaskId
     errorClass: 'cancelled',
   })
   if (settled) await appendJobEventSafe(jobId, 'notice', { production_cancelled: productionId })
-  if (trustTaskId) await cancelTrustTask(trustTaskId, note).catch(() => undefined)
+  // Trust Engine: the cancellation is recorded even when the orchestration's
+  // standing receipt does not exist yet — cancellation must never be silent.
+  let receiptId = trustTaskId
+  if (!receiptId) {
+    receiptId = await createMinimalProductionTrustTask(productionId, jobId)
+  }
+  if (receiptId) {
+    await cancelTrustTask(receiptId, note).catch(() => undefined)
+  }
   logger.info('jazmii.director_cancelled', { productionId })
+}
+
+/**
+ * Minimal receipt for a production whose standing Trust task was never
+ * created (pre-plan failures, cancel-before-plan). Bound to the production
+ * row (userId/title/objective) and the orchestration job; the caller settles
+ * it immediately from the REAL outcome.
+ */
+async function createMinimalProductionTrustTask(productionId: string, jobId: string): Promise<string | null> {
+  try {
+    const production = await db.jazmiiProduction.findUnique({ where: { id: productionId } })
+    if (!production) return null
+    let objective = ''
+    try {
+      const brief = production.briefJson ? (JSON.parse(production.briefJson) as { objective?: string }) : null
+      if (typeof brief?.objective === 'string') objective = brief.objective
+    } catch {
+      /* bounded fallback below */
+    }
+    const task = await createTrustTask({
+      userId: production.userId,
+      product: 'jazmii',
+      kind: 'video-production',
+      title: `Auto Director — ${production.title}`.slice(0, 120),
+      ...(objective ? { requestPreview: objective.slice(0, 2000) } : {}),
+      jobId,
+    })
+    await planTrustSteps(task.id, [
+      { kind: 'plan', title: 'Storyboard planning' },
+      { kind: 'approval', title: 'Owner approval' },
+      { kind: 'generation', title: 'Scene generation and composition' },
+      { kind: 'verification', title: 'ffprobe stream validation of the final MP4' },
+    ])
+    await startTrustTask(task.id)
+    return task.id
+  } catch (e) {
+    logger.warn('jazmii.director_minimal_trust_failed', {
+      productionId,
+      message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
+    })
+    return null
+  }
 }
 
 async function settleProductionFailed(
@@ -873,9 +997,17 @@ async function settleProductionFailed(
   if (settled) {
     await appendJobEventSafe(jobId, 'error', { code, message: message.slice(0, 300), errorClass: 'permanent' })
   }
-  if (trustTaskId) {
-    await failTrustTask(trustTaskId, {
-      failureNote: message.slice(0, 590),
+  // Trust Engine: a failure must never be silent even when the orchestration
+  // never created its standing receipt (pre-plan failures such as
+  // PLAN_MISSING / PLAN_INVALID) — a minimal receipt is created and settled
+  // from the REAL outcome (best-effort; never breaks the worker).
+  let receiptId = trustTaskId
+  if (!receiptId) {
+    receiptId = await createMinimalProductionTrustTask(productionId, jobId)
+  }
+  if (receiptId) {
+    await failTrustTask(receiptId, {
+      failureNote: `${code}: ${message.slice(0, 560)}`.slice(0, 590),
       limitations: failedScenes.slice(0, 8).map((s) => `Scene ${s.idx} failed: ${s.errorMessage ?? 'unknown'}`),
     }).catch(() => undefined)
   }

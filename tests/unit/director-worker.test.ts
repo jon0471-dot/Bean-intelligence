@@ -395,3 +395,119 @@ describe('director orchestrator — full pipeline (real media)', () => {
     expect(fake.generationJob.rows.filter((j) => j.task === 'video-generation').length).toBe(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// TRUST SPECIALIST COVERAGE milestone — pre-plan failures must never be
+// receipt-silent: PLAN_MISSING / PLAN_INVALID (standing receipt not created
+// yet) and PARAMS_INVALID / PRODUCTION_NOT_FOUND (no production context at
+// all) each leave an honest failed receipt in the SHARED Trust Engine.
+// ---------------------------------------------------------------------------
+describe('director — failure receipts for pre-plan and orphan paths', () => {
+  test('PLAN_MISSING: a minimal receipt is created and settled failed', async () => {
+    const { composeTrustReceipt } = await import('../../src/lib/trust/receipt')
+    const productionId = await seedProduction({ storyboardJson: null, approvedAt: null }).then((p) => p.id)
+    const orch = await seedOrchestration(productionId)
+    await processProductionJob({
+      id: orch.id,
+      userId: OWNER,
+      product: 'jazmii',
+      task: 'video-production',
+      status: 'starting',
+      paramsJson: JSON.stringify({ productionId }),
+      resultJson: null,
+    })
+    const task = fake.trustTask.rows.find((t) => t.jobId === orch.id)
+    expect(task).toBeTruthy()
+    expect(task!.status).toBe('failed')
+    const receipt = await composeTrustReceipt(task!.id as string, OWNER)
+    expect(receipt!.task.status).toBe('failed')
+    expect(receipt!.task.failureNote).toContain('PLAN_MISSING')
+    // the planned-but-unreached steps remain visible on the failed receipt
+    const planned = receipt!.steps.filter((s) => s.status === 'planned')
+    expect(planned.length).toBeGreaterThan(0)
+  })
+
+  test('PLAN_INVALID (malformed storyboard): honest failed receipt', async () => {
+    const { composeTrustReceipt } = await import('../../src/lib/trust/receipt')
+    const productionId = await seedProduction({
+      storyboardJson: JSON.stringify({ storyboard: { totally: 'malformed' }, approvedAt: new Date().toISOString() }),
+    }).then((p) => p.id)
+    const orch = await seedOrchestration(productionId)
+    await processProductionJob({
+      id: orch.id,
+      userId: OWNER,
+      product: 'jazmii',
+      task: 'video-production',
+      status: 'starting',
+      paramsJson: JSON.stringify({ productionId }),
+      resultJson: null,
+    })
+    const production = fake.jazmiiProduction.rows.find((r) => r.id === productionId)!
+    expect(production.status).toBe('failed')
+    expect(production.errorCode).toBe('PLAN_INVALID')
+    const task = fake.trustTask.rows.find((t) => t.jobId === orch.id)
+    expect(task?.status).toBe('failed')
+    const receipt = await composeTrustReceipt(task!.id as string, OWNER)
+    expect(receipt!.task.failureNote).toContain('PLAN_INVALID')
+  })
+
+  test('PARAMS_INVALID: an orphan receipt bound to the job records the attempt honestly', async () => {
+    const { composeTrustReceipt } = await import('../../src/lib/trust/receipt')
+    await fake.generationJob.create({
+      data: {
+        id: 'orch-orphan-1',
+        userId: OWNER,
+        product: 'jazmii',
+        task: 'video-production',
+        status: 'starting',
+        paramsJson: 'not-json-at-all',
+        resultJson: null,
+      },
+    })
+    await processProductionJob({
+      id: 'orch-orphan-1',
+      userId: OWNER,
+      product: 'jazmii',
+      task: 'video-production',
+      status: 'starting',
+      paramsJson: 'not-json-at-all',
+      resultJson: null,
+    })
+    const task = fake.trustTask.rows.find((t) => t.jobId === 'orch-orphan-1')
+    expect(task).toBeTruthy()
+    expect(task!.status).toBe('failed')
+    const receipt = await composeTrustReceipt(task!.id as string, OWNER)
+    expect(receipt!.task.failureNote).toContain('PARAMS_INVALID')
+    expect(receipt!.task.limitations.some((l) => l.includes('No scene was generated'))).toBe(true)
+  })
+
+  test('PRODUCTION_NOT_FOUND: an orphan receipt records that nothing was generated', async () => {
+    const { composeTrustReceipt } = await import('../../src/lib/trust/receipt')
+    await fake.generationJob.create({
+      data: {
+        id: 'orch-orphan-2',
+        userId: OWNER,
+        product: 'jazmii',
+        task: 'video-production',
+        status: 'starting',
+        paramsJson: JSON.stringify({ productionId: 'prod-gone' }),
+        resultJson: null,
+      },
+    })
+    await processProductionJob({
+      id: 'orch-orphan-2',
+      userId: OWNER,
+      product: 'jazmii',
+      task: 'video-production',
+      status: 'starting',
+      paramsJson: JSON.stringify({ productionId: 'prod-gone' }),
+      resultJson: null,
+    })
+    const task = fake.trustTask.rows.find((t) => t.jobId === 'orch-orphan-2')
+    expect(task).toBeTruthy()
+    expect(task!.status).toBe('failed')
+    const receipt = await composeTrustReceipt(task!.id as string, OWNER)
+    expect(receipt!.task.failureNote).toContain('PRODUCTION_NOT_FOUND')
+    expect(receipt!.task.failureNote).toContain('nothing was generated')
+  })
+})

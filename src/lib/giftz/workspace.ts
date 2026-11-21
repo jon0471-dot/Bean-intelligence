@@ -94,26 +94,62 @@ export function pickEntryFile(paths: string[]): string | null {
  * (added/modified with REAL diffs; an identical file is a no-op that is
  * reported as nothing). Shared by the live SSE route and the background
  * coding worker. (Moved here 2026-11-07 from the chat route.)
+ *
+ * Application is PER-FILE, not transactional: a mid-loop failure leaves the
+ * earlier files of this turn applied. That truth is carried on
+ * WorkspaceApplyError so a caller (e.g. the background Trust receipt) can
+ * record exactly which mutations happened — never claiming an untouched
+ * workspace it cannot prove.
  */
+export interface AppliedFileChange {
+  path: string
+  change: 'added' | 'modified'
+  diff: ReturnType<typeof diffContent>
+}
+
+export class WorkspaceApplyError extends Error {
+  /** Changes actually persisted before the failure (may be empty). */
+  readonly appliedSoFar: AppliedFileChange[]
+  /** The file whose application failed (null for non-path failures). */
+  readonly failedPath: string | null
+  constructor(message: string, appliedSoFar: AppliedFileChange[], failedPath: string | null) {
+    super(message)
+    this.name = 'WorkspaceApplyError'
+    this.appliedSoFar = appliedSoFar
+    this.failedPath = failedPath
+  }
+}
+
 export async function applyFiles(
   projectId: string,
   extracted: GiftzFile[],
-): Promise<Array<{ path: string; change: 'added' | 'modified'; diff: ReturnType<typeof diffContent> }>> {
-  const changes: Array<{ path: string; change: 'added' | 'modified'; diff: ReturnType<typeof diffContent> }> = []
-  for (const f of extracted) {
-    assertSafeProjectPath(f.path)
-    const existing = await db.codeFile.findUnique({
-      where: { projectId_path: { projectId, path: f.path } },
-    })
-    if (existing && existing.content === f.content) continue // no change — say nothing
-    const diff = diffContent(existing?.content ?? null, f.content)
-    if (existing) {
-      await db.codeFile.update({ where: { id: existing.id }, data: { content: f.content, origin: 'modified' } })
-      changes.push({ path: f.path, change: 'modified', diff })
-    } else {
-      await db.codeFile.create({ data: { projectId, path: f.path, content: f.content, origin: 'generated' } })
-      changes.push({ path: f.path, change: 'added', diff })
+): Promise<AppliedFileChange[]> {
+  const changes: AppliedFileChange[] = []
+  let currentPath: string | null = null
+  try {
+    for (const f of extracted) {
+      currentPath = f.path
+      assertSafeProjectPath(f.path)
+      const existing = await db.codeFile.findUnique({
+        where: { projectId_path: { projectId, path: f.path } },
+      })
+      if (existing && existing.content === f.content) continue // no change — say nothing
+      const diff = diffContent(existing?.content ?? null, f.content)
+      if (existing) {
+        await db.codeFile.update({ where: { id: existing.id }, data: { content: f.content, origin: 'modified' } })
+        changes.push({ path: f.path, change: 'modified', diff })
+      } else {
+        await db.codeFile.create({ data: { projectId, path: f.path, content: f.content, origin: 'generated' } })
+        changes.push({ path: f.path, change: 'added', diff })
+      }
+      currentPath = null
     }
+  } catch (e) {
+    // Wrap WITHOUT changing the observable behavior for callers that treat
+    // this as a plain Error — the applied-so-far truth rides along for the
+    // Trust receipt.
+    const message = e instanceof Error ? e.message : String(e)
+    throw new WorkspaceApplyError(message, changes, currentPath)
   }
   return changes
 }

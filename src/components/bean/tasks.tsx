@@ -29,6 +29,13 @@ interface TaskRow {
   completedAt: string | null
 }
 
+const PRODUCT_LABEL: Record<string, string> = {
+  riishe: 'RIISHE',
+  laxii: 'LAXII',
+  jazmii: 'JAZMII',
+  'code-giftz': 'CODE GIFTZ',
+}
+
 interface TaskDetail {
   task: {
     id: string
@@ -249,7 +256,9 @@ export function Tasks() {
                 </span>
               </div>
               <div className="mt-1 flex items-center gap-2 text-[11px] text-white/35">
-                <span className="uppercase tracking-wide">{t.product}</span>
+                <span className="uppercase tracking-wide">{PRODUCT_LABEL[t.product] ?? t.product}</span>
+                <span>·</span>
+                <span className="truncate">{t.kind}</span>
                 <span>·</span>
                 <span>{new Date(t.createdAt).toLocaleString()}</span>
               </div>
@@ -284,6 +293,12 @@ export function Tasks() {
                   )}
                 </div>
                 <h2 className="mt-3 text-base font-medium text-white/90">{detail.task.title}</h2>
+                <div className="mt-1 flex items-center gap-2 text-[11px] text-white/35">
+                  <span className="rounded border border-white/10 px-1.5 py-0.5 uppercase tracking-wide">
+                    {PRODUCT_LABEL[detail.task.product] ?? detail.task.product}
+                  </span>
+                  <span className="rounded border border-white/10 px-1.5 py-0.5">{detail.task.kind}</span>
+                </div>
                 {detail.task.requestPreview && (
                   <p className="mt-1 line-clamp-3 text-sm text-white/50">
                     “{detail.task.requestPreview}
@@ -429,6 +444,32 @@ export function Tasks() {
                   </ul>
                 )}
               </div>
+
+              {/* Recovery checkpoints */}
+              {detail.checkpoints.length > 0 && (
+                <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
+                  <div className="text-sm font-medium text-white/75">
+                    Recovery checkpoints ({detail.checkpoints.length})
+                  </div>
+                  <ul className="mt-2 space-y-1.5">
+                    {detail.checkpoints.map((c) => (
+                      <li key={c.seq} className="flex items-center gap-2 text-sm text-white/55">
+                        <span
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.status === 'valid' ? 'bg-emerald-400' : 'bg-white/25'}`}
+                        />
+                        <span className="truncate">#{c.seq} {c.label}</span>
+                        <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-white/30">
+                          {c.status}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[11px] text-white/35">
+                    The newest valid checkpoint is the resume point; interrupted tasks recover from it without repeating
+                    completed work. A superseded checkpoint was already consumed by a recovery attempt.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

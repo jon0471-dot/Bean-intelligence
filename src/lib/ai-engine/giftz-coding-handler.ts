@@ -24,6 +24,8 @@ import {
   type GiftzTurnCoreResult,
 } from '@/lib/giftz/turn'
 import { SYSTEM_PROMPT, buildProjectContext } from '@/lib/giftz/prompts'
+import { WorkspaceApplyError } from '@/lib/giftz/workspace'
+import { createCodeGiftzBackgroundRecorder, type CodeGiftzBackgroundTurnResult } from '@/lib/trust/adapters/code-giftz'
 import type { GenerationGuard } from '@/lib/giftz/chat-stream'
 import { isCancelRequested } from './queue'
 import { appendJobEventSafe } from './events'
@@ -82,6 +84,20 @@ export async function handleGiftzCodingJob(
   })
   const attachmentBlock = await loadGiftzAttachments(job.userId, params.fileIds)
 
+  // Trust Engine (specialist-coverage milestone): the background coding turn
+  // gets the SAME shared receipt contract as the confirmed file-op route —
+  // one receipt per executed turn, settled from the ACTUAL result (best-
+  // effort: recording never breaks the coding execution).
+  const trust = createCodeGiftzBackgroundRecorder({
+    userId: job.userId,
+    projectId: params.projectId,
+    projectName: project.title,
+    jobId: job.id,
+    requestPreview: params.message,
+    filesInspected: files.length,
+  })
+  await trust.begin()
+
   // BEAN Intelligence: live official-docs retrieval (identical to the live
   // route's behavior). Bounded; failure degrades honestly to model knowledge
   // with no source claimed. Reference data only — never executed.
@@ -131,6 +147,28 @@ export async function handleGiftzCodingJob(
     }
   }
 
+  // The public self-verification summary plus the explicit skip reason when
+  // the pass did not run — the receipt never implies a check that did not run.
+  function verificationReceiptFields(result: GiftzTurnCoreResult): {
+    verification: CodeGiftzBackgroundTurnResult['verification']
+    verificationSkippedReason: string | null
+  } {
+    const publicSummary = publicVerificationSummary(result.verification)
+    if (publicSummary) {
+      return { verification: publicSummary, verificationSkippedReason: null }
+    }
+    if (!verifyCfg.enabled) {
+      return { verification: null, verificationSkippedReason: 'self-verification is disabled by the operator configuration' }
+    }
+    return {
+      verification: null,
+      verificationSkippedReason:
+        result.verification && result.verification.status === 'skipped'
+          ? `self-verification was skipped${result.verification.reason ? `: ${result.verification.reason}` : ''}`
+          : 'self-verification produced no usable result',
+    }
+  }
+
   try {
     const result: GiftzTurnCoreResult = await runGiftzTurnCore({
       requestText: params.message,
@@ -146,6 +184,11 @@ export async function handleGiftzCodingJob(
     })
 
     if (cancelled || ctx.signal.aborted) {
+      // The turn had ALREADY applied its files when cancellation was observed
+      // — the receipt keeps that truth visible (cancellation never erases it).
+      await trust.cancelled('Cancelled at your request.', {
+        applied: result.changes.map((c) => ({ path: c.path, change: c.change })),
+      })
       await settleCancelled(job)
       return { result: {} }
     }
@@ -156,6 +199,15 @@ export async function handleGiftzCodingJob(
       result,
       verifyCfg.verificationModel,
     )
+    const receiptFields = verificationReceiptFields(result)
+    await trust.executed({
+      changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
+      ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
+      verification: receiptFields.verification,
+      verificationSkippedReason: receiptFields.verificationSkippedReason,
+      continuations: result.continuationCount,
+      durationMs: result.durationMs,
+    })
     await recordUsage({
       userId: job.userId,
       product: 'code-giftz',
@@ -194,11 +246,28 @@ export async function handleGiftzCodingJob(
     }
     return { result: {} }
   } catch (e) {
+    // Mutations actually applied before the failure: WorkspaceApplyError
+    // carries the exact list (the apply loop is per-file). Any OTHER error
+    // happened before the apply stage, so no mutation was even attempted —
+    // the receipt can state that truthfully.
+    const appliedFromError =
+      e instanceof WorkspaceApplyError
+        ? e.appliedSoFar.map((c) => ({ path: c.path, change: c.change }))
+        : null
     if (cancelled || ctx.signal.aborted) {
+      await trust.cancelled(
+        'Cancelled while generating.',
+        appliedFromError ? { applied: appliedFromError } : null,
+      )
       await settleCancelled(job)
       return { result: {} }
     }
     const failure = classifyJobFailure(e)
+    await trust.failed(
+      { code: failure.errorCode, message: failure.errorMessage ?? 'The background coding turn failed.' },
+      appliedFromError,
+      true,
+    )
     logger.warn('engine.giftz_coding_failed', {
       jobId: job.id,
       projectId: params.projectId,

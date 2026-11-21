@@ -46,7 +46,7 @@ import { extractSceneState, verifyVideoContinuity, type SceneState } from '@/lib
 import { imageReferenceToDataUrl } from '@/lib/intel/vision'
 import { parseMotionProgram, generateLocalI2VFrames, encodeFramesToMp4, localI2VReady } from '@/lib/jazmii/i2v-local'
 import { resolveReferenceBytes } from '@/lib/jazmii/reference-image'
-import { recordMediaJobCompletion } from '@/lib/trust/adapters/media'
+import { recordMediaJobCancelled, recordMediaJobCompletion, recordMediaJobFailure } from '@/lib/trust/adapters/media'
 import fs from 'fs'
 import path from 'path'
 
@@ -1012,6 +1012,32 @@ async function settleThrottledSubmission(
       errorCode: 'RATE_LIMITED',
       durationMs: Date.now() - startedAt.getTime(),
     })
+    // Trust Engine: the bounded submission budget was exhausted — no video
+    // was ever produced; the receipt records the exhausted attempts honestly.
+    try {
+      if (!isDirectorSceneJob(job)) {
+        await recordMediaJobFailure(
+          {
+            userId: job.userId,
+            product: 'jazmii',
+            kind: 'video-generation',
+            jobId: job.id,
+            backendId,
+            requestPreview: typeof params.prompt === 'string' && params.prompt ? params.prompt : 'video generation job',
+          },
+          {
+            errorCode: 'RATE_LIMITED',
+            errorClass: 'rate_limited',
+            errorMessage: message,
+          },
+        )
+      }
+    } catch (trustError) {
+      logger.warn('jazmii.trust_failure_record_failed', {
+        jobId: job.id,
+        message: trustError instanceof Error ? trustError.message.slice(0, 160) : String(trustError).slice(0, 160),
+      })
+    }
     logger.warn('jazmii.job_submission_throttle_exhausted', {
       jobId: job.id,
       attempt,
@@ -1070,6 +1096,69 @@ function jobParams(job: JobRow): VideoJobParams {
   }
 }
 
+/**
+ * Director scene jobs are tracked by their PRODUCTION's Trust receipt (the
+ * orchestration receipt carries every scene failure, preserved scene and
+ * cancellation). A scene job records NO standalone media receipt — that
+ * would duplicate the production receipt, not add coverage.
+ */
+function isDirectorSceneJob(job: { paramsJson: string }): boolean {
+  try {
+    const p = JSON.parse(job.paramsJson) as { director?: { productionId?: string } | undefined }
+    return typeof p?.director?.productionId === 'string' && p.director.productionId.length > 0
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Trust Engine receipt for a terminal DIRECT video-generation failure (a
+ * failure of a job that is not a director scene job). Best-effort: recording
+ * failures are logged and never break the worker's own settle path.
+ */
+async function recordVideoTrustFailure(
+  job: JobRow,
+  code: string,
+  errorClass: string | null,
+  message: string,
+): Promise<void> {
+  try {
+    if (isDirectorSceneJob(job)) return
+    const params = jobParams(job)
+    const backendId = await jobBackendId(job.id)
+    await recordMediaJobFailure(
+      {
+        userId: job.userId,
+        product: 'jazmii',
+        kind: 'video-generation',
+        jobId: job.id,
+        backendId,
+        requestPreview: typeof params.prompt === 'string' && params.prompt ? params.prompt : 'video generation job',
+      },
+      {
+        errorCode: code,
+        errorClass,
+        errorMessage: message,
+      },
+    )
+  } catch (e) {
+    logger.warn('jazmii.trust_failure_record_failed', {
+      jobId: job.id,
+      message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
+    })
+  }
+}
+
+/** The backend that actually served the job (absence recorded as null). */
+async function jobBackendId(jobId: string): Promise<string | null> {
+  try {
+    const row = await db.generationJob.findUnique({ where: { id: jobId }, select: { backendId: true } })
+    return row?.backendId ?? null
+  } catch {
+    return null
+  }
+}
+
 async function handleVideoFailure(job: JobRow, backendId: string, e: unknown, startedAt: Date): Promise<void> {
   const message = e instanceof Error ? e.message : String(e)
   if (e instanceof VideoArtifactInvalidError) {
@@ -1095,6 +1184,12 @@ async function handleVideoFailure(job: JobRow, backendId: string, e: unknown, st
       errorCode: 'ARTIFACT_INVALID',
       durationMs: Date.now() - startedAt.getTime(),
     })
+    await recordVideoTrustFailure(
+      job,
+      'ARTIFACT_INVALID',
+      'permanent',
+      `The provider returned a payload that failed ffprobe validation and cannot be delivered as a video: ${message.slice(0, 300)}`,
+    )
     logger.warn('jazmii.job_artifact_invalid', { jobId: job.id, message: message.slice(0, 200) })
     return
   }
@@ -1118,6 +1213,7 @@ async function handleVideoFailure(job: JobRow, backendId: string, e: unknown, st
       errorCode: 'GENERATION_FAILED',
       durationMs: Date.now() - startedAt.getTime(),
     })
+    await recordVideoTrustFailure(job, 'GENERATION_FAILED', null, message)
     logger.warn('jazmii.job_provider_failed', { jobId: job.id, message: message.slice(0, 200) })
     return
   }
@@ -1146,6 +1242,7 @@ async function handleVideoFailure(job: JobRow, backendId: string, e: unknown, st
     errorCode: code,
     durationMs: Date.now() - startedAt.getTime(),
   })
+  await recordVideoTrustFailure(job, code, failure.kind, display)
   logger.warn('jazmii.job_failed', { jobId: job.id, kind: failure.kind, message: message.slice(0, 200) })
 }
 
@@ -1187,6 +1284,29 @@ async function markCancelled(jobId: string): Promise<void> {
       },
     })
     .catch(() => undefined)
+  // Trust Engine: the stop-tracking cancellation gets an honest receipt that
+  // states the exact semantics (best-effort; never breaks the cancel path).
+  try {
+    const row = await db.generationJob.findUnique({ where: { id: jobId } })
+    if (row && row.product === 'jazmii' && row.task === 'video-generation' && !isDirectorSceneJob(row)) {
+      await recordMediaJobCancelled(
+        {
+          userId: row.userId,
+          product: 'jazmii',
+          kind: 'video-generation',
+          jobId,
+          backendId: row.backendId ?? null,
+          requestPreview: jobParams(row).prompt || 'video generation job',
+        },
+        'before it finished (stop-tracking: the provider exposes no cancel API, so its upstream task may still complete — BEAN stopped tracking it and no output will be stored)',
+      )
+    }
+  } catch (e) {
+    logger.warn('jazmii.trust_cancel_record_failed', {
+      jobId,
+      message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
+    })
+  }
   logger.info('jazmii.job_cancelled', { jobId })
 }
 

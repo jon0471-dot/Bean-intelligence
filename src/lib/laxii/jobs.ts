@@ -64,6 +64,12 @@ import { runLocalBackgroundRemoval } from './bg-removal-local'
 import { lamaInstalled, lamaInpaint } from './inpaint-local'
 import { decodeRaw } from './segmentation'
 import { recordEditHistory } from './history'
+import {
+  recordMediaJobCancelled,
+  recordMediaJobCompletion,
+  recordMediaJobFailure,
+  type MediaPreservationFacts,
+} from '@/lib/trust/adapters/media'
 
 export interface JobLike {
   id: string
@@ -159,9 +165,44 @@ async function stopIfCancelled(ctx: StageCtx): Promise<boolean> {
       })
       .catch(() => undefined)
     await appendJobEventSafe(ctx.job.id, 'notice', { cancelled: 'between_stages' }).catch(() => undefined)
+    // Trust Engine: the cancelled processing job gets an honest receipt —
+    // the original was never modified (best-effort; never breaks the worker).
+    await recordProcessingJobTrustCancel(ctx.job.id).catch(() => undefined)
     return true
   }
   return fresh.status === 'cancelled'
+}
+
+/** Trust receipt for one cancelled processing job, classified from the row. */
+async function recordProcessingJobTrustCancel(jobId: string): Promise<void> {
+  try {
+    const row = await db.generationJob.findUnique({ where: { id: jobId } })
+    if (!row || row.product !== 'laxii') return
+    if (row.task !== 'image-enhancement' && row.task !== 'image-editing') return
+    let requestPreview = `${row.task} job`
+    try {
+      const p = JSON.parse(row.paramsJson) as { instruction?: string }
+      if (typeof p.instruction === 'string' && p.instruction.trim().length > 0) requestPreview = p.instruction.slice(0, 2000)
+    } catch {
+      /* bounded fallback preview already set */
+    }
+    await recordMediaJobCancelled(
+      {
+        userId: row.userId,
+        product: 'laxii',
+        kind: row.task === 'image-enhancement' ? 'image-enhancement' : 'image-editing',
+        jobId,
+        backendId: row.backendId ?? null,
+        requestPreview,
+      },
+      'before it finished (processing stopped between stages; the original image was never modified)',
+    )
+  } catch (e) {
+    logger.warn('laxii.trust_cancel_record_failed', {
+      jobId,
+      message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
+    })
+  }
 }
 
 async function progress(ctx: StageCtx, value: number): Promise<void> {
@@ -185,6 +226,56 @@ async function failJob(jobId: string, code: string, message: string, errorClass?
   })
   if (res.count === 0) {
     logger.warn('laxii.settle_refused_lost_ownership', { jobId, code })
+    return
+  }
+  // Trust Engine (specialist-coverage milestone): every terminal failure of a
+  // supported LAXII processing op records its real class in the shared
+  // receipt system (best-effort; never breaks the worker).
+  await recordProcessingJobTrustFailure(jobId, code, message, errorClass)
+}
+
+/** Trust receipt for one settled processing-op failure, classified from the row. */
+async function recordProcessingJobTrustFailure(
+  jobId: string,
+  code: string,
+  message: string,
+  errorClass?: string,
+): Promise<void> {
+  try {
+    const row = await db.generationJob.findUnique({ where: { id: jobId } })
+    if (!row || row.product !== 'laxii') return
+    if (row.task !== 'image-enhancement' && row.task !== 'image-editing') return
+    let requestPreview = `${row.task} job`
+    let mode: string | null = null
+    try {
+      const p = JSON.parse(row.paramsJson) as { mode?: string; instruction?: string; options?: Record<string, unknown> }
+      mode = typeof p.mode === 'string' ? p.mode : null
+      const firstText = typeof p.instruction === 'string' ? p.instruction : undefined
+      requestPreview = (firstText ?? `${row.task}${mode ? ` (${mode})` : ''}`).slice(0, 2000)
+    } catch {
+      /* bounded fallback preview already set */
+    }
+    await recordMediaJobFailure(
+      {
+        userId: row.userId,
+        product: 'laxii',
+        kind: row.task === 'image-enhancement' ? 'image-enhancement' : 'image-editing',
+        jobId,
+        backendId: row.backendId ?? null,
+        requestPreview,
+      },
+      {
+        errorCode: code,
+        errorClass: errorClass ?? null,
+        errorMessage: message,
+      },
+    )
+    logger.info('laxii.trust_failure_recorded', { jobId, code, mode })
+  } catch (e) {
+    logger.warn('laxii.trust_failure_record_failed', {
+      jobId,
+      message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
+    })
   }
 }
 
@@ -303,6 +394,33 @@ async function settleThrottledEditJob(
       errorCode: 'RATE_LIMITED',
       durationMs: Date.now() - startedAt,
     })
+    // Trust Engine: the bounded throttle budget was exhausted — no edited
+    // image was produced and the receipt records exactly that (best-effort).
+    try {
+      const row = await db.generationJob.findUnique({ where: { id: job.id } })
+      if (row && row.task === 'image-editing') {
+        await recordMediaJobFailure(
+          {
+            userId: job.userId,
+            product: 'laxii',
+            kind: 'image-editing',
+            jobId: job.id,
+            backendId,
+            requestPreview: buildProcessingRequestPreview(job.paramsJson ?? '{}', 'image-editing', { mode: opts.noteTask }),
+          },
+          {
+            errorCode: 'RATE_LIMITED',
+            errorClass: 'rate_limited',
+            errorMessage: message,
+          },
+        )
+      }
+    } catch (trustError) {
+      logger.warn('laxii.trust_throttle_record_failed', {
+        jobId: job.id,
+        message: trustError instanceof Error ? trustError.message.slice(0, 160) : String(trustError).slice(0, 160),
+      })
+    }
     logger.warn('laxii.edit_throttle_exhausted', {
       jobId: job.id,
       label: opts.label,
@@ -505,12 +623,76 @@ async function finishWithArtifacts(opts: {
     durationMs: Date.now() - opts.startedAt,
     success: true,
   })
+  // Trust Engine (specialist-coverage milestone): the delivered processing
+  // result records its MEASURED preservation report — checked facts, not a
+  // quality claim (best-effort; never breaks the worker).
+  try {
+    const preservationFacts: MediaPreservationFacts = {
+      pipeline: opts.pipeline,
+      generativeUsed: opts.generativeUsed,
+      exactPreservedPct: report.exactPreservedPct,
+      blendedPct: report.blendedPct,
+      changedPct: report.changedPct,
+      dimensionsChanged: report.dimensionsChanged,
+      identityPassed: opts.identity ? opts.identity.passed : null,
+      identityMetric: opts.identity ? opts.identity.metric : null,
+      summary: report.summary,
+    }
+    await recordMediaJobCompletion(
+      {
+        userId: opts.ctx.job.userId,
+        product: 'laxii',
+        kind: opts.usageKind === 'image-enhancement' ? 'image-enhancement' : 'image-editing',
+        jobId: opts.ctx.job.id,
+        backendId: opts.backendId,
+        requestPreview: buildProcessingRequestPreview(opts.ctx.job.paramsJson, opts.usageKind, opts.provenance),
+      },
+      {
+        artifactUrl: resultAsset.url,
+        assetId: resultAsset.id,
+        width: opts.width,
+        height: opts.height,
+        format: 'png',
+        bytes: resultPng.length,
+        durationMs: Date.now() - opts.startedAt,
+        preservation: preservationFacts,
+        sourceUrl: opts.inputAssetUrl,
+        diffUrl: diffAsset.url,
+        mode: typeof opts.provenance.mode === 'string' ? opts.provenance.mode : null,
+      },
+    )
+  } catch (e) {
+    logger.warn('laxii.trust_completion_record_failed', {
+      jobId: opts.ctx.job.id,
+      message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
+    })
+  }
   logger.info('laxii.preservation_job_completed', {
     jobId: opts.ctx.job.id,
     pipeline: opts.pipeline,
     exactPreservedPct: report.exactPreservedPct,
     generativeUsed: opts.generativeUsed,
   })
+}
+
+/** Bounded, secret-free request preview for a processing receipt. */
+function buildProcessingRequestPreview(
+  paramsJson: string,
+  usageKind: string,
+  provenance: Record<string, unknown>,
+): string {
+  try {
+    const p = JSON.parse(paramsJson) as { instruction?: string; options?: Record<string, unknown> }
+    if (typeof p.instruction === 'string' && p.instruction.trim().length > 0) return p.instruction.slice(0, 2000)
+    if (p.options && typeof p.options === 'object') {
+      const keys = Object.keys(p.options).slice(0, 8).join(', ')
+      if (keys) return `${usageKind} — options: ${keys}`
+    }
+  } catch {
+    /* fall through to provenance-based preview */
+  }
+  const mode = typeof provenance.mode === 'string' ? provenance.mode : 'processing'
+  return `${usageKind} (${mode})`
 }
 
 // ---------------------------------------------------------------------------
@@ -713,6 +895,39 @@ async function processHostedEditJob(job: JobLike, startedAt: number): Promise<vo
       mode: 'conversational-edit',
       ops: [{ type: 'conversational-edit', engine: 'hosted-edit' }],
     })
+
+    // Trust Engine: the whole-image hosted edit is NOT pixel-preserving and
+    // ran no verification pass — the receipt records the artifact with an
+    // explicit no-verification limitation instead of a quality claim.
+    try {
+      await recordMediaJobCompletion(
+        {
+          userId: job.userId,
+          product: 'laxii',
+          kind: 'image-editing',
+          jobId: job.id,
+          backendId: backend.id,
+          requestPreview: typeof params.prompt === 'string' ? params.prompt : 'conversational edit',
+        },
+        {
+          artifactUrl: resultAsset.url,
+          assetId: resultAsset.id,
+          width: outRaw.width,
+          height: outRaw.height,
+          format: 'png',
+          bytes: outPng.length,
+          durationMs: Date.now() - startedAt,
+          preservation: null,
+          sourceUrl: inputAsset.url,
+          mode: 'conversational-edit',
+        },
+      )
+    } catch (trustError) {
+      logger.warn('laxii.trust_completion_record_failed', {
+        jobId: job.id,
+        message: trustError instanceof Error ? trustError.message.slice(0, 160) : String(trustError).slice(0, 160),
+      })
+    }
     logger.info('laxii.hosted_edit_completed', { jobId: job.id, bytes: outPng.length })
   } catch (e) {
     // CAPABILITY RECOVERY (2026-11-11): a genuine HTTP 429 PARKS the job
@@ -905,6 +1120,47 @@ async function processBackgroundRemovalJob(job: JobLike, startedAt: number): Pro
       httpStatus: null,
       upstream: false,
     })
+    // Trust Engine: the two-stage pipeline's MEASURED cutout facts are the
+    // applicable validation (the deterministic stage either passed its
+    // coverage gate — it would have thrown — or the job failed). Recorded as
+    // checked facts, never as an aesthetic-quality claim.
+    try {
+      await recordMediaJobCompletion(
+        {
+          userId: job.userId,
+          product: 'laxii',
+          kind: 'image-editing',
+          jobId: job.id,
+          backendId: backend.id,
+          requestPreview: 'background removal',
+        },
+        {
+          artifactUrl: resultAsset.url,
+          assetId: resultAsset.id,
+          width: finalW,
+          height: finalH,
+          format: 'png',
+          bytes: png.length,
+          durationMs: Date.now() - startedAt,
+          preservation: {
+            pipeline: 'two-stage-bg-removal',
+            generativeUsed: true,
+            dimensionsChanged: !restorable,
+            summary:
+              `Deterministic chroma-cutout passed its coverage gate: transparentFraction=${cutout.stats.transparentFraction}, ` +
+              `opaqueFraction=${cutout.stats.opaqueFraction}` +
+              (restorable ? '; output restored to the submitted source dimensions.' : '; keyed dimensions kept (source geometry not recoverable).'),
+          },
+          sourceUrl: inputAsset.url,
+          mode: 'background-removal',
+        },
+      )
+    } catch (trustError) {
+      logger.warn('laxii.trust_completion_record_failed', {
+        jobId: job.id,
+        message: trustError instanceof Error ? trustError.message.slice(0, 160) : String(trustError).slice(0, 160),
+      })
+    }
     // ISOLATION (CAPABILITY RECOVERY, 2026-11-11): a background-removal
     // completion records evidence ONLY under its own capability key — the
     // previous cross-write to 'image-editing' let a bg-removal success stand

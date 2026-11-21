@@ -45,11 +45,21 @@ export function createDirectorFakeDb(): DirectorFakeDb {
     const c = compare(a[key], b[key])
     return dir === 'desc' ? -c : c
   }
+  // prisma-style include support for the production aggregate AND the trust
+  // task aggregate (relations sorted as the library orders them).
   jazmiiProduction.resolveRelations = (row, include) => {
     const resolved: Record<string, unknown> = {}
     if ('scenes' in include) {
       resolved.scenes = jazmiiScene.rows.filter((r) => r.productionId === row.id).sort(byKey('idx', 'asc'))
     }
+    return { ...row, ...resolved }
+  }
+  trustTask.resolveRelations = (row, include) => {
+    const resolved: Record<string, unknown> = {}
+    if ('steps' in include) resolved.steps = trustStep.rows.filter((r) => r.taskId === row.id).sort(byKey('seq', 'asc'))
+    if ('evidence' in include) resolved.evidence = trustEvidence.rows.filter((r) => r.taskId === row.id).sort(byKey('createdAt', 'asc'))
+    if ('approvals' in include) resolved.approvals = trustApproval.rows.filter((r) => r.taskId === row.id).sort(byKey('requestedAt', 'asc'))
+    if ('checkpoints' in include) resolved.checkpoints = trustCheckpoint.rows.filter((r) => r.taskId === row.id).sort(byKey('seq', 'asc'))
     return { ...row, ...resolved }
   }
 

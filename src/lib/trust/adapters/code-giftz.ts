@@ -253,3 +253,273 @@ async function updateStepStatus(
 async function updateStepDone(taskId: string, seq: number, detailJson: string): Promise<void> {
   await updateStepStatus(taskId, seq, 'done', detailJson, null)
 }
+
+// ---------------------------------------------------------------------------
+// BACKGROUND coding-turn recorder (specialist-coverage milestone).
+//
+// The file-op recorder above covers the user-CONFIRMED execute route. The
+// BACKGROUND coding handler (ai-engine giftz-coding-handler) performs the
+// other real coding path: a full turn whose accepted file-fences are applied
+// to the project workspace. This recorder gives that path the SAME shared
+// ledger contract — same lifecycle, same receipt composition, same honesty
+// rules. It is NOT a second receipt system: it composes the identical
+// TrustTask/Step/Evidence rows through src/lib/trust/tasks.ts.
+//
+// Honesty contract:
+//  - the receipt settles from the turn's ACTUAL result: applied mutations,
+//    the version/diff reference, and the self-verification outcome;
+//  - a turn whose self-verification was disabled or could not establish
+//    correctness settles completed_with_limitations — never plain completed;
+//  - a failure AFTER content was produced records which mutations were
+//    actually applied (WorkspaceApplyError.appliedSoFar) — the workspace is
+//    never claimed untouched unless that is established;
+//  - a cancellation observed AFTER the turn applied its files records those
+//    applied mutations in the cancel note — cancellation never erases them.
+// ---------------------------------------------------------------------------
+
+export interface CodeGiftzBackgroundRecorderInput {
+  userId: string
+  projectId: string
+  projectName?: string | null
+  jobId: string
+  /** Bounded request preview (the owner's own message text). */
+  requestPreview: string
+  /** Workspace files loaded as context (files inspected, not modified). */
+  filesInspected: number
+}
+
+export interface CodeGiftzBackgroundTurnResult {
+  /** Files actually applied by the turn (bounded refs — never content). */
+  changes: Array<{ path: string; change: 'added' | 'modified' }>
+  versionSeq?: number
+  /** Public self-verification summary (null when skipped/unavailable). */
+  verification: { status: string; attempts: number; corrections: number; issuesFound: number } | null
+  /** Explicit reason when verification did not run. */
+  verificationSkippedReason?: string | null
+  continuations: number
+  durationMs: number
+}
+
+export interface CodeGiftzBackgroundRecorder {
+  readonly taskId: string | null
+  /** Create the task + planned steps and start it (best-effort). */
+  begin(): Promise<void>
+  /** Settle honestly from the turn's ACTUAL result. */
+  executed(result: CodeGiftzBackgroundTurnResult): Promise<void>
+  /**
+   * Settle as cancelled. `turnCompleted` carries the applied mutations when
+   * cancellation was observed only AFTER the turn had already applied them —
+   * the receipt must keep that truth visible.
+   */
+  cancelled(note: string, turnCompleted?: { applied: Array<{ path: string; change: string }> } | null): Promise<void>
+  /**
+   * Settle as failed. `applied` carries mutations actually applied before the
+   * failure (empty/null = established that nothing was applied only when the
+   * failure happened before the apply stage).
+   */
+  failed(failure: { code?: string; message: string }, applied?: Array<{ path: string; change: string }> | null, appliedEstablished?: boolean): Promise<void>
+}
+
+const BG_STEP_SEQ: Record<string, number> = {
+  generation: 1,
+  verification: 2,
+  delivery: 3,
+}
+
+export function createCodeGiftzBackgroundRecorder(input: CodeGiftzBackgroundRecorderInput): CodeGiftzBackgroundRecorder {
+  let taskId: string | null = null
+
+  const guard = async (method: string, fn: () => Promise<void>): Promise<void> => {
+    try {
+      await fn()
+    } catch (err) {
+      logger.warn('trust.record_failed', {
+        taskId: taskId ?? undefined,
+        method,
+        product: 'code-giftz',
+        message: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  const begin = async (): Promise<void> =>
+    guard('begin', async () => {
+      const task = await db.trustTask.create({
+        data: {
+          userId: input.userId,
+          product: 'code-giftz',
+          kind: 'coding-task',
+          title: `Background coding turn — ${(input.projectName ?? 'project').slice(0, TRUST_LIMITS.title - 26)}`,
+          requestPreview: input.requestPreview.slice(0, TRUST_LIMITS.requestPreview),
+          projectId: input.projectId,
+          jobId: input.jobId,
+          status: 'planned',
+        },
+      })
+      taskId = task.id
+      await planTrustSteps(taskId, [
+        { kind: 'generation', title: 'Coding turn (background execution)' },
+        { kind: 'verification', title: 'Self-verification pass' },
+        { kind: 'delivery', title: 'Workspace persistence (files + version)' },
+      ])
+      await addTrustEvidence(taskId, {
+        kind: 'tool-output',
+        stepSeq: BG_STEP_SEQ.generation,
+        ref: `code-project:${input.projectId}`,
+        title: `Workspace context loaded (${input.filesInspected} file(s) inspected, none modified by loading)`,
+        origin: 'extracted',
+      })
+      await startTrustTask(taskId)
+    })
+
+  const executed = async (result: CodeGiftzBackgroundTurnResult): Promise<void> =>
+    guard('executed', async () => {
+      if (!taskId) return
+      const changes = result.changes.slice(0, EVIDENCE_CAP)
+
+      // Generation step: what the turn actually produced (counts only).
+      await updateStepDone(taskId, BG_STEP_SEQ.generation, JSON.stringify({
+        continuations: result.continuations,
+        durationMs: result.durationMs,
+        changesProposed: result.changes.length,
+      }).slice(0, TRUST_LIMITS.detailJson))
+
+      // Verification step: the executor's OWN self-verification outcome —
+      // recorded exactly (ran+passed / ran+unconfirmed / did not run).
+      const verificationRan = result.verification !== null
+      await updateTrustStepStatus(
+        taskId,
+        BG_STEP_SEQ.verification,
+        verificationRan ? 'done' : 'skipped',
+        {
+          ...(verificationRan ? { detailJson: JSON.stringify(result.verification).slice(0, TRUST_LIMITS.detailJson) } : {}),
+          ...(verificationRan ? {} : { errorNote: (result.verificationSkippedReason ?? 'self-verification did not run').slice(0, TRUST_LIMITS.noteField) }),
+        },
+      )
+
+      // Delivery step: what actually landed in the workspace.
+      await updateTrustStepStatus(
+        taskId,
+        BG_STEP_SEQ.delivery,
+        'done',
+        {
+          detailJson: JSON.stringify({
+            applied: changes,
+            versionSeq: result.versionSeq ?? null,
+            appliedCount: result.changes.length,
+          }).slice(0, TRUST_LIMITS.detailJson),
+        },
+      )
+      for (const c of changes) {
+        await addTrustEvidence(taskId, {
+          kind: 'artifact',
+          stepSeq: BG_STEP_SEQ.delivery,
+          ref: `code-file:${c.path}`,
+          title: `${c.change} ${c.path}`,
+          origin: 'extracted',
+        })
+      }
+      if (result.versionSeq !== undefined) {
+        await addTrustEvidence(taskId, {
+          kind: 'artifact',
+          stepSeq: BG_STEP_SEQ.delivery,
+          ref: `code-project-version:${input.projectId}#${result.versionSeq}`,
+          title: `Workspace version #${result.versionSeq} (diff reference)`,
+          origin: 'extracted',
+        })
+      }
+
+      // Honest settlement: build/test were NOT run by this turn (they are
+      // separate, individually verified tasks); an unverified turn never
+      // settles as plain completed.
+      const limitations: string[] = [
+        'Project build and tests were not run by this turn; use the build/preview check for a verified run.',
+      ]
+      const vStatus = result.verification?.status
+      let outcome: 'completed' | 'completed_with_limitations'
+      let verificationSummary: string
+      if (!verificationRan) {
+        outcome = 'completed_with_limitations'
+        limitations.push(`Self-verification did not run (${result.verificationSkippedReason ?? 'disabled or unavailable'}); the answer was not independently verified.`)
+        verificationSummary = 'The turn completed its coding work, but the self-verification pass did not run, so correctness was never established.'
+      } else if (vStatus === 'verified' || vStatus === 'corrected') {
+        outcome = 'completed'
+        verificationSummary = `Self-verification ran to a definitive result (status=${vStatus}, attempts=${result.verification!.attempts}, corrections=${result.verification!.corrections}). Structural checks confirm the turn's own consistency, not project build/test success.`
+      } else {
+        outcome = 'completed_with_limitations'
+        limitations.push(`Self-verification could not establish correctness (status=${vStatus ?? 'unknown'}); the reply is the best available answer, not a verified one.`)
+        verificationSummary = `The turn completed its coding work; self-verification ended at status=${vStatus ?? 'unknown'} (${result.verification!.issuesFound} issue(s) found on the final pass), so correctness was not established.`
+      }
+      if (result.changes.length === 0) {
+        limitations.push('The turn changed no workspace files (a conversational answer only).')
+      }
+
+      await finalizeTrustTask(taskId, {
+        outcome,
+        outcomeSummary: `The background coding turn finished (${result.changes.length} file(s) changed, reply persisted).`,
+        verificationSummary: verificationSummary.slice(0, TRUST_LIMITS.summaryField),
+        limitations: limitations.slice(0, TRUST_LIMITS.limitationsPerTask),
+      })
+    })
+
+  const cancelled = async (note: string, turnCompleted?: { applied: Array<{ path: string; change: string }> } | null): Promise<void> =>
+    guard('cancelled', async () => {
+      if (!taskId) return
+      const applied = turnCompleted?.applied ?? []
+      const suffix = applied.length
+        ? ` IMPORTANT: the turn had already applied ${applied.length} workspace change(s) (${applied.slice(0, 6).map((c) => `${c.change} ${c.path}`).join(', ')}${applied.length > 6 ? ', …' : ''}) before the cancellation was observed — those changes remain in the workspace and the assistant reply was not persisted.`
+        : ' No workspace changes were applied by this turn.'
+      await cancelTrustTask(taskId, `${note.slice(0, Math.max(1, TRUST_LIMITS.summaryField - suffix.length))}${suffix}`.slice(0, TRUST_LIMITS.summaryField))
+    })
+
+  const failed = async (
+    failure: { code?: string; message: string },
+    applied?: Array<{ path: string; change: string }> | null,
+    appliedEstablished?: boolean,
+  ): Promise<void> =>
+    guard('failed', async () => {
+      if (!taskId) return
+      const appliedList = applied ?? []
+      const known = appliedEstablished !== false
+      const note = `${failure.code ?? 'ERROR'}: ${failure.message}`.slice(0, TRUST_LIMITS.summaryField)
+      // Failure during the apply stage carries the mutations that DID land —
+      // the workspace is never claimed untouched unless that is established.
+      const suffix = known && appliedList.length
+        ? ` (${appliedList.length} workspace change(s) were already applied before the failure: ${appliedList.slice(0, 6).map((c) => `${c.change} ${c.path}`).join(', ')}${appliedList.length > 6 ? ', …' : ''} — they remain in the workspace.)`
+        : known
+          ? ' (No workspace changes were applied by this turn.)'
+          : ''
+      const limitations: string[] = []
+      if (known && appliedList.length) {
+        limitations.push(`The turn failed after applying ${appliedList.length} workspace change(s); those changes remain in the workspace.`)
+        for (const c of appliedList.slice(0, EVIDENCE_CAP)) {
+          await addTrustEvidence(taskId, {
+            kind: 'artifact',
+            stepSeq: BG_STEP_SEQ.delivery,
+            ref: `code-file:${c.path}`,
+            title: `${c.change} ${c.path} (applied before failure)`,
+            origin: 'extracted',
+          }).catch(() => undefined)
+        }
+      } else if (known) {
+        limitations.push('The turn failed before any workspace change was applied.')
+      } else {
+        limitations.push('The turn failed at a stage where the applied-change state could not be established; inspect the workspace version history.')
+      }
+      limitations.push('The assistant reply was not persisted for this failed turn.')
+      await failTrustTask(taskId, {
+        failureNote: `${note}${suffix}`.slice(0, TRUST_LIMITS.summaryField),
+        limitations: limitations.slice(0, TRUST_LIMITS.limitationsPerTask),
+      })
+    })
+
+  return {
+    get taskId() {
+      return taskId
+    },
+    begin,
+    executed,
+    cancelled,
+    failed,
+  }
+}

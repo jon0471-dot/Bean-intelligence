@@ -45,7 +45,7 @@ import { storeResultAsset } from '@/lib/laxii/assets'
 import { prepareImageIntelligence } from '@/lib/intel/grounding'
 import { verifyGeneratedImage, imageBufferToDataUrl, unwantedTextDefects } from '@/lib/intel/continuity'
 import { automatedQuotaState, automatedSkipReason } from '@/lib/providers/account-quota'
-import { recordMediaJobCancelled, recordMediaJobCompletion } from '@/lib/trust/adapters/media'
+import { recordMediaJobCancelled, recordMediaJobCompletion, recordMediaJobFailure } from '@/lib/trust/adapters/media'
 import fs from 'fs'
 import path from 'path'
 
@@ -347,6 +347,23 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       errorCode: 'INVALID_DIMENSIONS',
       durationMs: Date.now() - startedAt.getTime(),
     })
+    // Trust Engine: the request was truly attempted and honestly failed
+    // before any provider call — the receipt says exactly that (best-effort).
+    await recordMediaJobFailure(
+      {
+        userId: job.userId,
+        product: 'laxii',
+        kind: 'image-generation',
+        jobId: job.id,
+        backendId: backend.id,
+        requestPreview: typeof params?.prompt === 'string' ? params.prompt : 'image generation job',
+      },
+      {
+        errorCode: 'INVALID_DIMENSIONS',
+        errorClass: 'invalid_request',
+        errorMessage: 'Invalid image dimensions — the job failed before any provider call was made.',
+      },
+    )
     logger.warn('laxii.job_invalid_dimensions', { jobId: job.id, message })
     return
   }
@@ -1089,6 +1106,23 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
         target: job.id,
         meta: { httpStatus: e.httpStatus, bodyKeys: e.bodyKeys, detail: sanitizeProviderDetail(e.providerDetail || e.message), transientRetries: transientRetries0 },
       }).catch(() => undefined)
+      // Trust Engine: the provider answered unusable output on every allowed
+      // attempt — the receipt records the real class and the bounded retries.
+      await recordMediaJobFailure(
+        {
+          userId: job.userId,
+          product: 'laxii',
+          kind: 'image-generation',
+          jobId: job.id,
+          backendId: backend.id,
+          requestPreview: typeof params?.prompt === 'string' ? params.prompt : 'image generation job',
+        },
+        {
+          errorCode: 'UPSTREAM_RESPONSE_INVALID',
+          errorClass: 'malformed_response',
+          errorMessage: `The image service could not produce this image after ${IMAGE_MAX_TRANSIENT_RETRIES + 1} attempts (incomplete response each time).`,
+        },
+      )
       logger.warn('laxii.job_failed_malformed_response', {
         jobId: job.id,
         httpStatus: e.httpStatus,
@@ -1151,6 +1185,26 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
       target: job.id,
       meta: { errorClass: failure.kind === 'other' && timedOut ? 'timeout' : failure.kind, reason: sanitizedReason },
     }).catch(() => undefined)
+    // Trust Engine: the terminal failure records its REAL class (timeout,
+    // rate-limit, auth, network, backend) and the sanitized reason — the
+    // attempt happened, it did not produce an artifact (best-effort).
+    await recordMediaJobFailure(
+      {
+        userId: job.userId,
+        product: 'laxii',
+        kind: 'image-generation',
+        jobId: job.id,
+        backendId: backend.id,
+        requestPreview: typeof params?.prompt === 'string' ? params.prompt : 'image generation job',
+      },
+      {
+        errorCode: timedOut ? 'BACKEND_TIMEOUT' : 'BACKEND_FAILURE',
+        errorClass: failure.kind === 'other' && timedOut ? 'timeout' : failure.kind,
+        errorMessage: timedOut
+          ? 'Generation exceeded the time limit and was stopped.'
+          : `The image backend could not complete this request. Reason: ${sanitizedReason}`,
+      },
+    )
     logger.warn('laxii.job_failed', { jobId: job.id, message })
   }
 }
@@ -1224,6 +1278,23 @@ async function settleThrottledGeneration(
       errorCode: 'RATE_LIMITED',
       durationMs: Date.now() - startedAt.getTime(),
     })
+    // Trust Engine: bounded throttle retries were exhausted — the receipt
+    // records the exhausted budget and that no image was ever produced.
+    await recordMediaJobFailure(
+      {
+        userId: job.userId,
+        product: 'laxii',
+        kind: 'image-generation',
+        jobId: job.id,
+        backendId,
+        requestPreview: await jobPromptPreview(job.id),
+      },
+      {
+        errorCode: 'RATE_LIMITED',
+        errorClass: 'rate_limited',
+        errorMessage: message,
+      },
+    )
     logger.warn('laxii.job_generation_throttle_exhausted', {
       jobId: job.id,
       attempt,
