@@ -23,10 +23,12 @@ import {
   LogOut,
   Menu,
   X,
+  ListChecks,
 } from 'lucide-react'
 
 export type ViewId =
   | 'dashboard'
+  | 'tasks'
   | 'riishe'
   | 'laxii'
   | 'jazmii'
@@ -40,6 +42,7 @@ export type ViewId =
 
 const NAV: Array<{ id: ViewId; label: string; icon: React.ElementType; group: string }> = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'Platform' },
+  { id: 'tasks', label: 'Task receipts', icon: ListChecks, group: 'Platform' },
   { id: 'riishe', label: 'RIISHE', icon: RiisheIcon, group: 'Products' },
   { id: 'laxii', label: 'LAXII', icon: ImageIcon, group: 'Products' },
   { id: 'jazmii', label: 'JAZMII', icon: Video, group: 'Products' },

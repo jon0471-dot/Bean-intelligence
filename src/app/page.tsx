@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { Landing } from '@/components/bean/landing'
 import { Shell, type ViewId } from '@/components/bean/shell'
 import { Dashboard } from '@/components/bean/dashboard'
+import { Tasks } from '@/components/bean/tasks'
 import { Riishe } from '@/components/bean/riishe'
 import { Laxii } from '@/components/bean/laxii'
 import { Jazmii } from '@/components/bean/jazmii'
@@ -93,6 +94,7 @@ export default function Home() {
       }}
     >
       {view === 'dashboard' && <Dashboard onNavigate={setView} />}
+      {view === 'tasks' && <Tasks />}
       {view === 'riishe' && <Riishe user={user} onOpenSettings={() => setView('settings')} />}
       {view === 'laxii' && <Laxii sizes={sizes} />}
       {view === 'jazmii' && <Jazmii />}

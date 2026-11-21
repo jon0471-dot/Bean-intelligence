@@ -35,6 +35,7 @@ import { appendJobEventSafe } from './events'
 import { transitionJob } from './queue'
 import { classifyJobFailure } from './classify'
 import type { ClaimedJob, HandlerOutcome } from './types'
+import { createRiisheTurnRecorder } from '@/lib/trust/adapters/riishe'
 
 interface RiisheJobParams {
   message: string
@@ -75,6 +76,18 @@ export async function handleRiisheChatJob(
 
   await transitionJob(job.id, job.workerId, 'running', { backendId: backend.id })
 
+  // Trust Engine (2026-11-20): every background turn gets an inspectable
+  // execution receipt — planned/attempted steps, evidence with provenance and
+  // an honestly-derived outcome. Best-effort by contract: recording failures
+  // are logged and never break the user's turn.
+  const trust = createRiisheTurnRecorder({
+    jobId: job.id,
+    userId: job.userId,
+    message: params.message,
+    conversationId: params.conversationId,
+  })
+  await trust.begin()
+
   // Memory commands are REAL database actions on both execution paths.
   const memoryOutcome = await performMemoryCommandIfPresent(
     job.userId,
@@ -100,6 +113,7 @@ export async function handleRiisheChatJob(
     if (done.count === 1) {
       await appendJobEventSafe(job.id, 'delta', { delta: memoryOutcome.content, conversationId: params.conversationId })
     }
+    await trust.completeMemory(memoryOutcome)
     return { result: {} } // row already terminal
   }
 
@@ -169,6 +183,9 @@ export async function handleRiisheChatJob(
     }
   }
 
+  // Attached documents become document evidence in the execution receipt.
+  await trust.addDocuments(documents)
+
   const toolContext: ToolContext = {
     permissions: new Set(['allowCodeExecution']),
     documents: new Map(
@@ -199,6 +216,7 @@ export async function handleRiisheChatJob(
   let cancelled = false
 
   const onEvent = (e: OrchestrationEvent): void => {
+    trust.onEvent(e)
     if (e.type === 'delta') {
       full += e.delta ?? ''
       if (!streamingTransitioned) {
@@ -242,6 +260,7 @@ export async function handleRiisheChatJob(
     })
 
     if (cancelled || ctx.signal.aborted) {
+      await trust.cancelled()
       await settleCancelled(job)
       return { result: {} }
     }
@@ -273,6 +292,11 @@ export async function handleRiisheChatJob(
       success: succeeded,
     })
 
+    // Settle the execution receipt from the REAL response states before the
+    // job row itself settles — an unverified answer can never finalize as a
+    // plain "completed" task.
+    await trust.complete(result, { persisted: succeeded })
+
     const done = await finishCompletedRow(job, {
       conversationId: params.conversationId,
       messageId: succeeded ? 'persisted' : null,
@@ -290,10 +314,12 @@ export async function handleRiisheChatJob(
     return { result: {} }
   } catch (e) {
     if (cancelled || ctx.signal.aborted) {
+      await trust.cancelled()
       await settleCancelled(job)
       return { result: {} }
     }
     const failure = classifyJobFailure(e)
+    await trust.failed(failure)
     logger.warn('engine.riishe_chat_failed', {
       jobId: job.id,
       conversationId: params.conversationId,

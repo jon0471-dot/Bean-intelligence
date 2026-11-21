@@ -34,6 +34,7 @@ model User {
   projects            Project[]
   clientComputeReports ClientComputeReport[]
   laxiiEditHistory     LaxiiEditHistory[]
+  trustTasks          TrustTask[]
 }
 
 model Session {
@@ -588,4 +589,137 @@ model LaxiiEditHistory {
 
   @@index([userId, baseAssetId, createdAt])
   @@index([userId, resultAssetId])
+}
+// ---------------------------------------------------------------------------
+// TRUST ENGINE (2026-11-20) — ADDITIVE execution-evidence foundation.
+//
+// One TrustTask row per meaningful agent task; its steps, evidence, approvals
+// and checkpoints are append-only child tables. The composition of those rows
+// IS the inspectable execution receipt (src/lib/trust/receipt.ts) — nothing
+// is copied or rewritten, so a receipt always reflects the real ledger.
+//
+// Lifecycle contract (src/lib/trust/types.ts):
+//   planned → running → waiting_for_approval → running → terminal
+// A task may ONLY reach a terminal state through finalizeTrustTask /
+// failTrustTask / cancelTrustTask, and a "completed" outcome REQUIRES a
+// non-empty verification summary — a task is never marked completed merely
+// because a model returned text.
+//
+// Secrecy contract: trust rows must never contain secrets, tokens or key
+// material; callers store bounded structured detail only. All rows cascade
+// with the owning user. No existing table or column is touched.
+// ---------------------------------------------------------------------------
+model TrustTask {
+  id             String    @id @default(cuid())
+  userId         String
+  product        String // riishe | laxii | jazmii | code-giftz
+  kind           String // chat | research | document-intel | coding-task | image-generation | video-generation
+  title          String // short customer-displayable task title
+  // The user's request, bounded for receipt inspection (owner's own data).
+  requestPreview String?
+  requestChars   Int? // original request length — size marker without storing more text
+  status         String    @default("planned") // planned | waiting_for_approval | running | completed | completed_with_limitations | partially_completed | failed | cancelled
+  outcomeSummary String? // what actually happened, stated honestly
+  // Non-empty for every completed* / partially_completed outcome — the
+  // verification result appropriate to this task (never a bare model reply).
+  verificationSummary String?
+  limitationsJson     String? // JSON array of honest limitation statements
+  failureNote    String? // truthful failure/cancel reason for failed | cancelled
+  // Links — never copies: the referenced rows stay owned by their pipelines.
+  jobId          String? // GenerationJob when executed on the durable queue
+  conversationId String?
+  projectId      String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps          TrustStep[]
+  evidence       TrustEvidence[]
+  approvals      TrustApproval[]
+  checkpoints    TrustCheckpoint[]
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
+  @@index([jobId])
+}
+
+// Planned vs actually-attempted steps. Append-only ledger: statuses advance
+// (planned → running → done | failed | skipped); rows are never deleted.
+model TrustStep {
+  id         String    @id @default(cuid())
+  taskId     String
+  seq        Int // per-task monotonic
+  kind       String // plan | retrieval | tool | generation | verification | delivery | approval | recovery
+  title      String
+  detailJson String? // bounded structured detail (tool names, query counts) — never secrets
+  status     String    @default("planned") // planned | running | done | failed | skipped
+  errorNote  String? // honest failure description when status = failed
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  task       TrustTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, seq])
+  @@index([taskId])
+}
+
+// Evidence ledger: provenance for claims and outputs. `origin` separates
+// extracted information (real sources, real tool outputs) from model
+// interpretation — receipts must never blur that line.
+model TrustEvidence {
+  id        String    @id @default(cuid())
+  taskId    String
+  stepSeq   Int?
+  kind      String // source | document | tool-output | artifact | measurement | limitation
+  ref       String // provenance reference: URL, document id, tool/artifact name
+  title     String?
+  locator   String? // page/section/line reference when available
+  digest    String? // sha-256 of the referenced bytes when available
+  origin    String    @default("extracted") // extracted | model_interpretation
+  note      String? // bounded provenance note (retrieval channel, engine)
+  createdAt DateTime  @default(now())
+  task      TrustTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+// Scoped approval ledger (mirrors the CodeFileOperation planHash pattern):
+// the sha-256 actionDigest binds the decision to the EXACT proposed action.
+// Scope is always single-action — an approval is consumed on use and never
+// carries over to other actions.
+model TrustApproval {
+  id           String    @id @default(cuid())
+  taskId       String
+  actionDigest String // sha-256 over the canonical proposed action JSON
+  actionJson   String // the exact proposed action shown to the user
+  summary      String // customer-displayable description of the action
+  scope        String    @default("single") // single (consumed on use)
+  status       String    @default("requested") // requested | granted | denied | consumed | expired | cancelled
+  requestedAt  DateTime  @default(now())
+  decidedAt    DateTime?
+  expiresAt    DateTime?
+  consumedAt   DateTime?
+  task         TrustTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, status])
+  @@index([actionDigest])
+}
+
+// Safe checkpoints for long-running tasks: append-only; the newest valid row
+// is the resume point. Payloads hold only safe resumable state — never
+// credentials, tokens or prompt text.
+model TrustCheckpoint {
+  id          String    @id @default(cuid())
+  taskId      String
+  seq         Int // per-task monotonic
+  label       String
+  status      String    @default("valid") // valid | superseded
+  payloadJson String?
+  createdAt   DateTime  @default(now())
+  task        TrustTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, seq])
+  @@index([taskId, status])
 }
