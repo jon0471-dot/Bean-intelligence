@@ -1,0 +1,3 @@
+{"at":"2026-11-08T06:24:10.504Z","step":"searxng-lane","status":"ADOPTED","url":"http://127.0.0.1:8888"}
+{"at":"2026-11-08T06:24:10.605Z","step":"auth","status":"REAL","email":"intel-live-20261108062409@bean-e2e.test"}
+{"at":"2026-11-08T06:31:33.490Z","step":"riishe-tamil-grounded","status":"REAL","servedBy":null,"answerChars":676,"stages":["solving","verifying"],"states":["UNVERIFIED"],"sourceCount":0,"sourceHosts":[],"searchProviders":null,"degradedCount":1,"durationMs":170110,"error":null}

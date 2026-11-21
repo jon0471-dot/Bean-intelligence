@@ -155,8 +155,10 @@ async function progress(ctx: StageCtx, value: number): Promise<void> {
 }
 
 async function failJob(jobId: string, code: string, message: string, errorClass?: string): Promise<void> {
-  await db.generationJob.update({
-    where: { id: jobId },
+  // M26 (audit F-2): guarded terminal settle — a worker that lost its lease
+  // can no longer clobber a row re-claimed by the engine's new owner.
+  const res = await db.generationJob.updateMany({
+    where: { id: jobId, status: { in: ['queued', 'starting', 'running', 'streaming', 'finalizing', 'retry_wait'] } },
     data: {
       status: 'failed',
       finishedAt: new Date(),
@@ -165,6 +167,9 @@ async function failJob(jobId: string, code: string, message: string, errorClass?
       ...(errorClass ? { errorClass } : {}),
     },
   })
+  if (res.count === 0) {
+    logger.warn('laxii.settle_refused_lost_ownership', { jobId, code })
+  }
 }
 
 /**

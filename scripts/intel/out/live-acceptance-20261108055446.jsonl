@@ -1,0 +1,4 @@
+{"at":"2026-11-08T05:54:49.142Z","step":"searxng-lane","status":"ADOPTED","url":"http://127.0.0.1:8888"}
+{"at":"2026-11-08T05:54:49.263Z","step":"auth","status":"REAL","email":"intel-live-20261108055446@bean-e2e.test"}
+{"at":"2026-11-08T05:58:03.664Z","step":"riishe-english-grounded","status":"HTTP_502","servedBy":null,"httpStatus":502,"answerChars":0,"states":[],"sourceCount":0,"sourceHosts":[],"searchProviders":null,"durationMs":94394,"error":"RIISHE timed out after 90000ms"}
+{"at":"2026-11-08T06:02:03.705Z","step":"riishe-tamil-grounded","status":"HTTP_502","servedBy":null,"httpStatus":502,"answerChars":0,"states":[],"sourceCount":0,"sourceHosts":[],"searchProviders":null,"durationMs":90021,"error":"RIISHE timed out after 90000ms"}

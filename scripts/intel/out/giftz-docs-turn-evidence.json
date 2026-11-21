@@ -1,0 +1,49 @@
+{
+  "at": "2026-11-08T07:53:47.615Z",
+  "source": "db/custom.db CodeMessage (persisted by the live SSE route)",
+  "messageId": "cmw7jbpij001kqx4gd0xzbvjd",
+  "projectId": "cmw7j5wyz001dqx4grkmkwxz1",
+  "answerExcerpt": "In TypeScript, the **non-null assertion operator (`!`)** and **optional chaining (`?.`)** serve different purposes and have distinct behaviors. Here's a detailed breakdown of their differences, based on the retrieved documentation:\n\n---\n\n### 1. **Non-Null Assertion Operator (`!`)**\n- **Purpose**: As",
+  "docs": {
+    "searched": true,
+    "reason": "documentation request",
+    "queries": [
+      "typescript In TypeScript, how does the non-null assertion operator official documentation 2026",
+      "In TypeScript, how does the non-null assertion operator (!) differ from optional chaining (?.)? Cite documentation if you have live sources."
+    ],
+    "sources": [
+      {
+        "id": 1,
+        "url": "https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-0.html",
+        "title": "TypeScript: Documentation - TypeScript 2.0"
+      },
+      {
+        "id": 2,
+        "url": "https://stackoverflow.com/questions/65802194/should-we-use-non-null-assertion-or-optional-chaining-in-typescript",
+        "title": "Should we use ! (non-null assertion) or ?. (optional chaining) ..."
+      },
+      {
+        "id": 3,
+        "url": "https://dev.to/jamenamcinteer/optional-chaining-nullish-coalescing-and-non-null-assertion-operators-in-typescript-5c82",
+        "title": "Optional Chaining (?.), Nullish Coalescing (??), and Non-Null ..."
+      },
+      {
+        "id": 4,
+        "url": "https://thejs.dev/jmitchell/typescript-and-javascript-conditional-chaining-a-conditional-trap-47e/",
+        "title": "TypeScript and JavaScript conditional chaining; a conditional trap?"
+      }
+    ],
+    "degraded": [
+      "page read failed for www.typescriptlang.org: page_reader not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
+      "page read failed for stackoverflow.com: page_reader not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle"
+    ],
+    "durationMs": 1759,
+    "language": "en"
+  },
+  "filesDelivered": [
+    {
+      "path": "main.ts",
+      "change": "added"
+    }
+  ]
+}

@@ -1,0 +1,2715 @@
+{
+  "upstreamCommit": "cf2801031f07f53d4684e65b961bde7c2e2a6921",
+  "preservedExisting": 17,
+  "selected": [
+    {
+      "name": "DarkVeil",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Dark veil shader background with slow smoky motion.",
+      "tags": [
+        "background",
+        "dark",
+        "veil",
+        "smoke"
+      ]
+    },
+    {
+      "name": "Lightning",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Procedural lightning-strike canvas background.",
+      "tags": [
+        "background",
+        "lightning",
+        "storm",
+        "energy"
+      ]
+    },
+    {
+      "name": "Silk",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Flowing silk-like background using layered canvas gradients.",
+      "tags": [
+        "background",
+        "silk",
+        "smooth"
+      ]
+    },
+    {
+      "name": "Radar",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Radar-sweep background with blips and rotating beam.",
+      "tags": [
+        "background",
+        "radar",
+        "scan",
+        "dashboard"
+      ]
+    },
+    {
+      "name": "Particles",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Interactive particle-field background that reacts to the pointer (canvas, zero-dep implementation).",
+      "tags": [
+        "background",
+        "particles",
+        "interactive background"
+      ],
+      "note": "Previously not installed (needed ogl at the older pinned commit); the current free implementation is self-contained."
+    },
+    {
+      "name": "SoftAurora",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Soft blurred aurora gradient background (canvas).",
+      "tags": [
+        "background",
+        "aurora",
+        "soft",
+        "gradient"
+      ]
+    },
+    {
+      "name": "Balatro",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Animated card-suit style background inspired by Balatro (canvas).",
+      "tags": [
+        "background",
+        "game",
+        "cards",
+        "playful"
+      ]
+    },
+    {
+      "name": "LightRays",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Volumetric light rays emanating from a point (canvas).",
+      "tags": [
+        "background",
+        "light",
+        "rays",
+        "hero"
+      ]
+    },
+    {
+      "name": "PlasmaWave",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Flowing plasma-wave background (canvas).",
+      "tags": [
+        "background",
+        "plasma",
+        "wave"
+      ]
+    },
+    {
+      "name": "DotField",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Animated dot-field background with gentle motion.",
+      "tags": [
+        "background",
+        "dots",
+        "field"
+      ]
+    },
+    {
+      "name": "LightTunnel",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Light-tunnel perspective background (canvas).",
+      "tags": [
+        "background",
+        "tunnel",
+        "light",
+        "perspective"
+      ]
+    },
+    {
+      "name": "Galaxy",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Rotating star-field galaxy background (canvas).",
+      "tags": [
+        "background",
+        "galaxy",
+        "stars",
+        "space"
+      ]
+    },
+    {
+      "name": "Topography",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Animated topographic contour-line background (canvas).",
+      "tags": [
+        "background",
+        "topography",
+        "contour",
+        "map"
+      ]
+    },
+    {
+      "name": "GradientWaves",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Smooth gradient waves background (canvas).",
+      "tags": [
+        "background",
+        "gradient",
+        "waves"
+      ]
+    },
+    {
+      "name": "SlicedWaves",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Sliced wave layers background with parallax motion (canvas).",
+      "tags": [
+        "background",
+        "waves",
+        "layers"
+      ]
+    },
+    {
+      "name": "Ballpit",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": false,
+      "description": "Interactive bouncing-balls canvas background.",
+      "tags": [
+        "background",
+        "balls",
+        "playful",
+        "physics"
+      ]
+    },
+    {
+      "name": "Lightfall",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Falling light streaks background (canvas).",
+      "tags": [
+        "background",
+        "light",
+        "falling"
+      ]
+    },
+    {
+      "name": "RippleGrid",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Rippling grid background that reacts to the pointer (canvas).",
+      "tags": [
+        "background",
+        "grid",
+        "ripple",
+        "interactive"
+      ]
+    },
+    {
+      "name": "Aurora",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Silk-like animated aurora gradient background (WebGL shader, zero-dep implementation).",
+      "tags": [
+        "background",
+        "aurora",
+        "gradient",
+        "hero background"
+      ],
+      "note": "Previously not installed (needed ogl at the older pinned commit); the current free implementation is self-contained."
+    },
+    {
+      "name": "PixelBlast",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Pixel-explosion effect background (canvas).",
+      "tags": [
+        "background",
+        "pixel",
+        "retro",
+        "game"
+      ]
+    },
+    {
+      "name": "LiquidEther",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Liquid ether fluid-simulation background (WebGL shaders, zero-dep implementation).",
+      "tags": [
+        "background",
+        "liquid",
+        "fluid",
+        "simulation"
+      ]
+    },
+    {
+      "name": "Ferrofluid",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Magnetic ferrofluid-style blob background (canvas).",
+      "tags": [
+        "background",
+        "ferrofluid",
+        "blob",
+        "magnetic"
+      ]
+    },
+    {
+      "name": "PixelSnow",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Pixelated snowfall background (canvas).",
+      "tags": [
+        "background",
+        "snow",
+        "pixel",
+        "winter"
+      ]
+    },
+    {
+      "name": "ShapeGrid",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Grid of animated shapes forming a background (canvas).",
+      "tags": [
+        "background",
+        "grid",
+        "shapes"
+      ]
+    },
+    {
+      "name": "Antigravity",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Floating anti-gravity particle background (canvas).",
+      "tags": [
+        "background",
+        "particles",
+        "floating"
+      ]
+    },
+    {
+      "name": "GridMotion",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Grid of items animating with scroll motion.",
+      "tags": [
+        "background",
+        "grid",
+        "scroll"
+      ]
+    },
+    {
+      "name": "Plasma",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Classic plasma-flow shader background (canvas).",
+      "tags": [
+        "background",
+        "plasma",
+        "retro"
+      ]
+    },
+    {
+      "name": "Beams",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Light-beam sweep background rendered on canvas.",
+      "tags": [
+        "background",
+        "beams",
+        "light"
+      ]
+    },
+    {
+      "name": "SideRays",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Side light rays background for hero sections (canvas).",
+      "tags": [
+        "background",
+        "rays",
+        "hero",
+        "light"
+      ]
+    },
+    {
+      "name": "FloatingLines",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Floating line-field background with gentle drift (canvas).",
+      "tags": [
+        "background",
+        "lines",
+        "minimal"
+      ]
+    },
+    {
+      "name": "GridDistortion",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Distorted grid background reacting to the pointer (canvas).",
+      "tags": [
+        "background",
+        "grid",
+        "distortion",
+        "interactive"
+      ]
+    },
+    {
+      "name": "MagnetLines",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Lines that bend toward the pointer like magnetic field lines (canvas).",
+      "tags": [
+        "background",
+        "magnet",
+        "lines",
+        "interactive"
+      ]
+    },
+    {
+      "name": "AcidSquares",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Psychedelic animated squares background (canvas).",
+      "tags": [
+        "background",
+        "squares",
+        "retro",
+        "playful"
+      ]
+    },
+    {
+      "name": "GradientBlinds",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Gradient blinds (vertical slats) background (canvas).",
+      "tags": [
+        "background",
+        "gradient",
+        "blinds"
+      ]
+    },
+    {
+      "name": "GradientASCII",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "ASCII-character gradient background (canvas).",
+      "tags": [
+        "background",
+        "ascii",
+        "terminal",
+        "retro"
+      ]
+    },
+    {
+      "name": "FaultyTerminal",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Faulty CRT terminal background with scanline glitches (canvas).",
+      "tags": [
+        "background",
+        "terminal",
+        "crt",
+        "glitch",
+        "retro"
+      ]
+    },
+    {
+      "name": "Threads",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Wavy thread-strands background (canvas).",
+      "tags": [
+        "background",
+        "threads",
+        "lines"
+      ]
+    },
+    {
+      "name": "Dither",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Dithered gradient background with a retro 1-bit feel (canvas).",
+      "tags": [
+        "background",
+        "dither",
+        "retro",
+        "1-bit"
+      ]
+    },
+    {
+      "name": "MagicRings",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Concentric magic rings background with pulse motion (canvas).",
+      "tags": [
+        "background",
+        "rings",
+        "magic"
+      ]
+    },
+    {
+      "name": "GhostFibers",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Flowing ghost fiber strands background (canvas).",
+      "tags": [
+        "background",
+        "fibers",
+        "flow"
+      ]
+    },
+    {
+      "name": "WebThreads",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Web-thread network strands background (canvas).",
+      "tags": [
+        "background",
+        "threads",
+        "network"
+      ]
+    },
+    {
+      "name": "LiquidChrome",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Liquid chrome metal-flow background (canvas).",
+      "tags": [
+        "background",
+        "chrome",
+        "metal",
+        "liquid"
+      ]
+    },
+    {
+      "name": "FluxLines",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Flux line-field background with directional flow (canvas).",
+      "tags": [
+        "background",
+        "flux",
+        "lines"
+      ]
+    },
+    {
+      "name": "MoltenMetal",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Molten-metal slow-flow background (canvas).",
+      "tags": [
+        "background",
+        "metal",
+        "lava"
+      ]
+    },
+    {
+      "name": "Waves",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Animated wave-lines background drawn on canvas.",
+      "tags": [
+        "background",
+        "waves",
+        "lines"
+      ]
+    },
+    {
+      "name": "CRTWarp",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "CRT warp background with curvature and scanlines (canvas).",
+      "tags": [
+        "background",
+        "crt",
+        "retro",
+        "scanlines"
+      ]
+    },
+    {
+      "name": "LightPillar",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Vertical light pillar background for hero sections (canvas).",
+      "tags": [
+        "background",
+        "pillar",
+        "light",
+        "hero"
+      ]
+    },
+    {
+      "name": "Scanner",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Scanner sweep background with a detection line (canvas).",
+      "tags": [
+        "background",
+        "scanner",
+        "scan",
+        "security"
+      ]
+    },
+    {
+      "name": "Orb",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Glowing orb background with soft pulsing motion (canvas).",
+      "tags": [
+        "background",
+        "orb",
+        "glow"
+      ]
+    },
+    {
+      "name": "Grainient",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Grainy gradient background with film grain (canvas).",
+      "tags": [
+        "background",
+        "grain",
+        "gradient"
+      ]
+    },
+    {
+      "name": "PrismaticBurst",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Prismatic light burst background (canvas).",
+      "tags": [
+        "background",
+        "prism",
+        "burst",
+        "light"
+      ]
+    },
+    {
+      "name": "Iridescence",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Iridescent shimmer background (canvas).",
+      "tags": [
+        "background",
+        "iridescent",
+        "shimmer",
+        "holographic"
+      ]
+    },
+    {
+      "name": "LineWaves",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Interference line-waves background (canvas).",
+      "tags": [
+        "background",
+        "lines",
+        "waves"
+      ]
+    },
+    {
+      "name": "Prism",
+      "category": "Backgrounds",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Prismatic refraction background (canvas).",
+      "tags": [
+        "background",
+        "prism",
+        "light"
+      ]
+    },
+    {
+      "name": "ScrubField",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Scrub-to-fill input field with drag interaction.",
+      "tags": [
+        "input",
+        "scrub",
+        "form",
+        "micro-interaction"
+      ]
+    },
+    {
+      "name": "DodgeField",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Input field whose placeholder dodges the pointer until focused.",
+      "tags": [
+        "input",
+        "playful",
+        "micro-interaction"
+      ]
+    },
+    {
+      "name": "WakeSlider",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Slider that wakes with a ripple as the thumb moves.",
+      "tags": [
+        "slider",
+        "input",
+        "micro-interaction"
+      ]
+    },
+    {
+      "name": "FlyingButton",
+      "category": "Micro",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Button whose label particles fly apart on click.",
+      "tags": [
+        "button",
+        "micro-interaction",
+        "playful"
+      ]
+    },
+    {
+      "name": "TearTicket",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Ticket-style element that tears apart on activation.",
+      "tags": [
+        "ticket",
+        "coupon",
+        "micro-interaction",
+        "playful"
+      ]
+    },
+    {
+      "name": "FlipCard",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Two-sided card that flips on hover/tap.",
+      "tags": [
+        "card",
+        "flip",
+        "hover"
+      ]
+    },
+    {
+      "name": "CometDial",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Dial control with a comet-trail indicator.",
+      "tags": [
+        "dial",
+        "control",
+        "micro-interaction"
+      ]
+    },
+    {
+      "name": "JellyRadio",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Radio buttons with a jelly squish animation.",
+      "tags": [
+        "radio",
+        "form",
+        "playful",
+        "micro-interaction"
+      ]
+    },
+    {
+      "name": "SquishSwitch",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Toggle switch with a satisfying squish animation.",
+      "tags": [
+        "switch",
+        "toggle",
+        "micro-interaction"
+      ]
+    },
+    {
+      "name": "HoldButton",
+      "category": "Micro",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Hold-to-confirm button with progress ring.",
+      "tags": [
+        "button",
+        "hold",
+        "confirm",
+        "micro-interaction"
+      ]
+    },
+    {
+      "name": "WarmTooltip",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Tooltip that warms up (glows) before appearing.",
+      "tags": [
+        "tooltip",
+        "hover",
+        "micro-interaction"
+      ]
+    },
+    {
+      "name": "RubberSegment",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Rubber-band segmented progress/control element.",
+      "tags": [
+        "segment",
+        "progress",
+        "playful"
+      ]
+    },
+    {
+      "name": "Shredder",
+      "category": "Micro",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Paper-shredder style card dismissal interaction.",
+      "tags": [
+        "card",
+        "dismiss",
+        "micro-interaction",
+        "playful"
+      ]
+    },
+    {
+      "name": "StatusMark",
+      "category": "Micro",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Animated status indicator (pulse, success, warning states).",
+      "tags": [
+        "status",
+        "indicator",
+        "badge"
+      ]
+    },
+    {
+      "name": "SloshGauge",
+      "category": "Micro",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Liquid sloshing gauge for progress/loading states.",
+      "tags": [
+        "gauge",
+        "progress",
+        "loading",
+        "liquid"
+      ]
+    },
+    {
+      "name": "DecayCard",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Image card with a decay/dissolve hover effect (image supplied via props).",
+      "tags": [
+        "card",
+        "image",
+        "hover",
+        "gallery"
+      ],
+      "note": "Default image is a remote URL; supply your own image for offline preview."
+    },
+    {
+      "name": "LineSidebar",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Sidebar navigation with an animated active-line indicator.",
+      "tags": [
+        "sidebar",
+        "navigation",
+        "nav"
+      ]
+    },
+    {
+      "name": "InfiniteSpiral",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Infinite spiral gallery/carousel of items.",
+      "tags": [
+        "carousel",
+        "gallery",
+        "spiral"
+      ]
+    },
+    {
+      "name": "CircularCarousel",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Circular carousel with rotating item positions.",
+      "tags": [
+        "carousel",
+        "circular",
+        "gallery"
+      ]
+    },
+    {
+      "name": "DriftWall",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Image wall whose tiles drift slowly (images via props).",
+      "tags": [
+        "gallery",
+        "wall",
+        "background",
+        "images"
+      ],
+      "note": "Default images are remote URLs; supply your own for offline preview."
+    },
+    {
+      "name": "BorderGlow",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Card/panel with an animated glowing border.",
+      "tags": [
+        "card",
+        "border",
+        "glow"
+      ]
+    },
+    {
+      "name": "CurvedInput",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text input rendered along a curved path.",
+      "tags": [
+        "input",
+        "text",
+        "form",
+        "creative"
+      ]
+    },
+    {
+      "name": "BounceCards",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Stacked cards that bounce apart on hover.",
+      "tags": [
+        "cards",
+        "stack",
+        "hover",
+        "gallery"
+      ]
+    },
+    {
+      "name": "ScrollStack",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Cards that stack/pin as the user scrolls.",
+      "tags": [
+        "cards",
+        "scroll",
+        "stack"
+      ]
+    },
+    {
+      "name": "OptionWheel",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Scrollable option wheel (dial-style selector).",
+      "tags": [
+        "selector",
+        "wheel",
+        "options"
+      ]
+    },
+    {
+      "name": "ChromaGrid",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": true,
+      "css": true,
+      "description": "Card grid with chromatic aberration hover effect.",
+      "tags": [
+        "grid",
+        "cards",
+        "hover",
+        "gallery"
+      ]
+    },
+    {
+      "name": "Folder",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Interactive folder that opens to reveal items.",
+      "tags": [
+        "folder",
+        "files",
+        "playful"
+      ]
+    },
+    {
+      "name": "FluidGlass",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Fluid glass refraction effect over content (zero-dep implementation).",
+      "tags": [
+        "glass",
+        "fluid",
+        "refraction",
+        "hero"
+      ]
+    },
+    {
+      "name": "GooeyNav",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Navigation with a gooey blob active indicator (SVG filter).",
+      "tags": [
+        "nav",
+        "navigation",
+        "gooey",
+        "menu"
+      ]
+    },
+    {
+      "name": "PixelCard",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Card with pixel-dissolve hover transition.",
+      "tags": [
+        "card",
+        "pixel",
+        "hover",
+        "retro"
+      ]
+    },
+    {
+      "name": "InfiniteMenu",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Infinite draggable image menu (zero-dep implementation).",
+      "tags": [
+        "menu",
+        "gallery",
+        "interactive"
+      ]
+    },
+    {
+      "name": "CircularGallery",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Bendable circular gallery of images (images via props).",
+      "tags": [
+        "gallery",
+        "circular",
+        "images"
+      ],
+      "note": "Default images are remote URLs; supply your own for offline preview."
+    },
+    {
+      "name": "StaggeredMenu",
+      "category": "Components",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Full-screen staggered menu with GSAP-animated reveal.",
+      "tags": [
+        "menu",
+        "navigation",
+        "gsap",
+        "overlay"
+      ]
+    },
+    {
+      "name": "Stack",
+      "category": "Components",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Card stack with drag-to-throw interaction (framer-motion).",
+      "tags": [
+        "cards",
+        "stack",
+        "drag",
+        "swipe"
+      ]
+    },
+    {
+      "name": "FlyingPosters",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Posters that fly/scatter in 3D-ish perspective on pointer move (zero-dep implementation).",
+      "tags": [
+        "gallery",
+        "posters",
+        "interactive"
+      ]
+    },
+    {
+      "name": "GlassIcons",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Glassmorphism icon buttons with hover effects.",
+      "tags": [
+        "icons",
+        "glass",
+        "buttons"
+      ]
+    },
+    {
+      "name": "AccordionGallery",
+      "category": "Components",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Accordion-style expanding gallery (GSAP).",
+      "tags": [
+        "accordion",
+        "gallery",
+        "gsap"
+      ]
+    },
+    {
+      "name": "SpecularButton",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Button with a specular highlight sweep.",
+      "tags": [
+        "button",
+        "cta",
+        "highlight"
+      ]
+    },
+    {
+      "name": "HoloCard",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Holographic trading-card effect that tilts with the pointer.",
+      "tags": [
+        "card",
+        "holographic",
+        "tilt",
+        "hover"
+      ]
+    },
+    {
+      "name": "PillNav",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Pill-shaped navigation with sliding active indicator.",
+      "tags": [
+        "nav",
+        "navigation",
+        "pill",
+        "menu"
+      ]
+    },
+    {
+      "name": "Counter",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Animated number counter with separators/suffixes (component).",
+      "tags": [
+        "counter",
+        "stats",
+        "number",
+        "metrics"
+      ]
+    },
+    {
+      "name": "DepthCarousel",
+      "category": "Components",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Carousel with depth/parallax layering (GSAP).",
+      "tags": [
+        "carousel",
+        "depth",
+        "parallax",
+        "gsap"
+      ]
+    },
+    {
+      "name": "TiltedCard",
+      "category": "Components",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Card that tilts in 3D following the pointer.",
+      "tags": [
+        "card",
+        "tilt",
+        "3d",
+        "hover"
+      ]
+    },
+    {
+      "name": "BubbleMenu",
+      "category": "Components",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Expanding bubble menu with GSAP animation.",
+      "tags": [
+        "menu",
+        "bubble",
+        "fab",
+        "gsap"
+      ]
+    },
+    {
+      "name": "EchoText",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text with an echoing trail of copies behind it.",
+      "tags": [
+        "text",
+        "echo",
+        "heading",
+        "trippy"
+      ]
+    },
+    {
+      "name": "RotatingText",
+      "category": "TextAnimations",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Word rotator with animated transitions (framer-motion).",
+      "tags": [
+        "text",
+        "rotating",
+        "words",
+        "hero"
+      ]
+    },
+    {
+      "name": "MaskedHeading",
+      "category": "TextAnimations",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Heading revealed through an animated mask (GSAP).",
+      "tags": [
+        "heading",
+        "mask",
+        "reveal",
+        "gsap"
+      ]
+    },
+    {
+      "name": "ScrambledText",
+      "category": "TextAnimations",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text that scrambles/decodes into place (GSAP).",
+      "tags": [
+        "text",
+        "scramble",
+        "decode",
+        "hacker"
+      ]
+    },
+    {
+      "name": "CircularText",
+      "category": "TextAnimations",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text arranged in a circle, optionally spinning (framer-motion).",
+      "tags": [
+        "text",
+        "circular",
+        "badge",
+        "spin"
+      ]
+    },
+    {
+      "name": "ScrollVelocity",
+      "category": "TextAnimations",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": true,
+      "css": true,
+      "description": "Scroll-velocity-reactive marquee text (framer-motion).",
+      "tags": [
+        "text",
+        "marquee",
+        "scroll",
+        "velocity"
+      ]
+    },
+    {
+      "name": "CurvedLoop",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Marquee text flowing along a curved SVG path.",
+      "tags": [
+        "text",
+        "marquee",
+        "curved",
+        "loop"
+      ]
+    },
+    {
+      "name": "FuzzyText",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": false,
+      "description": "Fuzzy/furry edged text effect (canvas).",
+      "tags": [
+        "text",
+        "fuzzy",
+        "heading"
+      ]
+    },
+    {
+      "name": "SplitFlapText",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Airport split-flap board style text animation.",
+      "tags": [
+        "text",
+        "split-flap",
+        "airport",
+        "retro"
+      ]
+    },
+    {
+      "name": "TextCursor",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text with a demo typing cursor/pointer trail.",
+      "tags": [
+        "text",
+        "cursor",
+        "typing"
+      ]
+    },
+    {
+      "name": "GlitchText",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Glitching text effect with RGB split.",
+      "tags": [
+        "text",
+        "glitch",
+        "cyber"
+      ]
+    },
+    {
+      "name": "ScrollFloat",
+      "category": "TextAnimations",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text that floats in per-character on scroll (GSAP).",
+      "tags": [
+        "text",
+        "scroll",
+        "reveal",
+        "gsap"
+      ]
+    },
+    {
+      "name": "FoldText",
+      "category": "TextAnimations",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text that folds/unfolds line by line (GSAP).",
+      "tags": [
+        "text",
+        "fold",
+        "reveal",
+        "gsap"
+      ]
+    },
+    {
+      "name": "DepthText",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text with layered depth/parallax shadow.",
+      "tags": [
+        "text",
+        "depth",
+        "3d",
+        "shadow"
+      ]
+    },
+    {
+      "name": "TextPressure",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": false,
+      "description": "Text whose glyphs flex with pointer proximity (variable font via prop).",
+      "tags": [
+        "text",
+        "variable font",
+        "interactive",
+        "hero"
+      ],
+      "note": "Uses a remote variable-font by default; falls back to system fonts offline."
+    },
+    {
+      "name": "ParticleText",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text rendered as interactive particles (canvas).",
+      "tags": [
+        "text",
+        "particles",
+        "interactive"
+      ]
+    },
+    {
+      "name": "TrueFocus",
+      "category": "TextAnimations",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": true,
+      "description": "Focus-frame text effect that moves between words (framer-motion).",
+      "tags": [
+        "text",
+        "focus",
+        "frame",
+        "heading"
+      ]
+    },
+    {
+      "name": "StrokeText",
+      "category": "TextAnimations",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Outlined stroke text that animates on scroll (GSAP).",
+      "tags": [
+        "text",
+        "stroke",
+        "outline",
+        "gsap"
+      ]
+    },
+    {
+      "name": "DecryptedText",
+      "category": "TextAnimations",
+      "deps": [
+        "motion"
+      ],
+      "adapted": true,
+      "typeFixed": false,
+      "css": false,
+      "description": "Matrix-style decrypting text (framer-motion).",
+      "tags": [
+        "text",
+        "decrypt",
+        "matrix",
+        "hacker"
+      ]
+    },
+    {
+      "name": "Shuffle",
+      "category": "TextAnimations",
+      "deps": [
+        "@gsap/react",
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text that shuffles through characters into place (@gsap/react).",
+      "tags": [
+        "text",
+        "shuffle",
+        "decode"
+      ]
+    },
+    {
+      "name": "ASCIIText",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": false,
+      "description": "Text rendered as animated ASCII glyphs (canvas).",
+      "tags": [
+        "text",
+        "ascii",
+        "terminal",
+        "retro"
+      ]
+    },
+    {
+      "name": "TechText",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Hi-tech HUD style text effect (canvas).",
+      "tags": [
+        "text",
+        "tech",
+        "hud",
+        "sci-fi"
+      ]
+    },
+    {
+      "name": "TextLoop",
+      "category": "TextAnimations",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Looping rotating text phrases (GSAP).",
+      "tags": [
+        "text",
+        "loop",
+        "rotating",
+        "phrases"
+      ]
+    },
+    {
+      "name": "VariableProximity",
+      "category": "TextAnimations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Text whose weight shifts with pointer proximity (variable font via prop).",
+      "tags": [
+        "text",
+        "variable font",
+        "proximity",
+        "heading"
+      ],
+      "note": "Uses a remote variable-font by default; falls back to system fonts offline."
+    },
+    {
+      "name": "ElectricBorder",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Animated electric/lightning border for cards or panels.",
+      "tags": [
+        "border",
+        "electric",
+        "card",
+        "glow"
+      ]
+    },
+    {
+      "name": "Magnet",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": false,
+      "description": "Element that magnetically follows the pointer within bounds.",
+      "tags": [
+        "magnet",
+        "hover",
+        "micro-interaction",
+        "cta"
+      ]
+    },
+    {
+      "name": "HalftoneReveal",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Halftone-dot image reveal on scroll (image via props).",
+      "tags": [
+        "halftone",
+        "image",
+        "reveal",
+        "retro"
+      ],
+      "note": "Default image is a remote URL; supply your own for offline preview."
+    },
+    {
+      "name": "Cubes",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Interactive grid of 3D-looking cubes reacting to the pointer.",
+      "tags": [
+        "cubes",
+        "grid",
+        "interactive"
+      ]
+    },
+    {
+      "name": "Strands",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Flowing strand-field animation (image/canvas).",
+      "tags": [
+        "strands",
+        "flow",
+        "background"
+      ]
+    },
+    {
+      "name": "OrbitImages",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Images orbiting a center point (images via props).",
+      "tags": [
+        "orbit",
+        "images",
+        "gallery"
+      ]
+    },
+    {
+      "name": "ShapeBlur",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "SVG shape with animated gooey blur trail.",
+      "tags": [
+        "shape",
+        "blur",
+        "gooey",
+        "svg"
+      ]
+    },
+    {
+      "name": "LaserFlow",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Laser-flow light animation across an image (image via props).",
+      "tags": [
+        "laser",
+        "light",
+        "image"
+      ],
+      "note": "Default image is a remote URL; supply your own for offline preview."
+    },
+    {
+      "name": "Ribbons",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Flowing ribbon trails animation (canvas).",
+      "tags": [
+        "ribbons",
+        "flow",
+        "background"
+      ]
+    },
+    {
+      "name": "SplashCursor",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Fluid splash cursor that paints behind the pointer (WebGL fluid, zero-dep implementation).",
+      "tags": [
+        "cursor",
+        "fluid",
+        "splash",
+        "playful"
+      ]
+    },
+    {
+      "name": "LogoLoop",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Infinite logo marquee loop.",
+      "tags": [
+        "logo",
+        "marquee",
+        "loop",
+        "social proof"
+      ]
+    },
+    {
+      "name": "MetallicPaint",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Metallic-paint swirl that follows the pointer (canvas).",
+      "tags": [
+        "metallic",
+        "paint",
+        "interactive"
+      ]
+    },
+    {
+      "name": "PixelTransition",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Content revealed through a pixel-grid transition.",
+      "tags": [
+        "pixel",
+        "transition",
+        "card",
+        "retro"
+      ]
+    },
+    {
+      "name": "StickerPeel",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Peelable sticker interaction over content (image via props).",
+      "tags": [
+        "sticker",
+        "peel",
+        "playful"
+      ],
+      "note": "Default image is a remote URL; supply your own for offline preview."
+    },
+    {
+      "name": "Crosshair",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": false,
+      "description": "Crosshair lines that track the pointer across the page.",
+      "tags": [
+        "cursor",
+        "crosshair",
+        "pointer"
+      ]
+    },
+    {
+      "name": "GhostCursor",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Ghost-trail cursor effect (canvas).",
+      "tags": [
+        "cursor",
+        "trail",
+        "ghost"
+      ]
+    },
+    {
+      "name": "GlowCursor",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": true,
+      "css": true,
+      "description": "Glowing cursor spotlight effect (canvas).",
+      "tags": [
+        "cursor",
+        "glow",
+        "spotlight"
+      ]
+    },
+    {
+      "name": "ScrollExpand",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Section that expands to full view as the user scrolls.",
+      "tags": [
+        "scroll",
+        "expand",
+        "section"
+      ]
+    },
+    {
+      "name": "PixelSwap",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": true,
+      "css": true,
+      "description": "Pixelated image swap transition (images via props).",
+      "tags": [
+        "pixel",
+        "image",
+        "swap"
+      ],
+      "note": "Default images are remote URLs; supply your own for offline preview."
+    },
+    {
+      "name": "Noise",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Film-grain noise overlay with blend modes.",
+      "tags": [
+        "noise",
+        "grain",
+        "overlay",
+        "texture"
+      ]
+    },
+    {
+      "name": "GradualBlur",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Progressive edge blur overlay (top/bottom).",
+      "tags": [
+        "blur",
+        "overlay",
+        "scroll"
+      ]
+    },
+    {
+      "name": "PixelTrail",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Pixel trail that follows the pointer (canvas).",
+      "tags": [
+        "cursor",
+        "pixel",
+        "trail",
+        "playful"
+      ]
+    },
+    {
+      "name": "FadeContent",
+      "category": "Animations",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": false,
+      "description": "Simple fade-in wrapper when content enters the viewport (GSAP).",
+      "tags": [
+        "fade",
+        "reveal",
+        "content",
+        "gsap"
+      ]
+    },
+    {
+      "name": "TargetCursor",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Target/crosshair cursor effect with trailing ring.",
+      "tags": [
+        "cursor",
+        "target",
+        "crosshair"
+      ]
+    },
+    {
+      "name": "CursorGrid",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Grid of cells that light up around the pointer.",
+      "tags": [
+        "cursor",
+        "grid",
+        "interactive"
+      ]
+    },
+    {
+      "name": "MetaBalls",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Gooey metaballs that chase the pointer (SVG filter).",
+      "tags": [
+        "metaballs",
+        "gooey",
+        "pointer",
+        "playful"
+      ]
+    },
+    {
+      "name": "ElasticMesh",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Elastic mesh deformation reacting to the pointer (canvas).",
+      "tags": [
+        "mesh",
+        "elastic",
+        "interactive"
+      ]
+    },
+    {
+      "name": "SwarmCursor",
+      "category": "Animations",
+      "deps": [],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Swarm of dots that follows the pointer (canvas).",
+      "tags": [
+        "cursor",
+        "swarm",
+        "dots",
+        "playful"
+      ]
+    },
+    {
+      "name": "ImageTrail",
+      "category": "Animations",
+      "deps": [
+        "gsap"
+      ],
+      "adapted": false,
+      "typeFixed": false,
+      "css": true,
+      "description": "Image trail that follows the pointer (GSAP; images via props).",
+      "tags": [
+        "cursor",
+        "image",
+        "trail",
+        "gsap"
+      ],
+      "note": "Default images are remote URLs; supply your own for offline preview."
+    }
+  ],
+  "excluded": [
+    {
+      "name": "AeroShards",
+      "category": "Backgrounds",
+      "deps": [
+        "vgpu"
+      ],
+      "reason": "Requires React Bits' private `vgpu` WebGPU package (not published for standalone use) — cannot be vendored."
+    },
+    {
+      "name": "GridScan",
+      "category": "Backgrounds",
+      "deps": [],
+      "reason": "Loads face-api.js and its model weights from a CDN at runtime (remote script + model injection) — incompatible with the offline/CSP contract for generated projects."
+    },
+    {
+      "name": "ShapeWaves",
+      "category": "Backgrounds",
+      "deps": [
+        "vgpu"
+      ],
+      "reason": "Requires React Bits' private `vgpu` WebGPU package (not published for standalone use) — cannot be vendored."
+    },
+    {
+      "name": "ColorBends",
+      "category": "Backgrounds",
+      "deps": [
+        "three"
+      ],
+      "reason": "Requires a direct `three` dependency outside the approved Vanta contract — not approved."
+    },
+    {
+      "name": "Hyperspeed",
+      "category": "Backgrounds",
+      "deps": [
+        "three"
+      ],
+      "reason": "Requires a direct `three` dependency outside the approved Vanta contract — not approved."
+    },
+    {
+      "name": "EvilEye",
+      "category": "Backgrounds",
+      "deps": [
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    },
+    {
+      "name": "PatternWaves",
+      "category": "Backgrounds",
+      "deps": [
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    },
+    {
+      "name": "MicroSlats",
+      "category": "Backgrounds",
+      "deps": [
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    },
+    {
+      "name": "SpringCheck",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "motion"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "VoicePill",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "PeekRating",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "PromptBar",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react",
+        "motion"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "PaperCrumple",
+      "category": "Micro",
+      "deps": [
+        "three"
+      ],
+      "reason": "Requires a direct `three` dependency outside the approved Vanta contract — not approved."
+    },
+    {
+      "name": "BranchedMenu",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "CodeSlots",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react",
+        "motion"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "GlideSelect",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "RefineFrame",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "PulseHeart",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "BellToggle",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react",
+        "motion"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "CallChip",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "SlideCommit",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react",
+        "motion"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "SwipeToast",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react",
+        "motion"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "SlingButton",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react",
+        "motion"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "FolderFloat",
+      "category": "Micro",
+      "deps": [
+        "matter-js"
+      ],
+      "reason": "Requires the `matter-js` physics engine — dependency not approved."
+    },
+    {
+      "name": "SwipeRow",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react",
+        "motion"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "ThoughtLine",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react",
+        "motion"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "FuseButton",
+      "category": "Micro",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "ElasticSlider",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "FlowingMenu",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "ProfileCard",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "ModelViewer",
+      "category": "Components",
+      "deps": [
+        "@react-three/drei",
+        "@react-three/fiber",
+        "three"
+      ],
+      "reason": "Requires the @react-three/fiber + drei stack — not approved."
+    },
+    {
+      "name": "AnimatedList",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "MagicBento",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "Carousel",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "MorphSlider",
+      "category": "Components",
+      "deps": [
+        "gsap",
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    },
+    {
+      "name": "ReflectiveCard",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "FlexCarousel",
+      "category": "Components",
+      "deps": [
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    },
+    {
+      "name": "CardNav",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "Stepper",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "Masonry",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "DomeGallery",
+      "category": "Components",
+      "deps": [
+        "@use-gesture/react"
+      ],
+      "reason": "Requires the `@use-gesture/react` package — dependency not approved."
+    },
+    {
+      "name": "Lanyard",
+      "category": "Components",
+      "deps": [
+        "three"
+      ],
+      "reason": "Requires a direct `three` dependency outside the approved Vanta contract — not approved."
+    },
+    {
+      "name": "CardSwap",
+      "category": "Components",
+      "deps": [
+        "@hugeicons/core-free-icons",
+        "@hugeicons/react"
+      ],
+      "reason": "Requires the @hugeicons icon packages (license/count not approved for generated projects) — not approved."
+    },
+    {
+      "name": "WarpText",
+      "category": "TextAnimations",
+      "deps": [
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    },
+    {
+      "name": "FallingText",
+      "category": "TextAnimations",
+      "deps": [
+        "matter-js"
+      ],
+      "reason": "Requires the `matter-js` physics engine — dependency not approved."
+    },
+    {
+      "name": "DitherVeil",
+      "category": "Animations",
+      "deps": [
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    },
+    {
+      "name": "RippleDistortion",
+      "category": "Animations",
+      "deps": [
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    },
+    {
+      "name": "BlobCursor",
+      "category": "Animations",
+      "deps": [
+        "three"
+      ],
+      "reason": "Requires a direct `three` dependency outside the approved Vanta contract — not approved."
+    },
+    {
+      "name": "ElectricLogo",
+      "category": "Animations",
+      "deps": [
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    },
+    {
+      "name": "CrystalizedBall",
+      "category": "Animations",
+      "deps": [
+        "ogl"
+      ],
+      "reason": "Requires the extra `ogl` WebGL library — dependency not approved for BEAN generated projects."
+    }
+  ]
+}

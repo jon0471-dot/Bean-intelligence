@@ -19,11 +19,13 @@
  * Jobs persist in GenerationJob rows; running work survives application
  * restarts via lease expiry + recovery (see src/lib/ai-engine).
  */
+import { db } from '@/lib/db'
 import { claimNextJob, finishFailed, heartbeatJob } from '@/lib/ai-engine/queue'
 import { engineHandlers } from '@/lib/ai-engine/handlers'
 import { kickProduct, poolsRunning } from '@/lib/ai-engine/runner'
 import { setVideoPoolsActiveProbe } from '@/lib/jobs/video-worker'
 import { logger } from '@/lib/observability/logger'
+import { appendJobEventSafe } from '@/lib/ai-engine/events'
 
 const ENGINE_KIND = 'embedded'
 
@@ -64,9 +66,51 @@ async function executeInline(jobId: string): Promise<void> {
 /** Hand a freshly persisted job to the engine (pool wake; inline fallback). */
 export function enqueueJob(jobId: string): void {
   if (poolsRunning()) {
-    // Wake every product pool: the first idle slot to claim wins; the other
-    // wakes find an empty queue and sleep again (four cheap queries).
-    for (const p of ['riishe', 'laxii', 'jazmii', 'code-giftz']) kickProduct(p)
+    // M26 (audit F-G1): a task with NO wired handler can never be claimed by
+    // any pool — GANGZII's speech-synthesis/audio-transcription/audio-conversion
+    // jobs (no pool, no handler) previously stayed `queued` FOREVER. Settle
+    // such jobs honestly (NO_BACKEND) instead of parking them indefinitely.
+    // The settle is awaited inside the fire-and-forget envelope so callers
+    // keep their existing sync contract.
+    void (async () => {
+      try {
+        const job = await db.generationJob.findUnique({
+          where: { id: jobId },
+          select: { task: true, status: true },
+        })
+        if (job && !engineHandlers[job.task] && ['queued', 'starting', 'retry_wait'].includes(job.status)) {
+          // Settle directly: finishFailed's terminal write matches only
+          // ACTIVE/claimed statuses, and a queued row with no handler is
+          // exactly the case that must be ended honestly.
+          await db.generationJob.updateMany({
+            where: { id: jobId, status: { in: ['queued', 'starting', 'retry_wait'] } },
+            data: {
+              status: 'failed',
+              errorClass: 'permanent',
+              errorCode: 'NO_BACKEND',
+              errorMessage: 'No worker is configured for this task type in this deployment.',
+              finishedAt: new Date(),
+              leaseUntil: null,
+            },
+          })
+          await appendJobEventSafe(jobId, 'error', {
+            code: 'NO_BACKEND',
+            message: 'No worker is configured for this task type in this deployment.',
+            errorClass: 'permanent',
+          })
+          logger.warn('jobs.no_handler_settled', { jobId, task: job.task })
+          return
+        }
+      } catch (e) {
+        logger.warn('jobs.no_handler_check_failed', {
+          jobId,
+          message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
+        })
+      }
+      // Wake every product pool: the first idle slot to claim wins; the other
+      // wakes find an empty queue and sleep again (four cheap queries).
+      for (const p of ['riishe', 'laxii', 'jazmii', 'code-giftz']) kickProduct(p)
+    })()
     return
   }
   void (async () => {
@@ -77,7 +121,11 @@ export function enqueueJob(jobId: string): void {
         jobId,
         message: e instanceof Error ? e.message : String(e),
       })
-      await finishFailed(jobId, '__kick__', {
+      // M26 (audit F-9): the previous '__kick__' id NEVER matched the
+      // finishFailed ownership guard (only the claim owner or '__recovery__'
+      // may settle) — the failure path was a silent no-op and the row stayed
+      // stuck. The recovery-privileged id settles it for real.
+      await finishFailed(jobId, '__recovery__', {
         errorClass: 'unknown',
         errorCode: 'INTERNAL_ERROR',
         errorMessage: 'The job could not be processed.',

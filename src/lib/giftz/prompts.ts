@@ -52,18 +52,54 @@ LAST CHECK BEFORE ANSWERING (for any output-order question): keep a RUNNING OUTP
 // Context budget mirrored from the route's original constant.
 const MAX_FILE_CONTEXT_CHARS = 24_000
 
+/**
+ * Builds the CURRENT PROJECT FILES block.
+ *
+ * M24 hardening (measured live): the original linear order let huge
+ * engine-injected vendor bundles consume the budget BEFORE small source
+ * files, and a partial dump of minified library code — presented as "the
+ * code the user sees and will run" — repeatedly derailed targeted edits
+ * (the model tried to "fix" the project instead of applying the requested
+ * one-line change). Two changes, both consistent with the existing
+ * smallest-first budget in src/lib/code/files.ts:
+ *   1. files are served smallest-first, so source files always make it in;
+ *   2. a file larger than the remaining budget is omitted WHOLE with an
+ *      honest asset note — half a minified bundle is worse than none, and
+ *      a file the model cannot see in full must never be re-emitted anyway.
+ * Pinned contract preserved: omitted files keep their PATH listed and the
+ * phrase "omitted from context: file budget reached".
+ */
 export function buildProjectContext(files: Array<{ path: string; content: string }>): string {
   if (files.length === 0) return ''
   let budget = MAX_FILE_CONTEXT_CHARS
   const parts: string[] = ['CURRENT PROJECT FILES (this is the code the user sees and will run):']
-  for (const f of files) {
-    if (budget <= 0) {
-      parts.push(`- ${f.path} (omitted from context: file budget reached)`)
+  const ordered = [...files].sort((a, b) => a.content.length - b.content.length)
+  for (const f of ordered) {
+    if (budget <= 0 || f.content.length > budget) {
+      parts.push(`- ${f.path} (omitted from context: file budget reached — large asset/library file; do NOT modify, re-emit or delete it)`)
       continue
     }
-    const content = f.content.length > budget ? `${f.content.slice(0, budget)}\n…(truncated for context)` : f.content
-    budget -= content.length
-    parts.push(`--- ${f.path} ---\n${content}`)
+    budget -= f.content.length
+    parts.push(`--- ${f.path} ---\n${f.content}`)
   }
   return parts.join('\n\n')
+}
+
+/**
+ * M22 TARGETED EDITING — injected ONLY when the project already has files
+ * (a modification context). Sharpens the response contract for localized
+ * changes: re-emit ONLY the files actually being changed (complete content
+ * per path-tagged fence), never the whole project, so an unchanged file can
+ * never churn. Additive context — no existing prompt text is altered.
+ */
+export function buildTargetedEditBrief(fileCount: number): string {
+  return [
+    `TARGETED EDIT MODE — this is an EXISTING project with ${fileCount} file(s).`,
+    'You are modifying it, not regenerating it:',
+    '- Re-emit ONLY the files you actually change this turn, each as a complete path-tagged fence. NEVER re-emit a file whose content stays the same — an unchanged re-emission is treated as no change, but re-emitting everything wastes the turn and risks accidental regressions.',
+    '- Keep every other file exactly as it is in the CURRENT PROJECT FILES context above. If your change needs a new file, add it with a path-tagged fence.',
+    '- Do not rename, move or delete files through this channel: state the request in prose and the user will apply it in the workspace if needed.',
+    '- After the code, give a short summary of exactly which files changed and why (the workspace records it as the version change summary).',
+    '- If the request is genuinely ambiguous about WHERE or WHAT to change, ask one clarifying question instead of guessing.',
+  ].join('\n')
 }

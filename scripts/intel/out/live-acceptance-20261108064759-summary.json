@@ -1,0 +1,36 @@
+[
+  {
+    "step": "searxng-lane",
+    "status": "ADOPTED",
+    "url": "http://127.0.0.1:8888"
+  },
+  {
+    "step": "auth",
+    "status": "REAL",
+    "email": "intel-live-20261108064759@bean-e2e.test"
+  },
+  {
+    "step": "riishe-tamil-grounded",
+    "status": "REAL",
+    "servedBy": null,
+    "answerChars": 691,
+    "stages": [
+      "researching",
+      "solving",
+      "verifying",
+      "solving"
+    ],
+    "states": [
+      "PARTIALLY_VERIFIED"
+    ],
+    "sourceCount": 2,
+    "sourceHosts": [
+      "ta.wikipedia.org",
+      "www.dailythanthi.com"
+    ],
+    "searchProviders": null,
+    "degradedCount": 7,
+    "durationMs": 448015,
+    "error": null
+  }
+]

@@ -1,0 +1,252 @@
+{
+  "ranAt": "2026-11-15T03:47:02.000Z",
+  "finishedAt": "2026-11-15T03:47:09.713Z",
+  "projectId": "cmwhammx50005ssbpozmq7dep",
+  "providerCalls": 0,
+  "note": "Every operation in this harness is deterministic (M23 pipeline). No LLM/provider call is involved — file operations remain fully available during provider outages.",
+  "steps": [
+    {
+      "id": "fileops-structural",
+      "title": "Create / rename / move / batch-move via deterministic chat ops (no model call)",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "create-folder op executed immediately (non-destructive)",
+          "passed": true,
+          "detail": "status=executed kind=create"
+        },
+        {
+          "name": "rename executed with plan-bound confirmation flow",
+          "passed": true,
+          "detail": "status=executed"
+        },
+        {
+          "name": "renamed file content preserved byte-for-byte",
+          "passed": true
+        },
+        {
+          "name": "old path gone after rename",
+          "passed": true
+        },
+        {
+          "name": "move executed",
+          "passed": true,
+          "detail": "status=executed"
+        },
+        {
+          "name": "moved file content preserved byte-for-byte",
+          "passed": true
+        },
+        {
+          "name": "move preserved nested structure (no content rewrite)",
+          "passed": true
+        },
+        {
+          "name": "batch move executed",
+          "passed": true,
+          "detail": "status=executed kind=batch-move"
+        },
+        {
+          "name": "batch plan listed EVERY affected path (not a sample)",
+          "passed": true,
+          "detail": "[\"styles.css → assets/styles.css\",\"index.html → assets/index.html\",\"readme.md → assets/readme.md\"]"
+        },
+        {
+          "name": "batch moved all three files",
+          "passed": true
+        },
+        {
+          "name": "lib/format.js untouched by batch (unrelated file byte-identical)",
+          "passed": true
+        }
+      ],
+      "startedAt": "2026-11-15T03:47:03.683Z",
+      "durationMs": 476
+    },
+    {
+      "id": "fileops-references",
+      "title": "Import/reference impact detection and approved targeted repair",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "rename detected reference impact (index.html link)",
+          "passed": true,
+          "detail": "[{\"path\":\"index.html\",\"lines\":[1],\"sample\":\"assets/styles.css\"}]"
+        },
+        {
+          "name": "rename executed (repair plan spawned separately)",
+          "passed": true
+        },
+        {
+          "name": "rename execution offered a SEPARATELY reviewable repair plan",
+          "passed": true,
+          "detail": "repairOp=cmwhamolr006tssbpdm3sxhir"
+        },
+        {
+          "name": "repair executed only via its own explicit confirmation action",
+          "passed": true,
+          "detail": "[{\"path\":\"index.html\",\"action\":\"repaired\"}]"
+        },
+        {
+          "name": "only the reference line was rewritten (exact repair, not bulk rewrite)",
+          "passed": true,
+          "detail": "<!doctype html><html><head><link rel=\"stylesheet\" href=\"themes/dark.css\"></head><body><h1>Workspace</h1><script src=\"assets/tasks.js\"></script></body></html>"
+        },
+        {
+          "name": "unrelated file content untouched by repair",
+          "passed": true
+        }
+      ],
+      "startedAt": "2026-11-15T03:47:04.159Z",
+      "durationMs": 930
+    },
+    {
+      "id": "fileops-delete",
+      "title": "Delete with explicit confirmation; protected paths and root rejected",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "destructive delete requires explicit confirmation (awaiting_confirmation)",
+          "passed": true,
+          "detail": "status=awaiting_confirmation"
+        },
+        {
+          "name": "delete plan showed exact targets (recursive counts, not a sample)",
+          "passed": true,
+          "detail": "[\"scratch/notes.txt\"]"
+        },
+        {
+          "name": "delete executed only after the bound confirmation action",
+          "passed": true,
+          "detail": "[{\"path\":\"scratch/notes.txt\",\"action\":\"deleted\"}]"
+        },
+        {
+          "name": "scratch folder gone after execution",
+          "passed": true
+        },
+        {
+          "name": "duplicate execution is idempotent (replayed result, no new mutation)",
+          "passed": true,
+          "detail": "{\"opId\":\"cmwhampbc008hssbpuukq19e2\",\"kind\":\"delete\",\"applied\":[{\"path\":\"scratch/notes.txt\",\"action\":\"deleted\"}],\"failed\":[],\"versionSeq\":14,\"verification\":{\"contentsPreserved\":true,\"remainingReferences\":0,\"detail\":\"All moved file(s) verified at their new paths with identical content; no references to the old path(s) remain.\"},\"repairOffered\":null,\"replayed\":true}"
+        },
+        {
+          "name": "delete created exactly one file-op version",
+          "passed": true,
+          "detail": "13 -> 14"
+        },
+        {
+          "name": "protected system path deletion rejected",
+          "passed": true,
+          "detail": "status=clarification reason=Which file or folder should I delete? Nothing in this project matches `package.json`. Name the exact path (for example `src/App.tsx`)."
+        },
+        {
+          "name": "project-root deletion rejected",
+          "passed": true,
+          "detail": "status=clarification"
+        }
+      ],
+      "startedAt": "2026-11-15T03:47:05.089Z",
+      "durationMs": 1259
+    },
+    {
+      "id": "fileops-binding",
+      "title": "Plan-bound confirmation: stale plans rejected, plan change re-confirmation",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "workspace was mutated after planning (rename executed)",
+          "passed": true
+        },
+        {
+          "name": "stale plan rejected after workspace changed (never executed blind)",
+          "passed": true,
+          "detail": "{\"ok\":false}"
+        },
+        {
+          "name": "a changed workspace requires a NEW confirmation (old one is not permission)",
+          "passed": true,
+          "detail": "newOp=cmwhamqr100bkssbpe20kutvv oldOp=cmwhamqey00agssbppinhqu84"
+        },
+        {
+          "name": "fresh plan executes after fresh confirmation",
+          "passed": true
+        },
+        {
+          "name": "confirmation is bound to its exact project/op (cross-project use refused)",
+          "passed": true,
+          "detail": "HTTP 404"
+        }
+      ],
+      "startedAt": "2026-11-15T03:47:06.348Z",
+      "durationMs": 1013
+    },
+    {
+      "id": "fileops-safety",
+      "title": "Ambiguous targets ask for clarification; traversal/malicious paths never execute",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "ambiguous destructive target asks a focused clarification listing every match (never guessed)",
+          "passed": true,
+          "detail": "status=clarification q=Which file or folder should I delete? Several match: `docs/alpha.txt`, `reports/alpha.txt`. Reply with the exact path."
+        },
+        {
+          "name": "path traversal target is refused/clarified (server-side validation)",
+          "passed": true,
+          "detail": "status=clarification"
+        },
+        {
+          "name": "absolute-path injection refused/clarified",
+          "passed": true,
+          "detail": "status=clarification"
+        },
+        {
+          "name": "no file was actually created/renamed outside the project by any attack message",
+          "passed": true
+        }
+      ],
+      "startedAt": "2026-11-15T03:47:07.361Z",
+      "durationMs": 460
+    },
+    {
+      "id": "fileops-rollback",
+      "title": "Rollback restores the pre-mutation tree; history preserved",
+      "status": "LIVE_VERIFIED",
+      "checks": [
+        {
+          "name": "rollback after file-op mutations succeeded",
+          "passed": true
+        },
+        {
+          "name": "rollback recorded as a NEW version (append-only history)",
+          "passed": true,
+          "detail": "seq=20 kind=rollback"
+        },
+        {
+          "name": "all historical versions still accessible after rollback",
+          "passed": true,
+          "detail": "19 -> 20"
+        },
+        {
+          "name": "new rollback version passes live integrity check",
+          "passed": true,
+          "detail": "All file entries resolve to stored content and the integrity hash matches."
+        },
+        {
+          "name": "restored workspace matches the target version contents byte-for-byte",
+          "passed": true,
+          "detail": "version=1 files=1 live=1"
+        }
+      ],
+      "startedAt": "2026-11-15T03:47:07.821Z",
+      "durationMs": 1892
+    }
+  ],
+  "totals": {
+    "steps": 6,
+    "verified": 6,
+    "failed": 0,
+    "checks": 39,
+    "checksPassed": 39
+  }
+}

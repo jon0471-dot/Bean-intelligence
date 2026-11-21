@@ -1,0 +1,3 @@
+{"at":"2026-11-08T07:05:10.260Z","step":"searxng-lane","status":"ADOPTED","url":"http://127.0.0.1:8888"}
+{"at":"2026-11-08T07:05:10.370Z","step":"auth","status":"REAL","email":"intel-live-20261108070508@bean-e2e.test"}
+{"at":"2026-11-08T07:13:11.452Z","step":"giftz-docs-turn","status":"BLOCKED","detail":"chat breaker open across the bounded wait"}

@@ -1,0 +1,3 @@
+{"at":"2026-11-08T06:43:28.679Z","step":"searxng-lane","status":"ADOPTED","url":"http://127.0.0.1:8888"}
+{"at":"2026-11-08T06:43:28.781Z","step":"auth","status":"REAL","email":"intel-live-20261108064328@bean-e2e.test"}
+{"at":"2026-11-08T06:46:32.228Z","step":"riishe-tamil-grounded","status":"DEGRADED","servedBy":null,"answerChars":0,"stages":["researching","solving"],"states":[],"sourceCount":0,"sourceHosts":[],"searchProviders":null,"degradedCount":null,"durationMs":4316,"error":"The response stream failed before completion. Partial text is labeled as incomplete."}

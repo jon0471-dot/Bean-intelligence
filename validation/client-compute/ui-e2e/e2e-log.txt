@@ -1,0 +1,13 @@
+[e2e] dev server starting (pid 11688)
+[e2e] health probe: HTTP 200
+[e2e] auth: HTTP 200 (fresh account, credentials in test-account.txt)
+[e2e] session cookie present (value withheld)
+[e2e] clicking LAXII nav ref: @e13
+[e2e] consent toggle ref: @e20
+[e2e] consent toggle clicked
+[e2e] toggle state: "{\"ariaChecked\":\"true\",\"note\":true}"
+[e2e] upload started
+[e2e] upload notes: "[\"Uploaded · 2048×2048 — attached to your next messageProcess large images on this device before upload (optional)Processed on device: 12.0 MB → 3.5 MB (fit ≤2048 px).Auto sizeEnter sends · Shift+Enter for a new line · every status you see comes from the real backend job\",\"Uploaded · 2048×2048 — attached to your next messageProcess large images on this device before upload (optional)Processed on device: 12.0 MB → 3.5 MB (fit ≤2048 px).Auto sizeEnter sends · Shift+Enter for a new line · every status you see comes from the real backend job\",\"Uploaded · 2048×2048 — attached to your next message\",\"Processed on device: 12.0 MB → 3.5 MB (fit ≤2048 px).\"]"
+[e2e] consent storage: "{\"consent\":\"{\\\"version\\\":1,\\\"granted\\\":true,\\\"localOnly\\\":false,\\\"updatedAt\\\":\\\"2026-11-15T18:32:07.534Z\\\"}\"}"
+[e2e] page errors: 
+[e2e] done — server stopped

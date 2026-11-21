@@ -48,6 +48,36 @@ function reservations(): Map<string, VramReservation> {
 let cachedReport: { at: number; report: HardwareReport } | null = null
 const CACHE_MS = 60_000
 
+/**
+ * Parse MemAvailable (kB) out of /proc/meminfo content → MB, or null when the
+ * field/file is absent (non-Linux hosts fall back to os.freemem()).
+ *
+ * Measured rationale (docs/ai/LOCAL-MODEL-LANES.md, 2026-11-08 host): this
+ * sandbox reports MemFree ≈ 0.2–1.0 GB while MemAvailable is ≈ 2.1 GB —
+ * page cache is reclaimable. os.freemem() reports MemFree and therefore
+ * WRONGLY refused every legitimate RAM-gated spawn (lane manager, worker
+ * fits). "Free RAM that a spawn may actually consume" = MemAvailable.
+ */
+export function memAvailableMbFromMeminfo(text: string): number | null {
+  const m = /MemAvailable:\s+(\d+)\s+kB/.exec(text)
+  if (!m) return null
+  const kb = Number(m[1])
+  if (!Number.isFinite(kb) || kb < 0) return null
+  return Math.round(kb / 1024)
+}
+
+/** MemAvailable on Linux (procfs); os.freemem() elsewhere. Never throws. */
+function measuredAvailableRamMb(): number {
+  try {
+    const text = fs.readFileSync('/proc/meminfo', 'utf8')
+    const mb = memAvailableMbFromMeminfo(text)
+    if (mb !== null) return mb
+  } catch {
+    /* non-Linux or procfs unreadable — fall through */
+  }
+  return Math.round(os.freemem() / (1024 * 1024))
+}
+
 function probeNvidiaSmi(): Promise<HardwareReport['gpus']> {
   return new Promise((resolve) => {
     const t = setTimeout(() => resolve([]), 3_000)
@@ -120,7 +150,9 @@ export async function detectHardware(force = false): Promise<HardwareReport> {
     gpus,
     cpuCores: os.cpus().length,
     totalRamMb: Math.round(os.totalmem() / (1024 * 1024)),
-    freeRamMb: Math.round(os.freemem() / (1024 * 1024)),
+    // MemAvailable, not MemFree (measured: MemFree under-reports by the
+    // reclaimable page cache and wrongly refused every RAM-gated spawn).
+    freeRamMb: measuredAvailableRamMb(),
     freeDiskMb: disk ?? freeDiskMb(),
     checkedAt: new Date().toISOString(),
   }

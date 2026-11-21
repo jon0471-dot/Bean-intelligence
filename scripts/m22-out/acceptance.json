@@ -1,0 +1,177 @@
+{
+  "runAt": "2026-11-15T03:46:06.339Z",
+  "database": "isolated verification DB (scripts/m22-out/verify.db) — never the runtime DB",
+  "method": "recorded model-response fixtures through the REAL product modules (parseFiles/applyFiles/versioning/compare/rollback/audit/dependencies/export) — the external LLM hop is not exercised (no provider credentials in this sandbox); identical substitution policy to M21",
+  "projectId": "cmwhalfs70002ss79deue2lc5",
+  "acceptanceSteps": 11,
+  "passed": 11,
+  "failed": 0,
+  "results": [
+    {
+      "step": "1. Generate a complete application",
+      "pass": true,
+      "detail": {
+        "extractedFiles": [
+          "index.html",
+          "styles.css",
+          "app.js"
+        ],
+        "persistedChanges": [
+          {
+            "path": "index.html",
+            "change": "added"
+          },
+          {
+            "path": "styles.css",
+            "change": "added"
+          },
+          {
+            "path": "app.js",
+            "change": "added"
+          }
+        ]
+      }
+    },
+    {
+      "step": "2. Save as persistent project (+initial version)",
+      "pass": true,
+      "detail": {
+        "filesInDb": [
+          "app.js",
+          "index.html",
+          "styles.css"
+        ],
+        "versionSeq": 1,
+        "contentHash": "2ad593d2f4f33d13"
+      }
+    },
+    {
+      "step": "3. Close and reopen the project",
+      "pass": true,
+      "detail": {
+        "filesRecovered": [
+          "app.js",
+          "index.html",
+          "styles.css"
+        ],
+        "byteExact": true,
+        "lastOpenedAtRecorded": true
+      }
+    },
+    {
+      "step": "4. Targeted modification of one section",
+      "pass": true,
+      "detail": {
+        "changedThisTurn": [
+          {
+            "path": "index.html",
+            "change": "modified"
+          }
+        ],
+        "diffRows": 3,
+        "untouchedFiles": [
+          "styles.css",
+          "app.js"
+        ]
+      }
+    },
+    {
+      "step": "5. Review the actual file changes",
+      "pass": true,
+      "detail": {
+        "modified": [
+          {
+            "path": "index.html",
+            "added": 2,
+            "removed": 1
+          }
+        ],
+        "addedLines": 2,
+        "removedLines": 1,
+        "diffSample": [
+          "<h1>Golden Focus <span class=\"badge\">Pro</span></h1>",
+          "<p class=\"tagline\">Deep work, beautifully timed.</p>"
+        ]
+      }
+    },
+    {
+      "step": "6. Preview the modified application (static audit)",
+      "pass": true,
+      "detail": {
+        "entry": "index.html",
+        "missingAssets": [],
+        "brokenInternalLinks": [],
+        "note": "runtime console capture runs live in the user browser (preview iframe bootstrap)"
+      }
+    },
+    {
+      "step": "7. Create a new version",
+      "pass": true,
+      "detail": {
+        "manualVersionSeq": 3,
+        "changedFiles": [
+          {
+            "path": "styles.css",
+            "change": "modified"
+          }
+        ],
+        "historyKinds": [
+          "initial",
+          "manual",
+          "turn"
+        ]
+      }
+    },
+    {
+      "step": "8. Roll back to an earlier version",
+      "pass": true,
+      "detail": {
+        "restoredFrom": 1,
+        "newVersion": 4,
+        "historyStillHasAllVersions": "1,2,3,4",
+        "integrityChecks": [
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    {
+      "step": "9. Export a complete valid ZIP",
+      "pass": true,
+      "detail": {
+        "zipBytes": 2263,
+        "files": 3,
+        "excluded": 0,
+        "verifiedEntries": 5,
+        "issues": []
+      }
+    },
+    {
+      "step": "10. Reopen the exported project successfully",
+      "pass": true,
+      "detail": {
+        "importedFiles": [
+          "app.js",
+          "index.html",
+          "styles.css"
+        ],
+        "newProjectId": "cmwhalfuj001iss79nwx93h0c",
+        "byteIdenticalToProject": true
+      }
+    },
+    {
+      "step": "Bonus: dependency analysis (Phase 6)",
+      "pass": true,
+      "detail": {
+        "packageManager": {
+          "name": "none",
+          "lockfile": null
+        },
+        "missingImports": [],
+        "notes": 1
+      }
+    }
+  ]
+}

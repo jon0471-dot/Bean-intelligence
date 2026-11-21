@@ -1,4 +1,5 @@
 import { handle, ok } from '@/lib/api/errors'
+import { getSessionUser } from '@/lib/auth/session'
 import { hostedLlmAdapter } from '@/lib/adapters/hosted-llm'
 import { hostedImageAdapter } from '@/lib/adapters/hosted-image'
 import { hostedVideoAdapter } from '@/lib/adapters/hosted-video'
@@ -541,6 +542,30 @@ export async function GET() {
       },
     }
 
+    // M26 (audit S-11/O-3): liveness stays PUBLIC (uptime checks, the
+    // platform ingress); the OPERATIONAL DETAIL (breaker windows, probe
+    // evidence chains, per-attempt timestamps, queue depth) is now visible
+    // only to an authenticated session — an unauthenticated caller gets the
+    // coarse per-product readiness status without the evidence chain. The
+    // detail never contained credentials/endpoints/paths (verified field by
+    // field in the audit); this closes the ops-posture reconnaissance gap
+    // (breaker-expiry timing, queue-depth probing) for anonymous callers.
+    const viewer = await getSessionUser().catch(() => null)
+    if (!viewer) {
+      return ok({
+        service: 'bean-intelligence',
+        version: '1.0.0',
+        live: true,
+        time: new Date().toISOString(),
+        probeCacheTtlMs: HEALTH_CACHE_TTL_MS,
+        products: {
+          riishe: { status: riisheEntry.status },
+          laxii: { status: laxiiEntry.status },
+          jazmii: { status: jazmiiEntry.status },
+          'code-giftz': { status: giftzEntry.status },
+        },
+      })
+    }
     return ok({
       service: 'bean-intelligence',
       version: '1.0.0',

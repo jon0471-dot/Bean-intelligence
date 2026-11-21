@@ -1,0 +1,56 @@
+{
+  "project": "project-b-dashboard",
+  "modelFiles": [
+    "index.html",
+    "index.tsx",
+    "data/sample.ts",
+    "App.tsx",
+    "components/header.tsx",
+    "components/sidenav.tsx",
+    "components/charts.tsx",
+    "components/table.tsx",
+    "components/states.tsx",
+    "lib/motion.ts",
+    "styles.css"
+  ],
+  "engineFiles": [
+    "components/kit/SpotlightCard.tsx",
+    "components/kit/SpotlightCard.css",
+    "components/kit/Dock.tsx",
+    "components/kit/Dock.css",
+    "components/kit/LatticeLoader.tsx",
+    "components/kit/LatticeLoader.css",
+    "package.json",
+    "NOTICES.md"
+  ],
+  "checks": {
+    "passed": true,
+    "blocking": 0,
+    "warnings": 0,
+    "issues": []
+  },
+  "dependencies": [
+    {
+      "name": "gsap",
+      "version": "3.13.0",
+      "license": "Standard 'No Charge' GSAP License (free incl. commercial use)",
+      "reason": "required by the selected toolkit (gsap)"
+    },
+    {
+      "name": "@gsap/react",
+      "version": "2.1.2",
+      "license": "Standard 'No Charge' GSAP License",
+      "reason": "required by the selected toolkit (@gsap/react)"
+    }
+  ],
+  "selectedComponents": [
+    "spotlight-card",
+    "dock",
+    "lattice-loader"
+  ],
+  "selectedAnimations": [
+    "entrance-timeline",
+    "scroll-reveal-batch"
+  ],
+  "selectedBackground": null
+}

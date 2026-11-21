@@ -64,12 +64,27 @@ export async function POST(request: Request) {
     const user = await requireUser()
     const body = await parseBody(request, schema)
     const { backend, adapter, release, servedBy } = await preflight(user.id, 'riishe', 'chat')
+    // M26 (audit G-4): the concurrency slot is released EXACTLY ONCE through
+    // this guard — every early return, mid-path release and the execution
+    // paths' own finallys funnel here, and the outer try/finally below
+    // catches anything the inner paths miss. Previously several awaits
+    // between the slot acquisition and the execution paths' try/finally
+    // (conversation create, regenerate deletions, memory commands, message
+    // insert) were unguarded: a throw there leaked the slot PERMANENTLY —
+    // two leaks lock the user out with CONCURRENCY_LIMIT until restart.
+    let slotReleased = false
+    const releaseOnce = (): void => {
+      if (slotReleased) return
+      slotReleased = true
+      release()
+    }
+    try {
     // Request validation + orchestration pre-flight (auth, body parse, rate
     // limits, quotas, concurrency, capability resolution) — measured so
     // non-model overhead is never mistaken for model latency.
     const preflightMs = Date.now() - tRequest
     if (!adapter.chat || !adapter.chatStream) {
-      release()
+      releaseOnce()
       throw new BeanApiError('NO_BACKEND', 'The chat backend is missing its adapter.')
     }
 
@@ -78,7 +93,7 @@ export async function POST(request: Request) {
     if (conversationId) {
       const conv = await db.conversation.findUnique({ where: { id: conversationId } })
       if (!conv || conv.userId !== user.id) {
-        release()
+        releaseOnce()
         throw new BeanApiError('NOT_FOUND', 'Conversation not found.')
       }
     } else {
@@ -229,7 +244,7 @@ export async function POST(request: Request) {
         }
       })
       if (documents.length !== body.documentIds.length) {
-        release()
+        releaseOnce()
         throw new BeanApiError('NOT_FOUND', 'One or more attached documents were not found.')
       }
     }
@@ -265,7 +280,7 @@ export async function POST(request: Request) {
     const memoryOutcome = await performMemoryCommandIfPresent(user.id, conversationId, body.message)
     if (memoryOutcome) {
       const { content, meta } = memoryOutcome
-      release()
+      releaseOnce()
       if (!wantsStream) {
         return ok({ conversationId, content, durationMs: 0, metadata: meta })
       }
@@ -355,7 +370,7 @@ export async function POST(request: Request) {
         // the JSON path reports rate-limited as 429 (not a generic 500).
         throw new BeanApiError(upstreamErrorCode(e), e instanceof Error ? e.message : 'The backend call failed.')
       } finally {
-        release()
+        releaseOnce()
       }
     }
 
@@ -513,7 +528,7 @@ export async function POST(request: Request) {
           })
           writer.send(payload)
         } finally {
-          release()
+          releaseOnce()
           writer.close()
         }
       },
@@ -524,6 +539,10 @@ export async function POST(request: Request) {
       logger.info('riishe.digest_degraded', { conversationId: convId, reason: digestDegraded })
     }
 
+    // M26 G-4: SSE ownership handoff — the stream's own finally (start())
+    // releases the slot when the stream COMPLETES; the outer finally below
+    // must not release at response-return time (streaming is still running).
+    slotReleased = true
     return new Response(stream, {
       headers: {
         'content-type': 'text/event-stream',
@@ -535,6 +554,11 @@ export async function POST(request: Request) {
         'x-accel-buffering': 'no',
       },
     })
+    } finally {
+      // M26 G-4: the slot can NEVER outlive the request handler — a throw
+      // anywhere above (DB hiccup, validation, memory command) releases it.
+      releaseOnce()
+    }
   })
 }
 

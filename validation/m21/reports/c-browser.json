@@ -1,0 +1,41 @@
+{
+  "project": "project-c-portfolio",
+  "url": "http://127.0.0.1:4613/",
+  "homeHeading": "Nova Reyes builds interfaces that feel engineered",
+  "projectsUrl": "#/projects",
+  "projectCards": 4,
+  "detailUrl": "#/projects/atlas-maps",
+  "detailH1": "Atlas Maps",
+  "detailSections": 4,
+  "aboutUrl": "#/about",
+  "aboutH1": "About Nova",
+  "contactUrl": "#/contact",
+  "contactFormFields": 3,
+  "deepLinkProjects": 4,
+  "horizontalOverflowMobile": false,
+  "mobileNavVisible": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "reducedMotion": {
+    "vantaCanvasUnderReducedMotion": 0,
+    "contentVisible": true,
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  "webglBlocked": {
+    "fallbackUsed": "static-gradient-fallback",
+    "contentStillLegible": true,
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  "mobile": {
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  "mobileNavOnFreshLoad": {
+    "navLabel": "Quick navigation",
+    "probeButton": "Projects",
+    "navButtons": 4,
+    "navButtonVisible": true
+  }
+}

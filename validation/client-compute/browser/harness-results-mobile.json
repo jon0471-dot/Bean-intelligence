@@ -1,0 +1,140 @@
+{
+ "startedAt": "2026-11-15T18:17:01.459Z",
+ "checks": [
+  {
+   "name": "capability-detection",
+   "environment": "browser",
+   "secureContext": true,
+   "webgpu": {
+    "supported": true,
+    "adapterAvailable": false,
+    "features": [],
+    "limits": null,
+    "fallbackAdapter": null
+   },
+   "webgl": {
+    "webgl2": true,
+    "webgl1": false,
+    "maxTextureSize": 8192
+   },
+   "wasm": {
+    "supported": true,
+    "simd": false
+   },
+   "workers": true,
+   "offscreenCanvas": true,
+   "sharedArrayBuffer": false,
+   "hardwareConcurrency": 2,
+   "deviceMemoryGb": 4,
+   "storage": {
+    "quotaBytes": 10737418240,
+    "usageBytes": 0,
+    "persisted": false
+   },
+   "browserFamily": "Chromium",
+   "tier": 2,
+   "tierReasons": [
+    "WASM supported (simd=no) and Web Workers available",
+    "WebGPU API present but no adapter obtainable \u2014 GPU lane unavailable, tier capped at 2"
+   ],
+   "conservative": false
+  },
+  {
+   "name": "compute-status",
+   "tierLabel": "WebGL or limited WebGPU",
+   "usableTargets": [
+    "client-gpu",
+    "client-cpu",
+    "backend"
+   ],
+   "adapters": [
+    {
+     "productId": "laxii",
+     "kinds": [
+      "image.preprocess",
+      "image.chroma-cutout",
+      "image.segmentation"
+     ],
+     "summary": "Client-side image preprocessing (downscale/compress before upload) and deterministic chroma-key cutout; ML segmentation stays model-gated and honestly unavailable."
+    },
+    {
+     "productId": "code-giftz",
+     "kinds": [
+      "code.analysis"
+     ],
+     "summary": "Browser-side advisory code analysis (delimiter balance, relative-import resolution) over in-memory project files; runs local-only and never executes project code."
+    },
+    {
+     "productId": "jazmii",
+     "kinds": [
+      "video.reference-check",
+      "video.thumbnail"
+     ],
+     "summary": "Client-side reference-image pre-check (server bounds mirrored) and video thumbnail capture; video generation itself stays server-side."
+    }
+   ]
+  },
+  {
+   "name": "no-consent-refusal",
+   "phase": "failed",
+   "reason": "Client-side compute requires your explicit consent; it was not given."
+  },
+  {
+   "name": "code-analysis",
+   "phase": "completed",
+   "target": "client-cpu",
+   "state": "CLIENT_CPU_AVAILABLE",
+   "validated": true,
+   "issues": [
+    "unbalanced-delimiters@app.ts:2",
+    "missing-relative-import@ghost.ts:1"
+   ],
+   "durationMs": 26
+  },
+  {
+   "name": "laxii-preprocess",
+   "phase": "completed",
+   "target": "client-cpu",
+   "state": "CLIENT_CPU_AVAILABLE",
+   "validated": true,
+   "originalBytes": 357324,
+   "outputBytes": 3381,
+   "width": 320,
+   "height": 240,
+   "scaleApplied": 0.5,
+   "durationMs": 29
+  },
+  {
+   "name": "laxii-chroma-cutout",
+   "phase": "completed",
+   "state": "CLIENT_CPU_AVAILABLE",
+   "validated": true,
+   "transparentFraction": 0.75,
+   "keyHue": 120,
+   "keySamples": 1104,
+   "durationMs": 22
+  },
+  {
+   "name": "jazmii-reference-check",
+   "phase": "completed",
+   "state": "CLIENT_CPU_AVAILABLE",
+   "ok": false,
+   "reason": "Both sides must be at least 256px.",
+   "width": 160,
+   "height": 120
+  },
+  {
+   "name": "segmentation-honest-state",
+   "phase": "failed",
+   "state": "CLIENT_MODEL_UNSUPPORTED",
+   "reason": "The \"onnxruntime-web\" runtime is not available in this app."
+  },
+  {
+   "name": "local-only-mode",
+   "phase": "completed",
+   "state": "CLIENT_CPU_AVAILABLE"
+  }
+ ],
+ "finishedAt": "2026-11-15T18:17:01.633Z",
+ "viewport": "390x844 (mobile emulation)"
+}

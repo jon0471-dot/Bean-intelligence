@@ -31,9 +31,32 @@ export const GSAP_VENDOR: VendorFileSpec[] = [
   { path: 'vendor/ScrollTrigger.min.js', source: 'gsap/dist/ScrollTrigger.min.js', packageName: 'gsap' },
 ]
 
+/** Per-plugin UMD builds (all ship free inside the installed gsap package).
+ *  Keys are the plugin global names used by the pattern `requires` lists. */
+export const GSAP_PLUGIN_FILES: Record<string, VendorFileSpec> = {
+  ScrollTrigger: { path: 'vendor/ScrollTrigger.min.js', source: 'gsap/dist/ScrollTrigger.min.js', packageName: 'gsap' },
+  SplitText: { path: 'vendor/SplitText.min.js', source: 'gsap/dist/SplitText.min.js', packageName: 'gsap' },
+  MorphSVGPlugin: { path: 'vendor/MorphSVGPlugin.min.js', source: 'gsap/dist/MorphSVGPlugin.min.js', packageName: 'gsap' },
+  MotionPathPlugin: { path: 'vendor/MotionPathPlugin.min.js', source: 'gsap/dist/MotionPathPlugin.min.js', packageName: 'gsap' },
+  Flip: { path: 'vendor/Flip.min.js', source: 'gsap/dist/Flip.min.js', packageName: 'gsap' },
+  Draggable: { path: 'vendor/Draggable.min.js', source: 'gsap/dist/Draggable.min.js', packageName: 'gsap' },
+  Observer: { path: 'vendor/Observer.min.js', source: 'gsap/dist/Observer.min.js', packageName: 'gsap' },
+  CustomEase: { path: 'vendor/CustomEase.min.js', source: 'gsap/dist/CustomEase.min.js', packageName: 'gsap' },
+  DrawSVGPlugin: { path: 'vendor/DrawSVGPlugin.min.js', source: 'gsap/dist/DrawSVGPlugin.min.js', packageName: 'gsap' },
+  ScrambleTextPlugin: { path: 'vendor/ScrambleTextPlugin.min.js', source: 'gsap/dist/ScrambleTextPlugin.min.js', packageName: 'gsap' },
+}
+
+/** Vanta effects that render through p5.js instead of three.js (verified in
+ *  the vanta sources: _p5Base subclassing). p5 0.6.1 is vendored INSIDE the
+ *  vanta package (vendor/p5.min.js) — the exact build Vanta 0.5.24 works with. */
+export const VANTA_P5_EFFECTS = new Set(['trunk', 'topology'])
+
 export function vantaVendor(effectId: string): VendorFileSpec[] {
+  const runtime: VendorFileSpec = VANTA_P5_EFFECTS.has(effectId)
+    ? { path: 'vendor/p5.min.js', source: 'vanta/vendor/p5.min.js', packageName: 'p5' }
+    : { path: 'vendor/three.min.js', source: 'three/build/three.min.js', packageName: 'three' }
   return [
-    { path: 'vendor/three.min.js', source: 'three/build/three.min.js', packageName: 'three' },
+    runtime,
     { path: `vendor/vanta.${effectId}.min.js`, source: `vanta/dist/vanta.${effectId}.min.js`, packageName: 'vanta' },
   ]
 }
@@ -64,18 +87,34 @@ function readVendor(spec: VendorFileSpec): string {
 
 /**
  * Materialize the vendor files a plan needs. `gsap` attaches the GSAP core;
- * `scrollTrigger` adds the ScrollTrigger plugin build; effects add three.js +
- * the per-effect Vanta bundle. Throws (honest failure) if a build is missing.
+ * `scrollTrigger` (legacy param, kept for compatibility) adds ScrollTrigger;
+ * `plugins` names additional plugin builds (ScrollTrigger is deduped);
+ * effects add the three.js OR p5.js runtime + the per-effect Vanta bundle.
+ * Throws (honest failure) if a build is missing.
  */
-export function vendorProjectFiles(opts: { gsap?: boolean; scrollTrigger?: boolean; vantaEffects?: string[] }): Array<{ path: string; content: string }> {
+export function vendorProjectFiles(opts: {
+  gsap?: boolean
+  scrollTrigger?: boolean
+  plugins?: string[]
+  vantaEffects?: string[]
+}): Array<{ path: string; content: string }> {
   const files: Array<{ path: string; content: string }> = []
   if (opts.gsap) {
     for (const spec of GSAP_VENDOR.slice(0, opts.scrollTrigger ? 2 : 1)) {
       files.push({ path: spec.path, content: readVendor(spec) })
     }
+    const wanted = new Set(opts.plugins ?? [])
+    if (opts.scrollTrigger) wanted.add('ScrollTrigger')
+    for (const name of wanted) {
+      const spec = GSAP_PLUGIN_FILES[name]
+      if (!spec) throw new Error(`Frontend toolkit: unknown GSAP plugin build requested (${name}).`)
+      if (files.some((f) => f.path === spec.path)) continue
+      files.push({ path: spec.path, content: readVendor(spec) })
+    }
   }
   for (const effectId of opts.vantaEffects ?? []) {
     for (const spec of vantaVendor(effectId)) {
+      if (files.some((f) => f.path === spec.path)) continue
       files.push({ path: spec.path, content: readVendor(spec) })
     }
   }
@@ -132,6 +171,11 @@ export function buildNoticesMarkdown(opts: { reactBitsComponents: string[]; vend
     if (opts.vendored.some((v) => v.startsWith('vendor/three'))) {
       lines.push(
         `- three.js ${PINNED_DEPENDENCIES.three.version} — MIT License — Copyright © 2010-2021 three.js authors: https://github.com/mrdoob/three.js/blob/r134/LICENSE`,
+      )
+    }
+    if (opts.vendored.some((v) => v.startsWith('vendor/p5'))) {
+      lines.push(
+        `- p5.js ${PINNED_DEPENDENCIES.p5.version} — LGPL-2.1 — vendored from the Vanta package (the exact build Vanta 0.5.24 renders with); source: https://github.com/processing/p5.js/tree/v0.6.1. Keep this notice and do not remove the vendored file, so the library can be inspected or replaced.`,
       )
     }
     if (opts.vendored.some((v) => v.startsWith('vendor/vanta'))) {

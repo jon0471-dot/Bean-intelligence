@@ -1,0 +1,31 @@
+[
+  {
+    "step": "searxng-lane",
+    "status": "ADOPTED",
+    "url": "http://127.0.0.1:8888"
+  },
+  {
+    "step": "auth",
+    "status": "REAL",
+    "email": "intel-live-20261108062409@bean-e2e.test"
+  },
+  {
+    "step": "riishe-tamil-grounded",
+    "status": "REAL",
+    "servedBy": null,
+    "answerChars": 676,
+    "stages": [
+      "solving",
+      "verifying"
+    ],
+    "states": [
+      "UNVERIFIED"
+    ],
+    "sourceCount": 0,
+    "sourceHosts": [],
+    "searchProviders": null,
+    "degradedCount": 1,
+    "durationMs": 170110,
+    "error": null
+  }
+]

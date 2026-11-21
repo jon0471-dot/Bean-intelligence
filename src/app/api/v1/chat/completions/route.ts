@@ -222,7 +222,11 @@ export async function POST(request: Request) {
       // neither is known — never fabricated.
       if (beanError.code === 'RATE_LIMITED') {
         const providerHintMs = e instanceof UpstreamRateLimitError ? e.retryAfterMs : null
-        const breakerRemainingMs = upstreamCooldownRemainingMs('chat')
+        // M26 (audit G-1): the window comes from the FAILING LANE's own
+        // breaker class — an external 429 no longer reports the hosted
+        // gateway's remaining cooldown as the retry hint.
+        const laneClass = e instanceof UpstreamRateLimitError ? e.endpointClass : 'chat'
+        const breakerRemainingMs = upstreamCooldownRemainingMs(laneClass)
         const knownMs = providerHintMs ?? (breakerRemainingMs > 0 ? breakerRemainingMs : null)
         if (knownMs !== null && knownMs > 0) {
           beanError.headers = rateLimitHeaders({ retryAfterSec: Math.ceil(knownMs / 1000) })

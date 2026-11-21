@@ -21,6 +21,7 @@
  * its config file; presence is checked without reading values.
  */
 
+import { localProviderEndpointsAllowed } from '@/lib/security/url-guard'
 import { readFileSync, existsSync } from 'node:fs'
 import { getActiveCredentialId } from '@/lib/security/provider-credentials'
 
@@ -173,7 +174,7 @@ export async function resolveProviderCredentials(providerId: string): Promise<Cr
       // Local llama.cpp lane: "credentials" = a configured local server + the
       // operator's explicit localhost SSRF opt-in. Values stay unread here.
       const configured =
-        process.env.BEAN_ALLOW_LOCAL_PROVIDER_ENDPOINTS === '1' &&
+        localProviderEndpointsAllowed() &&
         typeof process.env.BEAN_LLAMACPP_BASE_URL === 'string' &&
         process.env.BEAN_LLAMACPP_BASE_URL.trim().length > 0
       return {

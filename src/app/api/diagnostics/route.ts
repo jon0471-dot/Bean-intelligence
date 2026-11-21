@@ -12,9 +12,10 @@
  * links and timestamps — never provider secrets or internal details.
  */
 import { z } from 'zod'
-import { handle, ok } from '@/lib/api/errors'
+import { handle, ok, BeanApiError } from '@/lib/api/errors'
 import { parseBody } from '@/lib/api/validate'
 import { requireUser } from '@/lib/auth/session'
+import { checkRateLimit } from '@/lib/auth/ratelimit'
 import { DIAG_PRODUCTS, getRun, refreshRun, startRun, type DiagProduct } from '@/lib/diagnostics/suites'
 
 const schema = z.object({
@@ -32,6 +33,13 @@ export async function POST(request: Request) {
       return ok({ error: 'unknown product' }, { status: 404 })
     }
     if (body.action === 'run') {
+      // M26 (audit S-12): a diagnostics run fires REAL product jobs against
+      // the caller's own workspace — previously unthrottled, so repeated
+      // calls spawned unbounded concurrent suites. Bounded per user.
+      const rl = checkRateLimit(`diag-run:${user.id}`, 3, 5 * 60_000)
+      if (!rl.allowed) {
+        throw new BeanApiError('RATE_LIMITED', `Too many diagnostic runs. Try again in ${rl.retryAfterSec}s.`)
+      }
       const run = startRun(product, user.id, request.headers.get('cookie') ?? '')
       return ok({ run })
     }

@@ -1,0 +1,356 @@
+{
+  "ranAt": "2026-11-16T04:10:34.187Z",
+  "baseline": "49b04055f2c41fff0b5160afcd7d4e3059f51afd",
+  "results": [
+    {
+      "step": "acceptance database reachable",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "projects": 0
+      }
+    },
+    {
+      "step": "M21 fixtures loaded read-only (pre-run hashes recorded)",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "files": 70
+      }
+    },
+    {
+      "step": "graph honesty: Nebula landing page",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "files": 22,
+        "verifiedEdges": 15,
+        "unresolved": 0,
+        "notes": 2
+      }
+    },
+    {
+      "step": "rename-symbol: Nebula landing page",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "symbol": "Testimonials → TestimonialsRefactored",
+        "definingFile": "components/closing.tsx",
+        "filesTouched": 2,
+        "unrelatedFilesPreserved": true,
+        "versionSeq": 2,
+        "integrityOk": true,
+        "planHash": "b62716befbcc"
+      }
+    },
+    {
+      "step": "replay safety: Nebula landing page",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "replayed": true,
+        "workspaceUnchanged": true
+      }
+    },
+    {
+      "step": "stale-plan rejection: Nebula landing page",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "refused": true,
+        "ledgerStatus": "stale",
+        "concurrentEditPreserved": true
+      }
+    },
+    {
+      "step": "move-module: Nebula landing page",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "moved": "lib/motion.ts → core/motion.ts",
+        "filesRewritten": 2,
+        "remainingOldPathRefs": 0,
+        "unrelatedFilesPreserved": true,
+        "versionSeq": 3
+      }
+    },
+    {
+      "step": "static validation: Nebula landing page",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "verdict": "issues",
+        "checks": [
+          "dependency-analysis:issues",
+          "import-graph:ok",
+          "duplicate-exports:ok",
+          "import-cycles:ok",
+          "planned-edits-landed:ok",
+          "scope-integrity:ok"
+        ],
+        "note": "missing imports and cycles are recorded honestly (a fixture may legitimately ship them); import-graph + duplicate-exports + plan-landing must be clean after a verified refactor"
+      }
+    },
+    {
+      "step": "export zip: Nebula landing page",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "fileCount": 22,
+        "movedFileInSet": true,
+        "issues": []
+      }
+    },
+    {
+      "step": "rollback-as-new-version: Nebula landing page",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "restoredTo": 1,
+        "newVersionSeq": 4,
+        "historyLengthBefore": 3,
+        "historyLengthAfter": 4,
+        "contentsMatchSeed": true
+      }
+    },
+    {
+      "step": "M23 file-ops regression: Nebula landing page",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "m23 move": "executed",
+        "delete requires confirmation": "awaiting_confirmation",
+        "versions": 5,
+        "integrityOk": 5
+      }
+    },
+    {
+      "step": "graph honesty: Pulse analytics dashboard",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "files": 22,
+        "verifiedEdges": 20,
+        "unresolved": 0,
+        "notes": 2
+      }
+    },
+    {
+      "step": "rename-symbol: Pulse analytics dashboard",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "symbol": "SAMPLE_TREND → SAMPLE_TRENDRefactored",
+        "definingFile": "data/sample.ts",
+        "filesTouched": 3,
+        "unrelatedFilesPreserved": true,
+        "versionSeq": 2,
+        "integrityOk": true,
+        "planHash": "c9aa429b25ce"
+      }
+    },
+    {
+      "step": "replay safety: Pulse analytics dashboard",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "replayed": true,
+        "workspaceUnchanged": true
+      }
+    },
+    {
+      "step": "stale-plan rejection: Pulse analytics dashboard",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "refused": true,
+        "ledgerStatus": "stale",
+        "concurrentEditPreserved": true
+      }
+    },
+    {
+      "step": "move-module: Pulse analytics dashboard",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "moved": "data/sample.ts → core/data/sample.ts",
+        "filesRewritten": 5,
+        "remainingOldPathRefs": 0,
+        "unrelatedFilesPreserved": true,
+        "versionSeq": 3
+      }
+    },
+    {
+      "step": "static validation: Pulse analytics dashboard",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "verdict": "issues",
+        "checks": [
+          "dependency-analysis:ok",
+          "import-graph:ok",
+          "duplicate-exports:ok",
+          "import-cycles:issues",
+          "planned-edits-landed:ok",
+          "scope-integrity:ok"
+        ],
+        "note": "missing imports and cycles are recorded honestly (a fixture may legitimately ship them); import-graph + duplicate-exports + plan-landing must be clean after a verified refactor"
+      }
+    },
+    {
+      "step": "export zip: Pulse analytics dashboard",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "fileCount": 22,
+        "movedFileInSet": true,
+        "issues": []
+      }
+    },
+    {
+      "step": "rollback-as-new-version: Pulse analytics dashboard",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "restoredTo": 1,
+        "newVersionSeq": 4,
+        "historyLengthBefore": 3,
+        "historyLengthAfter": 4,
+        "contentsMatchSeed": true
+      }
+    },
+    {
+      "step": "M23 file-ops regression: Pulse analytics dashboard",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "m23 move": "executed",
+        "delete requires confirmation": "awaiting_confirmation",
+        "versions": 5,
+        "integrityOk": 5
+      }
+    },
+    {
+      "step": "graph honesty: Nova Reyes portfolio",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "files": 26,
+        "verifiedEdges": 29,
+        "unresolved": 0,
+        "notes": 2
+      }
+    },
+    {
+      "step": "rename-symbol: Nova Reyes portfolio",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "symbol": "PROJECTS → PROJECTSRefactored",
+        "definingFile": "data/projects.ts",
+        "filesTouched": 3,
+        "unrelatedFilesPreserved": true,
+        "versionSeq": 2,
+        "integrityOk": true,
+        "planHash": "74b3a560eace"
+      }
+    },
+    {
+      "step": "replay safety: Nova Reyes portfolio",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "replayed": true,
+        "workspaceUnchanged": true
+      }
+    },
+    {
+      "step": "stale-plan rejection: Nova Reyes portfolio",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "refused": true,
+        "ledgerStatus": "stale",
+        "concurrentEditPreserved": true
+      }
+    },
+    {
+      "step": "move-module: Nova Reyes portfolio",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "moved": "lib/motion.ts → core/motion.ts",
+        "filesRewritten": 4,
+        "remainingOldPathRefs": 0,
+        "unrelatedFilesPreserved": true,
+        "versionSeq": 3
+      }
+    },
+    {
+      "step": "static validation: Nova Reyes portfolio",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "verdict": "pass",
+        "checks": [
+          "dependency-analysis:ok",
+          "import-graph:ok",
+          "duplicate-exports:ok",
+          "import-cycles:ok",
+          "planned-edits-landed:ok",
+          "scope-integrity:ok"
+        ],
+        "note": "missing imports and cycles are recorded honestly (a fixture may legitimately ship them); import-graph + duplicate-exports + plan-landing must be clean after a verified refactor"
+      }
+    },
+    {
+      "step": "export zip: Nova Reyes portfolio",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "fileCount": 26,
+        "movedFileInSet": true,
+        "issues": []
+      }
+    },
+    {
+      "step": "rollback-as-new-version: Nova Reyes portfolio",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "restoredTo": 1,
+        "newVersionSeq": 4,
+        "historyLengthBefore": 3,
+        "historyLengthAfter": 4,
+        "contentsMatchSeed": true
+      }
+    },
+    {
+      "step": "M23 file-ops regression: Nova Reyes portfolio",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "m23 move": "executed",
+        "delete requires confirmation": "awaiting_confirmation",
+        "versions": 5,
+        "integrityOk": 5
+      }
+    },
+    {
+      "step": "M21 fixture files on disk untouched (hash-verified)",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "checked": 70
+      }
+    },
+    {
+      "step": "verification projects cleaned up (fixtures never persisted in product storage)",
+      "status": "OFFLINE_VERIFIED",
+      "pass": true,
+      "detail": {
+        "remaining": 0
+      }
+    }
+  ]
+}

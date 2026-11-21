@@ -95,6 +95,18 @@ const HIGH_RISK_PATTERNS: Array<[RegExp, string]> = [
   [/\b(последн\w+|новости|сегодня|актуальн\w+)\b/i, 'multilingual recency signal (RU)'],
   [/(أحدث|اليوم|أخبار)/, 'multilingual recency signal (AR)'],
   [/(नवीनतम|ताज़ा|समाचार|आज\s+के)/, 'multilingual recency signal (HI)'],
+  // Officeholder + news signals in the served Indic languages (M25
+  // intel-lanes additive layer). No \b around non-ASCII: JS \b is
+  // ASCII-word-boundary based and would never match Tamil/Malayalam text
+  // (same reason the CJK entries above are bare substrings). An
+  // officeholder question in the user's own language is exactly the
+  // measured failure class the English table already covers — model
+  // memory of officeholders goes stale whatever script it is asked in.
+  [/(முதல்வர்|பிரதமர்|அமைச்சர்)/, 'multilingual officeholder signal (TA)'],
+  [/(செய்தி|தற்போதைய|தற்போது|இன்றைய)/, 'multilingual recency signal (TA)'],
+  [/(മുഖ്യമന്ത്രി|പ്രധാനമന്ത്രി|മന്ത്രി)/, 'multilingual officeholder signal (ML)'],
+  [/(വാർത്ത|ഇന്നത്തെ|പുതിയ)/, 'multilingual recency signal (ML)'],
+  [/(मुख्यमंत्री|प्रधानमंत्री)/, 'multilingual officeholder signal (HI)'],
 ]
 
 /** Moderate risk: laws, regulations, docs, APIs — stable-ish but do change. */

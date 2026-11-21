@@ -36,6 +36,7 @@ import {
   classifyUpstreamError,
   healthFailureCategory,
   upstreamCooldownRemainingMs,
+  upstreamCoolingDown,
   UpstreamRateLimitError,
 } from '@/lib/upstream/gateway'
 import { appendJobEventSafe } from '@/lib/ai-engine/events'
@@ -93,6 +94,23 @@ export interface VideoJobResult {
    *  worker restarts. submissionAttempts counts REAL submission requests
    *  (breaker skips are not attempts — no network I/O was made). */
   submissionAttempts?: number
+  /** SHARED-RATE-LIMIT REPAIR (2026-11-14, defect D1): the conditioned
+   *  prompt is computed ONCE per job and persisted here; every throttle
+   *  retry reuses it verbatim so a parked job never re-fires the intel
+   *  layer's metered chat-class vision call or functions-class web_search
+   *  into a provider that is already throttling the account (measured:
+   *  nine such vision 429s kept the chat breaker escalated and starved
+   *  RIISHE/CODE GIFTZ user chat of the shared class). Absent = compute on
+   *  this attempt (first attempt, or the breaker-skip deferral). */
+  intelPrompt?: string
+  /** Intel metadata of the compute-once pass (same shape the successful
+   *  submission records as `intel`), persisted for honest display and
+   *  retry reuse. */
+  intel?: Record<string, unknown>
+  /** Reference scene state of the compute-once pass, persisted so the
+   *  post-completion continuity verification sees the same context on a
+   *  retry that the first attempt would have had. */
+  referenceSceneState?: SceneState
   throttleWaitMs?: number
   throttle?: {
     attempt: number
@@ -204,6 +222,25 @@ async function updateJob(id: string, data: Record<string, unknown>): Promise<voi
   await db.generationJob.update({ where: { id }, data })
 }
 
+// ---------------------------------------------------------------------------
+// M26 (audit F-2): the legacy writers settled rows with unconditional
+// `update({ where: { id } })` — a worker that lost its lease (GC pause, event-
+// loop stall past leaseMs, cross-process double attach) could clobber the new
+// owner's row (the exact measured clobber class documented on runner.ts).
+// Terminal settles now CAS on an active status (and stay refused for rows a
+// new owner already moved); progress writes stay permissive by design.
+// ---------------------------------------------------------------------------
+const ACTIVE_STATUSES = ['starting', 'running', 'streaming', 'finalizing'] as const
+
+/** Guarded terminal settle: count === 1 only while the row is still active. */
+async function settleActiveGuarded(id: string, data: Record<string, unknown>): Promise<boolean> {
+  const res = await db.generationJob.updateMany({
+    where: { id, status: { in: [...ACTIVE_STATUSES, 'retry_wait', 'queued'] } },
+    data,
+  })
+  return res.count === 1
+}
+
 function parseResult(job: JobRow): VideoJobResult {
   if (!job.resultJson) return {}
   try {
@@ -286,38 +323,78 @@ export async function processVideoJob(job: JobRow): Promise<void> {
       // camera/light directives. The user's prompt stays VERBATIM and FIRST.
       // Every failure degrades honestly to the raw prompt — grounding can
       // never fail or meaningfully delay a submission beyond its bounds.
+      //
+      // SHARED-RATE-LIMIT REPAIR (2026-11-14, defect D1): the intel layer is
+      // computed AT MOST ONCE per job. Measured defect: it re-ran before EVERY
+      // submission attempt, so each retry of a throttle-parked job fired
+      // ANOTHER metered chat-class vision call (extractSceneState) and
+      // ANOTHER functions-class web_search into a provider that was already
+      // throttling the account — nine such vision 429s (2026-11-14
+      // 04:46→05:54Z) kept the chat-class breaker escalated to its cap and
+      // made RIISHE chat + CODE GIFTZ chat fail fast with HTTP 429 although
+      // the provider never refused a real chat turn in that window (zero
+      // riishe/code-giftz usage rows). Rules, in order:
+      //  1. a persisted intelPrompt (first attempt completed its compute)
+      //     is reused VERBATIM — zero network, idempotent submission payload;
+      //  2. the video-class breaker OPEN -> skip entirely with an honest
+      //     note: the submission is about to fail fast, so conditioning
+      //     would be computed and immediately thrown away (this also keeps
+      //     the deferred compute off the throttle window);
+      //  3. otherwise compute once, persist (prompt + metadata + reference
+      //     scene state) BEFORE the submission try-block, so whichever path
+      //     follows (success, throttle park, failure) already carries it.
       let conditionedPrompt = params.prompt
-      try {
-        let referenceContinuity: string | undefined
-        if (params.imageUrl) {
-          const refDataUrl = await imageReferenceToDataUrl(params.imageUrl)
-          if (refDataUrl) {
-            referenceState = await extractSceneState(refDataUrl)
-            if (referenceState.continuityDirectives) referenceContinuity = referenceState.continuityDirectives
-          } else {
-            logger.info('jazmii.intel_reference_unreadable', { jobId: job.id })
+      if (typeof result.intelPrompt === 'string' && result.intelPrompt.length > 0) {
+        conditionedPrompt = result.intelPrompt
+        intelMeta = (result.intel as Record<string, unknown> | undefined) ?? null
+        referenceState = result.referenceSceneState ?? null
+        logger.info('jazmii.intel_reused', { jobId: job.id, chars: conditionedPrompt.length })
+      } else if (upstreamCoolingDown('video')) {
+        logger.info('jazmii.intel_skipped_breaker', {
+          jobId: job.id,
+          reason: 'video-class breaker open — submission cannot fire; intel compute deferred to the next attempt',
+        })
+      } else {
+        try {
+          let referenceContinuity: string | undefined
+          if (params.imageUrl) {
+            const refDataUrl = await imageReferenceToDataUrl(params.imageUrl)
+            if (refDataUrl) {
+              referenceState = await extractSceneState(refDataUrl)
+              if (referenceState.continuityDirectives) referenceContinuity = referenceState.continuityDirectives
+            } else {
+              logger.info('jazmii.intel_reference_unreadable', { jobId: job.id })
+            }
           }
+          const intel = await prepareVideoIntelligence(params.prompt, { referenceContinuity })
+          conditionedPrompt = intel.conditionedPrompt
+          intelMeta = {
+            layer: 'bean-intel/1',
+            mode: intel.mode,
+            promptLanguage: intel.promptLanguage,
+            knowledgeComponents: intel.knowledgeKeys,
+            evidenceHosts: intel.evidence.map((e) => e.host),
+            evidenceUrls: intel.evidence.map((e) => e.url),
+            referenceSceneAnalyzed: referenceState?.method === 'vision-analysis',
+            degraded: intel.degraded,
+            conditioningChars: intel.conditioning.length,
+            timingMs: intel.timing,
+          }
+          if (intel.degraded.length > 0) {
+            logger.info('jazmii.intel_degraded', { jobId: job.id, degraded: intel.degraded })
+          }
+        } catch (e) {
+          // Absolute guard: intelligence must never fail a submission.
+          logger.warn('jazmii.intel_failed', { jobId: job.id, message: e instanceof Error ? e.message : String(e) })
         }
-        const intel = await prepareVideoIntelligence(params.prompt, { referenceContinuity })
-        conditionedPrompt = intel.conditionedPrompt
-        intelMeta = {
-          layer: 'bean-intel/1',
-          mode: intel.mode,
-          promptLanguage: intel.promptLanguage,
-          knowledgeComponents: intel.knowledgeKeys,
-          evidenceHosts: intel.evidence.map((e) => e.host),
-          evidenceUrls: intel.evidence.map((e) => e.url),
-          referenceSceneAnalyzed: referenceState?.method === 'vision-analysis',
-          degraded: intel.degraded,
-          conditioningChars: intel.conditioning.length,
-          timingMs: intel.timing,
+        // Persist the compute-once outcome (even when intel degraded to the
+        // raw prompt): retries reuse exactly this, never re-fire the layer.
+        result = {
+          ...result,
+          intelPrompt: conditionedPrompt,
+          ...(intelMeta ? { intel: intelMeta } : {}),
+          ...(referenceState ? { referenceSceneState: referenceState } : {}),
         }
-        if (intel.degraded.length > 0) {
-          logger.info('jazmii.intel_degraded', { jobId: job.id, degraded: intel.degraded })
-        }
-      } catch (e) {
-        // Absolute guard: intelligence must never fail a submission.
-        logger.warn('jazmii.intel_failed', { jobId: job.id, message: e instanceof Error ? e.message : String(e) })
       }
       // REAL submission — upstream-class failures propagate to the honest
       // failure path; a THROTTLE parks the job for a bounded retry instead
@@ -540,13 +617,20 @@ export async function processVideoJob(job: JobRow): Promise<void> {
       ...(streamProbe.audio ? { audio: streamProbe.audio } : {}),
       ...(continuity ? { continuity } : {}),
     }
-    await updateJob(job.id, {
+    // M26 (audit F-2): the terminal completion is a CAS on active statuses —
+    // a worker that lost its lease can no longer clobber a re-claimed row
+    // (its result is refused; the new owner settles the row instead).
+    const completed = await settleActiveGuarded(job.id, {
       status: 'completed',
       progress: 100,
       finishedAt: new Date(),
       backendId: backend.id,
       resultJson: JSON.stringify(result),
     })
+    if (!completed) {
+      logger.warn('jazmii.settle_refused_lost_ownership', { jobId: job.id, kind: 'complete' })
+      return
+    }
     await recordUsage({
       userId: job.userId,
       product: 'jazmii',
@@ -840,7 +924,7 @@ async function failJob(
   display: string,
   errorClass?: string,
 ): Promise<void> {
-  await updateJob(job.id, {
+  const settled = await settleActiveGuarded(job.id, {
     status: 'failed',
     finishedAt: new Date(),
     backendId,
@@ -848,13 +932,20 @@ async function failJob(
     errorMessage: display,
     ...(errorClass ? { errorClass } : {}),
   })
+  if (!settled) {
+    logger.warn('jazmii.settle_refused_lost_ownership', { jobId: job.id, kind: 'fail', code })
+  }
 }
 
-/** Honest cancellation: stop tracking; the provider task is NOT aborted. */
+/** Honest cancellation: stop tracking; the provider task is NOT aborted.
+ *  M26 (audit F-8): the write is a CAS on ACTIVE statuses — a cancel racing
+ *  a completion can no longer flip a `completed` row to failed/CANCELLED. */
 async function markCancelled(jobId: string): Promise<void> {
   await db.generationJob
-    .update({
-      where: { id: jobId },
+    .updateMany({
+      // every NON-terminal status: a cancel may settle queued/retry_wait rows
+      // directly, but never a completed/failed/cancelled row (F-8 CAS)
+      where: { id: jobId, status: { in: [...ACTIVE_STATUSES, 'queued', 'retry_wait'] } },
       data: {
         status: 'failed',
         finishedAt: new Date(),
@@ -918,7 +1009,13 @@ export function ensureVideoPoller(job: {
   if (!queuedOrRunning) return
   if (activePollers.has(job.id)) return
   if (cancelRequested.has(job.id)) return
-  if (poolsActiveProbe() && (job.status === 'queued' || job.status === 'retry_wait')) return
+  // M26 (audit F-6): when engine pools run, THE ENGINE owns execution —
+  // running/orphaned rows are recovered by lease expiry, not by a second
+  // poller in THIS process (previously any read route could attach a
+  // duplicate executor cross-process: two poll loops, interleaved progress
+  // writes, divergent terminal writes). Re-attach remains the executor ONLY
+  // for pool-less (inline) deployments.
+  if (poolsActiveProbe()) return
   void processVideoJob(job)
 }
 

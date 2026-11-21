@@ -22,17 +22,23 @@ import { recordUsage, recordAudit } from '@/lib/observability/metering'
 import { logger } from '@/lib/observability/logger'
 import type { TaskAdapter } from '@/lib/adapters/types'
 import { upstreamErrorCode, upstreamStreamErrorPayload, UpstreamRateLimitError, UpstreamAuthError, UpstreamBillingError } from '@/lib/upstream/gateway'
-import { createGiftzChatStream, type GenerationGuard } from '@/lib/giftz/chat-stream'
+import { createGiftzChatStream, type GenerationGuard, type GiftzTurnResult } from '@/lib/giftz/chat-stream'
 import { runGiftzTurnCore } from '@/lib/giftz/turn'
-import { SYSTEM_PROMPT, buildProjectContext } from '@/lib/giftz/prompts'
+import { SYSTEM_PROMPT, buildProjectContext, buildTargetedEditBrief } from '@/lib/giftz/prompts'
 import { applyFiles } from '@/lib/giftz/workspace'
 import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
+import { detectFileOperation } from '@/lib/code/file-ops/detect'
+import { performDetectedFileOperation } from '@/lib/code/file-ops/execute'
+import { RefactorScopeError } from '@/lib/code/refactoring/graph'
+import { detectRefactoringRequest } from '@/lib/code/refactoring/detect'
+import { performDetectedRefactoring } from '@/lib/code/refactoring/chat-flow'
+import type { RefactorTurnPayload } from '@/lib/code/refactoring/plan'
 import { verificationConfig } from '@/lib/verification/config'
 import { publicVerificationSummary, type VerificationOutcome } from '@/lib/verification/pipeline'
 import { filterConversationsByTitle } from '@/lib/riishe/conversation-view'
 import { buildTechDocsWithReach } from '@/lib/intel/techdocs-reach'
 import { resolveFrontendPlan } from '@/lib/frontend-intel/engine'
-import type { FrontendSelection, FrontendTurnResult } from '@/lib/frontend-intel/types'
+import type { FrontendTurnResult } from '@/lib/frontend-intel/types'
 
 const MAX_HISTORY = 12
 const MAX_FILE_CONTEXT_CHARS = 24_000
@@ -43,17 +49,10 @@ const schema = z.object({
   message: z.string().min(1, 'Describe what you want to build or change.').max(12000),
   /** Files uploaded through the capability pipeline (ownership enforced). */
   fileIds: z.array(z.string().min(1)).max(3).optional(),
-  /** Frontend Intelligence toolkit selection — ADDITIVE, optional. When
-   *  absent the turn is resolved (and detected) exactly as before. */
-  frontend: z
-    .object({
-      target: z.enum(['auto', 'static', 'react']).optional(),
-      components: z.array(z.string().min(1).max(64)).max(12).optional(),
-      animations: z.array(z.union([z.literal('auto'), z.string().min(1).max(64)])).max(8).optional(),
-      background: z.enum(['none', 'auto', 'birds', 'waves', 'net', 'globe', 'fog', 'clouds', 'rings']).optional(),
-      responsive: z.boolean().optional(),
-    })
-    .optional(),
+  // NOTE (UI/API restriction): the frontend intelligence library is INTERNAL.
+  // There is deliberately NO frontend selection parameter here — the engine
+  // resolves target/components/animations/background automatically from the
+  // request text and the project state.
 })
 
 /**
@@ -98,6 +97,13 @@ export async function POST(request: Request) {
     const { backend, adapter, release, servedBy } = await preflight(user.id, 'code-giftz', 'coding-task')
 
     try {
+      // M22 metadata only (a NEW project has zero files, so resolving the
+      // plan with an empty existing-file list here is exact): the frontend
+      // engine's target becomes the recorded framework. The authoritative
+      // plan for the turn itself is re-resolved below with the REAL file
+      // paths, preserving existing behavior bit-for-bit.
+      const createPlanMeta = resolveFrontendPlan({ message: body.message, existingFilePaths: [] })
+
       // Resolve or create the project (ownership enforced).
       let projectId = body.projectId
       if (projectId) {
@@ -107,7 +113,11 @@ export async function POST(request: Request) {
         }
       } else {
         const project = await db.codeProject.create({
-          data: { userId: user.id, title: body.message.slice(0, 60) },
+          data: {
+            userId: user.id,
+            title: body.message.slice(0, 60),
+            ...(createPlanMeta.enabled ? { framework: createPlanMeta.target } : {}),
+          },
         })
         projectId = project.id
       }
@@ -118,6 +128,8 @@ export async function POST(request: Request) {
         take: MAX_HISTORY,
       })
       const orderedHistory = history.reverse()
+
+      const wantsStream = new URL(request.url).searchParams.get('stream') !== '0'
 
       // Retry idempotency: a client Retry of a FAILED turn re-sends the same
       // prompt verbatim. The failed turn left a trailing user message with no
@@ -131,7 +143,273 @@ export async function POST(request: Request) {
       const collapseDuplicate = shouldCollapseDuplicateUserMessage(lastMessage, body.message)
 
       const files = await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } })
+
+      // ---- M23: deterministic file-operation turn ----------------------------
+      // A detected rename/move/delete/create request NEVER reaches the model:
+      // it is planned against the REAL project files, validated server-side,
+      // shown to the user as a structured plan and executed through the
+      // confirmation-bound executor (destructive plans require explicit
+      // confirmation; non-destructive ones execute immediately with full
+      // transparency). The provider slot taken by preflight is released
+      // right away — no model tokens are consumed for a file operation.
+      const fileOpDetection = body.projectId ? detectFileOperation(body.message, files) : { detected: false as const }
+      if (fileOpDetection.detected) {
+        if (!collapseDuplicate) {
+          await db.codeMessage.create({
+            data: { projectId, role: 'user', content: body.message },
+          })
+        }
+        const t0 = Date.now()
+        const flow = await performDetectedFileOperation({ projectId, detection: fileOpDetection, files })
+        const fileOpTurnResult = (): GiftzTurnResult => ({
+          content: flow.assistantText,
+          changes: [],
+          durationMs: Date.now() - t0,
+          tokensInEst: 0, // honest: no model call happens for a file operation
+          tokensOutEst: 0,
+          continuationCount: 0,
+          verification: null,
+          ...(flow.payload.versionSeq != null ? { versionSeq: flow.payload.versionSeq } : {}),
+          fileOp: flow.payload,
+        })
+        const persistFileOpAssistant = async (result: GiftzTurnResult) => {
+          const assistant = await db.codeMessage.create({
+            data: {
+              projectId,
+              role: 'assistant',
+              content: result.content,
+              metaJson: JSON.stringify({
+                changes: [],
+                continuations: 0,
+                ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
+                ...(result.fileOp ? { fileOp: result.fileOp } : {}),
+              }),
+            },
+          })
+          return { messageId: assistant.id }
+        }
+        if (!wantsStream) {
+          try {
+            const result = fileOpTurnResult()
+            const assistant = await persistFileOpAssistant(result)
+            await recordAudit({
+              actorId: user.id,
+              action: 'code-giftz.chat_file_op',
+              target: projectId,
+              meta: { status: flow.payload.status, kind: flow.payload.kind, opId: flow.payload.opId },
+            })
+            return ok({
+              projectId,
+              messageId: assistant.messageId,
+              content: result.content,
+              changes: result.changes,
+              durationMs: result.durationMs,
+              verification: null,
+              ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
+              fileOp: result.fileOp,
+            })
+          } finally {
+            release()
+          }
+        }
+        const stream = createGiftzChatStream({
+          projectId,
+          runTurn: async () => fileOpTurnResult(),
+          persistAssistant: persistFileOpAssistant,
+          afterPersist: async (result) => {
+            await recordAudit({
+              actorId: user.id,
+              action: 'code-giftz.chat_file_op',
+              target: projectId,
+              meta: { status: result.fileOp?.status, kind: result.fileOp?.kind, opId: result.fileOp?.opId },
+            })
+            const projectFiles = await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } })
+            return { files: projectFiles.map((f) => ({ path: f.path, origin: f.origin })) }
+          },
+          failurePayload: upstreamStreamErrorPayload,
+          release,
+          disconnectSignal: request.signal,
+          log: (event, data) => {
+            if (event === 'codegiftz.chat_failed' || event === 'codegiftz.persist_failed') logger.warn(event, data)
+            else logger.info(event, data)
+          },
+        })
+        return new Response(stream, {
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache, no-transform',
+            connection: 'keep-alive',
+          },
+        })
+      }
       const attachmentBlock = await loadAttachments(user.id, body.fileIds)
+
+      // ---- M25: refactoring intent turn --------------------------------------
+      // Runs ONLY when M23 detection did NOT claim the message (a plain file
+      // move stays an M23 file operation). Deterministic kinds — rename a
+      // SYMBOL across verified imports, move modules WITH import updates —
+      // are planned server-side with ZERO provider involvement (the preflight
+      // slot is released immediately). Assisted kinds (extract / consolidate /
+      // service layer / restructure / repair) run ONE bounded drafting pass
+      // through the existing adapter inside the standard stream lifecycle; the
+      // draft is validated server-side into a plan awaiting approval. NOTHING
+      // executes during the turn and the workspace is never touched here —
+      // execution happens only through the confirmed, hash-bound executor.
+      // M26 (audit R-1): an oversized project is an honest typed refusal —
+      // the customer sees WHY (scope the request / export), never a 500.
+      let refactorDetection: ReturnType<typeof detectRefactoringRequest>
+      try {
+        refactorDetection = body.projectId ? detectRefactoringRequest(body.message, files) : { detected: false as const }
+      } catch (e) {
+        if (e instanceof RefactorScopeError) {
+          return ok({ reply: e.message, detected: false as const })
+        }
+        throw e
+      }
+      if (refactorDetection.detected) {
+        const isDeterministicKind =
+          refactorDetection.type === 'op' && (refactorDetection.kind === 'rename-symbol' || refactorDetection.kind === 'move-module')
+        const buildRefactorTurnResult = (flow: { payload: RefactorTurnPayload; assistantText: string; tokensInEst: number; tokensOutEst: number }, t0: number, providerCalls: number): GiftzTurnResult => ({
+          content: flow.assistantText,
+          changes: [],
+          durationMs: Date.now() - t0,
+          tokensInEst: providerCalls > 0 ? flow.tokensInEst : 0, // honest: deterministic planning consumes no tokens
+          tokensOutEst: providerCalls > 0 ? flow.tokensOutEst : 0,
+          continuationCount: 0,
+          verification: null,
+          refactor: flow.payload,
+        })
+        const persistRefactorAssistant = async (result: GiftzTurnResult) => {
+          const assistant = await db.codeMessage.create({
+            data: {
+              projectId,
+              role: 'assistant',
+              content: result.content,
+              metaJson: JSON.stringify({
+                changes: [],
+                continuations: 0,
+                ...(result.refactor ? { refactor: result.refactor } : {}),
+              }),
+            },
+          })
+          return { messageId: assistant.id }
+        }
+        const refactorAfterPersist = async () => {
+          const projectFiles = await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } })
+          return { files: projectFiles.map((f) => ({ path: f.path, origin: f.origin })) }
+        }
+        const refactorLog = (event: string, data?: Record<string, unknown>) => {
+          if (event === 'codegiftz.chat_failed' || event === 'codegiftz.persist_failed') logger.warn(event, data)
+          else logger.info(event, data)
+        }
+
+        // Deterministic kinds + clarifications never touch the provider.
+        if (refactorDetection.type === 'clarification' || isDeterministicKind) {
+          if (!collapseDuplicate) {
+            await db.codeMessage.create({ data: { projectId, role: 'user', content: body.message } })
+          }
+          const t0 = Date.now()
+          try {
+            const flow =
+              refactorDetection.type === 'clarification'
+                ? { payload: { status: 'clarification', question: refactorDetection.question } as RefactorTurnPayload, assistantText: refactorDetection.question, tokensInEst: 0, tokensOutEst: 0 }
+                : await performDetectedRefactoring({ projectId, detection: refactorDetection, message: body.message, files })
+            const result = buildRefactorTurnResult(flow, t0, 0)
+            const assistant = await persistRefactorAssistant(result)
+            await recordAudit({
+              actorId: user.id,
+              action: 'code-giftz.chat_refactor',
+              target: projectId,
+              meta: { status: flow.payload.status, kind: flow.payload.kind, opId: flow.payload.opId, providerCalls: 0 },
+            })
+            if (!wantsStream) {
+              return ok({
+                projectId,
+                messageId: assistant.messageId,
+                content: result.content,
+                changes: result.changes,
+                durationMs: result.durationMs,
+                verification: null,
+                refactor: result.refactor,
+              })
+            }
+            const stream = createGiftzChatStream({
+              projectId,
+              runTurn: async () => result,
+              persistAssistant: persistRefactorAssistant,
+              afterPersist: refactorAfterPersist,
+              failurePayload: upstreamStreamErrorPayload,
+              release,
+              disconnectSignal: request.signal,
+              log: refactorLog,
+            })
+            return new Response(stream, {
+              headers: {
+                'content-type': 'text/event-stream',
+                'cache-control': 'no-cache, no-transform',
+                connection: 'keep-alive',
+              },
+            })
+          } finally {
+            release()
+          }
+        }
+
+        // Provider-assisted kind: ONE bounded drafting pass inside the standard
+        // lifecycle; provider failures produce honest typed error frames and
+        // leave the workspace untouched.
+        if (!collapseDuplicate) {
+          await db.codeMessage.create({ data: { projectId, role: 'user', content: body.message } })
+        }
+        const assistedT0 = Date.now()
+        const refactorMaxPromptChars = Number(backend.limits.maxPromptChars ?? 12_000)
+        const stream = createGiftzChatStream({
+          projectId,
+          runTurn: async () => {
+            const flow = await performDetectedRefactoring({
+              projectId,
+              detection: refactorDetection,
+              message: body.message,
+              files,
+              adapter,
+              backendRequestMs: backend.timeouts.requestMs,
+              maxPromptChars: refactorMaxPromptChars,
+            })
+            await recordUsage({
+              userId: user.id,
+              product: 'code-giftz',
+              backendId: servedBy.backendId,
+              kind: 'coding-task',
+              tokensIn: flow.tokensInEst,
+              tokensOut: flow.tokensOutEst,
+              durationMs: Date.now() - assistedT0,
+              success: flow.payload.status !== 'failed',
+            })
+            await recordAudit({
+              actorId: user.id,
+              action: 'code-giftz.chat_refactor',
+              target: projectId,
+              meta: { status: flow.payload.status, kind: flow.payload.kind, opId: flow.payload.opId, providerCalls: 1 },
+            })
+            return buildRefactorTurnResult(flow, assistedT0, 1)
+          },
+          persistAssistant: persistRefactorAssistant,
+          afterPersist: refactorAfterPersist,
+          failurePayload: upstreamStreamErrorPayload,
+          release,
+          disconnectSignal: request.signal,
+          log: refactorLog,
+        })
+        return new Response(stream, {
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache, no-transform',
+            connection: 'keep-alive',
+          },
+        })
+      }
+
+      const targetedEditBrief = files.length > 0 ? buildTargetedEditBrief(files.length) : ''
 
       // BEAN Intelligence: live official-documentation retrieval for the
       // libraries/frameworks this request touches. Bounded; any failure
@@ -143,14 +421,13 @@ export async function POST(request: Request) {
         logger.info('giftz.techdocs_degraded', { projectId, degraded: techDocs.degraded })
       }
 
-      // BEAN Intelligence — Frontend Intelligence Toolkit (opt-in): resolve the
-      // generation plan (target, catalogue components, GSAP patterns, optional
-      // Vanta background, pinned dependencies) BEFORE building the prompt. The
+      // BEAN Intelligence — Frontend Intelligence Toolkit (internal): resolve
+      // the generation plan (target, catalogue components, GSAP patterns,
+      // optional Vanta background, pinned dependencies) BEFORE building the
+      // prompt. Fully automatic — there is no UI/API selection surface. The
       // bounded brief rides in the turn context like the tech-docs block.
-      const frontendSelection: FrontendSelection | undefined = body.frontend
       const frontendPlan = resolveFrontendPlan({
         message: body.message,
-        selection: frontendSelection,
         existingFilePaths: files.map((f) => f.path),
       })
       if (frontendPlan.enabled) {
@@ -168,6 +445,7 @@ export async function POST(request: Request) {
         buildProjectContext(files),
         techDocs?.block ?? '',
         frontendPlan.enabled ? frontendPlan.brief : '',
+        targetedEditBrief,
         body.message,
       ]
         .filter((s) => s.length > 0)
@@ -182,7 +460,6 @@ export async function POST(request: Request) {
       // is dropped from the PROMPT so the model sees the message once.
       const promptHistory = collapseDuplicate ? orderedHistory.slice(0, -1) : orderedHistory
 
-      const wantsStream = new URL(request.url).searchParams.get('stream') !== '0'
       const maxPromptChars = Number(backend.limits.maxPromptChars ?? 12_000)
 
       const buildTurnMessages = () => [
@@ -238,6 +515,7 @@ export async function POST(request: Request) {
               metaJson: JSON.stringify({
                 changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
                 continuations: result.continuationCount, // honest record of provider passes
+                ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
                 ...(result.frontend ? { frontend: result.frontend } : {}),
                 ...(result.research ? { research: result.research } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
@@ -274,6 +552,7 @@ export async function POST(request: Request) {
             changes: result.changes,
             durationMs: result.durationMs,
             verification: publicVerificationSummary(result.verification),
+            ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
             ...(result.frontend ? { frontend: result.frontend } : {}),
             ...(result.research ? { research: result.research } : {}),
           })
@@ -315,6 +594,7 @@ export async function POST(request: Request) {
               metaJson: JSON.stringify({
                 changes: result.changes.map((c) => ({ path: c.path, change: c.change })),
                 continuations: result.continuationCount, // honest record of provider passes
+                ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
                 ...(result.frontend ? { frontend: result.frontend } : {}),
                 ...(result.research ? { research: result.research } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
@@ -383,14 +663,35 @@ export async function POST(request: Request) {
  *  itself is capped, but a search must still find older threads (the exact
  *  RIISHE conversation-search semantics, reusing the same pure filter so
  *  both products behave identically). Filtering happens in JS because
- *  SQLite's LIKE is only ASCII-case-aware. */
+ *  SQLite's LIKE is only ASCII-case-aware.
+ *  M22 ADDITIVE: `?includeArchived=1` includes archived projects (each row
+ *  carries its `status`); the default list stays active-only so the sidebar
+ *  is unchanged for existing users. */
 export async function GET(request: Request) {
   return handle(async () => {
     const user = await requireUser()
     const q = new URL(request.url).searchParams.get('q')?.trim() ?? ''
+    const includeArchived = new URL(request.url).searchParams.get('includeArchived') === '1'
+    const statusFilter = includeArchived ? undefined : 'active'
+    const projectMeta = (p: {
+      id: string
+      title: string
+      status: string
+      currentVersion: number
+      updatedAt: Date
+      _count: { messages: number; files: number }
+    }) => ({
+      id: p.id,
+      title: p.title,
+      status: p.status,
+      currentVersion: p.currentVersion,
+      messages: p._count.messages,
+      files: p._count.files,
+      updatedAt: p.updatedAt,
+    })
     if (q.length > 0) {
       const candidates = await db.codeProject.findMany({
-        where: { userId: user.id },
+        where: { userId: user.id, ...(statusFilter ? { status: statusFilter } : {}) },
         orderBy: { updatedAt: 'desc' },
         take: 200,
         include: { _count: { select: { messages: true, files: true } } },
@@ -399,6 +700,8 @@ export async function GET(request: Request) {
         candidates.map((p) => ({
           id: p.id,
           title: p.title,
+          status: p.status,
+          currentVersion: p.currentVersion,
           messages: p._count.messages,
           files: p._count.files,
           updatedAt: p.updatedAt.toISOString(),
@@ -408,19 +711,13 @@ export async function GET(request: Request) {
       return ok({ projects, query: q })
     }
     const projects = await db.codeProject.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, ...(statusFilter ? { status: statusFilter } : {}) },
       orderBy: { updatedAt: 'desc' },
       take: 50,
       include: { _count: { select: { messages: true, files: true } } },
     })
     return ok({
-      projects: projects.map((p) => ({
-        id: p.id,
-        title: p.title,
-        messages: p._count.messages,
-        files: p._count.files,
-        updatedAt: p.updatedAt,
-      })),
+      projects: projects.map((p) => projectMeta(p)),
     })
   })
 }

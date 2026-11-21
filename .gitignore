@@ -105,3 +105,41 @@ scripts/laxii-jazmii-restore-out/*.png
 scripts/laxii-jazmii-restore-out/*.jpg
 scripts/laxii-jazmii-restore-out/*.db
 __pycache__/
+
+# M22 acceptance harness runtime DB (never commit the verification database)
+scripts/m22-out/*.db
+scripts/m22-out/*.db-*
+# M23 acceptance harness runtime DB (never commit the verification database)
+scripts/m23-out/*.db
+scripts/m23-out/*.db-*
+
+# M24 validation runtime artifacts: fixture build outputs and extracted
+# evidence copies stay out of git (the verified ZIPs and screenshots are
+# committed as evidence instead)
+validation/m24/fixtures/*/dist/
+validation/m24/evidence/extracted/
+validation/m24/evidence/independent-build/
+
+# M26 release-safety hardening: the f0b47ad auto-commit sweep committed
+# scripts/.github_device_code ("sensitive — never committed" per M25_RESULTS §2),
+# a db/backups snapshot and cURL cookie jars. These patterns make every future
+# sweep skip them. The existing backups stay preserved on LOCAL-only refs
+# (backup/m26-baseline-auto-commit) and are never pushed.
+scripts/.github_device_code
+scripts/**/*cookies*.txt
+db/backups/
+db/*.db
+db/*.db-*
+
+# M26.1 hardening (supersedes the M26 sweep scope): 7 more session-token
+# files were found in scripts/e2e-out with non-"cookie" names (c2.txt,
+# cg-ck*.txt, pipeline-ck*.txt, uc*.txt — introduced by a634fcf, missed by
+# the M26 *cookie* filter, removed from HEAD in M26.1). Every E2E output
+# directory may hold live session material or harness DBs: ignore all
+# generated E2E output trees wholesale and any DB snapshot under scripts/.
+scripts/e2e-out/*.txt
+scripts/*-out/*.db
+scripts/*-out/*.db-*
+scripts/*.db
+scripts/e2e-verify-out/verify.db
+scripts/giftz-verify-out/verify.db

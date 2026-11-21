@@ -1,0 +1,17 @@
+[
+  {
+    "step": "searxng-lane",
+    "status": "ADOPTED",
+    "url": "http://127.0.0.1:8888"
+  },
+  {
+    "step": "auth",
+    "status": "REAL",
+    "email": "intel-live-20261108070508@bean-e2e.test"
+  },
+  {
+    "step": "giftz-docs-turn",
+    "status": "BLOCKED",
+    "detail": "chat breaker open across the bounded wait"
+  }
+]

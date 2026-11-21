@@ -40,11 +40,28 @@ mock.module('@/lib/db', () => ({
         if (data.status !== undefined) currentJobRow.status = data.status
         return { id: where.id }
       },
+      // M26: the cancel checkpoint reads cancelRequested (always false in
+      // these poster tests) and guarded settles use updateMany.
+      findUnique: async ({ where, select }: { where: { id: string }; select?: Record<string, boolean> }) => {
+        const row = { cancelRequested: false } as Record<string, unknown>
+        return select ? Object.fromEntries(Object.keys(select).map((k) => [k, row[k]])) : row
+      },
+      updateMany: async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+        jobUpdates.push({ id: where.id as string, ...data })
+        if (data.resultJson !== undefined) currentJobRow.resultJson = data.resultJson
+        if (data.status !== undefined) currentJobRow.status = data.status
+        return { count: 1 }
+      },
     },
   },
 }))
 mock.module('@/lib/observability/logger', () => ({
-  logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
+  // M26: handle() now also pulls withRequestContext/currentRequestId from
+  // this module — the fake must provide the full consumed surface.
+  logger: { info: () => undefined, warn: () => undefined, error: () => undefined, debug: () => undefined },
+  withRequestContext: async <T,>(ctx: unknown, fn: () => Promise<T>) => fn(),
+  currentRequestId: () => null,
+  redact: (v: string) => v,
 }))
 mock.module('@/lib/observability/metering', () => ({
   recordUsage: async () => undefined,

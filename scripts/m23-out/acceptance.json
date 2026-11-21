@@ -1,0 +1,153 @@
+{
+  "ranAt": "2026-11-15T03:46:14.217Z",
+  "results": [
+    {
+      "step": "M21 fixtures readable (read-only baseline hashed)",
+      "pass": true,
+      "detail": {
+        "files": 70,
+        "nebula": 22,
+        "pulse": 22,
+        "novaReyes": 26
+      }
+    },
+    {
+      "step": "Nebula fixture seeded as a persistent project (verification DB)",
+      "pass": true,
+      "detail": {
+        "files": 22,
+        "version": 1,
+        "kind": "initial"
+      }
+    },
+    {
+      "step": "1. chat rename executes with byte-identical content",
+      "pass": true,
+      "detail": {
+        "status": "executed",
+        "version": 2,
+        "remainingReferences": 1,
+        "contentsPreserved": true
+      }
+    },
+    {
+      "step": "2. offered import repair executes and fixes App.tsx references",
+      "pass": true,
+      "detail": {
+        "repairedFiles": [
+          "App.tsx"
+        ],
+        "remainingReferences": 0,
+        "version": 3
+      }
+    },
+    {
+      "step": "3. folder move preserves nested contents byte-for-byte",
+      "pass": true,
+      "detail": {
+        "movedFiles": 7,
+        "status": "executed",
+        "version": 4
+      }
+    },
+    {
+      "step": "4. batch rename applies kebab-case to every matching file",
+      "pass": true,
+      "detail": {
+        "status": "executed",
+        "affected": [
+          "components/SiteFooter.tsx → components/site-footer.tsx"
+        ],
+        "version": 6
+      }
+    },
+    {
+      "step": "5. create folder (.gitkeep marker) + create file with explicit content",
+      "pass": true,
+      "detail": {
+        "folder": "executed",
+        "file": "executed",
+        "contentChars": 42
+      }
+    },
+    {
+      "step": "6. destructive delete requires confirmation; cancel changes nothing",
+      "pass": true,
+      "detail": {
+        "planFiles": 7,
+        "afterCancelFiles": 25
+      }
+    },
+    {
+      "step": "7. confirmed folder deletion removes exactly the planned files",
+      "pass": true,
+      "detail": {
+        "applied": 7,
+        "version": 9
+      }
+    },
+    {
+      "step": "8. rollback restores the deleted tree as a NEW version; all versions valid",
+      "pass": true,
+      "detail": {
+        "versions": 10,
+        "integrityOk": 10,
+        "rollbackVersion": 10
+      }
+    },
+    {
+      "step": "9. reopen from SQLite + verified ZIP export (secret-free, manifest present)",
+      "pass": true,
+      "detail": {
+        "files": 25,
+        "zipEntries": 27,
+        "zipOk": true,
+        "zipIssues": []
+      }
+    },
+    {
+      "step": "10. no UNINTENDED content changes (only the approved repair touched file contents)",
+      "pass": true,
+      "detail": {
+        "changedContentFiles": [],
+        "approvedRepairTargets": [
+          "App.tsx"
+        ]
+      }
+    },
+    {
+      "step": "M21 fixture regression: project-b-dashboard representative operations",
+      "pass": true,
+      "detail": {
+        "rename components/sidenav.tsx to components/navigation.tsx": "executed",
+        "delete the data folder": "awaiting_confirmation→executed(1)",
+        "versions": 3,
+        "integrityOk": 3
+      }
+    },
+    {
+      "step": "M21 fixture regression: project-c-portfolio representative operations",
+      "pass": true,
+      "detail": {
+        "rename pages/projects.tsx to pages/work.tsx": "executed",
+        "create a folder called assets/icons": "executed",
+        "versions": 3,
+        "integrityOk": 3
+      }
+    },
+    {
+      "step": "M21 fixture files on disk untouched (hash-verified)",
+      "pass": true,
+      "detail": {
+        "checked": 70
+      }
+    },
+    {
+      "step": "verification projects cleaned up (fixtures never persisted in product storage)",
+      "pass": true,
+      "detail": {
+        "remaining": 0
+      }
+    }
+  ]
+}

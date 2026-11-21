@@ -32,6 +32,7 @@ model User {
   laxiiConversations  LaxiiConversation[]
   jazmiiConversations JazmiiConversation[]
   projects            Project[]
+  clientComputeReports ClientComputeReport[]
 }
 
 model Session {
@@ -223,13 +224,80 @@ model CodeProject {
   id        String        @id @default(cuid())
   userId    String
   title     String
+  // ---------------------------------------------------------------------
+  // M22 (2026-11-15) — ADDITIVE project-persistence metadata. Existing
+  // columns/values untouched; every new column is nullable or defaulted so
+  // `prisma db push` is a non-destructive ALTER for existing rows.
+  // ---------------------------------------------------------------------
+  description   String? // user-edited project description (display only)
+  framework     String? // detected/declared framework, e.g. 'react', 'vanilla' (display + export metadata)
+  language      String? // primary language, e.g. 'javascript', 'typescript', 'python'
+  status        String  @default("active") // active | archived (archived projects stay openable, excluded from default lists)
+  lastOpenedAt  DateTime? // set when the owner opens the project (recency metadata)
+  currentVersion Int    @default(0) // seq of the latest persisted version; 0 = no files/snapshots yet
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages  CodeMessage[]
   files     CodeFile[]
+  blobs     CodeBlob[]
+  versions  CodeVersion[]
+  fileOperations CodeFileOperation[]
 
   @@index([userId, updatedAt])
+  @@index([userId, status, updatedAt])
+}
+
+// ----------------------------------------------------------------------
+// M22 PROJECT VERSIONING (2026-11-15) — storage-efficient snapshots.
+//
+// Files are stored once per unique content: CodeBlob rows are deduped by
+// SHA-256 per project, and a CodeVersion maps paths -> blob hashes. A
+// rollback creates a NEW version referencing the old file set (history is
+// never rewritten or deleted). Integrity: contentHash covers the sorted
+// (path, blobHash) pairs so partial/corrupt snapshots are detectable.
+// ----------------------------------------------------------------------
+model CodeBlob {
+  id        String      @id @default(cuid())
+  projectId String
+  hash      String // sha-256 hex of content (per-project dedup key)
+  content   String
+  size      Int
+  createdAt DateTime    @default(now())
+  project   CodeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, hash])
+  @@index([projectId])
+}
+
+model CodeVersion {
+  id               String      @id @default(cuid())
+  projectId        String
+  seq              Int // 1-based, monotonic per project
+  kind             String // initial | turn | manual | rollback | file-save | file-delete
+  summary          String? // short human-readable change summary (what happened, honestly)
+  changedFilesJson String? // JSON [{path, change, added, removed}] vs the previous version (seq 1 lists every file as added — a diff from nothing)
+  contentHash      String // integrity hash over the sorted (path, blobHash) pairs
+  fileCount        Int
+  createdAt        DateTime    @default(now())
+  project          CodeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  files            CodeVersionFile[]
+
+  @@unique([projectId, seq])
+  @@index([projectId, createdAt])
+}
+
+model CodeVersionFile {
+  id           String      @id @default(cuid())
+  versionId    String
+  path         String
+  blobHash     String? // sha-256 of this file's content in THIS version; null never occurs here (deletions are absences)
+  change       String      @default("added") // change vs the PREVIOUS version: added | modified | renamed
+  previousPath String? // set for renamed entries (same blobHash, different path)
+  version      CodeVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, path])
+  @@index([versionId])
 }
 
 model CodeMessage {
@@ -256,6 +324,29 @@ model CodeFile {
 
   @@unique([projectId, path])
   @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// M23 (2026-11-15) — ADDITIVE file-operation ledger. One row per structured
+// operation plan (rename/move/delete/create/batch/repair). Carries the exact
+// plan (planJson) and its integrity hash (planHash) so a confirmation is
+// bound to the plan the user saw; the status lifecycle (awaiting_confirmation
+// → executed | cancelled | failed | stale) makes execution replay-safe.
+// Cascades with the project; no existing table or column is touched.
+// ---------------------------------------------------------------------------
+model CodeFileOperation {
+  id         String      @id @default(cuid())
+  projectId  String
+  kind       String // rename | move | delete | create | batch-move | batch-rename | repair
+  status     String      @default("awaiting_confirmation") // awaiting_confirmation | executed | cancelled | failed | stale
+  planJson   String // the exact structured plan the user was shown
+  planHash   String // sha-256 over the canonical plan JSON — binds the confirmation
+  resultJson String? // truthful execution result (recorded once, replayed verbatim)
+  createdAt  DateTime    @default(now())
+  executedAt DateTime?
+  project    CodeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
 }
 
 // RIISHE user-approved memory (explicit facts the user asked RIISHE to keep;
@@ -448,4 +539,25 @@ model JazmiiMessage {
   conversation   JazmiiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+// CLIENT COMPUTE (2026-11-16) — additive, sanitized capability-report
+// persistence for the shared client-first hybrid compute engine. Rows carry
+// ONLY the sanitized report (booleans, coarse numbers, tier) defined by
+// src/lib/client-compute/telemetry.ts — never vendor/architecture strings,
+// user agents, task payloads or prompt text. Reports are per-user evidence
+// for the existing health/diagnostics systems; a client can never
+// self-attest completion of server-authoritative work.
+model ClientComputeReport {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier        Int
+  conservative Boolean
+  // Full sanitized CapabilityReport (JSON, bounded shape — validated by the
+  // route's zod schema before storage).
+  reportJson  String
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

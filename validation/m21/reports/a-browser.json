@@ -1,0 +1,36 @@
+{
+  "project": "project-a-landing",
+  "url": "http://127.0.0.1:4611/",
+  "h1": "Infrastructure that thinks at the speed of your ideas",
+  "navLinks": 11,
+  "featureCards": 6,
+  "statCounters": 3,
+  "pricingTiers": 3,
+  "faqItems": 5,
+  "footerNavLinks": 6,
+  "vantaCanvas": 1,
+  "scrollYAfterNav": 3776,
+  "hamburgerVisible": true,
+  "mobileMenuOpen": 1,
+  "mobileLinkVisible": true,
+  "horizontalOverflowMobile": false,
+  "mobileNavNavigates": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "reducedMotion": {
+    "vantaCanvasUnderReducedMotion": 0,
+    "contentVisible": true,
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  "webglBlocked": {
+    "fallbackUsed": "static-gradient-fallback",
+    "contentStillLegible": true,
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  "mobile": {
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

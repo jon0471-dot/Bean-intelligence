@@ -26,6 +26,7 @@ import { ArrowRight, Image as ImageIcon, Video, Code2, RefreshCw, Sparkles } fro
 import { beanFetch, GoldBadge, StatusDot, type BeanProductPublic } from './shared'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import { productStatus, type ProductHealthEntry, type ProductStatus } from '@/lib/registry/status'
+import { rateLimitRetryHint, type RetryHintPayload } from '@/lib/registry/retry-hint'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { ViewId } from './shell'
 
@@ -137,6 +138,12 @@ interface HealthData {
       engine?: { embeddedPools: string[]; kind: string }
     }
   >
+  /** SHARED-RATE-LIMIT REPAIR (2026-11-14, defect D3): per-class upstream
+   *  breaker state — the ONLY source of retry timing shown on rate-limited
+   *  badges. Derivation lives in registry/retry-hint.ts (pure, shared with
+   *  tests); values are measured server state, and the hint is omitted
+   *  entirely when no class is cooling (never invented). */
+  gateway?: RetryHintPayload['gateway']
 }
 
 /** Human labels for the measured failure categories (never raw details).
@@ -268,6 +275,10 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
           const checking = refreshing && health !== null
           const latency = probe?.probe?.latencyMs
           const coreFailed = status === 'unavailable'
+          // D3: ONE measured retry hint per payload, shown on rate-limited
+          // badges only (see rateLimitRetryHint — omitted when no breaker is
+          // open, never invented).
+          const retryHint = rateLimitRetryHint(health)
           // GO-LIVE (2026-11-05): the failing-capability line is derived from
           // the measured capability rows ONLY. CONFLATION REMOVAL (2026-11-11):
           // the fallback that fabricated a capability row from the legacy
@@ -320,8 +331,14 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
                     /* FINAL CAPABILITY FIX (2026-11-07): the only problem is
                        upstream throttling (observed 429s / open class
                        breaker). External and transient — its own badge, NOT
-                       red Unavailable and NOT Degraded. */
-                    <GoldBadge tone="gold">Rate limited</GoldBadge>
+                       red Unavailable and NOT Degraded.
+                       SHARED-RATE-LIMIT REPAIR (2026-11-14, D3): the badge
+                       carries the MEASURED retry bound from the payload's
+                       breaker state (omitted when no breaker is open — the
+                       hint is never invented). */
+                    <GoldBadge tone="gold">
+                      Rate limited{retryHint ? ` · ${retryHint}` : ''}
+                    </GoldBadge>
                   ) : status === 'degraded' ? (
                     /* Gold badge, deliberately without a status dot: the existing
                        StatusDot only encodes ok/not-ok (green/red), and a degraded
