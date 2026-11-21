@@ -57,7 +57,7 @@ No push, no fetch (remote-tracking refs untouched), no ref update of any kind.
 
 - Main worktree: clean before this milestone (`git status --porcelain -uall` = 0 lines) and clean after; no stash entries exist.
 - PR4-reconcile worktree: clean (0 lines).
-- Analysis artifacts produced this milestone are deliberately untracked and locally excluded: `scripts/m28slm_inventory.py`, `scripts/m28slm_emit.py`, `scripts/m28slm-out/` (captured evidence JSON), `recovery/m28slm/`.
+- Analysis artifacts produced this milestone are deliberately untracked and locally excluded: `scripts/m28slm_inventory.py`, `scripts/m28slm_emit.py`, `scripts/m28slm_splice.py`, `scripts/m28slm-out/` (captured evidence JSON), `recovery/m28slm/`.
 
 ## 7. Filesystem artifacts at risk of workspace recycling
 
