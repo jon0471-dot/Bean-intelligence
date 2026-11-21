@@ -113,6 +113,10 @@ mock.module('@/lib/intel/grounding', () => ({
   }),
 }))
 mock.module('@/lib/intel/continuity', () => ({
+  // M26.3's watermark-defense export is part of the sanitized image-worker's
+  // import surface; the old-line test predates it. Same mock shape as the
+  // baseline suites (image-cancel-checkpoint / image-throttle-parking).
+  unwantedTextDefects: (defects: string[]) => [],
   verifyGeneratedImage: async () => ({
     checked: false,
     method: 'unavailable',
