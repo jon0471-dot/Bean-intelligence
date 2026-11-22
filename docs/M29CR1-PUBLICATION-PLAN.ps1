@@ -58,27 +58,34 @@ if ($env:M29CR1_GATES_CLOSED -ne "1") {
 }
 
 # ---- local-side checks --------------------------------------------------------
+# FF precondition: parent-1 of the PR #4 reconciliation commit must be the current remote tip.
+$recParents = (git log -1 --format=%P $Pr4ReconciliationSha).Trim() -split "\s+"
+if ($recParents[0] -ne $Pr4BaseOldSha) {
+  throw "FF precondition broken: parent-1 of $Pr4ReconciliationSha is $($recParents[0]), expected $Pr4BaseOldSha. ABORT."
+}
+Write-Host "OK: parent-1 of $Pr4ReconciliationSha is $Pr4BaseOldSha (pure fast-forward — no force needed)."
+
 $tip = (git rev-parse $SanitizedLocalBranch).Trim()
 if ($LASTEXITCODE -ne 0) { throw "local branch $SanitizedLocalBranch not found. ABORT." }
 Write-Host "local integration tip: $tip"
 
-$parents = (git log -1 --format=%P $tip).Trim() -split "\s+"
-if ($parents.Count -lt 1 -or $parents[0] -ne $Pr4ReconciliationSha) {
-  throw "Unexpected history: parent-1 of $tip is $($parents[0]), expected $Pr4ReconciliationSha. ABORT."
-}
-Write-Host "OK: tip descends from the PR #4 reconciliation commit (parent-1 chain intact)."
+Assert-Git @("merge-base", "--is-ancestor", $Pr4ReconciliationSha, $tip)
+Write-Host "OK: tip contains the PR #4 reconciliation commit."
 
 Assert-Git @("merge-base", "--is-ancestor", $AppTreeSha, $tip)
 Write-Host "OK: verified application tree $AppTreeSha contained in tip."
 
-Assert-Git @("merge-base", "--is-ancestor", $Pr4ReconciliationSha, "origin/$Pr4BaseBranch")
-Write-Host "OK: remote $Pr4BaseBranch is still at the pre-publication SHA (FF precondition)."
-
-$mb = (git merge-base $tip "origin/main").Trim()
-if ($mb -ne "cafdb6826da9c4edcd62e2ead15d801869ae9c3a") {
-  throw "LINEAGE GUARD: merge-base(sanitized tip, origin/main) = $mb, expected cafdb68. Old unsanitized history may have leaked. ABORT."
+$localFixTip = (git rev-parse $Pr4BaseBranch).Trim()
+if ($LASTEXITCODE -ne 0 -or $localFixTip -ne $Pr4ReconciliationSha) {
+  throw "Local branch $Pr4BaseBranch = $localFixTip, expected the prepared reconciliation SHA $Pr4ReconciliationSha. ABORT."
 }
-Write-Host "OK: lineage guard — sanitized line meets old main only at the pre-split fork cafdb68."
+Write-Host "OK: local $Pr4BaseBranch is the prepared reconciliation commit (remote equality is asserted by the remote-state gate below)."
+
+$mb = (git merge-base $tip $OldMainSha).Trim()
+if ($mb -ne "cafdb6826da9c4edcd62e2ead15d801869ae9c3a") {
+  throw "LINEAGE GUARD: merge-base(sanitized tip, recorded old-main SHA) = $mb, expected cafdb68. Old unsanitized history may have leaked. ABORT."
+}
+Write-Host "OK: lineage guard — sanitized line meets old main only at the pre-split fork cafdb68 (checked against the recorded SHA, immune to a stale local origin/main)."
 
 # ---- gate 1: remote state matches the recorded pre-publication state ----------
 $expected = @{
