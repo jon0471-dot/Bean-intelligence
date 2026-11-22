@@ -53,8 +53,7 @@ OLD_REFS = [
     'refs/heads/backup/m26-f0b47ad-line', 'refs/heads/backup/m261-local-main-pre-sync',
     'refs/heads/backup/pre-phase0-81caaa3', 'refs/heads/backup/pre-phase1-auto-commit',
     'refs/backup/scratch-bf47b8c',
-    'refs/remotes/origin/main-archive',
-    'refs/remotes/origin/' + ARCHIVE_LJ_REF,
+    'refs/remotes/origin/main',  # stale pre-migration tracking ref (== OLD_MAIN)
 ]
 EVIDENCE = {}
 
