@@ -1,5 +1,7 @@
 # M29-CR — PowerShell-Compatible Publication Plan
 
+> **[M29-CR.1 CORRECTION 2026-11-22]** Superseded by `M29CR1-PUBLICATION-PLAN.ps1` + `M29CR1-PUBLICATION-PLAN.md`. Corrections: backtick-escaped refspec colons replaced with unambiguous double-quoted refspecs; Option B's stale hardcoded `8e5c2ea…` replaced by the live integration tip (at audit time `1465cbb…`); new-branch-absence precondition, local FF/lineage preflight and scripted post-push verification added; the main-replacement command is now explicitly quarantined behind a second acknowledgment gate. The two ordinary pushes themselves are unchanged in intent.
+
 Milestone: **M29-CR** · Date: 2026-11-22 (IST) · Status: **PREPARED — every command below requires the security gates closed and separate owner authorization. Nothing has been executed against the remote.**
 
 Repository: `https://github.com/jon0471-dot/Bean-intelligence.git`
@@ -62,7 +64,7 @@ Effect: PR #4's conflict set (`.gitignore`, `src/components/bean/laxii.tsx`) is 
 ### Step 2 — Publish the sanitized integration line as a NEW remote branch (normal push creating a new ref — no force, no history change)
 
 - Before: `refs/heads/main-sanitized` does not exist remotely.
-- After:  `refs/heads/main-sanitized` = the integration branch tip (verify immediately before publishing with `git rev-parse reconcile/sanitized-m27-m28-migration`; includes the M29 G1–G7 migration, the PR #4 reconciliation, and all M29/M29-CR documentation commits)
+- After:  `refs/heads/main-sanitized` = `1465cbb600775d68ae45e91eab0f2a45f364ca8e` (tip at plan finalization; re-verify with `git rev-parse reconcile/sanitized-m27-m28-migration` immediately before publishing)
 
 ```powershell
 git push origin reconcile/sanitized-m27-m28-migration`:refs/heads/main-sanitized
@@ -81,7 +83,7 @@ Expected after steps 1–2:
 | Ref | Expected SHA |
 |---|---|
 | `refs/heads/fix/laxii-image-output-ux` | `e96d83a5196f45712350aaf41d13a1e5dfcebae7` |
-| `refs/heads/main-sanitized` | the integration tip printed by `git rev-parse reconcile/sanitized-m27-m28-migration` (record concretely in the owner reply / download copy) |
+| `refs/heads/main-sanitized` | `1465cbb600775d68ae45e91eab0f2a45f364ca8e` (verify against `git rev-parse reconcile/sanitized-m27-m28-migration` before publishing) |
 | `refs/heads/feat/m26-2-media-capabilities` | `8f61599271b1aa66e86a2c4956f6dc01eef8b737` (unchanged) |
 | `refs/heads/main` | `91a68090ef72f71f52797bd88f9b83831fbeb997` (unchanged — see Step 4) |
 | `refs/heads/feat/laxii-jazmii-restoration` | `e7d7003f36896b3ceaf07cde74d36275989469c1` (unchanged) |

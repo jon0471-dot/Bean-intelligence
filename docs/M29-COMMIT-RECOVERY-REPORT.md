@@ -1,5 +1,7 @@
 # M29-CR — Complete Commit Recovery & Integration Report
 
+> **[M29-CR.1 CORRECTION 2026-11-22]** This report's §1–§2 arithmetic is superseded: the five owner categories (227+13+158+24+12 = 434) omitted §3 buckets 4–7 (12+1+46+5 = 64), and the "498 = 240 + 258 disjoint" decomposition was wrong (the lineages share a 19-commit pre-split root; the universe has since grown to 500). Corrected arithmetic, the 500-row table and verified integration state: see `M29CR1-COMMIT-ARITHMETIC-REPORT.md` and `M29CR1-COMMIT-RECONCILIATION-TABLE-500.md`. §3–§5 and §7–§8 (row-by-row classifications, verification battery, conflicts, blockers, preservation record) remain valid as re-verified by M29-CR.1.
+
 Milestone: **M29-CR** · Date: 2026-11-22 (IST) · Authorization: owner instruction "Complete Commit Recovery and GitHub Integration" (2026-11-22) · Remote operations: **NONE — publication freeze respected; no push, no merge, no rewrite, no force, no deletion.**
 
 Companion artifacts on this branch: `docs/M29-COMMIT-RECONCILIATION-TABLE.md` (all 258 old-side commits, row by row), `docs/M29-PUBLICATION-PLAN.md` (PowerShell publication plan). Prior verified work reused per instruction: `M28-MIGRATION-MANIFEST.json` (+`migration_results`), `M29-MIGRATION-REPORT.md`, `M29-CONFLICT-RESOLUTION-REPORT.md`.
@@ -9,7 +11,7 @@ Companion artifacts on this branch: `docs/M29-COMMIT-RECONCILIATION-TABLE.md` (a
 | Item | Value |
 |---|---|
 | Integration branch | `reconcile/sanitized-m27-m28-migration` |
-| Final tip | branch tip at read time: `git rev-parse reconcile/sanitized-m27-m28-migration` (authoritative value recorded in the owner reply and the download copy; docs-only commits after the battery: `73a46e1`, `8e5c2ea`, and this commit) |
+| Final tip | branch tip at read time: `git rev-parse reconcile/sanitized-m27-m28-migration` (`1465cbb600775d68ae45e91eab0f2a45f364ca8e` — docs-only commits after the battery (`d2c232a`): `73a46e1`, `8e5c2ea`, `9324e83`, `1465cbb`) |
 | Application-tree SHA (what the test battery verifies; docs-only commits since) | `d2c232a6fa225644e91e967d2148558ba67b9679` |
 | Lineage root | sanitized rewrite baseline `4d134c5794cfe92ff7c8e477f536075e7c8bffb0` (fork point `cafdb68`, shared pre-split root = 10 commits) |
 | Old public history contained in the integration line | **0 commits** — set-level proof re-verified: none of `91a6809`, `a014862`, `ea1e074d`, `6f0a2b0` (nor any of the 258 old-side commits) is an ancestor of `8e5c2ea` |
