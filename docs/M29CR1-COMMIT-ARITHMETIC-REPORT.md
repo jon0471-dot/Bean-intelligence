@@ -64,7 +64,7 @@ No classification in the 258-row reconciliation table was found wrong. One old-o
 
 | Check | Result |
 |---|---|
-| Branch tip | `reconcile/sanitized-m27-m28-migration` = `1465cbb600775d68ae45e91eab0f2a45f364ca8e` |
+| Branch tip | at audit snapshot: `reconcile/sanitized-m27-m28-migration` = `1465cbb600775d68ae45e91eab0f2a45f364ca8e`; this report and the corrected table were then committed locally as `741156c` (docs + audit scripts only). The live tip always re-verifies with `git rev-parse reconcile/sanitized-m27-m28-migration`; the publication script reads it dynamically, so no later docs commit can make the plan stale |
 | Application tree | identical to verified `d2c232a` for all non-`docs/` paths (diff empty outside `docs/`); docs-only commits after the battery: `73a46e1`, `8e5c2ea`, `1465cbb` |
 | G1–G7 functionality | 225/225 manifest file paths present; migration_results groups G1–G7 all "Migrated + verified" with destination commits `953c752`, `75ef989`, `b429132`, `30c14a4`, `b8a4427`, `a0d52b2`, `9303a56` (+ G5 test-surface fix `d2c232a`) |
 | PR #4 reconciliation preserved | `e96d83a` in ancestry; three-way tree integrity over 80 touched paths PASS (M29 evidence, unchanged); lightbox + edit-history both mounted |
@@ -116,4 +116,4 @@ All arithmetic and classifications regenerate from committed scripts:
 - `scripts/m29cr_completeness_sweep.py` — manifest path presence (unchanged, re-run)
 - Machine-readable sets/results: `scripts/m29cr1_sets.json`, `scripts/m29cr1_table_verify.json`
 
-Note: the universe is a live object count. Docs commits added after this snapshot (including this report's own commit) extend the SAN-UNPUBLISHED bucket by one row each; the totals identity (every reachable commit exactly one disposition) always re-verifies with `scripts/m29cr1_set_arithmetic.py` + `scripts/m29cr1_build_table.py`. No application tree change results from any of these commits.
+Note: the universe is a live object count. Docs commits added after this snapshot (including this report's own commit `741156c`) extend the SAN-UNPUBLISHED bucket by one row each — immediately after `741156c` the live universe is 501 = 500 (audit snapshot) + 1 (the audit commit itself). The totals identity (every reachable commit exactly one disposition) always re-verifies with `scripts/m29cr1_set_arithmetic.py` + `scripts/m29cr1_build_table.py`. No application tree change results from any of these commits (`git diff --stat d2c232a <tip> -- . ':(exclude)docs' ':(exclude)scripts'` is empty).
