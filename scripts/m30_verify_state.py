@@ -55,12 +55,17 @@ def counts(a, b):
 def main():
     tip = out('rev-parse', TIP_REF)
     print(f'== LIVE INTEGRATION TIP ==\n  {TIP_REF} = {tip}')
-    app_tree = 'd2c232a78622a81117331892a6180afd976b818f'
+    app_tree = 'd2c232a6fa225644e91e967d2148558ba67b9679'  # M31 fix: prior constant d2c232a7862… was a bad object (never existed); its empty-stdout PASS was vacuous
     # exact app-tree identity check: tip vs verified d2c232a outside docs/audit scripts
-    d = run('diff', '--stat', f'{app_tree}', tip, '--', ':!docs', ':!scripts/m29cr1*',
-            ':!scripts/m29cr_completeness_sweep.py', ':!scripts/m30_verify_state.py').stdout.decode().strip()
-    ok(f'app tree outside docs/ + audit scripts identical to verified {app_tree[:8]} (diff: {d or "empty"})',
-       d == '')
+    p = run('diff', '--stat', f'{app_tree}', tip, '--', ':!docs', ':!scripts/m29cr1*',
+            ':!scripts/m29cr_completeness_sweep.py', ':!scripts/m30_verify_state.py',
+            ':!scripts/m301_verify_state.py', ':!scripts/m31_verify_state.py')
+    if p.returncode != 0:
+        ok(f'app-tree purity diff FAILED to execute: {p.stderr.decode()[:200]}', False)
+    else:
+        d = p.stdout.decode().strip()
+        ok(f'app tree outside docs/ + audit scripts identical to verified {app_tree[:8]} (diff: {d or "empty"})',
+           d == '')
 
     print('\n== 1. MANIFEST PATHS AT LIVE TIP ==')
     mf = run('show', f'{tip}:docs/M28-MIGRATION-MANIFEST.json').stdout.decode()
