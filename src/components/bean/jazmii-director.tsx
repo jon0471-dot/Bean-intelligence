@@ -752,7 +752,7 @@ export function JazmiiDirector({ onOpenTrustTask }: { onOpenTrustTask?: (taskId:
                 <StatusChip status={status} />
                 <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-white/90">{active.production.title}</h2>
                 {active.production.engine ? (
-                  <Badge variant="outline" className="border-white/15 text-[10px] text-white/50">engine: {active.production.engine}</Badge>
+                  <Badge variant="outline" className="border-white/15 text-[10px] text-white/50">{active.production.engine === 'ffmpeg' ? 'local composition engine' : active.production.engine === 'hyperframes' ? 'local render engine' : 'composition engine'}</Badge>
                 ) : null}
                 {ACTIVE_STATUSES.has(status) ? (
                   <Button onClick={() => void cancel(active.production.id)} variant="outline" className="h-7 border-red-400/30 px-2 text-[11px] text-red-300 hover:bg-red-400/10">

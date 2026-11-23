@@ -116,6 +116,60 @@ export function resolveOpenAiCompatibleCredential(): { present: boolean } {
   return { present: typeof k === 'string' && k.trim().length > 0 }
 }
 
+// --------------------------------------------------------------------------
+// Anthropic Messages API slot (M36-A) — same dormant-until-configured policy
+// as the OpenAI-compatible slot: the operator's credential IS the
+// authorization; nothing is purchased or activated automatically.
+// --------------------------------------------------------------------------
+
+export interface AnthropicCredential {
+  present: boolean
+  origin: 'admin-vault' | 'env-configured'
+  baseUrl: string
+  apiKey: string
+  model: string
+  credentialId: string | null
+}
+
+const ANTHROPIC_ENV_SOURCE =
+  'BEAN_PROVIDER_ANTHROPIC_API_KEY (+ optional BEAN_PROVIDER_ANTHROPIC_BASE_URL / BEAN_PROVIDER_ANTHROPIC_MODEL)'
+
+/**
+ * Full runtime material for the Anthropic Messages slot (SERVER ONLY — the
+ * apiKey is meant exclusively for the adapter's x-api-key header; it is never
+ * logged, persisted or included in any client response).
+ * Order: admin vault (encrypted DB credential, providerId 'anthropic') → env.
+ */
+export async function resolveAnthropicRuntimeCredential(): Promise<AnthropicCredential | null> {
+  try {
+    const id = await getActiveCredentialId('anthropic')
+    if (id) {
+      const model = process.env.BEAN_PROVIDER_ANTHROPIC_MODEL?.trim() || 'claude-haiku-4-5'
+      return { present: true, origin: 'admin-vault', baseUrl: '', apiKey: '', model, credentialId: id }
+    }
+  } catch {
+    // Vault unavailable (e.g. tests without the table) — fall through to env.
+  }
+  const envKey = process.env.BEAN_PROVIDER_ANTHROPIC_API_KEY
+  if (typeof envKey === 'string' && envKey.trim().length > 0) {
+    return {
+      present: true,
+      origin: 'env-configured',
+      baseUrl: (process.env.BEAN_PROVIDER_ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com').replace(/\/+$/, ''),
+      apiKey: envKey.trim(),
+      model: process.env.BEAN_PROVIDER_ANTHROPIC_MODEL?.trim() || 'claude-haiku-4-5',
+      credentialId: null,
+    }
+  }
+  return null
+}
+
+/** Sync presence check for the Anthropic ENV source (registry module load). */
+export function resolveAnthropicCredential(): { present: boolean } {
+  const k = process.env.BEAN_PROVIDER_ANTHROPIC_API_KEY
+  return { present: typeof k === 'string' && k.trim().length > 0 }
+}
+
 /** Resolve (never expose) the credential state for a known provider id. */
 export async function resolveProviderCredentials(providerId: string): Promise<CredentialResolution> {
   switch (providerId) {
@@ -170,6 +224,39 @@ export async function resolveProviderCredentials(providerId: string): Promise<Cr
           'Prepared fallback awaiting credentials — an administrator can add an encrypted openai-compatible credential in the gateway console, or set the env vars. Dormant until then; no purchase is made automatically.',
       }
     }
+    case 'anthropic': {
+      try {
+        const id = await getActiveCredentialId('anthropic')
+        if (id) {
+          return {
+            providerId,
+            status: 'admin-vault',
+            present: true,
+            source: 'encrypted provider-credential store (admin gateway console)',
+            detail: 'An administrator configured an active encrypted Anthropic credential — the slot may serve chat when selected by routing.',
+          }
+        }
+      } catch {
+        // Vault table unavailable — env path below decides.
+      }
+      if (resolveAnthropicCredential().present) {
+        return {
+          providerId,
+          status: 'env-configured',
+          present: true,
+          source: ANTHROPIC_ENV_SOURCE,
+          detail: 'Anthropic Messages slot configured via runtime environment by the operator.',
+        }
+      }
+      return {
+        providerId,
+        status: 'not-configured',
+        present: false,
+        source: `admin gateway console | ${ANTHROPIC_ENV_SOURCE}`,
+        detail:
+          'Anthropic Messages slot awaiting credentials — dormant until an administrator adds an encrypted credential or the operator sets the env vars. No purchase is made automatically.',
+      }
+    }
     case 'llamacpp-local': {
       // Local llama.cpp lane: "credentials" = a configured local server + the
       // operator's explicit localhost SSRF opt-in. Values stay unread here.
@@ -201,6 +288,7 @@ export async function resolveProviderCredentials(providerId: string): Promise<Cr
 /** Which provider id serves a given backend id (single source of truth). */
 export function providerIdForBackend(backendId: string): string {
   if (backendId === 'bean-llm-openai-compatible') return 'openai-compatible'
+  if (backendId === 'bean-llm-anthropic') return 'anthropic'
   if (backendId === 'bean-chat-local-llamacpp') return 'llamacpp-local'
   // Every current hosted backend (LLM, image, edit, video, code) rides the
   // platform-managed z-ai gateway.

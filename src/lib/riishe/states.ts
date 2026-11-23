@@ -179,7 +179,24 @@ export function buildVerificationSummary(views: VerificationCheckView[]): Verifi
  * Serialize metadata for Prisma's Json column. JSON round-trip drops
  * `undefined` values and produces a plain JSON object — the cast is the
  * single, audited boundary between the domain type and the DB input type.
+ *
+ * M36-D (identity hygiene, brief §9): the customer-facing payload must not
+ * carry backend/routing identities. The in-memory metadata keeps full
+ * provenance for the Trust Engine's receipt evidence and server-side logs;
+ * the PERSISTED payload (read by the messages API and the browser) drops the
+ * concrete reach backend id per source. Channel + engine remain: they are
+ * BEAN's own retrieval lanes and honest provenance the product advertises.
  */
 export function metadataToJson(m: MessageMetadata): Prisma.InputJsonObject {
-  return JSON.parse(JSON.stringify(m)) as Prisma.InputJsonObject
+  const clone = JSON.parse(JSON.stringify(m)) as Prisma.InputJsonObject
+  const sources = clone.sources
+  if (Array.isArray(sources)) {
+    for (const s of sources) {
+      if (s && typeof s === 'object' && s.reach && typeof s.reach === 'object' && 'backend' in s.reach) {
+        const { backend: _dropped, ...rest } = s.reach as Record<string, unknown>
+        s.reach = rest as Prisma.InputJsonObject
+      }
+    }
+  }
+  return clone
 }

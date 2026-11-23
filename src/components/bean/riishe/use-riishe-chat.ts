@@ -1,5 +1,7 @@
 'use client'
 
+import { CHAT_MODEL_ID } from '@/lib/client-compute/inference/device-capability-manager'
+
 /**
  * RIISHE chat runtime — the state machine behind the conversational UI.
  *
@@ -132,7 +134,7 @@ export function useRiisheChat(refs: RiisheChatRefs) {
   /** Bytes shown in the size-confirmation dialog (null = nothing pending). */
   const [onDeviceNeedsDownload, setOnDeviceNeedsDownload] = useState<number | null>(null)
   const [onDeviceAvailable, setOnDeviceAvailable] = useState(false)
-  const ON_DEVICE_MODEL_ID = 'riishe-chat-webllm-qwen2.5-0.5b'
+  const ON_DEVICE_MODEL_ID = CHAT_MODEL_ID
 
   const nearBottomRef = useRef(true)
   const streamedRef = useRef('')

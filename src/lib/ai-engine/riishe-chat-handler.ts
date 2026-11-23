@@ -189,7 +189,9 @@ export async function handleRiisheChatJob(
   )
 
   const toolContext: ToolContext = {
-    permissions: new Set(['allowCodeExecution']),
+    permissions: new Set(['allowCodeExecution', 'allowImageGeneration', 'allowVideoCreation', 'allowSpeechSynthesis']),
+    // M36-C: background delegation submits jobs under the job's own user.
+    userId: job.userId,
     documents: new Map(
       documents.map((d) => [d.id, { name: d.name, text: d.text, truncated: d.truncated, kind: d.kind, storagePath: d.storagePath }]),
     ),

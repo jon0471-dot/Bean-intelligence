@@ -125,16 +125,31 @@ refusal, so the honest cause surfaces in UI.
 
 ## 7. Model registry and downloads
 
-- Entries are code-defined honest facts; the registry ships with ONE entry
-  (`laxii-bgremoval-modnet`) whose `sizeBytes` is null (unverified until a real HEAD
-  probe), `sha256` is null (⇒ downloads REFUSED until an operator pins the real
-  checksum), `enabled` is false (license gate), and `runtimeAvailable()` is false
-  (no onnxruntime-web dependency in the app).
+- Entries are code-defined honest facts; as of M36 (2026-11-23) the registry
+  ships THREE measured entries, all enabled: `laxii-bgremoval-modnet`
+  (BEAN-managed, pinned SHA-256 `92e49898…`, 6,632,188 bytes — real artifact
+  integrity verified on the deployment host), `riishe-chat-webllm-qwen2.5-0.5b`
+  and `gangzii-asr-browser-whisper-tiny` (runtime-managed: WebLLM /
+  Transformers.js fetch their own caches from revision BEAN pins by commit
+  SHA; `requestDownload` honestly refuses them — `REFUSED_RUNTIME_MANAGED`).
+  Browser runtime dependencies are NESTED (`src/workers/package.json`:
+  `@mlc-ai/web-llm` 0.2.89, `@huggingface/transformers` 4.3.2,
+  `onnxruntime-web` 1.31.1) — deliberately outside the app's own node_modules;
+  bundles build via `scripts/build-workers.mjs` into `public/workers/`.
 - Download flow: enabled gate → runtime gate → EXPLICIT approval gate → trusted-origin
   gate → checksum-metadata gate → storage-quota gate (with ≥100 MB headroom) → streamed
   fetch with progress → SHA-256 verification → Cache Storage install → verified install
   state. A model is "installed" ONLY after checksum pass.
 - Deletion is first-class; eviction simply returns to not-installed (verified on load).
+- M36-D display hygiene: `listPublic()` projects `displayName` /
+  `runtimeLabel` / `licenseName` — customer-safe capability language; the
+  foundation-model identity stays in this source file (attribution record).
+- REAL EXECUTION EVIDENCE (M36-B): the pinned MODNet artifact ran through
+  onnxruntime-node's CPU execution provider on the deployment host (588 ms,
+  512×672 input → 1×1×512×672 matte, values [0, 0.9943], foreground detected)
+  — `scripts/m36-acceptance/cpu-inference.ts`. Real-browser WebGPU execution
+  remains pending operator hardware (no WebGPU in the sandbox — stated, not
+  faked).
 
 ## 8. Resource management
 

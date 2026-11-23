@@ -32,6 +32,7 @@ import {
   localAudioConvertAdapter,
 } from '@/lib/adapters/gangzii-audio'
 import { openAiCompatibleAdapter } from '@/lib/providers/openai-compatible'
+import { anthropicAdapter } from '@/lib/providers/anthropic'
 import { llamaCppAdapter } from '@/lib/providers/llamacpp'
 import { wrapWithProviderFallback } from '@/lib/providers/routing'
 import { assertProviderBudget } from '@/lib/providers/cost-guard'
@@ -56,6 +57,11 @@ const ADAPTERS: Record<string, TaskAdapter> = {
   // credential gate + registry `enabled` keep it unroutable until the
   // operator sets BEAN_PROVIDER_OPENAI_*).
   'bean-llm-openai-compatible': openAiCompatibleAdapter,
+  // M36-A: the operator-configured Anthropic Messages slot. Dormant without
+  // credentials (its own credential gate + registry `enabled` keep it
+  // unroutable until the operator sets BEAN_PROVIDER_ANTHROPIC_*); never
+  // auto-added to a fallback chain — serves only when routing selects it.
+  'bean-llm-anthropic': anthropicAdapter,
   // FREE-FIRST (2026-11-07): the local llama.cpp GGUF lane for chat/coding.
   'bean-chat-local-llamacpp': llamaCppAdapter,
   'bean-image-hosted-primary': hostedImageAdapter,

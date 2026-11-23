@@ -1929,3 +1929,41 @@ Work Log:
 - Verification: full suite 2470 pass / 0 fail / 5 skip (185 files; baseline 2462 + 8; one PRE-EXISTING nondeterministic suite-isolation flake in jazmii-evidence-wiring observed once WITHOUT the fix and absent with it — passes in isolation both ways, recorded not fixed); tsc 159 pre-existing errors byte-identical pristine vs fixed (none in touched files); eslint clean; prisma valid; build success (same 2 pre-existing warnings); secret scan clean.
 - LIVE verification (dev server, real model, disposable account): 6 sequential streamed turns ALL 200 (pre-fix turn 3 guaranteed 429); 4 concurrent turns → exactly 2×200 + 2×429 CONCURRENCY_LIMIT (cap enforced, not relaxed); post-burst turn 200 (capacity fully returned).
 - Report: docs/M35-CONCURRENCY-DIAGNOSTIC-REPORT.md; completion report §12. Branch fix/shared-job-concurrency-slot-leak; normal fast-forward push; no history rewritten.
+
+## 2026-11-23 — M36 RIISHE UNIVERSAL AGENT + MODEL ECOSYSTEM + USER-OWNED COMPUTE (branch feat/m36-riishe-universal-model-compute)
+
+### SESSION-START STATE
+- origin/main verified at 67e209e (M35 merged via PR #12); working branch created from it (FF-push policy).
+- Foundations inspected in full: private backend registry (19), adapters/router/credentials, Trust Engine ledger+approvals, RIISHE orchestrator + tool registry, client-compute (scheduler/engines/model registry/consent), engine catalog, workers + nested runtimes.
+
+### UPSTREAM REVIEW (docs/ai/UPSTREAM-RESEARCH-M36.md)
+- mastra 1.0 / vercel-ai 6-7 / langgraph 1.2.24 / pydantic-ai v2.71.0: REJECTED (second-framework ban; patterns adapted natively).
+- litellm v1.108.15 LTS / bifrost: REJECTED (gateway replacement ban); adapter+discovery patterns adopted.
+- Pinned runtimes verified CURRENT: web-llm 0.2.89, transformers.js 4.3.2, onnxruntime-web 1.31.1, llama.cpp b12198, kokoro-js 1.2.1.
+- diffusers v0.43.0 carried (gated GPU candidate); ComfyUI GPL-3.0 never embedded; docling v2.100.0 selected as future OCR path (not deployed — single-server topology preserved); crawl4ai/browser-use/whisper.cpp/vllm/sglang rejected with reasons.
+
+### IMPLEMENTED
+- M36-A: universal capability records (registry/capability-records.ts — derived from existing registries, nine-state availability, reconciliation drift detection); dedicated Anthropic Messages adapter (providers/anthropic.ts — x-api-key + version header, leading-assistant→system mapping, content_block_delta SSE decode, dedicated breaker class, dormant until credential, never auto-chained); controlled model discovery (providers/model-discovery.ts — credential-gated, cached, honest degradation); backend+engine-catalog+router+credentials wiring.
+- M36-B: worker bundles built from nested pinned deps (webllm 5.9 MB / asr 0.57 MB / segmentation 0.4 MB); REAL WebGPU compute round-trip benchmark (WGSL dispatch + readback + value verification; wrong values fail; tier 4 requires it) merged into runBenchmark(); GPU/CPU engines registered as pagehide cleanup hooks; heavy-model slot reserve-before-load for chat↔ASR; REAL CPU inference acceptance.
+- M36-C: specialist delegation (riishe/specialists.ts — generate_image→LAXII, create_video→JAZMII, synthesize_speech→GANGZII via the EXISTING queue; same preflight gates + dedupe + durable rows + receipts; import-cycle guard via dynamic jobs/queue import); deterministic media planning (narrow creation verbs only); two-key gating (server permission keys AND plan) wired through orchestrator + chat route + background worker; honest queued-job outputs.
+- M36-D: metadataToJson drops reach.backend (receipts keep in-memory provenance); giftz research artifact + model-visible block drop backend (channel only); client model registry customer-safe projection (displayName/runtimeLabel/licenseName); identity strings removed from composer/AI-Device/GANGZII/LAXII/JAZMII/dashboard/RIISHE-tooltip; static scan pins 18 customer components; admin surfaces exempt by design.
+
+### REAL EXECUTION EVIDENCE
+- scripts/m36-acceptance/cpu-inference.ts: pinned MODNet artifact (6,632,188 bytes, sha256 92e49898… EXACT pin match) through onnxruntime-node CPU EP: 588 ms, 1x3x512x672 → 1x1x512x672, matte [0, 0.9943], shape+range+foreground validated — REAL model output.
+- bun run workers:build produced all three browser bundles; production Turbopack build SUCCEEDS.
+- Environmental blockers stated: no WebGPU hardware in sandbox (real-browser GPU run pending operator hardware); browser-runtime model downloads not performed in sandbox tests (product no-auto-download policy; gates covered by the 114-test client-compute suite).
+
+### GATES (actuals)
+- FULL SUITE: 2652 pass / 0 fail / 5 skip across 201 files, 41,501 expects (baseline 2555/0/5 → +97 tests). One new import-cycle TDZ caught by the suite (tools.test.ts) and fixed with a documented dynamic-import guard; pre-existing historical flake (jazmii-evidence-wiring) passed in isolation and final full runs.
+- tsc --noEmit: 160 errors, ALL pre-existing legacy (scripts/, laxii/history.ts Prisma-client drift, 4 legacy test files); ZERO in M36-touched files (verified by file-level sweep).
+- eslint on touched files: clean (2 issues found in the new benchmark and fixed).
+- bunx prisma validate: valid. bun run build: success (public/ort transient build-artifact churn restored to HEAD, excluded from the commit per M35 precedent).
+- Secret scan of the complete diff: clean (only deliberate test fixture key strings).
+
+### PUBLISH
+- M36 commit SHA: 0384ef112abbf79390a91c2cbfe47ecbcac38142 on feat/m36-riishe-universal-model-compute.
+- Push-incident note (honest record): an environment auto-commit (c7300c7, the M35 PR-merge script, authored 05:38 UTC by the container) had landed on LOCAL main and silently moved HEAD off the working branch, so the first push published the branch ref at 67e209e. Diagnosis: rev-parse of the branch ref vs HEAD. Resolution WITHOUT any force-push: the branch ref was moved to the M36 commit (a local ref move of my own unpushed branch), then the remote branch updated 67e209e..0384ef1 as a NORMAL FAST-FORWARD (push output recorded); local main restored to origin/main (67e209e). No shared history rewritten.
+- Remote verification (3 independent methods): git ls-remote = 0384ef112abbf79390a91c2cbfe47ecbcac38142; a FRESH clone from GitHub checked out HEAD = the same SHA; the GitHub commit page https://github.com/jon0471-dot/Bean-intelligence/commit/0384ef112abbf79390a91c2cbfe47ecbcac38142 returns HTTP 200. The GitHub REST API branch check was rate-limited for unauthenticated calls — the git-protocol and clone checks carry the verification.
+- Report: docs/M36-IMPLEMENTATION-REPORT.md (evidence per brief §16).
+
+### Task ID: M36 / Agent / Task / Work Log:

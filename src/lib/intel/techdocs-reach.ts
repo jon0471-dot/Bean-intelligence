@@ -28,10 +28,10 @@ export interface GiftzResearchSource {
   host: string
   url: string
   title: string
-  /** Agent Reach channel ("github") or "gateway" for the base tech-docs lane. */
+  /** Agent Reach channel ("github") or "gateway" for the base tech-docs lane.
+   *  M36-D: the concrete upstream backend id is deliberately NOT persisted on
+   *  the customer-visible artifact — routing diagnostics stay server-side. */
   channel: string
-  /** Concrete upstream backend (e.g. "github-api") — null when unknown. */
-  backend: string | null
   engine: string
 }
 
@@ -82,7 +82,9 @@ export function planGiftzGithubReach(message: string): ReachPlanEntry[] {
 function reachBlockLines(evidence: ReachEvidence[]): string[] {
   return evidence.slice(0, 4).map((e) => {
     const snippet = e.snippet.replace(/\s+/g, ' ').slice(0, 260)
-    return `- [${e.hostName}${e.provenance.backend ? ` via ${e.provenance.backend}` : ''}] ${e.title}${snippet ? ` — ${snippet}` : ''}`
+    // M36-D: cite the CHANNEL only (never the concrete backend id) — the
+    // model relays this block, so routing identities must not enter it.
+    return `- [${e.hostName} via ${e.provenance.channel}] ${e.title}${snippet ? ` — ${snippet}` : ''}`
   })
 }
 
@@ -98,7 +100,7 @@ export async function buildTechDocsWithReach(
   const t0 = Date.now()
   const base = await buildTechDocsContext(message)
   const research: GiftzResearchArtifact = {
-    sources: (base?.sources ?? []).map((s) => ({ host: s.host, url: s.url, title: s.title, channel: 'gateway', backend: null, engine: 'gateway' })),
+    sources: (base?.sources ?? []).map((s) => ({ host: s.host, url: s.url, title: s.title, channel: 'gateway', engine: 'gateway' })),
     degraded: [...(base?.degraded ?? [])],
   }
 
@@ -130,7 +132,6 @@ export async function buildTechDocsWithReach(
       url: e.url,
       title: e.title.slice(0, 120),
       channel: e.provenance.channel,
-      backend: e.provenance.backend,
       engine: e.provenance.engine,
     })),
   ]

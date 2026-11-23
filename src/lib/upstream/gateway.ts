@@ -52,6 +52,7 @@ export type UpstreamEndpointClass =
   | 'functions'
   | 'chat'
   | 'chat-fallback'
+  | 'chat-anthropic'
   | 'chat-llamacpp'
   | 'chat-external'
   | 'images'

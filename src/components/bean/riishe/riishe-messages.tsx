@@ -349,11 +349,13 @@ function AnswerMeta({
                 {s.social ? (
                   <span className="ml-1 text-amber-300/50">· social-media post (unverified provenance)</span>
                 ) : null}
-                {/* ADDITIVE (shared research gateway): honest channel provenance. */}
+                {/* ADDITIVE (shared research gateway): honest channel provenance.
+                    M36-D: the backend id is not part of the customer payload
+                    (server-side routing diagnostics stay server-side). */}
                 {s.reach ? (
                   <span
                     className="ml-1 text-[10px] text-sky-300/60"
-                    title={`Retrieved via the ${s.reach.channel} channel${s.reach.backend ? ` (${s.reach.backend})` : ''} of the BEAN research gateway`}
+                    title={`Retrieved via the ${s.reach.channel} channel of the BEAN research gateway`}
                   >
                     · via {s.reach.channel}
                   </span>

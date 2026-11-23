@@ -14,6 +14,7 @@ import {
   readDocumentTool,
   analyzeImageTool,
 } from './builtin'
+import { generateImageTool, createVideoTool, synthesizeSpeechTool } from '../specialists'
 
 let registered = false
 
@@ -25,5 +26,10 @@ export function registerBuiltins(): void {
   registerTool(runCodeTool)
   registerTool(readDocumentTool)
   registerTool(analyzeImageTool)
+  // M36-C — specialist delegation tools (LAXII / JAZMII / GANGZII via the
+  // existing durable job queue; explicit-permission gated, plan-narrowed).
+  registerTool(generateImageTool)
+  registerTool(createVideoTool)
+  registerTool(synthesizeSpeechTool)
   registered = true
 }

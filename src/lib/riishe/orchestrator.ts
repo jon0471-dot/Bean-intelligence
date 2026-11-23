@@ -192,6 +192,11 @@ export function selectTools(args: {
    *  read_url in the loop even after a successful pipeline pack, so the
    *  report is genuinely multi-source rather than pipeline-only. */
   deepResearch?: boolean
+  /** M36-C — specialist delegation grants (permission key AND capability
+   *  plan must both agree; the orchestrator computes the AND before calling). */
+  allowImageGeneration?: boolean
+  allowVideoCreation?: boolean
+  allowSpeechSynthesis?: boolean
 }): string[] {
   const tools = new Set<string>()
   const { searchNeeded, task, hasDocuments, allowCodeExecution, researchFailed, hasImageDocuments, deepResearch } = args
@@ -205,6 +210,12 @@ export function selectTools(args: {
   if (allowCodeExecution && (task === 'math' || task === 'coding' || task === 'document')) {
     tools.add('run_code')
   }
+  // M36-C — specialist delegation: the tool enters the model's universe ONLY
+  // when the user actually requested that medium this turn (plan) and the
+  // server-side permission key is present (route authority).
+  if (args.allowImageGeneration) tools.add('generate_image')
+  if (args.allowVideoCreation) tools.add('create_video')
+  if (args.allowSpeechSynthesis) tools.add('synthesize_speech')
   return [...tools]
 }
 
@@ -474,6 +485,15 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const capabilityPlan = planCapabilities(userMessage, profile.task, documents.length > 0, documents.map((d) => d.kind ?? ''))
   const allowCodeExecution =
     input.toolContext?.permissions.has('allowCodeExecution') === true && capabilityPlan.codeExecution
+  // M36-C — specialist delegation gating (same two-key pattern as code
+  // execution): server-side permission key + per-turn capability plan must
+  // BOTH agree before a delegation tool enters the model's universe.
+  const allowImageGeneration =
+    input.toolContext?.permissions.has('allowImageGeneration') === true && capabilityPlan.imageGeneration
+  const allowVideoCreation =
+    input.toolContext?.permissions.has('allowVideoCreation') === true && capabilityPlan.videoCreation
+  const allowSpeechSynthesis =
+    input.toolContext?.permissions.has('allowSpeechSynthesis') === true && capabilityPlan.speechSynthesis
 
   // ---- Retrieve -------------------------------------------------------------
   let pack: EvidencePack | null = null
@@ -502,6 +522,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     researchFailed: searchNeeded && (pack?.sources.length ?? 0) === 0,
     hasImageDocuments: capabilityPlan.imageAnalysis && documents.some((d) => d.kind === 'image'),
     deepResearch: deepResearchMode,
+    allowImageGeneration,
+    allowVideoCreation,
+    allowSpeechSynthesis,
   })
   const finalToolsActive = finalToolNames.length > 0 && input.toolContext != null
   // Recompute buffering now that the tool plan is known: without an echo

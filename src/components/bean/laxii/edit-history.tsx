@@ -115,7 +115,7 @@ export function EditHistoryPanel({ assetId, onRestored }: { assetId: string | nu
                 <div className="min-w-0">
                   <div className="truncate text-[11px] text-white/80">
                     {opsSummary(entry)}
-                    <span className="ml-1.5 text-white/35">· {entry.engine}</span>
+                    <span className="ml-1.5 text-white/35">· {entry.engine === 'sharp' ? 'local deterministic engine' : entry.engine === 'lama' ? 'local repair engine' : entry.engine === 'hosted' ? 'hosted engine' : 'local engine'}</span>
                   </div>
                   <div className="text-[10px] text-white/35">
                     {timeAgo(entry.createdAt)}

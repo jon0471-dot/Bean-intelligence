@@ -265,11 +265,15 @@ export async function POST(request: Request) {
     }
 
     const toolContext: ToolContext = {
-      // The permission key is the SERVER-side authority (no client toggle);
-      // the orchestrator's capability planner narrows it per turn (explicit
-      // execution requests, simulations, heavy computation) before any
-      // run_code call reaches the registry's permission gate.
-      permissions: new Set(['allowCodeExecution']),
+      // The permission keys are the SERVER-side authority (no client toggle);
+      // the orchestrator's capability planner narrows them per turn (explicit
+      // execution/media-creation requests) before any gated tool call reaches
+      // the registry's permission gate. Code execution additionally runs the
+      // restricted sandbox; specialist delegation submits durable jobs through
+      // the SAME preflight gates as the product routes.
+      permissions: new Set(['allowCodeExecution', 'allowImageGeneration', 'allowVideoCreation', 'allowSpeechSynthesis']),
+      // M36-C: specialist delegation submits jobs under THIS user only.
+      userId: user.id,
       documents: new Map(
         documents.map((d) => [d.id, { name: d.name, text: d.text, truncated: d.truncated, kind: d.kind, storagePath: d.storagePath }]),
       ),

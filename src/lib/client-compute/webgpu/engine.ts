@@ -40,11 +40,19 @@ export interface StructGPUBuffer {
   destroy?: () => void
   size?: number
   mapState?: string
+  mapAsync?: (mode: number) => Promise<void>
+  unmap?: () => void
+  getMappedRange?: () => ArrayBuffer
 }
 
 export interface StructGPUDeviceLostInfo {
   reason?: string
   message?: string
+}
+
+export interface StructGPUBindingGroupLayout {
+  /** Structural placeholder — the browser's real layout object satisfies it. */
+  __brand?: 'gpu-binding-group-layout'
 }
 
 export interface StructGPUDevice {
@@ -55,6 +63,18 @@ export interface StructGPUDevice {
   createBuffer?: (descriptor: { size: number; usage: number; mappedAtCreation?: boolean }) => StructGPUBuffer
   pushErrorScope?: (filter: string) => void
   popErrorScope?: () => Promise<unknown>
+  // Benchmark surface (M36-B): the browser's real device satisfies these
+  // structurally; fakes may omit them (the benchmark then reports honestly).
+  createShaderModule?: (descriptor: { code: string }) => unknown
+  createComputePipeline?: (descriptor: {
+    compute: { module: unknown; entryPoint: string }
+  }) => unknown
+  createBindGroup?: (descriptor: { layout: unknown; entries: Array<{ binding: number; resource: { buffer: StructGPUBuffer } }> }) => unknown
+  createCommandEncoder?: () => {
+    copyBufferToBuffer: (source: StructGPUBuffer, sourceOffset: number, destination: StructGPUBuffer, destinationOffset: number, size: number) => void
+    finish: () => unknown
+  }
+  queue?: { submit: (commandBuffers: unknown[]) => void }
 }
 
 export interface StructGPU {
@@ -287,6 +307,120 @@ export class WebGpuEngine {
   /** Count of currently tracked (not yet destroyed) buffers — diagnostics. */
   trackedBufferCount(): number {
     return this.trackedBuffers.size
+  }
+
+  /**
+   * M36-B — REAL WebGPU compute round-trip benchmark (tier 4 evidence).
+   *
+   * Dispatches a trivial WGSL compute kernel (double 64 f32 values), copies
+   * the results back to a MAP_READ buffer and VERIFIES the expected numbers.
+   * This is a genuine device→GPU→device round trip: a device that cannot
+   * dispatch compute or returns wrong values reports gpuComputeOk=false —
+   * never an assumed pass. Strictly time-bounded; all buffers destroyed on
+   * every path.
+   */
+  async runComputeBenchmark(
+    options: { timeoutMs?: number } = {},
+  ): Promise<{ ok: boolean; durationMs: number; reason: string | null }> {
+    const started = this.now()
+    const fail = (reason: string) => ({ ok: false, durationMs: this.now() - started, reason })
+    const ensured = await this.ensureDevice()
+    if (!ensured.ok) return fail(ensured.reason)
+    const device = ensured.device
+    if (
+      typeof device.createShaderModule !== 'function' ||
+      typeof device.createComputePipeline !== 'function' ||
+      typeof device.createCommandEncoder !== 'function' ||
+      typeof device.createBindGroup !== 'function' ||
+      !device.queue
+    ) {
+      return fail('The available GPU device does not expose the compute surface needed for the benchmark.')
+    }
+    try {
+      const N = 64
+      const f32 = new Float32Array(N)
+      for (let i = 0; i < N; i++) f32[i] = i + 1
+      const storage = device.createBuffer!({
+        size: f32.byteLength,
+        usage: BUFFER_USAGE.STORAGE | BUFFER_USAGE.COPY_SRC | BUFFER_USAGE.COPY_DST,
+        mappedAtCreation: true,
+      })
+      const readBack = device.createBuffer!({
+        size: f32.byteLength,
+        usage: BUFFER_USAGE.COPY_DST | BUFFER_USAGE.MAP_READ,
+      })
+      this.trackedBuffers.add(storage)
+      this.trackedBuffers.add(readBack)
+      try {
+        // mappedAtCreation buffers are write-mapped NOW (no mapAsync yet).
+        new Float32Array(storage.getMappedRange?.() ?? new ArrayBuffer(f32.byteLength)).set(f32)
+        storage.unmap?.()
+
+        const shaderModule = device.createShaderModule({
+          code: `
+            @group(0) @binding(0) var<storage, read_write> data: array<f32>;
+            @compute @workgroup_size(1)
+            fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+              data[gid.x] = data[gid.x] * 2.0;
+            }
+          `,
+        })
+        const pipeline = device.createComputePipeline({ compute: { module: shaderModule, entryPoint: 'main' } }) as {
+          getBindGroupLayout?: (index: number) => unknown
+        }
+        const bindGroup = device.createBindGroup({
+          layout: pipeline.getBindGroupLayout?.(0) ?? {},
+          entries: [{ binding: 0, resource: { buffer: storage } }],
+        })
+        const encoder = device.createCommandEncoder()
+        const pass = (encoder as unknown as {
+          beginComputePass: () => {
+            setPipeline: (p: unknown) => void
+            setBindGroup: (index: number, group: unknown) => void
+            dispatchWorkgroups: (count: number) => void
+            end: () => void
+          }
+        }).beginComputePass()
+        pass.setPipeline(pipeline)
+        pass.setBindGroup(0, bindGroup)
+        pass.dispatchWorkgroups(N)
+        pass.end()
+        encoder.copyBufferToBuffer(storage, 0, readBack, 0, f32.byteLength)
+        device.queue.submit([encoder.finish()])
+
+        const timeoutMs = options.timeoutMs ?? 5_000
+        await Promise.race([
+          readBack.mapAsync?.(0x0001) ?? Promise.resolve(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('GPU benchmark readback timed out')), timeoutMs),
+          ),
+        ])
+        const out = new Float32Array(readBack.getMappedRange?.() ?? new ArrayBuffer(f32.byteLength))
+        readBack.unmap?.()
+        let allCorrect = out.length === N
+        for (let i = 0; i < N && allCorrect; i++) {
+          if (out[i] !== f32[i] * 2) allCorrect = false
+        }
+        return allCorrect
+          ? { ok: true, durationMs: this.now() - started, reason: null }
+          : fail('The GPU round-trip completed but returned incorrect values — compute is not reliable.')
+      } finally {
+        try {
+          storage.destroy?.()
+        } catch {
+          /* not actionable */
+        }
+        try {
+          readBack.destroy?.()
+        } catch {
+          /* not actionable */
+        }
+        this.trackedBuffers.delete(storage)
+        this.trackedBuffers.delete(readBack)
+      }
+    } catch (error) {
+      return fail(`GPU compute benchmark failed: ${describeError(error)}`)
+    }
   }
 }
 
