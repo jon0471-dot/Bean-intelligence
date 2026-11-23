@@ -76,8 +76,11 @@ export async function beanFetch<T>(
         code: 'INTERNAL_ERROR',
         message: `Request failed (${res.status})`,
       }
-      const e = new Error(err.message) as Error & { code?: string }
+      const e = new Error(err.message) as Error & { code?: string; detail?: string }
       e.code = err.code
+      // M33: carry the optional conflict-detail payload (e.g. the memory
+      // API's 409 reconciliation data) so callers can reconcile honestly.
+      if (err.detail) e.detail = err.detail
       throw e
     }
     return data as T

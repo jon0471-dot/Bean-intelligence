@@ -108,6 +108,184 @@ export function isDuplicateMemory(candidate: string, existing: ReadonlyArray<str
   return existing.some((e) => memoryKey(e) === key)
 }
 
+// ---------------------------------------------------------------------------
+// M33 FEATURE B — potential memory conflict detection (deterministic, scoped)
+// ---------------------------------------------------------------------------
+
+/**
+ * Explainable-recall selection policy label. TRUTHFUL BY CONSTRUCTION: the
+ * current selection is the most-recently-created memories within a hard
+ * bound — there is NO semantic relevance ranking, and every customer-facing
+ * explanation must say exactly that (M33 honesty contract).
+ */
+export const MEMORY_SELECTION_POLICY = 'recent-first-bounded' as const
+
+export const MEMORY_POLICY_DESCRIPTION =
+  'Selected as your most recently created memories, in that order, up to the per-turn bound ' +
+  `(${MEMORY_LIMITS.injectionCount} entries, each clipped to ${MEMORY_LIMITS.injectionChars} characters). ` +
+  'RIISHE does not rank memories by relevance — recency is the only selection criterion.'
+
+/** Normalized form used by conflict matching (case/whitespace/punctuation edges). */
+function conflictNormalized(content: string): string {
+  return content
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.!?。！？]+$/, '')
+    .trim()
+}
+
+/**
+ * One scoped topic template for the assignment shape ("my timezone is IST").
+ * The subject phrase before the copula is the topic; the tail is the value.
+ * Deliberately bounded: `my/our` + a short noun phrase + a copula — free-form
+ * sentences that do not match stay unmatched (insufficient evidence, no claim).
+ */
+const ASSIGNMENT_TEMPLATE = /^(?:my|our)\s+([a-z0-9][a-z0-9\s'\-]{1,60}?)\s+(?:is|are|was|were|will be|should be|must be)\s+(.+)$/i
+/** Preference shape ("I prefer concise answers"): verb + value. */
+const PREFERENCE_TEMPLATE = /^i\s+(prefer|like|want|favor)\s+(.+)$/i
+
+interface MemoryFrame {
+  /** Normalized topic key — identical keys + differing values = candidate. */
+  topicKey: string
+  /** Normalized value tail for this topic. */
+  value: string
+}
+
+/**
+ * Extract (topic, value) from ONE memory using the scoped templates.
+ * Returns null when the content matches no template — an unparseable memory
+ * never participates in a conflict claim (conservative by design).
+ */
+function memoryFrame(content: string): MemoryFrame | null {
+  const text = conflictNormalized(content)
+  if (text.length < 3) return null
+  const assignment = text.match(ASSIGNMENT_TEMPLATE)
+  if (assignment) {
+    const subject = assignment[1].replace(/\s+/g, ' ').trim()
+    const value = assignment[2].replace(/\s+/g, ' ').trim()
+    if (subject.length < 2 || value.length < 1) return null
+    return { topicKey: `my ${subject}`, value }
+  }
+  const preference = text.match(PREFERENCE_TEMPLATE)
+  if (preference) {
+    const verb = preference[1].toLowerCase()
+    const value = preference[2].replace(/\s+/g, ' ').trim()
+    // The value's head noun (its last word) scopes the preference topic —
+    // "I prefer concise answers" and "I prefer detailed answers" share the
+    // topic `i prefer·answers`, while "I prefer tea" is a different topic.
+    const words = value.split(' ')
+    const head = words[words.length - 1].replace(/[^a-z0-9'-]/g, '')
+    if (head.length < 2) return null
+    return { topicKey: `i ${verb}·${head}`, value }
+  }
+  return null
+}
+
+export interface ExistingMemoryRef {
+  id: string
+  content: string
+}
+
+export interface PotentialMemoryConflict {
+  /** The existing memory that the candidate may collide with. */
+  id: string
+  /** The existing memory's content (shown to its owner only). */
+  content: string
+  /** The deterministic topic key that matched. */
+  topicKey: string
+  /** 'likely' = same topic, clearly different values. 'ambiguous' = same
+   *  topic but the values overlap (possible refinement, not a replacement). */
+  confidence: 'likely' | 'ambiguous'
+}
+
+/**
+ * Detect LIKELY same-topic/different-value memory conflicts for a candidate
+ * against the user's existing memories. Deterministic and conservative:
+ *   - exact duplicates (normalized equal) are NOT conflicts — callers refuse
+ *     those earlier with the existing duplicate detection;
+ *   - both sides must parse into the same scoped topic template — memories
+ *     that match no template never produce a claim (no evidence, no claim);
+ *   - values that merely extend each other are reported as 'ambiguous'
+ *     (a refinement like "Sunday 02:00 UTC" over "Sunday"), not 'likely'.
+ * This function NEVER mutates anything and its output is a WARNING for the
+ * user to decide on — replacement only ever happens after an explicit,
+ * re-verified user choice (see the memory API's decision flow).
+ */
+export function detectPotentialMemoryConflicts(
+  candidate: string,
+  existing: ReadonlyArray<ExistingMemoryRef>,
+): PotentialMemoryConflict[] {
+  const frame = memoryFrame(candidate)
+  if (!frame) return []
+  const normalizedCandidate = conflictNormalized(candidate)
+  const candidates: PotentialMemoryConflict[] = []
+  for (const row of existing) {
+    const normalizedRow = conflictNormalized(row.content)
+    if (normalizedRow === normalizedCandidate) continue // exact duplicate, not a conflict
+    const rowFrame = memoryFrame(row.content)
+    if (!rowFrame || rowFrame.topicKey !== frame.topicKey) continue
+    const a = frame.value
+    const b = rowFrame.value
+    if (a === b) continue // same topic, same value → duplicate-shaped, not a conflict
+    // Value overlap (one contains the other word-wise) = possible refinement.
+    const shorter = a.split(' ').length <= b.split(' ').length ? a : b
+    const longer = shorter === a ? b : a
+    const ambiguous = a.includes(b) || b.includes(a) || longer.includes(shorter)
+    candidates.push({ id: row.id, content: row.content, topicKey: frame.topicKey, confidence: ambiguous ? 'ambiguous' : 'likely' })
+  }
+  // Most severe first, then oldest context first for stable display.
+  return candidates.sort((x, y) => (x.confidence === y.confidence ? 0 : x.confidence === 'likely' ? -1 : 1))
+}
+
+// ---------------------------------------------------------------------------
+// M33 FEATURE C — explainable memory recall (truthful composition)
+// ---------------------------------------------------------------------------
+
+/** Customer-facing record describing WHICH memories entered a turn's context. */
+export interface MemoryContextView {
+  /** IDs of the memory entries actually injected into the model context. */
+  includedMemoryIds: string[]
+  /** Actual number of entries injected (after bounds and clipping). */
+  injectedCount: number
+  /** How many memories the user had stored at selection time. */
+  totalMemoriesAtSelection: number
+  /** ISO-8601 timestamp of when the selection happened. */
+  selectedAt: string
+  /** Machine-readable policy label ('recent-first-bounded'). */
+  policy: typeof MEMORY_SELECTION_POLICY
+  /** Truthful policy description — never claims semantic relevance ranking. */
+  policyDescription: string
+}
+
+/**
+ * Compose the memory-context explanation from ACTUAL selection inputs.
+ * Everything here is measured from the real injection path: the IDs are the
+ * records that reached `buildMemoryBlock`, the count is the number of
+ * non-empty clipped entries actually injected, and the policy text states the
+ * recent-first/bounded truth (NEVER semantic ranking). Returns undefined only
+ * when the caller had no memory selection at all (e.g. legacy test inputs) —
+ * an empty store composes an honest "nothing was included" record.
+ */
+export function composeMemoryContextView(input: {
+  records: ReadonlyArray<{ id: string; content: string }>
+  totalMemoriesAtSelection: number
+  selectedAt: string
+}): MemoryContextView {
+  const usable = input.records
+    .slice(0, MEMORY_LIMITS.injectionCount)
+    .map((r) => r.content.replace(/\s+/g, ' ').trim().slice(0, MEMORY_LIMITS.injectionChars))
+    .filter((m) => m.length > 0)
+  return {
+    includedMemoryIds: input.records.slice(0, MEMORY_LIMITS.injectionCount).map((r) => r.id),
+    injectedCount: usable.length,
+    totalMemoriesAtSelection: Math.max(input.totalMemoriesAtSelection, input.records.length),
+    selectedAt: input.selectedAt,
+    policy: MEMORY_SELECTION_POLICY,
+    policyDescription: MEMORY_POLICY_DESCRIPTION,
+  }
+}
+
 /**
  * Prompt-injection block for stored memories. Bounded (count and size), and
  * framed as user-approved context — the model is told these are facts the
@@ -140,6 +318,29 @@ export function saveConfirmation(content: string, sensitiveLabel: string | null)
   }
   return `Saved to memory: “${content}”. I'll recall this in our future conversations. ` +
     `You can remove it anytime — just say “forget ${content.length > 40 ? `${content.slice(0, 40)}…` : content}” or “forget everything”.`
+}
+
+/**
+ * M33: save receipt with an honest POTENTIAL-CONFLICT note. The save itself
+ * proceeds (keeping both is the safe default in chat — nothing is ever
+ * replaced automatically); the receipt surfaces the bounded existing
+ * memories the deterministic detector flagged so the user can act: keep
+ * both (nothing to do), or replace via the memory manager / "forget …".
+ * At most two candidates are quoted, each clipped — the user's own memory
+ * content in their own chat receipt, never in logs or metadata.
+ */
+export function saveConfirmationWithConflicts(
+  content: string,
+  conflicts: ReadonlyArray<{ content: string; confidence: 'likely' | 'ambiguous' }>,
+): string {
+  const base = saveConfirmation(content, null)
+  if (conflicts.length === 0) return base
+  const quoted = conflicts.slice(0, 2).map((c) => `“${c.content.length > 80 ? `${c.content.slice(0, 80)}…` : c.content}”`)
+  return (
+    `${base}\n\nOne note: this may overlap with what I already keep — ` +
+    `${quoted.join(' and ')} ${conflicts.length === 1 ? 'looks like it covers the same detail' : 'look like they cover the same detail'}. ` +
+    `I kept both. To replace the old one instead, say “forget <the old item>” or manage your memories in Settings → Memory.`
+  )
 }
 
 export function forgetConfirmation(removed: number, target: string, all: boolean): string {

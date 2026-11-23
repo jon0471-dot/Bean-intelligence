@@ -8,6 +8,9 @@
  *   - the sensitive-data guard (never silently store secrets)
  *   - de-duplication + injection bounds (count and per-item size)
  *   - system-authored receipt wording stays honest (refusals are refusals)
+ *   - M33: deterministic POTENTIAL-conflict detection (scoped templates,
+ *     false-positive guards, ambiguous-vs-likely) and the conflict-aware
+ *     save receipt; explainable-recall composition (truthful policy).
  */
 import { describe, test, expect } from 'bun:test'
 import {
@@ -17,9 +20,14 @@ import {
   memoryKey,
   buildMemoryBlock,
   saveConfirmation,
+  saveConfirmationWithConflicts,
   forgetConfirmation,
   listConfirmation,
+  detectPotentialMemoryConflicts,
+  composeMemoryContextView,
   MEMORY_LIMITS,
+  MEMORY_SELECTION_POLICY,
+  MEMORY_POLICY_DESCRIPTION,
 } from '../../src/lib/riishe/memory'
 
 describe('memory command detection', () => {
@@ -115,5 +123,129 @@ describe('honest receipts', () => {
   test('list receipts admit an empty memory plainly', () => {
     expect(listConfirmation([])).toContain('keep nothing')
     expect(listConfirmation(['a'])).toContain('(1):')
+  })
+})
+
+describe('M33 potential-conflict detection (deterministic, conservative)', () => {
+  const row = (id: string, content: string) => ({ id, content })
+
+  test('clear same-topic different-value conflicts are detected as likely', () => {
+    const conflicts = detectPotentialMemoryConflicts('my timezone is UTC', [row('m1', 'My timezone is IST.')])
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].id).toBe('m1')
+    expect(conflicts[0].confidence).toBe('likely')
+    expect(conflicts[0].topicKey).toContain('timezone')
+  })
+
+  test('deployment-window conflict (spec example)', () => {
+    const conflicts = detectPotentialMemoryConflicts('my deployment window is Wednesday', [
+      row('m2', 'My deployment window is Sunday'),
+    ])
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].confidence).toBe('likely')
+  })
+
+  test('preference conflict with same head noun (spec example)', () => {
+    const conflicts = detectPotentialMemoryConflicts('I prefer detailed answers', [
+      row('m3', 'I prefer concise answers.'),
+    ])
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].confidence).toBe('likely')
+  })
+
+  test('different topics never conflict (false-positive guards)', () => {
+    expect(detectPotentialMemoryConflicts('my timezone is UTC', [row('m4', 'I prefer concise answers')])).toEqual([])
+    expect(detectPotentialMemoryConflicts('my timezone is UTC', [row('m5', 'My name is Priya')])).toEqual([])
+    // Same preference verb, different head noun → different topic.
+    expect(detectPotentialMemoryConflicts('I prefer tea', [row('m6', 'I prefer concise answers')])).toEqual([])
+    // Unparseable memories produce no claims at all.
+    expect(detectPotentialMemoryConflicts('I like long walks on the beach', [row('m7', 'call me at 5pm')])).toEqual([])
+  })
+
+  test('exact duplicates are NOT conflicts', () => {
+    expect(detectPotentialMemoryConflicts('My  timezone  is IST.', [row('m8', 'my timezone is IST')])).toEqual([])
+  })
+
+  test('value refinements are flagged ambiguous, not likely', () => {
+    const conflicts = detectPotentialMemoryConflicts('my deployment window is Sunday 02:00 UTC', [
+      row('m9', 'my deployment window is sunday'),
+    ])
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].confidence).toBe('ambiguous')
+  })
+
+  test('conflicts against several rows surface each candidate with its id', () => {
+    const conflicts = detectPotentialMemoryConflicts('my timezone is UTC', [
+      row('a', 'my timezone is IST'),
+      row('b', 'my timezone is PST'),
+      row('c', 'my name is Sam'),
+    ])
+    expect(conflicts.map((c) => c.id).sort()).toEqual(['a', 'b'])
+  })
+
+  test('the detector never mutates or claims certainty it lacks', () => {
+    // Output is a plain candidate list — the caller decides; nothing here
+    // can replace or delete anything (pure function over read-only input).
+    const existing = [row('a', 'my timezone is IST')]
+    const snapshot = JSON.stringify(existing)
+    detectPotentialMemoryConflicts('my timezone is UTC', existing)
+    expect(JSON.stringify(existing)).toBe(snapshot)
+  })
+})
+
+describe('M33 conflict-aware save receipt', () => {
+  test('no conflicts → identical to the plain save receipt', () => {
+    expect(saveConfirmationWithConflicts('my timezone is IST', [])).toBe(saveConfirmation('my timezone is IST', null))
+  })
+
+  test('conflicts are surfaced with keep-both honesty and a path to replace', () => {
+    const receipt = saveConfirmationWithConflicts('my timezone is UTC', [
+      { content: 'My timezone is IST', confidence: 'likely' },
+    ])
+    expect(receipt).toContain('Saved to memory')
+    expect(receipt).toContain('My timezone is IST')
+    expect(receipt).toContain('I kept both')
+    expect(receipt).toContain('forget')
+  })
+})
+
+describe('M33 explainable recall composition (truthful policy)', () => {
+  test('records the exact included IDs and the real injected count', () => {
+    const view = composeMemoryContextView({
+      records: [
+        { id: 'r1', content: 'my timezone is IST' },
+        { id: 'r2', content: 'I prefer concise answers' },
+      ],
+      totalMemoriesAtSelection: 5,
+      selectedAt: '2026-11-23T10:00:00.000Z',
+    })
+    expect(view.includedMemoryIds).toEqual(['r1', 'r2'])
+    expect(view.injectedCount).toBe(2)
+    expect(view.totalMemoriesAtSelection).toBe(5)
+    expect(view.selectedAt).toBe('2026-11-23T10:00:00.000Z')
+    expect(view.policy).toBe(MEMORY_SELECTION_POLICY)
+  })
+
+  test('bounded: more records than the per-turn cap are cut to the bound', () => {
+    const records = Array.from({ length: 20 }, (_, i) => ({ id: `m${i}`, content: `fact ${i}` }))
+    const view = composeMemoryContextView({ records, totalMemoriesAtSelection: 20, selectedAt: '2026-11-23T10:00:00.000Z' })
+    expect(view.includedMemoryIds).toHaveLength(MEMORY_LIMITS.injectionCount)
+    expect(view.injectedCount).toBe(MEMORY_LIMITS.injectionCount)
+    expect(view.includedMemoryIds[0]).toBe('m0') // most recent first, order preserved
+  })
+
+  test('empty store composes an honest nothing-included record', () => {
+    const view = composeMemoryContextView({ records: [], totalMemoriesAtSelection: 0, selectedAt: '2026-11-23T10:00:00.000Z' })
+    expect(view.includedMemoryIds).toEqual([])
+    expect(view.injectedCount).toBe(0)
+    expect(view.totalMemoriesAtSelection).toBe(0)
+  })
+
+  test('the policy description NEVER claims semantic relevance ranking', () => {
+    const lower = MEMORY_POLICY_DESCRIPTION.toLowerCase()
+    expect(lower).toContain('recent')
+    expect(lower).not.toContain('relevant')
+    expect(lower).not.toContain('relevance ranking was applied')
+    expect(MEMORY_POLICY_DESCRIPTION).toContain('recency is the only selection criterion')
   })
 })

@@ -23,6 +23,8 @@ export interface MemoryRow {
   id: string
   content: string
   createdAt: Date
+  /** Present on rows fetched without an explicit select (schema @updatedAt). */
+  updatedAt?: Date
 }
 
 export interface MemoryDelegate {
@@ -30,11 +32,29 @@ export interface MemoryDelegate {
     where: { userId: string }
     orderBy?: { createdAt: 'desc' }
     take?: number
-    select?: { content?: true; id?: true; createdAt?: true }
+    select?: { content?: true; id?: true; createdAt?: true; updatedAt?: true }
   }): Promise<MemoryRow[]>
   count(args: { where: { userId: string } }): Promise<number>
   create(args: { data: { userId: string; content: string } }): Promise<MemoryRow>
-  deleteMany(args: { where: { userId: string; id?: { in: string[] } } }): Promise<{ count: number }>
+  /**
+   * Owner-scoped delete. M33: `id` may be a single id or an `{in: [...]}`
+   * list, and `updatedAt` may further constrain the mutation to the exact
+   * version the user confirmed (the replace flow's safe conditional
+   * mutation) — a non-matching version removes nothing.
+   */
+  deleteMany(args: {
+    where: { userId: string; id?: string | { in: string[] }; updatedAt?: Date }
+  }): Promise<{ count: number }>
+  /** M33: first owner-scoped row (PATCH/replace ownership re-checks). */
+  findFirst(args: { where: { userId: string; id?: string } }): Promise<MemoryRow | null>
+  /**
+   * M33: conditional mutation — the WHERE can constrain BOTH ownership
+   * (userId) and the observed version (updatedAt), so an edit/replace only
+   * lands when nothing moved since the user's screen loaded. Returns the
+   * number of rows actually changed (0 = not found OR concurrently changed;
+   * callers re-fetch to distinguish those two honestly).
+   */
+  updateMany(args: { where: { userId: string; id: string; updatedAt?: Date }; data: { content: string } }): Promise<{ count: number }>
 }
 
 /** Null when the running Prisma client predates the RiisheMemory model. */

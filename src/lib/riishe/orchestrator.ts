@@ -36,7 +36,7 @@ import { detectSensitiveCase } from '@/lib/research/sensitive'
 import { classifyTask, assertCapability, CHAT_BACKEND_CAPABILITIES, type TaskProfile } from './classify'
 import { classifyTaskDetailed } from './classify'
 import { planCapabilities } from './capability-plan'
-import { buildMemoryBlock } from './memory'
+import { buildMemoryBlock, composeMemoryContextView } from './memory'
 import { BeanApiError } from '@/lib/api/errors'
 import { buildSystemPrompt, buildUserTurn } from './prompts'
 import { parseSelfCheck, verifyComputations, type ComputationCheck } from '@/lib/verify/exprcheck'
@@ -103,8 +103,24 @@ export interface OrchestrationInput {
   /** Condensed digest of turns that fell out of the history window. */
   digest?: string | null
   /** User-approved memory facts (most recent first; already owner-isolated
-   *  and sensitive-filtered by the route). Injected as bounded context. */
+   *  and sensitive-filtered by the route). Injected as bounded context.
+   *  LEGACY shape (content strings only); superseded by `memoryRecords` —
+   *  kept so existing callers/tests keep working unchanged. */
   memories?: ReadonlyArray<string>
+  /**
+   * M33 EXPLAINABLE RECALL (additive): the owner-scoped memory records that
+   * were SELECTED for this turn (id + content, most-recent-first, already
+   * bounded by the route). Supersedes `memories` when present: these records
+   * drive the injection AND the `memoryContext` metadata record, whose IDs
+   * let the UI explain exactly which entries entered the context. Passing
+   * `memoryRecords` (even empty) always composes an honest memoryContext;
+   * passing only the legacy `memories` strings does not (no IDs to report).
+   */
+  memoryRecords?: ReadonlyArray<{ id: string; content: string }>
+  /** M33: how many memories the user had stored when the selection ran
+   *  (the route's count at fetch time) — lets the explanation state the
+   *  bounded-selection truth ("N most recent of your M memories"). */
+  memoryTotalCount?: number
   /** ADDITIVE (shared research gateway): authenticated user id. Forwarded to
    *  the research pipeline so the Agent Reach lane can run rate-limited and
    *  audited. Optional; absent in tests (lane stays off). */
@@ -497,6 +513,12 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   // microseconds) so non-English turns get the same-language answering rules
   // even when all retrieved evidence is English.
   const langProfile = detectLanguage(userMessage)
+  // M33: memory records (id + content) supersede the legacy string list;
+  // injection content and the explainable-recall metadata come from the
+  // SAME records so the explanation can never drift from what was injected.
+  const memoryContents = input.memoryRecords
+    ? input.memoryRecords.map((r) => r.content)
+    : (input.memories ?? [])
   const systemPrompt =
     buildSystemPrompt(
       {
@@ -521,7 +543,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         toolNames: finalToolsActive ? finalToolNames : undefined,
       },
       finalToolsActive ? describeTools(finalToolNames) : undefined,
-    ) + buildMemoryBlock(input.memories ?? [])
+    ) + buildMemoryBlock(memoryContents)
   let userTurn = buildUserTurn(userMessage, {
     evidenceBlock: evidenceBlock ? evidenceBlock : null,
     task: profile.task,
@@ -1357,6 +1379,21 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       ? { toolRuns: toolExecutions.map((e) => ({ tool: e.tool, ok: e.ok, durationMs: e.durationMs })) }
       : {}),
     ...(input.digest ? { digestUsed: true } : {}),
+    // M33 EXPLAINABLE RECALL: when the caller supplied the selected memory
+    // records, compose the truthful memory-context explanation from the SAME
+    // records that fed the injection above — the IDs in metadata are exactly
+    // the entries in the prompt, the count is the real injected count, and
+    // the policy text states the recent-first/bounded truth (never semantic
+    // ranking). No memory CONTENT enters metadata — IDs only.
+    ...(input.memoryRecords
+      ? {
+          memoryContext: composeMemoryContextView({
+            records: input.memoryRecords,
+            totalMemoriesAtSelection: input.memoryTotalCount ?? input.memoryRecords.length,
+            selectedAt: new Date().toISOString(),
+          }),
+        }
+      : {}),
     // "last checked" time: recorded whenever retrieval was ATTEMPTED (pipeline
     // or a model-requested web tool), so time-sensitive answers carry a real
     // check timestamp. RETRIEVED-AT HONESTY FIX (2026-11-11): when the

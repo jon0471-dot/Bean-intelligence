@@ -59,7 +59,7 @@ interface RiisheResultLike {
 
 interface MemoryOutcomeLike {
   content?: string
-  meta?: { memoryAction?: { action?: string; count?: number; refused?: boolean } | null }
+  meta?: { memoryAction?: { action?: string; count?: number; refused?: boolean; conflictCount?: number } | null }
 }
 
 const SOURCE_EVIDENCE_CAP = 16
@@ -300,9 +300,16 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
       const action = memoryOutcome.meta?.memoryAction
       const actionLabel = action?.action ?? 'memory command'
       const count = typeof action?.count === 'number' ? action.count : null
+      // M33: potential conflicts presented with a save are part of the
+      // truthful receipt — the detector warned the user and NOTHING was
+      // replaced automatically.
+      const conflictNote =
+        typeof action?.conflictCount === 'number' && action.conflictCount > 0
+          ? `, ${action.conflictCount} potential conflict(s) presented (nothing was replaced automatically)`
+          : ''
       const verification = `Memory command executed against the memory store (${actionLabel}${
         count !== null ? `, ${count} item(s)` : ''
-      }); the confirmation shown to you reflects the real database write.`
+      }${conflictNote}); the confirmation shown to you reflects the real database write.`
       const verificationSummary = verification.slice(0, TRUST_LIMITS.summaryField)
       if (action?.refused) {
         await finalizeTrustTask(taskId, {

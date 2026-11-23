@@ -15,9 +15,11 @@ import {
   detectMemoryCommand,
   sensitiveMemoryReason,
   saveConfirmation,
+  saveConfirmationWithConflicts,
   forgetConfirmation,
   listConfirmation,
   isDuplicateMemory,
+  detectPotentialMemoryConflicts,
   MEMORY_LIMITS,
 } from './memory'
 import { getMemoryDelegate, MEMORY_INITIALIZING_NOTE } from './memory-db'
@@ -60,19 +62,29 @@ export async function performMemoryCommandIfPresent(
       content = saveConfirmation(command.content, sensitive)
       meta.memoryAction = { action: 'save', refused: true }
     } else {
-      const existing = await memory.findMany({ where: { userId }, select: { content: true } })
+      const existing = await memory.findMany({ where: { userId }, select: { content: true, id: true } })
       if (isDuplicateMemory(command.content, existing.map((r) => r.content))) {
         content = `That is already in memory: “${command.content}”. Nothing new was stored.`
         meta.memoryAction = { action: 'save', count: 0 }
       } else {
+        // M33 FEATURE B: deterministic POTENTIAL-conflict detection. The save
+        // still proceeds — keeping both is the safe default in chat and
+        // nothing is ever replaced without an explicit user decision — but
+        // the receipt names the bounded candidates and metadata records the
+        // count so the Trust receipt stays truthful.
+        const conflicts = detectPotentialMemoryConflicts(command.content, existing)
         const count = await memory.count({ where: { userId } })
         if (count >= MEMORY_LIMITS.maxPerUser) {
           content = `Your memory is full (${MEMORY_LIMITS.maxPerUser} items). Say “forget everything” or remove a few items before adding more.`
           meta.memoryAction = { action: 'save', count: 0, refused: true }
         } else {
           await memory.create({ data: { userId, content: command.content } })
-          content = saveConfirmation(command.content, null)
-          meta.memoryAction = { action: 'save', count: 1 }
+          content = saveConfirmationWithConflicts(command.content, conflicts)
+          meta.memoryAction = {
+            action: 'save',
+            count: 1,
+            ...(conflicts.length > 0 ? { conflictCount: conflicts.length } : {}),
+          }
         }
       }
     }
