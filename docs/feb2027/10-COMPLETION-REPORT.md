@@ -206,3 +206,55 @@ complete**: model transparency in UI and task-progress + receipt display in
 chat remain open (03 §2). Launch criteria (08) remain unmeasured. The
 ₹0/month budget constraint is unchanged — no new services, providers or
 infrastructure were introduced.
+
+# 12. M35 — Shared job concurrency diagnostic (2026-11-23 session)
+
+## 12.1 Diagnosed
+
+Reported error "You already have the maximum number of concurrent jobs for
+this product. Wait for one to finish." — thrown ONLY by the router's
+per-user in-flight counter (`src/lib/router/router.ts` `acquireSlot`).
+Root cause found and verified: the M26 G-4 SSE ownership handoff in
+`src/app/api/riishe/chat/route.ts` set the SHARED release-once flag
+(`slotReleased = true`) at response-return time, which poisoned the guard —
+the stream lifecycle's own `finally` then no-opped, so **every streamed
+(`?stream=1`) RIISHE turn leaked one in-flight slot** against backend
+`bean-llm-hosted-primary` (per-user cap 2): the SECOND streamed turn locked
+the account out with CONCURRENCY_LIMIT until process restart. Completed,
+failed, timeout-classified AND cancelled streams all leaked. The
+non-streaming JSON path was always correct, which hid the defect.
+
+Evidence: committed dig-*.sse artifacts (26-turn sequential run — dig-15…
+dig-26 ALL the reported error after dig-14's INTERNAL_ERROR), git history
+(`254fde6`), and a deterministic unit reproduction (RED: 3 pass / 5 fail
+pre-fix). DB-side background queue audited healthy (lease recovery,
+dedupe, per-user ACTIVE caps) — no DB job rows participate in this gate.
+
+## 12.2 Fixed
+
+`src/app/api/riishe/chat/route.ts` only (+24/−5): dedicated `sseHandoff`
+ownership flag; the outer `finally` defers via `if (!sseHandoff) releaseOnce()`;
+`slotReleased` is set exclusively by `releaseOnce()`. Exactly-once release on
+every path. NO limit values, isolation semantics, queue fairness, timeout
+handling, Trust receipts, APIs, UI or schema touched.
+
+## 12.3 Verification (all fresh, 2026-11-23)
+
+| Check | Result |
+|---|---|
+| New regression tests | `tests/unit/riishe-chat-slot-release.test.ts` — 8 tests: completed / failed / timed-out / cancelled releases, disconnect does not permanently consume, concurrent burst ≤ cap then full release, JSON path regression, product+user isolation (real preflight) — **8 pass / 0 fail** post-fix (pre-fix RED 3/5 reproduced) |
+| `bun test --isolate tests/` | **2470 pass / 0 fail / 5 skip** (185 files; baseline 2462 + 8; no regressions) |
+| `npx tsc --noEmit` | 159 pre-existing errors in untouched legacy scripts/tests — byte-identical count pristine vs fixed; zero in touched files |
+| eslint on touched files | clean |
+| `bunx prisma validate` | valid |
+| `bun run build` | success (same 2 pre-existing warnings as M33, untouched files) |
+| Secret scan of diff | clean |
+| Live (dev server, real model, disposable account) | 6 sequential streamed turns ALL 200 (pre-fix turn 3 guaranteed 429); 4 concurrent turns → exactly 2×200 + 2×429 CONCURRENCY_LIMIT (cap still enforced); post-burst turn 200 (capacity fully returned) |
+
+One earlier full-suite run showed a single PRE-EXISTING nondeterministic
+suite-isolation flake (`tests/unit/jazmii-evidence-wiring.test.ts` "mixed
+history…"): passes in isolation with and without the fix; failed one
+full-suite run WITHOUT the fix; passed the final full-suite run WITH it.
+Recorded honestly; not modified (out of scope for a targeted fix).
+
+Full detail: `docs/M35-CONCURRENCY-DIAGNOSTIC-REPORT.md`.

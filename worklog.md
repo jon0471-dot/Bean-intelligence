@@ -1913,3 +1913,19 @@ REAL E2E EVIDENCE: smoke script (real WAV pcm_s16le/24k/mono/8.225s, RTF 1.30 @ 
 GATES (actuals): bun test --isolate tests/ = **2359 pass / 0 fail / 176 files / 40,326 expects** (M26 F-G1 regression updated to the new truth: gangzii tasks WIRED, genuinely unwired tasks still settle NO_BACKEND); tsc 0 errors in src/; eslint clean on touched files; prisma valid + db pushed + client regenerated; secret scan clean on all 40 changed tracked files; production build compiles (BEAN_BUILD_NO_STANDALONE=1; pre-existing Edge-runtime instrumentation warning unchanged).
 
 COMMIT: single coherent commit on feat/gangzii-audio-production (base e983c41) — publication freeze respected, nothing pushed, no history rewritten; remaining limitations recorded in docs/M27-RESULTS.md §14.
+
+---
+Task ID: M35
+Agent: main (Z.ai)
+Task: Shared job concurrency diagnostic — "You already have the maximum number of concurrent jobs for this product."
+
+Work Log:
+- Located the error's single runtime source: router per-user in-flight counter (src/lib/router/router.ts acquireSlot, CONCURRENCY_LIMIT). In-memory map keyed per backend; no DB rows involved for interactive chat.
+- Audited all 10 requested areas: router counters vs durable generationJob queue; RIISHE/CODE GIFTZ/JAZMII/LAXII/GANGZII release patterns; stale RUNNING/PENDING/QUEUED handling (lease-based recoverStaleJobs healthy); timeout/cancel/failure paths; disconnect containment; duplicate guards; product/user isolation (per-backend counters — no cross-product sharing); DB↔in-memory architecture.
+- Historical live evidence: committed dig-*.sse artifacts (26-turn sequential streamed run) — dig-1..13 streamed, dig-14 INTERNAL_ERROR (pre-M26 unguarded-await leak), dig-15..26 ALL the exact reported error.
+- ROOT CAUSE (code + deterministic repro): M26 G-4 (254fde6) SSE ownership handoff set the SHARED release-once flag (slotReleased = true) at response-return time, poisoning releaseOnce — the stream lifecycle's own finally no-opped, so EVERY streamed RIISHE turn leaked one slot on bean-llm-hosted-primary (per-user cap 2 → second streamed turn locks the account out until restart). JSON path was always correct, hiding the defect.
+- FIX (single file, +24/−5): dedicated sseHandoff ownership flag; outer finally defers via if (!sseHandoff) releaseOnce(); slotReleased set exclusively by releaseOnce(). Exactly-once release on every path. No limits, isolation, fairness, timeouts, receipts, APIs, UI or schema touched; nothing deleted or reset.
+- Regression tests (tests/unit/riishe-chat-slot-release.test.ts, 8): completed/failed/timed-out/cancelled streamed turns release; reader.cancel() disconnect does not permanently consume; 5-concurrent burst admits ≤2 (cap holds) then releases everything; JSON path completed+failed regression; real-preflight product+user isolation. RED pre-fix (3 pass/5 fail) → GREEN post-fix (8/8).
+- Verification: full suite 2470 pass / 0 fail / 5 skip (185 files; baseline 2462 + 8; one PRE-EXISTING nondeterministic suite-isolation flake in jazmii-evidence-wiring observed once WITHOUT the fix and absent with it — passes in isolation both ways, recorded not fixed); tsc 159 pre-existing errors byte-identical pristine vs fixed (none in touched files); eslint clean; prisma valid; build success (same 2 pre-existing warnings); secret scan clean.
+- LIVE verification (dev server, real model, disposable account): 6 sequential streamed turns ALL 200 (pre-fix turn 3 guaranteed 429); 4 concurrent turns → exactly 2×200 + 2×429 CONCURRENCY_LIMIT (cap enforced, not relaxed); post-burst turn 200 (capacity fully returned).
+- Report: docs/M35-CONCURRENCY-DIAGNOSTIC-REPORT.md; completion report §12. Branch fix/shared-job-concurrency-slot-leak; normal fast-forward push; no history rewritten.
