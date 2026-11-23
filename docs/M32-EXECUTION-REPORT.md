@@ -102,3 +102,12 @@ No PR was merged into sanitized `main` as a merge object; no PR was closed to co
 - **Vercel:** confirm in the Vercel dashboard that no project is (or is intended to be) connected to this repository; if one exists, point its production branch at `main` (which is now the sanitized line).
 
 The conservative defaults (D2 G9 WIP private, D3 G10 forensics private, D4 backup refs retained, D7 superseded PRs closed only after canonical publication) were respected: D4's backup refs remain; D7 was executed in the authorized form above.
+
+## 9. Post-publication addendum — PRs #8/#9 drift (same session)
+
+At 2026-11-22T07:37:41Z and 07:38:16Z — after every M32 operation had completed and been verified — two new open PRs appeared under the owner account with empty bodies, both proposing exactly what the migration forbids (importing old-lineage history into sanitized `main`):
+
+- **PR #8** `main-archive` (`91a6809…`) → `main`
+- **PR #9** `archive/feat-laxii-jazmii-restoration-pre-m32` (`e7d7003…`) → `main`
+
+They were **not merged**. Both were closed unmerged with explanatory comments documenting what the archive branches are, why merging them is forbidden by the migration contract, and that the refs remain in place at their exact original SHAs (nothing deleted). `ls-remote` re-verified both archive SHAs immediately after closure. No other ref moved; the three target branches and `main` were untouched by this event. The closure tooling is committed here as `scripts/m32_drift_pr89.py` alongside this addendum, keeping the published record complete: at this addendum's publication, `main`, the three feature branches, and both archive refs hold exactly the SHAs recorded in sections 4–7, and zero pull requests are open.
