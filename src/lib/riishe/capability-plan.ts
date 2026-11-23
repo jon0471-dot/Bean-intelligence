@@ -24,6 +24,16 @@ export interface CapabilityPlan {
    *  user attached it, so re-consulting its pixels needs no extra consent;
    *  the grant still flows through the explicit permission-key registry). */
   imageAnalysis: boolean
+  /**
+   * M36-C — delegate image creation to the LAXII specialist this turn
+   * (deterministic detection of an actual creation request; NOT triggered
+   * by questions ABOUT images or by attached images).
+   */
+  imageGeneration: boolean
+  /** Delegate text-to-video creation to the JAZMII specialist this turn. */
+  videoCreation: boolean
+  /** Delegate speech synthesis to the GANGZII specialist this turn. */
+  speechSynthesis: boolean
   /** Human-readable reasons (logged; safe for support). */
   reasons: string[]
 }
@@ -38,6 +48,19 @@ const CODE_ARTIFACT_RE =
 /** Genuinely-computational shapes: the sandbox adds real value here. */
 const HEAVY_COMPUTE_RE =
   /\b(factorial|permutation|combination|matrix|modular|exponent|fibonacci|prime|hash|monte\s+carlo|big\s+number|\d{3,}\s*[*/^]\s*\d{3,})|\b\d+\s*!\s*(mod|%|\+|-|<|>|=|$)/i
+
+/**
+ * M36-C — media-creation request shapes. Deliberately NARROW: they must
+ * carry an explicit creation verb AND a concrete artifact noun. Questions
+ * ("how do I draw…"), opinions ("is this image good…") and analysis requests
+ * never match, so the model cannot submit surprise generation jobs.
+ */
+const IMAGE_CREATE_RE =
+  /\b(create|generate|draw|make|design|produce|render)\b[^.?!;]{0,80}\b(image|picture|photo|illustration|artwork|logo|icon|drawing|painting|poster|wallpaper)\b/i
+const VIDEO_CREATE_RE =
+  /\b(create|generate|make|produce|render)\b[^.?!;]{0,80}\b(video|clip|animation|short film|footage)\b/i
+const SPEECH_CREATE_RE =
+  /\b(read|speak|say|narrate|voice|pronounce|turn)\b[^.?!;]{0,60}\b(aloud|out loud|into speech|into audio|into a voice|this text)\b/i
 
 export function planCapabilities(
   message: string,
@@ -68,5 +91,22 @@ export function planCapabilities(
   if (hasImage) reasons.push('image attachment: analyze_image vision re-consultation activated')
   if (hasDocuments) reasons.push('attachments present: document/image tools activated from file kinds')
 
-  return { codeExecution, imageAnalysis: hasImage, reasons }
+  // M36-C — media delegation planning (deterministic, plan-narrowed).
+  let imageGeneration = false
+  let videoCreation = false
+  let speechSynthesis = false
+  if (IMAGE_CREATE_RE.test(text)) {
+    imageGeneration = true
+    reasons.push('image creation requested explicitly: delegate to the image specialist')
+  }
+  if (VIDEO_CREATE_RE.test(text)) {
+    videoCreation = true
+    reasons.push('video creation requested explicitly: delegate to the video specialist')
+  }
+  if (SPEECH_CREATE_RE.test(text)) {
+    speechSynthesis = true
+    reasons.push('speech synthesis requested explicitly: delegate to the audio specialist')
+  }
+
+  return { codeExecution, imageAnalysis: hasImage, imageGeneration, videoCreation, speechSynthesis, reasons }
 }

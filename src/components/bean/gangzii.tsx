@@ -1636,7 +1636,7 @@ export function Gangzii() {
                   <span className="text-[10px] text-white/35">
                     {localAsrMode && localAsrReady
                       ? 'Your microphone audio never leaves this browser.'
-                      : 'Whisper-tiny (~43.6 MB) downloads once into this browser after confirmation.'}
+                      : 'The compact on-device transcription model (~43.6 MB) downloads once into this browser after confirmation.'}
                   </span>
                 </div>
                 {localAsrNeedsDownload !== null ? (
@@ -1644,7 +1644,7 @@ export function Gangzii() {
                     <div className="mb-1 font-semibold text-[#f0c75e]">Download the on-device transcription model?</div>
                     <p>
                       Approx. size: <span className="text-[#f0c75e]">{(localAsrNeedsDownload / (1024 * 1024)).toFixed(1)} MB</span>{' '}
-                      (Whisper-tiny, Apache-2.0). Runs entirely in this browser; the recording is never uploaded in this mode.
+                      (compact model, Apache-2.0 license). Runs entirely in this browser; the recording is never uploaded in this mode.
                     </p>
                     <div className="mt-2 flex gap-2">
                       <button

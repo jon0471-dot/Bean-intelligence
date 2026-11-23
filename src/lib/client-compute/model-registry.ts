@@ -116,6 +116,44 @@ export type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promis
  * the corresponding dependency is actually added to the app. */
 const runtimeProviders = new Map<ClientModelRuntime, () => boolean>()
 
+// ---------------------------------------------------------------------------
+// M36-D — customer-safe display mapping (identity hygiene, brief §9).
+// The internal ids/runtimes stay the routing truth; these labels are what the
+// customer UI renders. Backend/runtime package names never appear here.
+// ---------------------------------------------------------------------------
+
+const CLIENT_MODEL_DISPLAY_NAMES: Record<string, string> = {
+  'riishe-chat-webllm-qwen2.5-0.5b': 'On-device chat model',
+  'gangzii-asr-browser-whisper-tiny': 'On-device speech transcription model',
+  'laxii-bgremoval-modnet': 'On-device background removal model',
+}
+
+/** Exported for customer UI surfaces (M36-D): the customer-safe capability
+ *  name for a client model id — never a foundation model name. */
+export function clientModelDisplayName(id: string): string {
+  return CLIENT_MODEL_DISPLAY_NAMES[id] ?? 'On-device AI model'
+}
+
+const CLIENT_RUNTIME_LABELS: Record<ClientModelRuntime, string> = {
+  'web-llm': 'Browser GPU runtime',
+  'transformers.js': 'Browser ML runtime',
+  'onnxruntime-web': 'Browser inference runtime',
+  'wasm-binary': 'Browser WASM runtime',
+  custom: 'Browser runtime',
+}
+
+function clientRuntimeLabel(runtime: ClientModelRuntime): string {
+  return CLIENT_RUNTIME_LABELS[runtime] ?? 'Browser runtime'
+}
+
+/** Extract the bare license name (e.g. 'Apache-2.0') for customer display.
+ *  Full attribution (model family, build provenance) stays in this registry
+ *  source — the legal record — not in the customer UI. */
+function licenseDisplayName(license: string): string {
+  const match = /^(Apache-2\.0|MIT|BSD-\d-Clause|CC-BY[^ ;(]*|OpenRAIL[^ ;(]*|LGPL[^ ;(]*|GPL[^ ;(]*)/.exec(license.trim())
+  return match ? match[1] : license.split('(')[0].trim().slice(0, 40)
+}
+
 /** Register a runtime availability probe. Only the real runtime integration
  * (when it exists) should call this — there is deliberately no default. */
 export function registerModelRuntime(runtime: ClientModelRuntime, isAvailable: () => boolean): void {
@@ -164,9 +202,9 @@ export const CLIENT_MODEL_REGISTRY: ClientModelEntry[] = [
     downloadPath: 'runtime-managed-cache',
     supportedTasks: ['chat.on-device'],
     limitations: [
-      'WebGPU required (q4f16 weights) — no CPU/WASM fallback for this quantization; the server path is the honest fallback.',
+      'Requires a GPU on this device (WebGPU) — no CPU fallback for this quantization; the server path is the honest fallback.',
       'Small on-device model: quality is far below the server-hosted chat model; retrieval, tools, memory and citations are NOT part of the on-device lane.',
-      'Weights download once into the browser cache (WebLLM-managed) after explicit user approval; the pinned upstream revision is 32ff081f….',
+      'Weights download once into the browser cache after explicit user approval, from the pinned upstream revision.',
     ],
     enabled: true,
   },
@@ -192,8 +230,8 @@ export const CLIENT_MODEL_REGISTRY: ClientModelEntry[] = [
     downloadPath: 'runtime-managed-cache',
     supportedTasks: ['audio.transcription.on-device'],
     limitations: [
-      'Tiny multilingual Whisper: accuracy is far below the server ASR; long recordings are chunked at 30s.',
-      'Weights download once into the Transformers.js browser cache after explicit user approval; pinned revision 5332fcc3….',
+      'Compact transcription model: accuracy is far below the server transcription lane; long recordings are chunked at 30s.',
+      'Weights download once into the browser cache after explicit user approval, from the pinned upstream revision.',
       'Audio never leaves the device — this lane exists for privacy, not for peak accuracy.',
     ],
     enabled: true,
@@ -220,8 +258,8 @@ export const CLIENT_MODEL_REGISTRY: ClientModelEntry[] = [
     supportedTasks: ['image.segmentation'],
     limitations: [
       'Requires an explicit user-approved download before first use (size shown before approval).',
-      'Background removal via segmentation is a different algorithm than the LAXII server pipeline; results will differ.',
-      'Runs through onnxruntime-web (WASM SIMD, WebGPU EP attempted first); the artifact must match the pinned SHA-256 or it is refused.',
+      'On-device background removal is a different algorithm than the server image pipeline; results will differ.',
+      'Runs in the browser (WASM SIMD, GPU attempted first); the artifact must match its pinned SHA-256 or it is refused.',
     ],
     enabled: true,
   },
@@ -283,17 +321,27 @@ export class ModelRegistry {
     return CLIENT_MODEL_REGISTRY.find((m) => m.id === id)
   }
 
-  /** Public metadata view (status surfaces) — honest, no fabricated sizes. */
+  /** Public metadata view (status surfaces) — honest, no fabricated sizes.
+   *  M36-D: the projection also carries CUSTOMER-SAFE display fields —
+   *  `displayName` (capability-level product language, never a foundation
+   *  model name), `runtimeLabel` (runtime CATEGORY, never a package name)
+   *  and `licenseName` (the SPDX license required by the download-consent
+   *  disclosure). Full attribution identity stays in this source file (legal
+   *  attribution record) and in operator diagnostics; it does not render in
+   *  the customer UI. */
   listPublic(): Array<{
     id: string
+    displayName: string
     version: string
     runtime: ClientModelRuntime
+    runtimeLabel: string
     runtimeAvailable: boolean
     gpuCompatible: boolean
     cpuCompatible: boolean
     sizeBytes: number | null
     sizeUnverified: boolean
     license: string
+    licenseName: string
     revision: string | null
     integrity: ClientModelIntegrity
     downloadPath: ClientModelDownloadPath
@@ -303,14 +351,17 @@ export class ModelRegistry {
   }> {
     return CLIENT_MODEL_REGISTRY.map((m) => ({
       id: m.id,
+      displayName: clientModelDisplayName(m.id),
       version: m.version,
       runtime: m.runtime,
+      runtimeLabel: clientRuntimeLabel(m.runtime),
       runtimeAvailable: m.runtimeAvailable(),
       gpuCompatible: m.gpuCompatible,
       cpuCompatible: m.cpuCompatible,
       sizeBytes: m.sizeBytes,
       sizeUnverified: m.sizeUnverified,
       license: m.license,
+      licenseName: licenseDisplayName(m.license),
       revision: m.revision,
       integrity: m.integrity,
       downloadPath: m.downloadPath,

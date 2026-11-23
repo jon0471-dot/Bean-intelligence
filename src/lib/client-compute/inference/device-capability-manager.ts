@@ -112,13 +112,19 @@ export interface DeviceAiStatus {
   capabilities: AiCapabilityView[]
   models: Array<{
     id: string
+    /** M36-D: customer-safe capability name (never a foundation model name). */
+    displayName: string
     runtime: string
+    /** M36-D: runtime category label (never a runtime package name). */
+    runtimeLabel: string
     runtimeAvailable: boolean
     gpuCompatible: boolean
     cpuCompatible: boolean
     sizeBytes: number | null
     sizeUnverified: boolean
     license: string
+    /** M36-D: bare license name for the consent disclosure. */
+    licenseName: string
     revision: string | null
     integrity: string
     downloadPath: string
@@ -137,8 +143,11 @@ export interface SelectionDecision {
   reasons: string[]
 }
 
-const CHAT_MODEL_ID = 'riishe-chat-webllm-qwen2.5-0.5b'
-const ASR_MODEL_ID = 'gangzii-asr-browser-whisper-tiny'
+/** M36-D: exported model ids (registry keys — internal routing truth, never
+ *  rendered identity). Customer UI imports these instead of re-declaring the
+ *  literal strings. */
+export const CHAT_MODEL_ID = 'riishe-chat-webllm-qwen2.5-0.5b'
+export const ASR_MODEL_ID = 'gangzii-asr-browser-whisper-tiny'
 const SEGMENTATION_MODEL_ID = 'laxii-bgremoval-modnet'
 
 export interface DeviceCapabilityManagerEvents {
@@ -463,6 +472,16 @@ export class DeviceCapabilityManager {
       this.recordFailure('chat.on-device', error)
       throw error
     }
+    // M36-B — reserve the device's ONE heavy-model slot BEFORE loading
+    // (brief §7: "Reserve resources before loading or executing"). The slot
+    // makes chat and ASR mutually exclusive on this device instead of
+    // silently competing for memory.
+    const slot = await this.acquireDeviceHeavySlot(CHAT_MODEL_ID)
+    if (!slot.ok) {
+      const error = new AiErrorImpl('AI_RUNTIME_UNAVAILABLE', slot.reason)
+      this.recordFailure('chat.on-device', error)
+      throw error
+    }
     this.clearFailure('chat.on-device')
     this.setTransientStatus('chat.on-device', 'downloading')
     const { getSharedWebLlmClient } = await import('./webllm-chat-client')
@@ -474,6 +493,7 @@ export class DeviceCapabilityManager {
       return { modelId, target: 'client-gpu' }
     } catch (error) {
       this.setTransientStatus('chat.on-device', null)
+      this.releaseDeviceHeavySlot(CHAT_MODEL_ID)
       throw this.recordFailure('chat.on-device', error)
     }
   }
@@ -508,7 +528,34 @@ export class DeviceCapabilityManager {
     const { getSharedWebLlmClient } = await import('./webllm-chat-client')
     await getSharedWebLlmClient().unload()
     webLlmResidency.current = null
+    this.releaseDeviceHeavySlot(CHAT_MODEL_ID)
     this.emit()
+  }
+
+  /**
+   * M36-B — heavy-model slot reservation through the shared ResourceManager
+   * (one heavy model at a time per device budget). Lazy import keeps this
+   * module loadable in non-DOM tests.
+   */
+  private async acquireDeviceHeavySlot(modelId: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+    try {
+      const { getClientCompute } = await import('../index')
+      return getClientCompute().resources.acquireHeavyModel(modelId)
+    } catch {
+      // No client-compute surface (tests / non-browser): do not block the lane.
+      return { ok: true }
+    }
+  }
+
+  private releaseDeviceHeavySlot(modelId: string): void {
+    try {
+      // Fire-and-forget dynamic import; release is synchronous on arrival.
+      void import('../index').then(({ getClientCompute }) => {
+        getClientCompute().resources.releaseHeavyModel(modelId)
+      }).catch(() => {})
+    } catch {
+      /* non-DOM tests */
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -526,6 +573,15 @@ export class DeviceCapabilityManager {
     }
     this.clearFailure('audio.transcription.on-device')
     this.setTransientStatus('audio.transcription.on-device', 'downloading')
+    // M36-B — the ASR model is also a heavy model: reserve the same
+    // one-heavy-model slot before loading (never compete with chat silently).
+    const slot = await this.acquireDeviceHeavySlot(ASR_MODEL_ID)
+    if (!slot.ok) {
+      this.setTransientStatus('audio.transcription.on-device', null)
+      const error = new AiErrorImpl('AI_RUNTIME_UNAVAILABLE', slot.reason)
+      this.recordFailure('audio.transcription.on-device', error)
+      throw error
+    }
     const { getSharedBrowserAsrClient } = await import('./browser-asr-client')
     try {
       const model = await getSharedBrowserAsrClient().ensureLoaded(options)
@@ -533,6 +589,7 @@ export class DeviceCapabilityManager {
       return model
     } catch (error) {
       this.setTransientStatus('audio.transcription.on-device', null)
+      this.releaseDeviceHeavySlot(ASR_MODEL_ID)
       throw this.recordFailure('audio.transcription.on-device', error)
     }
   }

@@ -385,7 +385,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
                 <p className="mt-1 text-[10px] leading-relaxed text-white/30">
                   {probe?.queueDepth != null ? `Queue: ${probe.queueDepth} job(s) waiting · ` : ''}
                   {probe?.engine
-                    ? `Workers: ${probe.engine.embeddedPools.length > 0 ? `embedded engine running (${probe.engine.embeddedPools.join(', ')})` : 'embedded engine NOT running'}`
+                    ? `Workers: ${probe.engine.embeddedPools.length > 0 ? `embedded engine running (${probe.engine.embeddedPools.length} queue${probe.engine.embeddedPools.length === 1 ? '' : 's'})` : 'embedded engine NOT running'}`
                     : ''}
                 </p>
               )}

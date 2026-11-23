@@ -157,3 +157,4 @@ scripts/giftz-verify-out/verify.db
 public/workers
 src/workers/node_modules
 src/workers/bun.lock*
+scripts/m36-acceptance/*.onnx

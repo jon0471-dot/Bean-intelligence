@@ -83,9 +83,13 @@ describe('buildTechDocsWithReach', () => {
     expect(reachPlans[0][0].params.target).toBe('facebook/react')
     expect(techDocs).not.toBeNull()
     expect(techDocs!.block).toContain('OFFICIAL DOCUMENTATION REFERENCE')
-    expect(techDocs!.block).toContain('via github-api')
+    // M36-D identity hygiene: the model-visible block cites the CHANNEL only —
+    // the concrete backend id must not enter prompt blocks or persisted artifacts.
+    expect(techDocs!.block).toContain('via github')
+    expect(techDocs!.block).not.toContain('github-api')
     expect(techDocs!.block).toContain('The library for web and native user interfaces.')
     expect(research.sources.some((s) => s.channel === 'github' && s.url === 'https://github.com/facebook/react')).toBeTrue()
+    expect(research.sources.every((s) => !('backend' in s))).toBeTrue()
     expect(research.sources.some((s) => s.channel === 'gateway')).toBeTrue()
   })
 

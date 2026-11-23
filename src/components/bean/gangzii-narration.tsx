@@ -321,7 +321,7 @@ export function GangziiNarration() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-sm font-medium text-[#f5e7c1]">
               <HardDriveDownload className="h-4 w-4 text-[#d4af37]" />
-              Local TTS engine — Kokoro-82M (Apache-2.0, runs on this host)
+              Local TTS engine (Apache-2.0 license, runs on this host)
             </div>
             <p className="mt-1 text-xs text-[#bfa860]">
               {engine
@@ -394,7 +394,7 @@ export function GangziiNarration() {
             <label className="flex flex-col gap-1 text-xs text-[#bfa860]">
               Voice
               <select className={inputCls + ' w-56'} value={voice} onChange={(e) => setVoice(e.target.value)}>
-                <optgroup label="Local engine (Kokoro-82M)">
+                <optgroup label="Local engine voices">
                   {KOKORO_VOICE_PRESETS.filter((v) => v.grade !== null).map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.displayName} ({v.language}) — grade {v.grade}

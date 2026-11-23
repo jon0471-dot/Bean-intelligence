@@ -107,6 +107,13 @@ class ClientComputeImpl implements ClientCompute {
     registerLaxiiAdapter(this)
     registerCodeGiftzAdapter(this)
     registerJazmiiAdapter(this)
+    // M36-B — page-shutdown resource release: pagehide previously released
+    // only the ResourceManager's own counters; the GPU device and CPU workers
+    // stayed resident. Register the engines as cleanup hooks so releaseAll()
+    // tears down every registered resource surface (brief §7: "Release
+    // model/GPU resources after idle or page shutdown").
+    this.resources.registerCleanup(() => this.gpu.releaseAll())
+    this.resources.registerCleanup(() => this.cpu.releaseAll())
   }
 
   async init(): Promise<void> {
@@ -124,9 +131,20 @@ class ClientComputeImpl implements ClientCompute {
 
   async runBenchmark(): Promise<void> {
     const { runBoundedCpuBenchmark } = await import('./device-profile')
-    const result = await runBoundedCpuBenchmark()
+    const cpu = await runBoundedCpuBenchmark()
+    // M36-B — tier 4 evidence is now a REAL GPU round-trip: on a device with
+    // no adapter (or a broken compute surface) gpuComputeOk stays false and
+    // the tier stays 3 — never an assumed pass, never a main-thread stall.
+    let gpuComputeOk: boolean | null = null
+    try {
+      const gpu = await this.gpu.runComputeBenchmark({ timeoutMs: 5_000 })
+      gpuComputeOk = gpu.ok
+    } catch {
+      gpuComputeOk = false
+    }
+    const merged = { ...cpu, gpuComputeOk }
     this.benchmarkRun = true
-    this.profile = deriveDeviceProfile(this.snapshot ?? (await detectCapabilities()), result)
+    this.profile = deriveDeviceProfile(this.snapshot ?? (await detectCapabilities()), merged)
   }
 
   getSnapshot(): CapabilitySnapshot | null {

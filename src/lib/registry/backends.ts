@@ -16,7 +16,7 @@
  */
 
 import type { BeanProductId, BeanTask } from './products'
-import { resolveOpenAiCompatibleCredential } from '@/lib/providers/credentials'
+import { resolveOpenAiCompatibleCredential, resolveAnthropicCredential } from '@/lib/providers/credentials'
 import { isLlamaCppConfigured } from '@/lib/providers/llamacpp'
 
 export type DeploymentMode = 'authorized-hosted' | 'self-hosted'
@@ -632,6 +632,55 @@ const OPENAI_COMPATIBLE_LLM: BackendDescriptor = {
 }
 
 /**
+ * M36-A — operator-configured Anthropic Messages slot.
+ *
+ * A REAL protocol adapter (`providers/anthropic.ts`: x-api-key +
+ * anthropic-version headers, top-level system field, content_block_delta
+ * streaming) for the official Anthropic Messages API. Dormant until the
+ * operator configures a credential — exactly like the OpenAI-compatible
+ * slot, the credential IS the authorization (cost policy: no automatic paid
+ * fallback; this backend is NOT appended to any automatic fallback chain and
+ * serves only when routing explicitly selects it). Capability is verified by
+ * a real completion probe, never assumed.
+ */
+const ANTHROPIC_LLM: BackendDescriptor = {
+  id: 'bean-llm-anthropic',
+  productId: 'riishe',
+  task: 'chat',
+  provider: 'Operator-configured Anthropic Messages provider',
+  modelIdentity: "The operator's configured model (BEAN_PROVIDER_ANTHROPIC_MODEL, default claude-haiku-4-5)",
+  revision: null,
+  endpointType: 'http',
+  deploymentMode: 'authorized-hosted',
+  runtime: 'Official Anthropic Messages API (POST /v1/messages, SSE streaming)',
+  limits: {
+    maxPromptChars: 12000,
+    maxHistoryMessages: 24,
+    streaming: true,
+    note: 'Official Messages protocol — system prompts map to the top-level system field; capability verified by a real completion probe at health check.',
+  },
+  license: {
+    name: 'Access governed by the operator\u2019s account with Anthropic',
+    commercialUse: 'authorized',
+    note:
+      'Activated only by the operator setting credentials for an account they have authorized. BEAN never purchases or switches to an unapproved paid service on its own.',
+    sourceUrl: 'https://docs.anthropic.com/en/api/messages',
+    verifiedAt: '2026-11-23',
+  },
+  dataHandling:
+    'Prompts and completions are processed by Anthropic under the operator\u2019s account terms. Credentials stay server-side and are never exposed to the browser.',
+  metering: { unit: 'request', costUnit: null },
+  secrets: ['BEAN_PROVIDER_ANTHROPIC_API_KEY'],
+  fallbacks: [],
+  enabled: resolveAnthropicCredential().present,
+  unavailableReason:
+    'Not configured: this slot activates only when the operator sets BEAN_PROVIDER_ANTHROPIC_API_KEY (+ optional BEAN_PROVIDER_ANTHROPIC_BASE_URL / BEAN_PROVIDER_ANTHROPIC_MODEL) or adds an encrypted admin-vault credential. No account is created or purchased automatically.',
+  concurrency: { maxInFlightPerUser: 2, maxInFlightTotal: 8 },
+  timeouts: { requestMs: 90_000, queueMs: 5_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
  * RIISHE + CODE GIFTZ — FREE-LOCAL llama.cpp GGUF lane (Phase: free-first).
  *
  * A `llama-server` started on BEAN's own hardware (operator PC or this host)
@@ -983,6 +1032,7 @@ const HOSTED_GANGZII_ASR: BackendDescriptor = {
 export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_LLM,
   OPENAI_COMPATIBLE_LLM,
+  ANTHROPIC_LLM,
   LOCAL_LLAMACPP_LLM,
   HOSTED_IMAGE,
   HOSTED_IMAGE_EDIT,

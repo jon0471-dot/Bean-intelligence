@@ -19,6 +19,10 @@ export type ToolPermission = 'standard' | 'explicit'
 export interface ToolContext {
   /** Per-request user opt-ins (explicit-permission tools check these). */
   permissions: ReadonlySet<string>
+  /** Authenticated user id of the request (specialist delegation submits
+   *  jobs under the SAME user — never on anyone else's behalf). Absent in
+   *  tool-only unit tests that do not exercise delegation. */
+  userId?: string
   /** Documents attached to THIS request (id -> extracted text), already
    *  ownership-validated by the route before the orchestrator runs. `kind`
    *  is the detected file capability ('image', 'pdf', 'text', …). For image

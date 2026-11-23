@@ -23,12 +23,14 @@ import {
 } from 'lucide-react'
 import {
   getDeviceCapabilityManager,
+  CHAT_MODEL_ID,
+  ASR_MODEL_ID,
   AI_CAPABILITY_STATUS_EXPLANATIONS,
   type AiCapabilityStatus,
   type DeviceAiStatus,
 } from '@/lib/client-compute/inference/device-capability-manager'
 import { getDeviceSettings, setDeviceSettings, unpairLocalEngine, type AiDeviceMode } from '@/lib/client-compute/inference/device-settings'
-import { getDefaultModelRegistry } from '@/lib/client-compute/model-registry'
+import { getDefaultModelRegistry, clientModelDisplayName as modelDisplayName } from '@/lib/client-compute/model-registry'
 import { getConsent, setConsent } from '@/lib/client-compute/privacy'
 
 function formatBytes(n: number | null): string {
@@ -113,9 +115,9 @@ export function AiDeviceSettings() {
         onProgress: (fraction, noteText) => setDownload({ modelId, progress: fraction, note: noteText ?? 'downloading' }),
       })
       if (result.ok) {
-        setNote({ tone: 'ok', text: `${modelId} installed and verified (${formatBytes(result.bytes)}).` })
+        setNote({ tone: 'ok', text: `${modelDisplayName(modelId)} installed and verified (${formatBytes(result.bytes)}).` })
       } else {
-        setNote({ tone: 'err', text: `${modelId}: ${result.reason}` })
+        setNote({ tone: 'err', text: `${modelDisplayName(modelId)}: ${result.reason}` })
       }
     } finally {
       setDownload(null)
@@ -129,10 +131,10 @@ export function AiDeviceSettings() {
     const manager = getDeviceCapabilityManager()
     setDownload({ modelId, progress: 0, note: 'preparing runtime' })
     try {
-      if (modelId === 'riishe-chat-webllm-qwen2.5-0.5b') {
+      if (modelId === CHAT_MODEL_ID) {
         await manager.ensureOnDeviceChatReady({ onProgress: (p) => setDownload({ modelId, progress: p.progress, note: p.note }) })
         setNote({ tone: 'ok', text: 'On-device chat model loaded into this browser (WebGPU).' })
-      } else if (modelId === 'gangzii-asr-browser-whisper-tiny') {
+      } else if (modelId === ASR_MODEL_ID) {
         await manager.ensureBrowserAsrReady({ onProgress: (p) => setDownload({ modelId, progress: p.progress, note: p.note }) })
         setNote({ tone: 'ok', text: 'On-device transcription model loaded into this browser.' })
       }
@@ -163,7 +165,7 @@ export function AiDeviceSettings() {
         }
         await getDeviceCapabilityManager().unloadOnDeviceChat()
       }
-      setNote({ tone: 'ok', text: `${modelId} cleared from this browser.` })
+      setNote({ tone: 'ok', text: `${modelDisplayName(modelId)} cleared from this browser.` })
     } finally {
       setBusy(false)
       void refresh()
@@ -253,13 +255,13 @@ export function AiDeviceSettings() {
             <div><span className="text-white/40">WebGPU:</span> {status.webgpu.adapterAvailable ? 'adapter available' : status.webgpu.supported ? 'API present, no adapter' : 'not supported'}</div>
             <div><span className="text-white/40">WebAssembly:</span> {status.wasm.supported ? `supported${status.wasm.simd === true ? ' + SIMD' : ''}` : 'not supported'}</div>
             <div><span className="text-white/40">Workers:</span> {status.workers ? 'available' : 'unavailable'}</div>
-            <div><span className="text-white/40">Runtime (WebLLM):</span> {status.runtimes.webLlm ? 'available' : 'unavailable'}</div>
-            <div><span className="text-white/40">Runtime (Transformers.js):</span> {status.runtimes.transformersJs ? 'available' : 'unavailable'}</div>
-            <div><span className="text-white/40">Runtime (ORT Web):</span> {status.runtimes.ortWeb ? 'available' : 'unavailable'}</div>
+            <div><span className="text-white/40">Browser GPU chat runtime:</span> {status.runtimes.webLlm ? 'available' : 'unavailable'}</div>
+            <div><span className="text-white/40">Browser ML runtime:</span> {status.runtimes.transformersJs ? 'available' : 'unavailable'}</div>
+            <div><span className="text-white/40">Browser vision runtime:</span> {status.runtimes.ortWeb ? 'available' : 'unavailable'}</div>
             <div title="Policy estimate from the browser's coarse memory bucket — browsers never expose exact RAM.">
               <span className="text-white/40">Model memory budget:</span> ~{status.memoryBudgetMb ?? '—'} MB (estimate)
             </div>
-            <div><span className="text-white/40">Loaded model:</span> {status.activeHeavyModel ?? 'none'}</div>
+            <div title="The on-device model currently loaded into this browser's memory."><span className="text-white/40">Loaded model:</span> {status.activeHeavyModel ? modelDisplayName(status.activeHeavyModel) : 'none'}</div>
           </div>
         ) : (
           <div className="flex items-center gap-2 text-sm text-white/50"><Loader2 className="h-4 w-4 animate-spin" /> Measuring device capabilities…</div>
@@ -336,12 +338,12 @@ export function AiDeviceSettings() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-sm text-white/85">
-                      {m.id}
+                      {m.displayName}
                       {m.installed ? <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-300" variant="outline">installed</Badge> : null}
                       {!m.runtimeAvailable ? <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-300">runtime unavailable</Badge> : null}
                     </div>
                     <div className="mt-1 text-[11px] text-white/45">
-                      {m.runtime} · {formatBytes(m.sizeBytes)}{m.sizeUnverified ? ' (unverified)' : ''} · {m.license} · {m.integrity === 'pinned-artifact-sha256' ? 'SHA-256-pinned artifact' : `revision-pinned (${m.revision?.slice(0, 8) ?? '—'}…)`}
+                      {m.runtimeLabel} · {formatBytes(m.sizeBytes)}{m.sizeUnverified ? ' (unverified)' : ''} · {m.licenseName} · {m.integrity === 'pinned-artifact-sha256' ? 'SHA-256-pinned artifact' : 'revision-pinned artifact'}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -382,7 +384,7 @@ export function AiDeviceSettings() {
                 ) : null}
                 {confirmDownloadId === m.id ? (
                   <div className="mt-2 rounded-lg border border-[rgba(212,175,55,0.35)] bg-[rgba(212,175,55,0.06)] p-3 text-xs text-white/75">
-                    Download <span className="text-[#f0c75e]">{formatBytes(m.sizeBytes)}</span> for <span className="text-[#f0c75e]">{m.id}</span>?
+                    Download <span className="text-[#f0c75e]">{formatBytes(m.sizeBytes)}</span> for <span className="text-[#f0c75e]">{m.displayName}</span> ({m.licenseName})?
                     {m.downloadPath === 'runtime-managed-cache' ? ' The weights are fetched by the browser runtime from the pinned upstream revision into its own cache.' : ' The bytes are verified against the pinned SHA-256 before install.'}
                     <div className="mt-2 flex gap-2">
                       <Button size="sm" onClick={() => void (m.downloadPath === 'runtime-managed-cache' ? prepareRuntimeModel(m.id) : downloadBeanModel(m.id))} className="h-7 bg-[#d4af37] text-black hover:bg-[#e6c25a]">

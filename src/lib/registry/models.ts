@@ -170,6 +170,8 @@ function gatewayModelIdFor(b: BackendDescriptor): string {
   switch (b.id) {
     case 'bean-llm-hosted-primary':
       return 'bean-chat-hosted'
+    case 'bean-llm-anthropic':
+      return 'bean-chat-anthropic-slot'
     case 'bean-code-llm-hosted-primary':
       return 'bean-code-hosted'
     case 'bean-image-hosted-primary':
@@ -187,6 +189,8 @@ function displayNameFor(b: BackendDescriptor): string {
   switch (b.id) {
     case 'bean-llm-hosted-primary':
       return 'BEAN Chat (hosted gateway)'
+    case 'bean-llm-anthropic':
+      return 'BEAN Chat (operator-configured Anthropic Messages slot)'
     case 'bean-code-llm-hosted-primary':
       return 'BEAN Code (hosted gateway)'
     case 'bean-image-hosted-primary':
