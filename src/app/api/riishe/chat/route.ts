@@ -74,6 +74,20 @@ export async function POST(request: Request) {
     // insert) were unguarded: a throw there leaked the slot PERMANENTLY —
     // two leaks lock the user out with CONCURRENCY_LIMIT until restart.
     let slotReleased = false
+    let sseHandoff = false
+    // CONCURRENCY DIAGNOSTIC (2026-11-23): ownership flag for the SSE handoff.
+    // The OUTER finally below must stay hands-off once the streamed response
+    // is returned (the turn is still running), but that decision must NOT
+    // touch `slotReleased` — that flag means "release() actually ran" and is
+    // owned solely by releaseOnce. Setting it eagerly (the M26 G-4 handoff)
+    // poisoned the guard: the stream's own finally then called releaseOnce()
+    // and silently no-opped, leaking ONE slot per streamed turn against the
+    // router's in-memory per-user counter — two streamed turns locked the
+    // user out with CONCURRENCY_LIMIT until a process restart (the exact
+    // reported "maximum number of concurrent jobs" failure; same symptom as
+    // the committed pre-M26 dig-*.sse artifacts). This flag moves ONLY the
+    // outer finally's decision; the stream's finally still releases exactly
+    // once through the untouched shared guard.
     const releaseOnce = (): void => {
       if (slotReleased) return
       slotReleased = true
@@ -575,10 +589,12 @@ export async function POST(request: Request) {
       logger.info('riishe.digest_degraded', { conversationId: convId, reason: digestDegraded })
     }
 
-    // M26 G-4: SSE ownership handoff — the stream's own finally (start())
-    // releases the slot when the stream COMPLETES; the outer finally below
-    // must not release at response-return time (streaming is still running).
-    slotReleased = true
+    // M26 G-4 SSE ownership handoff, CORRECTED: the stream's own finally
+    // (start()) releases the slot when the stream COMPLETES; the outer
+    // finally below must not release at response-return time (streaming is
+    // still running) — so it defers via sseHandoff instead of poisoning
+    // slotReleased (the release-once guard stays intact for the stream).
+    sseHandoff = true
     return new Response(stream, {
       headers: {
         'content-type': 'text/event-stream',
@@ -593,7 +609,10 @@ export async function POST(request: Request) {
     } finally {
       // M26 G-4: the slot can NEVER outlive the request handler — a throw
       // anywhere above (DB hiccup, validation, memory command) releases it.
-      releaseOnce()
+      // CONCURRENCY DIAGNOSTIC (2026-11-23): once the SSE handoff happened
+      // the STREAM's finally owns the release; releasing here too would
+      // double-decrement the counter, so defer to it.
+      if (!sseHandoff) releaseOnce()
     }
   })
 }
