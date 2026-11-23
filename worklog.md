@@ -1961,8 +1961,9 @@ Work Log:
 - Secret scan of the complete diff: clean (only deliberate test fixture key strings).
 
 ### PUBLISH
-- Normal FF push of feat/m36-riishe-universal-model-compute; no force-push; main untouched pending separate authorization.
-- Remote SHA independently verified after push (fetch + rev-parse comparison); commit visible on GitHub.
+- M36 commit SHA: 0384ef112abbf79390a91c2cbfe47ecbcac38142 on feat/m36-riishe-universal-model-compute.
+- Push-incident note (honest record): an environment auto-commit (c7300c7, the M35 PR-merge script, authored 05:38 UTC by the container) had landed on LOCAL main and silently moved HEAD off the working branch, so the first push published the branch ref at 67e209e. Diagnosis: rev-parse of the branch ref vs HEAD. Resolution WITHOUT any force-push: the branch ref was moved to the M36 commit (a local ref move of my own unpushed branch), then the remote branch updated 67e209e..0384ef1 as a NORMAL FAST-FORWARD (push output recorded); local main restored to origin/main (67e209e). No shared history rewritten.
+- Remote verification (3 independent methods): git ls-remote = 0384ef112abbf79390a91c2cbfe47ecbcac38142; a FRESH clone from GitHub checked out HEAD = the same SHA; the GitHub commit page https://github.com/jon0471-dot/Bean-intelligence/commit/0384ef112abbf79390a91c2cbfe47ecbcac38142 returns HTTP 200. The GitHub REST API branch check was rate-limited for unauthenticated calls — the git-protocol and clone checks carry the verification.
 - Report: docs/M36-IMPLEMENTATION-REPORT.md (evidence per brief §16).
 
 ### Task ID: M36 / Agent / Task / Work Log:

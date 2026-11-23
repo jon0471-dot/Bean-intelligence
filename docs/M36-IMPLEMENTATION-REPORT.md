@@ -12,7 +12,8 @@
 |---|---|
 | Starting `origin/main` (verified by fetch before any change) | `67e209e7d1be75b2fb46537b6f2e541641952ebe` |
 | Working branch | `feat/m36-riishe-universal-model-compute` |
-| Ending commit | the M36 commit on the working branch (fast-forward push only; remote SHA independently verified after push — see the worklog entry and the milestone delivery message for the recorded SHA) |
+| Ending commit | `0384ef112abbf79390a91c2cbfe47ecbcac38142` on `feat/m36-riishe-universal-model-compute` |
+| Remote verification | `git ls-remote` = `0384ef1…` · fresh GitHub clone HEAD = `0384ef1…` · commit page HTTP 200 (GitHub REST API rate-limited unauthenticated; the git-protocol + clone checks carry the verification) |
 
 ## 2. Upstream repositories evaluated (real review, exact versions)
 
