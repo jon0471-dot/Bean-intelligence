@@ -518,6 +518,10 @@ export async function POST(request: Request) {
                 ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
                 ...(result.frontend ? { frontend: result.frontend } : {}),
                 ...(result.research ? { research: result.research } : {}),
+                // M33: the REAL sandbox execution result (or the exact
+                // unavailable reason) persists with the JSON-path message.
+                ...(result.execution ? { execution: result.execution } : {}),
+                ...(result.executionUnavailable ? { executionUnavailable: result.executionUnavailable } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
                   ? {
                       verification: {
@@ -544,7 +548,20 @@ export async function POST(request: Request) {
             durationMs: result.durationMs,
             success: true,
           })
-          await recordAudit({ actorId: user.id, action: 'code-giftz.chat', target: projectId, meta: { files: result.changes.length } })
+          await recordAudit({
+            actorId: user.id,
+            action: 'code-giftz.chat',
+            target: projectId,
+            meta: {
+              files: result.changes.length,
+              // M33: a chat-requested sandbox run is audit-logged with its
+              // real outcome (no memory content, no stdout in the audit).
+              ...(result.execution
+                ? { sandboxRun: { runId: result.execution.runId, status: result.execution.status, exitCode: result.execution.exitCode, timedOut: result.execution.timedOut, durationMs: result.execution.durationMs } }
+                : {}),
+              ...(result.executionUnavailable ? { executionUnavailable: result.executionUnavailable.slice(0, 200) } : {}),
+            },
+          })
           return ok({
             projectId,
             messageId: assistant.id,
@@ -555,6 +572,8 @@ export async function POST(request: Request) {
             ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
             ...(result.frontend ? { frontend: result.frontend } : {}),
             ...(result.research ? { research: result.research } : {}),
+            ...(result.execution ? { execution: result.execution } : {}),
+            ...(result.executionUnavailable ? { executionUnavailable: result.executionUnavailable } : {}),
           })
         } catch (e) {
           // Typed upstream failures keep their honest class (a 429 stays a
@@ -597,6 +616,11 @@ export async function POST(request: Request) {
                 ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
                 ...(result.frontend ? { frontend: result.frontend } : {}),
                 ...(result.research ? { research: result.research } : {}),
+                // M33: the REAL sandbox execution result (or the exact
+                // unavailable reason) persists with the message so the
+                // terminal evidence survives conversation reloads.
+                ...(result.execution ? { execution: result.execution } : {}),
+                ...(result.executionUnavailable ? { executionUnavailable: result.executionUnavailable } : {}),
                 ...(verificationState.last && verificationState.last.status !== 'skipped'
                   ? {
                       verification: {
@@ -630,7 +654,15 @@ export async function POST(request: Request) {
             actorId: user.id,
             action: 'code-giftz.chat',
             target: projectId,
-            meta: { files: result.changes.length },
+            meta: {
+              files: result.changes.length,
+              // M33: chat-requested sandbox runs are audit-logged (real
+              // outcome only — bounded references, no stdout).
+              ...(result.execution
+                ? { sandboxRun: { runId: result.execution.runId, status: result.execution.status, exitCode: result.execution.exitCode, timedOut: result.execution.timedOut, durationMs: result.execution.durationMs } }
+                : {}),
+              ...(result.executionUnavailable ? { executionUnavailable: result.executionUnavailable.slice(0, 200) } : {}),
+            },
           })
           const projectFiles = await db.codeFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } })
           return { files: projectFiles.map((f) => ({ path: f.path, origin: f.origin })) }

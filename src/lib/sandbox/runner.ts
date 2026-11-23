@@ -42,7 +42,9 @@ import path from 'path'
 import type { HealthReport } from '@/lib/adapters/types'
 
 const SANDBOX_ROOT = path.join(process.cwd(), 'sandbox-runs')
-const TIMEOUT_MS = 15_000
+/** Wall clock per run. M33: operator-tunable via BEAN_SANDBOX_TIMEOUT_MS
+ *  (tests and constrained hosts may shorten it); default unchanged (15s). */
+const TIMEOUT_MS = Number(process.env.BEAN_SANDBOX_TIMEOUT_MS ?? 15_000)
 const MAX_OUTPUT_BYTES = 64_000
 
 // ---- ISOLATION (Phase 6/9 hardening, 2026-11-11) -------------------------
@@ -109,15 +111,19 @@ export function sandboxIsolationProfile(): SandboxIsolationProfile {
  */
 function wrapWithIsolation(command: string, args: string[]): { command: string; args: string[]; profile: SandboxIsolationProfile } {
   const profile = sandboxIsolationProfile()
+  // M33 honesty fix (measured defect): BEAN_SANDBOX_DISABLE_ISOLATION=1 must
+  // actually DISABLE the layers, not merely report them as missing — the
+  // reported profile and the applied wrap now always agree.
+  const disabled = process.env.BEAN_SANDBOX_DISABLE_ISOLATION === '1'
   let cmd = command
   let rest = [...args]
   const t = toolingAvailable()
-  if (t.unshare) {
+  if (!disabled && t.unshare) {
     rest = [cmd, ...rest]
     cmd = 'unshare'
     rest = ['-Urn', ...rest]
   }
-  if (t.prlimit) {
+  if (!disabled && t.prlimit) {
     rest = [cmd, ...rest]
     cmd = 'prlimit'
     rest = [
@@ -141,6 +147,8 @@ export interface SandboxFile {
 export interface SandboxRunResult {
   runId: string
   files: SandboxFile[]
+  /** M33 ADDITIVE: the file the runner actually executed (entry selection). */
+  entry: string
   stdout: string
   stderr: string
   exitCode: number | null
@@ -238,7 +246,7 @@ export async function runInSandbox(files: SandboxFile[]): Promise<SandboxRunResu
     python ? pickPython() : pickRuntime(),
     python ? [entry.path] : ['run', entry.path],
   )
-  const result = await new Promise<Omit<SandboxRunResult, 'runId' | 'files' | 'isolation'>>((resolve) => {
+  const result = await new Promise<Omit<SandboxRunResult, 'runId' | 'files' | 'entry' | 'isolation'>>((resolve) => {
     // Python entries run under the system CPython; everything else keeps the
     // existing JS/TS runtime. Same workspace, same minimal env, same timeout
     // — both wrapped in the measured isolation chain (namespace + rlimits).
@@ -284,7 +292,7 @@ export async function runInSandbox(files: SandboxFile[]): Promise<SandboxRunResu
     })
   })
 
-  return { runId, files, isolation: wrapped.profile, ...result }
+  return { runId, files, entry: entry.path, isolation: wrapped.profile, ...result }
 }
 
 /**

@@ -104,6 +104,11 @@ export interface GiftzTurnResult {
    *  refactoring plans — planned server-side, awaiting approval; execution is
    *  a separate confirmed step, never part of the turn). */
   refactor?: import('@/lib/code/refactoring/plan').RefactorTurnPayload
+  /** M33 ADDITIVE: the REAL sandbox execution result when the user's message
+   *  explicitly requested a run. All fields from the actual process. */
+  execution?: import('@/lib/giftz/execution').GiftzExecutionView
+  /** M33 ADDITIVE: the exact reason a REQUESTED run could not happen. */
+  executionUnavailable?: string
 }
 
 export interface GiftzChatStreamDeps {
@@ -268,6 +273,8 @@ export function createGiftzChatStream(deps: GiftzChatStreamDeps): ReadableStream
             ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
             ...(result.fileOp ? { fileOp: result.fileOp } : {}),
             ...(result.refactor ? { refactor: result.refactor } : {}),
+            ...(result.execution ? { execution: result.execution } : {}),
+            ...(result.executionUnavailable ? { executionUnavailable: result.executionUnavailable } : {}),
           })
         } catch (e) {
           if (isClientDisconnected(e) || clientGone) {
