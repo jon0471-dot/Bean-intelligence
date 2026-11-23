@@ -2,7 +2,8 @@
 
 /**
  * BEAN Intelligence — account settings.
- * Profile, password, data retention note and account deletion (GDPR-style).
+ * Profile, password, RIISHE memory (M33), data retention note and account
+ * deletion (GDPR-style).
  */
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { beanFetch, type BeanUser } from './shared'
+import { RiisheMemoryManager } from './riishe/riishe-memory-manager'
 import { Settings as SettingsIcon, KeyRound, Trash2 } from 'lucide-react'
 import {
   AlertDialog,
@@ -98,6 +100,11 @@ export function Settings({ user, onUserChanged }: { user: BeanUser; onUserChange
           </Button>
         </div>
       </section>
+
+      {/* M33: user-controlled RIISHE memory management (view / create / edit /
+          delete / search / export / conflict decisions) — the existing
+          Settings experience is the entry point, no competing navigation. */}
+      <RiisheMemoryManager />
 
       <section className="bean-glass mb-5 rounded-xl p-5">
         <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-white/85">

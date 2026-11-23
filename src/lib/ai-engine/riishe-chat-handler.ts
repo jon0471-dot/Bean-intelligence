@@ -200,17 +200,23 @@ export async function handleRiisheChatJob(
     content: m.content,
   }))
 
+  // M33 EXPLAINABLE RECALL: same owner-scoped selection as the live route,
+  // fetched WITH ids plus the store's total size, so background answers
+  // carry the same truthful memory-context metadata (IDs + policy + counts).
   const memoryStore = getMemoryDelegate()
-  const memories = memoryStore
-    ? (
-        await memoryStore.findMany({
-          where: { userId: job.userId },
-          orderBy: { createdAt: 'desc' },
-          take: MEMORY_LIMITS.injectionCount,
-          select: { content: true },
-        })
-      ).map((r) => r.content)
-    : []
+  let memoryRecords: Array<{ id: string; content: string }> = []
+  let memoryTotalCount = 0
+  if (memoryStore) {
+    memoryTotalCount = await memoryStore.count({ where: { userId: job.userId } })
+    memoryRecords = (
+      await memoryStore.findMany({
+        where: { userId: job.userId },
+        orderBy: { createdAt: 'desc' },
+        take: MEMORY_LIMITS.injectionCount,
+        select: { id: true, content: true },
+      })
+    ).map((r) => ({ id: r.id, content: r.content }))
+  }
   // ---- Streaming sink -----------------------------------------------------
   let full = ''
   let streamingTransitioned = false
@@ -256,7 +262,8 @@ export async function handleRiisheChatJob(
       toolContext,
       documents,
       digest,
-      memories,
+      memoryRecords,
+      memoryTotalCount,
       userId: params.userId ?? job.userId,
       onEvent,
     })

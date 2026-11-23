@@ -136,8 +136,30 @@ export interface MessageMetadata {
     semanticRouted?: boolean
   }
   /** Provenance for system-authored memory-action receipts (real DB
-   *  operations, not model output). Absent on ordinary turns. */
-  memoryAction?: { action: 'save' | 'forget' | 'list'; count?: number; refused?: boolean }
+   *  operations, not model output). Absent on ordinary turns. M33:
+   *  `conflictCount` records how many POTENTIAL conflicts the deterministic
+   *  detector presented alongside a save (nothing is ever replaced without
+   *  an explicit user decision). */
+  memoryAction?: { action: 'save' | 'forget' | 'list'; count?: number; refused?: boolean; conflictCount?: number }
+  /**
+   * M33 EXPLAINABLE RECALL (additive): which user-approved memories were
+   * included in THIS turn's model context, composed by the orchestrator from
+   * the actual selection inputs — never by the model. `includedMemoryIds`
+   * carry IDs only (never content: contents load through the owner-scoped
+   * memory API). The policy text is the truthful recent-first/bounded one;
+   * it must never claim semantic relevance ranking. Inclusion in context is
+   * what this record establishes — whether the answer actually drew on a
+   * given memory is NOT asserted anywhere (no evidence exists for that).
+   * Absent only when the caller had no memory selection at all.
+   */
+  memoryContext?: {
+    includedMemoryIds: string[]
+    injectedCount: number
+    totalMemoriesAtSelection: number
+    selectedAt: string
+    policy: string
+    policyDescription: string
+  }
   /** Short, customer-facing note shown ONLY when verification is
    *  incomplete or something material could not be confirmed (claims not
    *  covered by retrieved evidence, stale sources, geographic mismatch).

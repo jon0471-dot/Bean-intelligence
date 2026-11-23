@@ -11,6 +11,7 @@ export type BeanErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'VALIDATION_ERROR'
+  | 'EDIT_CONFLICT'
   | 'UNSUPPORTED_FORMAT'
   | 'UNSUPPORTED_CONTENT'
   | 'PAYLOAD_TOO_LARGE'
@@ -32,6 +33,10 @@ const HTTP_STATUS: Record<BeanErrorCode, number> = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   VALIDATION_ERROR: 400,
+  // M33 memory editing: the record changed after the edit screen loaded
+  // (optimistic-concurrency guard rejected the write). 409 = reconcile with
+  // the current state returned in the error payload, then retry.
+  EDIT_CONFLICT: 409,
   UNSUPPORTED_FORMAT: 415,
   UNSUPPORTED_CONTENT: 422,
   PAYLOAD_TOO_LARGE: 413,

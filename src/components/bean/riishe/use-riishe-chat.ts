@@ -49,6 +49,22 @@ export interface MsgMeta {
   verificationNote?: string
   /** ADDITIVE (shared research gateway): Agent Reach lane provenance. */
   reach?: { channelsUsed: string[]; invocations: number; degraded: string[]; durationMs: number }
+  /**
+   * M33 EXPLAINABLE RECALL (additive): which saved memories were included in
+   * the model context for this response — IDs + counts + the truthful
+   * recent-first/bounded policy statement, composed by the server. Contents
+   * are NOT in metadata: the UI loads them via the owner-scoped memory API
+   * when the user expands the explanation (and shows an honest
+   * unavailable/deleted reference for entries that no longer resolve).
+   */
+  memoryContext?: {
+    includedMemoryIds: string[]
+    injectedCount: number
+    totalMemoriesAtSelection: number
+    selectedAt: string
+    policy: string
+    policyDescription: string
+  }
 }
 
 export interface FileMeta {

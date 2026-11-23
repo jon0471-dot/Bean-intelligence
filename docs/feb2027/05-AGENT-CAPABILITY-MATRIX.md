@@ -45,7 +45,10 @@ exists (measured 2026-11-20), and what is missing. Status: ✅ exists ·
 ## Cross-cutting requirements
 
 - All three agents share the Trust Engine ledger — one architecture, no
-  per-agent evidence stores.
+  per-agent evidence stores. (M33, 2026-11-23: the same single ledger now
+  also records RIISHE memory-management receipts — create/edit/export/
+  delete/replace/conflict-presented — via `src/lib/trust/adapters/
+  riishe-memory.ts`; ID-only evidence, no memory content in any ledger field.)
 - Approval-required actions (delete/overwrite files, publish, destructive
   commands) must request a scoped `TrustApproval` before execution (file-ops
   already implement the equivalent ledger; agents must route through it).

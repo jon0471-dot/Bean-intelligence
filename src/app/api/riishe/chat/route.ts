@@ -316,15 +316,25 @@ export async function POST(request: Request) {
 
     // The user's own approved memories ride along as bounded prompt context.
     // Skipped (honestly) when the memory store is unavailable on this process.
+    // M33 EXPLAINABLE RECALL: the selection is fetched WITH ids plus the
+    // store's total size at selection time, so the orchestrator can compose
+    // the truthful memory-context record (IDs + policy + counts) that makes
+    // every answer's memory usage explainable. Contents never enter
+    // metadata — the chat UI loads them through this owner-scoped API.
     const memoryStore = getMemoryDelegate()
-    const memories = memoryStore
-      ? (await memoryStore.findMany({
+    let memoryRecords: Array<{ id: string; content: string }> = []
+    let memoryTotalCount = 0
+    if (memoryStore) {
+      memoryTotalCount = await memoryStore.count({ where: { userId: user.id } })
+      memoryRecords = (
+        await memoryStore.findMany({
           where: { userId: user.id },
           orderBy: { createdAt: 'desc' },
           take: MEMORY_LIMITS.injectionCount,
-          select: { content: true },
-        })).map((r) => r.content)
-      : []
+          select: { id: true, content: true },
+        })
+      ).map((r) => ({ id: r.id, content: r.content }))
+    }
 
     // ---- JSON path ---------------------------------------------------------
     if (!wantsStream) {
@@ -339,7 +349,8 @@ export async function POST(request: Request) {
           toolContext,
           documents,
           digest,
-          memories,
+          memoryRecords,
+          memoryTotalCount,
           userId: user.id,
         })
         await db.message.create({
@@ -446,7 +457,8 @@ export async function POST(request: Request) {
             toolContext,
             documents,
             digest,
-            memories,
+            memoryRecords,
+            memoryTotalCount,
             userId: user.id,
             onEvent: (e) => {
               // Feed the same orchestrator events into the receipt ledger

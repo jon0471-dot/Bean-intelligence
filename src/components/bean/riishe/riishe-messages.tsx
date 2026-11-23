@@ -18,7 +18,7 @@
  * browser or on the server — the block is a highlighted, copyable artifact.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Markdown, Spinner } from '@/components/bean/shared'
+import { Markdown, Spinner, beanFetch } from '@/components/bean/shared'
 import { cn } from '@/lib/utils'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import { linkifyCitations, cleanAnswerForCopy, mapSourceClaims } from '@/lib/riishe/citation-view'
@@ -26,6 +26,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   AlertTriangle,
+  BrainCircuit,
   Check,
   ChevronDown,
   Copy,
@@ -175,6 +176,110 @@ function CopyMessageButton({ content }: { content: string }) {
 function SourceClaimLine({ content }: { content?: string }) {
   if (!content) return null
   return <div className="mt-0.5 text-[10.5px] leading-snug text-white/30">Supports: {content}</div>
+}
+
+/** Owner-scoped memory entry as resolved by the memory API at expand time. */
+interface MemoryEntry {
+  id: string
+  content: string
+}
+
+/**
+ * M33 EXPLAINABLE RECALL — the small, non-intrusive "Memory context"
+ * explanation on an assistant message. Rendered ONLY when the server
+ * actually included memory entries in this turn's context (never a noisy
+ * badge on every message). Lazy: contents load through the authenticated,
+ * owner-scoped memory API on first expand — metadata carries IDs only, so
+ * nothing private rides inside unrelated message data. Entries that no
+ * longer resolve are shown as honest unavailable references, never
+ * reconstructed from stale copies.
+ */
+function MemoryContextNote({ meta }: { meta?: Msg['meta'] }) {
+  const ctx = meta?.memoryContext
+  const detailsRef = useRef<HTMLDetailsElement>(null)
+  const [entries, setEntries] = useState<Map<string, MemoryEntry> | null>(null)
+  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'error'>('idle')
+  // Non-intrusive gate: render only when this turn has a real memory story —
+  // entries were included, or the user HAD memories and none made the
+  // context. A completely empty store renders nothing (no badge noise on
+  // every message for users who never saved a memory).
+  if (!ctx || (ctx.injectedCount === 0 && ctx.totalMemoriesAtSelection === 0)) return null
+
+  const onToggle = (e: React.SyntheticEvent<HTMLDetailsElement>) => {
+    if (!e.currentTarget.open || entries || loadState === 'loading') return
+    setLoadState('loading')
+    void (async () => {
+      try {
+        const d = await beanFetch<{ memories: MemoryEntry[] }>('/api/riishe/memory')
+        setEntries(new Map((d.memories ?? []).map((m) => [m.id, m])))
+        setLoadState('idle')
+      } catch {
+        setLoadState('error')
+      }
+    })()
+  }
+
+  const resolved = entries
+  const unavailableCount = ctx.includedMemoryIds.filter((id) => !resolved?.has(id)).length
+
+  return (
+    <details ref={detailsRef} className="group mt-1" onToggle={onToggle}>
+      <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11px] text-white/40 hover:text-white/65">
+        <BrainCircuit className="h-3 w-3 shrink-0 text-[#d4af37]/70" />
+        <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+        {ctx.injectedCount > 0 ? `Memory context (${ctx.injectedCount})` : 'Memory context (none included)'}
+      </summary>
+      <div className="mt-1.5 pl-4">
+        {ctx.injectedCount > 0 ? (
+          <p className="text-[11px] leading-snug text-white/40">
+            {ctx.injectedCount} of your {ctx.totalMemoriesAtSelection} saved memor
+            {ctx.totalMemoriesAtSelection === 1 ? 'y was' : 'ies were'} included in the context RIISHE used for this response.
+          </p>
+        ) : (
+          <p className="text-[11px] leading-snug text-white/40">
+            No saved memory was included in the context for this response (you had {ctx.totalMemoriesAtSelection} stored at
+            selection time).
+          </p>
+        )}
+        <p className="mt-0.5 text-[10.5px] leading-snug text-white/30">{ctx.policyDescription}</p>
+        {resolved === null && loadState === 'loading' ? (
+          <p className="mt-1.5 text-[10.5px] text-white/30">Loading the included entries…</p>
+        ) : null}
+        {loadState === 'error' ? (
+          <p className="mt-1.5 text-[10.5px] text-amber-300/80">
+            The included entries could not be loaded right now — your memory list stays private unless the load succeeds.
+          </p>
+        ) : null}
+        {resolved ? (
+          <ul className="mt-1.5 space-y-1 pl-4">
+            {ctx.includedMemoryIds.map((id) => {
+              const entry = resolved.get(id)
+              return (
+                <li key={id} className="break-words text-[11px] leading-snug">
+                  {entry ? (
+                    <span className="text-white/55">“{entry.content}”</span>
+                  ) : (
+                    <span className="text-white/30 italic">
+                      memory unavailable — deleted or changed after this response
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        ) : null}
+        {unavailableCount > 0 && resolved ? (
+          <p className="mt-1 text-[10px] text-white/25">
+            {unavailableCount} of the included {ctx.injectedCount} entries no longer resolve (deleted or replaced since).
+          </p>
+        ) : null}
+        <p className="mt-1 text-[10px] leading-snug text-white/25">
+          Inclusion in context is what this record establishes — whether the answer actually drew on a specific memory is
+          not tracked or claimed.
+        </p>
+      </div>
+    </details>
+  )
 }
 
 /**
@@ -340,18 +445,7 @@ function AssistantMessage({
     <div className="flex items-start gap-3">
       <AssistantAvatar />
       <div className="min-w-0 flex-1">
-        <div className="mb-1 flex items-center gap-2">
-          <span className="text-[11px] font-semibold tracking-wide text-[#f0c75e]">RIISHE</span>
-          {/* ON-DEVICE LANE honest label (never persisted, no retrieval/tools). */}
-          {msg.onDevice ? (
-            <span
-              className="rounded border border-[rgba(212,175,55,0.3)] bg-[rgba(212,175,55,0.08)] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-[#f0c75e]"
-              title="Generated in this browser (WebGPU). Not saved to any server; no web retrieval, tools or memory in this mode."
-            >
-              on-device · private · unsaved
-            </span>
-          ) : null}
-        </div>
+        <div className="mb-1 text-[11px] font-semibold tracking-wide text-[#f0c75e]">RIISHE</div>
         <div className={cn('bean-prose text-[14.5px] text-white/88', isStreamingThis && 'bean-streaming')}>
           <Markdown content={linkifyCitations(msg.content, msg.meta?.sources)} components={components} />
         </div>
@@ -362,6 +456,7 @@ function AssistantMessage({
           </div>
         ) : null}
         <AnswerMeta meta={msg.meta} forceOpen={sourcesOpen} claims={claims} />
+        <MemoryContextNote meta={msg.meta} />
         {!msg.pending ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <CopyMessageButton content={msg.content} />

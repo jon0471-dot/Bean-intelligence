@@ -139,3 +139,70 @@ placed `HEAD` back on `main`. Consequences and recovery, all measured:
 
 No history was rewritten, no remote was touched, and no content was lost —
 the merge and backup ref preserve every line of the session's work.
+
+---
+
+# 11. M33 — RIISHE Project Memory Completion (2026-11-23 session)
+
+Phase 2's memory milestone, implemented as a product milestone on branch
+`feat/riishe-project-memory-completion` (based on the freshly fetched verified
+`origin/main` @ `0bac07a0d441302fea2c72559774ffbd086c9d11`). Full detail in
+`docs/M33-IMPLEMENTATION-REPORT.md`; summary here.
+
+## 11.1 Implemented
+
+1. **Memory management (Feature A)** — Settings-embedded manager (view /
+   create / edit / delete-one / delete-all / search / N-of-50 counter /
+   timestamps / JSON export); PATCH edit API with an optimistic-concurrency
+   guard (`409 EDIT_CONFLICT` + current-row reconciliation detail; nothing
+   silently overwritten); export API streaming an owner-only attachment.
+2. **Potential-conflict detection (Feature B)** — deterministic, scoped,
+   conservative detector (`likely` / `ambiguous`), decision-point API
+   (candidates returned, nothing written), explicit user choice of Replace
+   (version- and ownership-re-verified conditional mutation) / Keep both /
+   Cancel; chat save receipts surface conflicts honestly (keep-both default).
+3. **Explainable recall (Feature C)** — `memoryContext` metadata composed by
+   the orchestrator from the actual selection (IDs only, injected count,
+   store size, timestamp, truthful recent-first-bounded policy text — never
+   semantic-ranking claims); non-intrusive chat expander whose contents load
+   through the owner-scoped API, with honest unavailable references for
+   deleted entries; identical metadata on interactive SSE, non-streaming and
+   background paths (additive; SSE wire contract unchanged).
+4. **Trust receipts (Feature D)** — real memory operations recorded in the
+   EXISTING ledger via one helper (`adapters/riishe-memory.ts`); ID-only
+   evidence (never content); chat `completeMemory` receipt extended with the
+   conflict-presented count.
+
+## 11.2 Changed files (19)
+
+`src/lib/riishe/{memory,memory-db,memory-actions,states,orchestrator}.ts`;
+`src/app/api/riishe/memory/route.ts`; `src/app/api/riishe/chat/route.ts`;
+`src/lib/ai-engine/riishe-chat-handler.ts`; `src/lib/api/errors.ts`
+(EDIT_CONFLICT 409); `src/lib/trust/adapters/{riishe-memory.ts(new),riishe.ts}`;
+`src/components/bean/{settings,shared}.tsx`;
+`src/components/bean/riishe/{riishe-memory-manager.tsx(new),riishe-messages.tsx,use-riishe-chat.ts}`;
+`tests/unit/{riishe-memory.test.ts,riishe-memory-management.test.ts(new),
+riishe-memory-recall.test.ts(new)}`; `docs/feb2027/{03,05,10}` +
+`docs/M33-IMPLEMENTATION-REPORT.md`. Prisma schema untouched (the existing
+`updatedAt` is the concurrency guard; no migration run).
+
+## 11.3 Verification (all fresh, 2026-11-23)
+
+| Check | Result |
+|---|---|
+| `bun test --isolate tests/` | **2501 pass / 0 fail / 5 skip** (189 files; incl. 67 new M33 tests; no regressions) |
+| `npx tsc --noEmit` | **0 errors repo-wide** (src + tests) |
+| eslint on all touched code/test files | clean |
+| `bunx prisma validate` | schema valid |
+| `bun run build` | success (4 warnings, all pre-existing in files untouched by M33) |
+| Secret/security scan of full diff | clean — no secrets, no content in logs/metadata/ledger |
+| Live API exercise (dev server + disposable account) | conflict decision point (nothing stored), keep-both, replace, stale PATCH → 409 + current row, export attachment headers, trust receipts recorded |
+| Visual verification | desktop 1440×900 + mobile 390×844: manager, conflict dialog, chat expander (incl. deleted-memory honest reference), edit state, delete-all confirmation — zero horizontal overflow at mobile width |
+
+## 11.4 Honest status
+
+The memory milestone of Phase 2 is done and verified. **Phase 2 is not
+complete**: model transparency in UI and task-progress + receipt display in
+chat remain open (03 §2). Launch criteria (08) remain unmeasured. The
+₹0/month budget constraint is unchanged — no new services, providers or
+infrastructure were introduced.
