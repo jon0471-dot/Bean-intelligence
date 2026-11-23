@@ -32,6 +32,15 @@ import type { VerificationConfig } from '@/lib/verification/config'
 import { BeanApiError } from '@/lib/api/errors'
 import { UpstreamTruncatedError } from '@/lib/adapters/hosted-llm'
 import { CONTINUATION_INSTRUCTION } from '@/lib/riishe/continuation'
+// M33 CODE GIFTZ: explicit execution intent → the REAL restricted sandbox.
+import { detectExecutionIntent } from './execution-intent'
+import {
+  executeProjectFiles,
+  buildExecutionReceipt,
+  buildExecutionUnavailableNote,
+  isExecutionUnavailable,
+  type GiftzExecutionView,
+} from './execution'
 
 /** History window shared with the live route (system turn + continuation
  *  bookkeeping must never be sliced away). */
@@ -126,6 +135,15 @@ export interface GiftzTurnCoreResult {
   /** M22 ADDITIVE: seq of the project version recorded for this turn's
    *  accepted changes (null/absent when nothing changed or snapshot skipped). */
   versionSeq?: number
+  /** M33 ADDITIVE: the REAL sandbox execution result when the user's message
+   *  explicitly requested a run. Every field comes from the actual process
+   *  response (stdout/stderr/exit code/duration/timeout/isolation) — never
+   *  from generation success or model predictions. */
+  execution?: GiftzExecutionView
+  /** M33 ADDITIVE: the exact reason a REQUESTED run could not happen (no
+   *  executable files, runner contract limits). Honest absence, not a fake
+   *  success. */
+  executionUnavailable?: string
 }
 
 /**
@@ -300,6 +318,64 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
   }
 
   const durationMs = Date.now() - t0
+
+  // ---- M33: explicit execution intent → REAL sandbox run -----------------
+  // Deterministic intent detection over the user's ORIGINAL request. The
+  // explicit instruction to run in the sandbox IS the approval for the chat
+  // path (the manual Run button keeps its separate approval contract). The
+  // run uses the LATEST PERSISTED project files (executeProjectFiles reads
+  // the database after applyFiles above), so the executed bytes are exactly
+  // what persistence confirmed — never raw model output. A failure here is
+  // reported honestly; it NEVER fails the whole turn (files/generated answer
+  // remain valid, and the exact reason is shown).
+  let execution: GiftzExecutionView | undefined
+  let executionUnavailable: string | undefined
+  const intent = detectExecutionIntent(requestText)
+  if (intent.execute) {
+    onEvent?.({ stage: 'executing' })
+    try {
+      const outcome = await executeProjectFiles(projectId)
+      if (isExecutionUnavailable(outcome)) {
+        executionUnavailable = outcome.unavailable
+        logger.info('codegiftz.chat_execution_unavailable', { projectId, reason: outcome.unavailable.slice(0, 200) })
+      } else {
+        execution = outcome
+        logger.info('codegiftz.chat_execution_done', {
+          projectId,
+          runId: outcome.runId,
+          status: outcome.status,
+          exitCode: outcome.exitCode,
+          durationMs: outcome.durationMs,
+        })
+      }
+    } catch (executionError) {
+      // The runner itself threw (unexpected) — surface the exact message
+      // honestly instead of failing the whole completed turn.
+      executionUnavailable = executionError instanceof Error ? executionError.message : String(executionError)
+      logger.warn('codegiftz.chat_execution_failed', {
+        projectId,
+        message: executionUnavailable.slice(0, 200),
+      })
+    }
+  }
+
+  // The system-authored receipt supersedes any predicted output: when a run
+  // really happened, the reply ends with the REAL process result (or the
+  // exact reason it could not run). This is what fixes the historical
+  // "When you run this code, you should see..." behavior. On the streaming
+  // path the receipt is ALSO emitted as a final delta so the client's
+  // streamed buffer, the persisted message and the JSON path all carry the
+  // exact same honest reply.
+  if (execution) {
+    const receipt = buildExecutionReceipt(execution)
+    content = `${content}\n\n${receipt}`
+    onEvent?.({ delta: `\n\n${receipt}` })
+  } else if (executionUnavailable) {
+    const note = buildExecutionUnavailableNote(executionUnavailable)
+    content = `${content}\n\n${note}`
+    onEvent?.({ delta: `\n\n${note}` })
+  }
+
   // Verification overhead is metered as honest ESTIMATES — never exact counts.
   let verificationTokensEst = 0
   if (verification && verification.status !== 'skipped') {
@@ -322,6 +398,8 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
     ...(frontend ? { frontend } : {}),
     ...(input.research ? { research: input.research } : {}),
     ...(versionSeq !== undefined ? { versionSeq } : {}),
+    ...(execution ? { execution } : {}),
+    ...(executionUnavailable ? { executionUnavailable } : {}),
   }
 }
 
@@ -344,6 +422,8 @@ export async function persistGiftzAssistantTurn(
         continuations: result.continuationCount,
         ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
         ...(result.research ? { research: result.research } : {}),
+        ...(result.execution ? { execution: result.execution } : {}),
+        ...(result.executionUnavailable ? { executionUnavailable: result.executionUnavailable } : {}),
         ...(result.verification && result.verification.status !== 'skipped'
           ? {
               verification: {

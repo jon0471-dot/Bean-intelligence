@@ -207,6 +207,21 @@ export async function handleGiftzCodingJob(
       verificationSkippedReason: receiptFields.verificationSkippedReason,
       continuations: result.continuationCount,
       durationMs: result.durationMs,
+      // M33: a chat-requested REAL sandbox run is part of the truthful
+      // receipt — bounded references (status/exit/duration), never stdout.
+      ...(result.execution
+        ? {
+            execution: {
+              runId: result.execution.runId,
+              entry: result.execution.entry,
+              status: result.execution.status,
+              exitCode: result.execution.exitCode,
+              timedOut: result.execution.timedOut,
+              durationMs: result.execution.durationMs,
+            },
+          }
+        : {}),
+      ...(result.executionUnavailable ? { executionUnavailable: result.executionUnavailable.slice(0, 200) } : {}),
     })
     await recordUsage({
       userId: job.userId,
@@ -235,6 +250,20 @@ export async function handleGiftzCodingJob(
       // nothing changed or the snapshot was skipped).
       ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
       verification: publicVerificationSummary(result.verification),
+      // M33 ADDITIVE: real sandbox execution outcome (bounded — no stdout).
+      ...(result.execution
+        ? {
+            execution: {
+              runId: result.execution.runId,
+              entry: result.execution.entry,
+              status: result.execution.status,
+              exitCode: result.execution.exitCode,
+              timedOut: result.execution.timedOut,
+              durationMs: result.execution.durationMs,
+            },
+          }
+        : {}),
+      ...(result.executionUnavailable ? { executionUnavailable: result.executionUnavailable.slice(0, 200) } : {}),
       durationMs: Date.now() - startedAt,
     })
     if (done) {

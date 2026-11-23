@@ -298,6 +298,19 @@ export interface CodeGiftzBackgroundTurnResult {
   verificationSkippedReason?: string | null
   continuations: number
   durationMs: number
+  /** M33 ADDITIVE: a chat-requested REAL sandbox run happened during the
+   *  turn. Bounded references only (status/exit/duration) — the process
+   *  stdout/stderr never enters the receipt ledger. */
+  execution?: {
+    runId: string
+    entry: string
+    status: string
+    exitCode: number | null
+    timedOut: boolean
+    durationMs: number
+  }
+  /** M33 ADDITIVE: the exact reason a requested run could not happen. */
+  executionUnavailable?: string
 }
 
 export interface CodeGiftzBackgroundRecorder {
@@ -428,6 +441,17 @@ export function createCodeGiftzBackgroundRecorder(input: CodeGiftzBackgroundReco
           origin: 'extracted',
         })
       }
+      // M33: a chat-requested REAL sandbox run is receipt evidence — bounded
+      // outcome references only (status/exit/duration), never stdout/stderr.
+      if (result.execution) {
+        await addTrustEvidence(taskId, {
+          kind: 'tool-output',
+          stepSeq: BG_STEP_SEQ.delivery,
+          ref: `sandbox-run:${result.execution.runId}`,
+          title: `Sandbox run ${result.execution.status} — entry ${result.execution.entry}, exit ${result.execution.exitCode ?? '—'}, ${result.execution.durationMs}ms${result.execution.timedOut ? ' (killed at wall clock)' : ''}`,
+          origin: 'extracted',
+        })
+      }
 
       // Honest settlement: build/test were NOT run by this turn (they are
       // separate, individually verified tasks); an unverified turn never
@@ -452,6 +476,10 @@ export function createCodeGiftzBackgroundRecorder(input: CodeGiftzBackgroundReco
       }
       if (result.changes.length === 0) {
         limitations.push('The turn changed no workspace files (a conversational answer only).')
+      }
+      // M33: honesty about a requested-but-impossible run (exact reason).
+      if (result.executionUnavailable) {
+        limitations.push(`Execution was requested but did not run: ${result.executionUnavailable.slice(0, TRUST_LIMITS.limitationChars - 40)}`)
       }
 
       await finalizeTrustTask(taskId, {

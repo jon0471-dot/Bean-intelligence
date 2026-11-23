@@ -46,8 +46,10 @@ export interface RiisheStreamEvent {
   /** RIISHE pipeline stages; CODE GIFTZ uses 'thinking' before first token.
    *  'verifying'/'revising' are the self-verification pipeline stages
    *  (CODE GIFTZ): verifying keeps the draft visible; revising means the
-   *  deltas that follow REPLACE the streamed buffer (corrected answer). */
-  stage?: 'researching' | 'tools' | 'solving' | 'verifying' | 'thinking' | 'revising'
+   *  deltas that follow REPLACE the streamed buffer (corrected answer).
+   *  M33: 'executing' = the REAL sandbox run of an explicit execution
+   *  request is in flight (distinct Running state). */
+  stage?: 'researching' | 'tools' | 'solving' | 'verifying' | 'thinking' | 'revising' | 'executing'
   /** Self-verification summary on the terminal done frame (public fields only). */
   verification?: {
     status: 'verified' | 'corrected' | 'corrected-unverified' | 'unverified'
@@ -76,6 +78,25 @@ export interface RiisheStreamEvent {
   /** M25 ADDITIVE: structured refactoring payload on the terminal done frame
    *  (multi-file refactoring plans — see code-giftz.tsx). */
   refactor?: import('@/lib/code/refactoring/plan').RefactorTurnPayload
+  /** M33 ADDITIVE (CODE GIFTZ): the REAL sandbox execution result on the
+   *  terminal done frame when the user's message explicitly requested a run.
+   *  Every field comes from the actual process response. */
+  execution?: {
+    runId: string
+    entry: string
+    runtime: 'javascript' | 'python'
+    files: string[]
+    stdout: string
+    stderr: string
+    exitCode: number | null
+    timedOut: boolean
+    durationMs: number
+    isolation: { networkNamespace: boolean; rlimits: boolean; processSeparation: boolean }
+    status: 'passed' | 'failed' | 'timeout' | 'spawn-error'
+  }
+  /** M33 ADDITIVE (CODE GIFTZ): the exact reason a requested run could not
+   *  happen (no executable files, runner limits). */
+  executionUnavailable?: string
 }
 
 export type StreamFailureKind =

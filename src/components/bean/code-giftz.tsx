@@ -168,6 +168,15 @@ interface RunResult {
   exitCode: number | null
   timedOut: boolean
   durationMs: number
+  /** M33 ADDITIVE (chat-requested runs): the honest derived status from the
+   *  REAL process result — passed / failed / timeout / spawn-error. */
+  status?: 'passed' | 'failed' | 'timeout' | 'spawn-error'
+  /** M33 ADDITIVE: which runtime executed the entry. */
+  runtime?: 'javascript' | 'python'
+  /** M33 ADDITIVE: isolation layers actually active for THIS run. */
+  isolation?: { networkNamespace: boolean; rlimits: boolean; processSeparation: boolean }
+  /** M33 ADDITIVE: files actually placed in the ephemeral workspace. */
+  files?: string[]
 }
 interface FileMeta { id: string; name: string; kind: string; size: number; status: 'ready' | 'unsupported' | 'failed'; note?: string }
 
@@ -553,6 +562,15 @@ export function CodeGiftz() {
   const [saving, setSaving] = useState(false)
   const [run, setRun] = useState<RunResult | null>(null)
   const [running, setRunning] = useState(false)
+  /** M33: a chat-requested execution is in flight (distinct Running state so
+   *  the manual Run button's state is never clobbered). */
+  const [chatExecuting, setChatExecuting] = useState(false)
+  /** M33: exact reason when a REQUESTED run could not happen (terminal shows
+   *  it instead of pretending success). */
+  const [executionUnavailable, setExecutionUnavailable] = useState<string | null>(null)
+  /** M33: monotonic guard — a late execution result never replaces a newer
+   *  request's result. */
+  const executionSeqRef = useRef(0)
   const [showPreview, setShowPreview] = useState(false)
   const [lastChanges, setLastChanges] = useState<FileChange[]>([])
   const [attachments, setAttachments] = useState<FileMeta[]>([])
@@ -652,6 +670,7 @@ export function CodeGiftz() {
   async function openProject(id: string) {
     setError(null)
     setRun(null)
+    setExecutionUnavailable(null) // M33: per-project terminal evidence
     setShowPreview(false)
     setVersionsOpen(false)
     setVersionCompare(null)
@@ -690,6 +709,7 @@ export function CodeGiftz() {
     setOpenTabs([])
     setActiveFile(null)
     setRun(null)
+    setExecutionUnavailable(null) // M33: per-project terminal evidence
     setError(null)
     setAttachments([])
     setShowPreview(false)
@@ -1192,6 +1212,13 @@ export function CodeGiftz() {
           onEvent: (evt) => {
             if (evt.projectId) newProjectId = evt.projectId
             if (evt.stage === 'thinking') setThinking(true)
+            // M33: the sandbox phase of an explicit execution request — a
+            // distinct Running state while the REAL process runs.
+            if (evt.stage === 'executing') {
+              setThinking(false)
+              setVerifying(false)
+              setChatExecuting(true)
+            }
             // Self-verification stages (additive, only sent when the operator
             // enabled the pipeline): 'verifying' keeps the draft visible;
             // 'revising' means the deltas that follow REPLACE the buffer.
@@ -1212,8 +1239,38 @@ export function CodeGiftz() {
             lastPromptRef.current = null // turn really completed — no Retry
             setThinking(false)
             setVerifying(false)
+            setChatExecuting(false)
             const wireChanges = evt.changes ?? []
             const wireVerification = evt.verification ?? null
+            // M33: populate the EXISTING terminal with the real sandbox
+            // result. Monotonic seq guard — a late frame can never replace a
+            // newer request's result, and repeated events never double-apply
+            // (each completion bumps the sequence exactly once).
+            if (evt.execution) {
+              const seq = ++executionSeqRef.current
+              if (seq === executionSeqRef.current) {
+                setExecutionUnavailable(null)
+                setRun({
+                  runId: evt.execution.runId,
+                  entry: evt.execution.entry,
+                  stdout: evt.execution.stdout,
+                  stderr: evt.execution.stderr,
+                  exitCode: evt.execution.exitCode,
+                  timedOut: evt.execution.timedOut,
+                  durationMs: evt.execution.durationMs,
+                  status: evt.execution.status,
+                  runtime: evt.execution.runtime,
+                  isolation: evt.execution.isolation,
+                  files: evt.execution.files,
+                })
+              }
+            } else if (evt.executionUnavailable) {
+              const seq = ++executionSeqRef.current
+              if (seq === executionSeqRef.current) {
+                setRun(null)
+                setExecutionUnavailable(evt.executionUnavailable)
+              }
+            }
             setLastChanges(
               wireChanges.map((c) => ({ path: c.path, change: c.change === 'modified' ? 'modified' : 'added', diff: c.diff ?? [] })) as FileChange[],
             )
@@ -1268,6 +1325,7 @@ export function CodeGiftz() {
           onFailure: (failure: StreamFailureInfo) => {
             setThinking(false)
             setVerifying(false)
+            setChatExecuting(false)
             const hasText = streamedRef.current !== ''
             if (hasText) {
               // Partial content is preserved and labeled honestly: never a
@@ -1557,6 +1615,8 @@ export function CodeGiftz() {
                         </details>
                       ) : null}
                     </>
+                  ) : chatExecuting ? (
+                    <span className="inline-flex items-center gap-2 text-xs text-white/40"><Spinner /> Running in the sandbox…</span>
                   ) : thinking || verifying ? (
                     <span className="inline-flex items-center gap-2 text-xs text-white/40"><Spinner /> {verifying ? 'Verifying answer…' : 'Thinking…'}</span>
                   ) : null}
@@ -1660,13 +1720,17 @@ export function CodeGiftz() {
   )
 
   const workspace = (
-    <div ref={workspaceRef} className="flex min-w-0 flex-col" style={{ width: `var(--ws, ${workspaceWidth}%)` }}>
+    // M33 measured fix: the panel (below) already carries the resize width
+    // (46% of the row). This root previously applied the SAME percentage a
+    // SECOND time (46% of the panel = a 207px sliver at 1440px), squeezing
+    // the sandbox terminal into a strip. The root now fills the panel.
+    <div ref={workspaceRef} className="flex min-w-0 flex-col" style={{ width: '100%' }}>
       <div className="flex items-center justify-between border-b border-[rgba(212,175,55,0.1)] px-4 py-2.5">
         <div className="flex items-center gap-2 text-xs text-white/50">
           <Code2 className="h-3.5 w-3.5 text-[#d4af37]" /> Workspace
           {files.length > 0 ? <span className="text-white/30">· {files.length} file{files.length > 1 ? 's' : ''}</span> : null}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {/* M22: version history + complete ZIP export (owner, existing project). */}
           <button
             onClick={() => void openVersions()}
@@ -1936,7 +2000,7 @@ export function CodeGiftz() {
                       </ul>
                     </div>
                   ) : null}
-                  <div className="flex items-center justify-between border-b border-[rgba(212,175,55,0.08)] px-3 py-1">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-y-1 border-b border-[rgba(212,175,55,0.08)] px-3 py-1">
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setPreviewViewport('desktop')}
@@ -1976,7 +2040,7 @@ export function CodeGiftz() {
               ) : active ? (
                 <>
                   <div className="flex items-center justify-between border-b border-[rgba(212,175,55,0.08)] px-3 py-1.5">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       <button
                         onClick={() => setFileView('code')}
                         className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]', fileView === 'code' ? 'bg-[rgba(212,175,55,0.14)] text-[#f0c75e]' : 'text-white/45 hover:text-white/75')}
@@ -1995,7 +2059,7 @@ export function CodeGiftz() {
                         {active.origin === 'modified' ? 'modified' : 'generated'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       {/* M22: honest workspace file deletion (records a version). */}
                       {!editing ? (
                         <button
@@ -2007,7 +2071,7 @@ export function CodeGiftz() {
                         </button>
                       ) : null}
                       {editing ? (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <button onClick={() => { setEditing(false); setEditBuffer('') }} className="rounded px-1.5 py-0.5 text-[10px] text-white/45 hover:text-white/80">Cancel</button>
                           <Button onClick={() => void saveEdit()} disabled={saving} size="sm" className="h-6 bg-[#d4af37] px-2 text-[10px] text-black hover:bg-[#e6c25a]">
                             {saving ? <Spinner className="h-3 w-3" /> : <Save className="h-3 w-3" />} Save
@@ -2023,7 +2087,11 @@ export function CodeGiftz() {
                       )}
                     </div>
                   </div>
-                  <div className="bean-scroll min-h-0 flex-1 overflow-auto">
+                  {/* M33: min-w-0 keeps long unwrapped code INSIDE the editor's
+                      own horizontal scroll — without it the highlighted code
+                      stretched the flex row and squeezed the sandbox terminal
+                      column to a sliver at desktop widths (measured defect). */}
+                  <div className="bean-scroll min-h-0 min-w-0 flex-1 overflow-auto">
                     {editing ? (
                       <textarea
                         value={editBuffer}
@@ -2068,21 +2136,40 @@ export function CodeGiftz() {
               {/* Terminal */}
               {run ? (
                 <div className="max-h-56 shrink-0 overflow-auto border-t border-[rgba(212,175,55,0.12)] bg-black/60 px-4 py-3">
-                  <div className="mb-1.5 flex items-center justify-between">
+                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-1.5">
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-white/70">
                       <TerminalIcon className="h-3.5 w-3.5 text-[#d4af37]" /> Sandbox
+                      {run.runtime ? <span className="text-[10px] font-normal text-white/35">· {run.runtime}</span> : null}
+                      {run.entry ? <span className="max-w-[180px] truncate text-[10px] font-normal text-white/35" title={run.entry}>· {run.entry}</span> : null}
                     </span>
                     <span className={cn(
                       'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px]',
-                      run.timedOut ? 'border-amber-500/40 text-amber-300' : run.exitCode === 0 ? 'border-emerald-500/40 text-emerald-300' : 'border-red-500/40 text-red-300',
+                      run.status === 'timeout' || (!run.status && run.timedOut) ? 'border-amber-500/40 text-amber-300'
+                        : run.status === 'spawn-error' ? 'border-orange-500/40 text-orange-300'
+                        : run.exitCode === 0 && !run.timedOut ? 'border-emerald-500/40 text-emerald-300'
+                        : 'border-red-500/40 text-red-300',
                     )}>
-                      {run.timedOut ? <CircleX className="h-3 w-3" /> : run.exitCode === 0 ? <CircleCheck className="h-3 w-3" /> : <CircleX className="h-3 w-3" />}
-                      {run.timedOut ? 'timeout (SIGKILL)' : `exit ${run.exitCode ?? '—'}`} · {run.durationMs}ms
+                      {run.status === 'timeout' || (!run.status && run.timedOut) ? <CircleX className="h-3 w-3" /> : run.exitCode === 0 && !run.timedOut && run.status !== 'spawn-error' ? <CircleCheck className="h-3 w-3" /> : <CircleX className="h-3 w-3" />}
+                      {run.status
+                        ? `${run.status} · exit ${run.exitCode ?? '—'} · ${run.durationMs}ms`
+                        : `${run.timedOut ? 'timeout (SIGKILL)' : `exit ${run.exitCode ?? '—'}`} · ${run.durationMs}ms`}
                     </span>
                   </div>
-                  {run.stdout ? <pre className="whitespace-pre-wrap font-mono text-[11.5px] text-emerald-200/90"><code>{run.stdout}</code></pre> : null}
-                  {run.stderr ? <pre className="mt-1 whitespace-pre-wrap font-mono text-[11.5px] text-red-300/90"><code>{run.stderr}</code></pre> : null}
+                  {run.stdout ? <pre className="whitespace-pre-wrap break-words font-mono text-[11.5px] text-emerald-200/90"><code>{run.stdout}</code></pre> : null}
+                  {run.stderr ? <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[11.5px] text-red-300/90"><code>{run.stderr}</code></pre> : null}
                   {!run.stdout && !run.stderr ? <p className="text-[11px] text-white/40">The process produced no output.</p> : null}
+                  {run.isolation ? (
+                    <p className="mt-1.5 text-[10px] text-white/30">
+                      Isolation (measured for this run): {run.isolation.networkNamespace ? 'network namespace' : 'no network namespace'} · {run.isolation.rlimits ? 'rlimits' : 'no rlimits'} · process separation · minimal env{!run.isolation.networkNamespace || !run.isolation.rlimits ? ' (degraded — unshare/prlimit unavailable or disabled on this host)' : ''}
+                    </p>
+                  ) : null}
+                </div>
+              ) : executionUnavailable ? (
+                <div className="max-h-56 shrink-0 overflow-auto border-t border-amber-500/20 bg-black/60 px-4 py-3">
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+                    <TerminalIcon className="h-3.5 w-3.5" /> Sandbox — execution not run
+                  </div>
+                  <p className="break-words text-[11px] leading-relaxed text-white/50">{executionUnavailable}</p>
                 </div>
               ) : null}
             </div>
