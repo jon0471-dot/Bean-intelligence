@@ -271,7 +271,7 @@ export async function POST(request: Request) {
       // the registry's permission gate. Code execution additionally runs the
       // restricted sandbox; specialist delegation submits durable jobs through
       // the SAME preflight gates as the product routes.
-      permissions: new Set(['allowCodeExecution', 'allowImageGeneration', 'allowVideoCreation', 'allowSpeechSynthesis']),
+      permissions: new Set(['allowCodeExecution', 'allowImageGeneration', 'allowVideoCreation', 'allowSpeechSynthesis', 'allowCodingDelegation']),
       // M36-C: specialist delegation submits jobs under THIS user only.
       userId: user.id,
       documents: new Map(
@@ -498,6 +498,12 @@ export async function POST(request: Request) {
                 writer.send({ research: { queries: e.queries } })
               } else if (e.type === 'tool') {
                 writer.send({ tool: e })
+              } else if (e.type === 'task') {
+                // M37 §5 — genuine operational stages (planning, reading
+                // documents, delegating, approval waiting, terminal outcome)
+                // recorded from REAL execution events; additive wire frames.
+                trust.onTaskEvent(e)
+                writer.send({ task: { stage: e.stage, ...(e.detail ? { detail: e.detail } : {}) } })
               }
             },
           })

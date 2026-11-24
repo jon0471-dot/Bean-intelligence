@@ -97,6 +97,14 @@ export interface RiisheTurnRecorder {
   addDocuments(docs: Array<{ id: string; name: string; truncated: boolean; note: string | null }>): Promise<void>
   /** Observe an orchestration event (stage/tool/research) into the ledger. */
   onEvent(e: OrchestrationEvent): void
+  /**
+   * M37 §5 — observe an operational task-stage event (planning, delegating,
+   * approval-waiting, …) into the ledger. Real events only: each observed
+   * stage records ledger rows (a workflow-planning evidence row, a delivery
+   * step for an actual coding delegation, an approval step for a REAL
+   * waiting_for_approval state). Best-effort like every recorder method.
+   */
+  onTaskEvent(e: { stage: string; detail?: string }): void
   /** Settle as an honestly-derived outcome after a completed turn. */
   complete(result: RiisheResultLike, info: { persisted: boolean }): Promise<void>
   /** Settle a memory-command turn (real database action, confirmed to the user). */
@@ -111,6 +119,15 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
   let taskId: string | null = null
   let lastRunningStage: TrustStepKind | null = null
   let toolNames: string[] = []
+  // M37 §5 — delegation/approval bookkeeping (single step per kind, appended
+  // AFTER the four fixed orchestration steps so seqs stay monotonic).
+  let deliveryStepSeq: number | null = null
+  let approvalStepSeq: number | null = null
+  let workflowRecorded = false
+  // M37: task events arrive as fire-and-forget chains; two rapid events
+  // (delegating → approval-waiting) must allocate their per-task step seqs
+  // SERIALLY, so the ledger's per-task monotonic seq stays unique.
+  let taskEventChain: Promise<void> = Promise.resolve()
 
   const guard = async (method: string, fn: () => Promise<void>): Promise<void> => {
     try {
@@ -338,6 +355,60 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
       )
     })
 
+  const onTaskEvent = (e: { stage: string; detail?: string }): void => {
+    if (!taskId) return
+    // Serialized chain: each event's ledger writes complete before the next
+    // event's begin (seq allocation and step transitions stay ordered).
+    taskEventChain = taskEventChain
+      .then(() => (async () => {
+      if (e.stage === 'planning' && !workflowRecorded) {
+        // REAL event: the turn was detected as a multi-domain workflow. The
+        // parts list is deterministic routing provenance (no content, no
+        // identities) — recorded once as an extracted measurement.
+        workflowRecorded = true
+        await addTrustEvidence(taskId!, {
+          kind: 'measurement',
+          ref: 'workflow-plan',
+          title: 'Multi-step workflow composed',
+          note: `capability domains coordinated: ${e.detail ?? 'unknown'}`.slice(0, TRUST_LIMITS.noteField),
+          origin: 'extracted',
+        })
+        return
+      }
+      if (e.stage === 'delegating' && deliveryStepSeq === null) {
+        // REAL event: a coding job was actually submitted to the engineering
+        // workspace. The step starts now and settles with the turn outcome.
+        const seq = await planTrustSteps(taskId!, [{ kind: 'delivery', title: 'Coding delegation to the engineering workspace' }])
+        deliveryStepSeq = seq
+        await updateTrustStepStatus(taskId!, seq, 'running', {
+          detailJson: e.detail ? JSON.stringify({ detail: String(e.detail).slice(0, 200) }) : undefined,
+        })
+        return
+      }
+      if (e.stage === 'approval-waiting' && approvalStepSeq === null) {
+        // REAL event: a delegated job's execution receipt reports it is
+        // waiting for a user approval. Recorded honestly — never skipped.
+        const seq = await planTrustSteps(taskId!, [{ kind: 'approval', title: 'Waiting for a required approval' }])
+        approvalStepSeq = seq
+        await updateTrustStepStatus(taskId!, seq, 'running')
+        return
+      }
+      if (e.stage === 'approval-waiting' && approvalStepSeq !== null) {
+        return
+      }
+      if ((e.stage === 'completed' || e.stage === 'completed-with-limitations') && deliveryStepSeq !== null) {
+        // The delegated job's completion is reflected in the turn outcome;
+        // the delivery step settles with it (detail from the REAL probe).
+        await updateTrustStepStatus(taskId!, deliveryStepSeq, 'done')
+        return
+      }
+      if ((e.stage === 'completed' || e.stage === 'completed-with-limitations') && approvalStepSeq !== null) {
+        await updateTrustStepStatus(taskId!, approvalStepSeq, 'done')
+      }
+    })())
+      .catch(() => undefined)
+  }
+
   const cancelled = async (): Promise<void> =>
     guard('cancelled', async () => {
       if (!taskId) return
@@ -347,6 +418,8 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
           await updateTrustStepStatus(taskId, step.seq, 'skipped')
         }
       }
+      deliveryStepSeq = null
+      approvalStepSeq = null
       await cancelTrustTask(
         taskId,
         'Cancelled by the user while the turn was running; any streamed partial is visible in the job event log and nothing was saved as a complete answer.',
@@ -369,6 +442,7 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
     begin,
     addDocuments,
     onEvent,
+    onTaskEvent,
     complete,
     completeMemory,
     cancelled,

@@ -14,6 +14,7 @@ import {
   readDocumentTool,
   analyzeImageTool,
 } from './builtin'
+import { delegateCodingTool, checkCodingJobTool } from '../code-delegation'
 import { generateImageTool, createVideoTool, synthesizeSpeechTool } from '../specialists'
 
 let registered = false
@@ -31,5 +32,9 @@ export function registerBuiltins(): void {
   registerTool(generateImageTool)
   registerTool(createVideoTool)
   registerTool(synthesizeSpeechTool)
+  // M37 §3 — CODE GIFTZ engineering-workflow delegation (explicit permission,
+  // two-key gated like every specialist delegation; submit + status probe).
+  registerTool(delegateCodingTool)
+  registerTool(checkCodingJobTool)
   registered = true
 }
