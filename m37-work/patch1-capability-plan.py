@@ -2,7 +2,7 @@
 """M37 patch: capability-plan.ts — coding-delegation + strict doc-grounding flags."""
 import sys, pathlib
 
-p = pathlib.Path('/home/z/my-project/src/lib/riishe/capability-plan.ts')
+p = pathlib.Path('/tmp/m37-run/src/lib/riishe/capability-plan.ts')
 src = p.read_text()
 
 def sub(old, new):

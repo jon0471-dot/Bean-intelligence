@@ -2,7 +2,7 @@
 """M37 patch: prompts.ts — document-intel protocols + workflow protocol wiring."""
 import sys, pathlib
 
-p = pathlib.Path('/home/z/my-project/src/lib/riishe/prompts.ts')
+p = pathlib.Path('/tmp/m37-run/src/lib/riishe/prompts.ts')
 src = p.read_text()
 
 def sub(old, new):

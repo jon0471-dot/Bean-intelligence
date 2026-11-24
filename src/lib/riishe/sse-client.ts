@@ -36,6 +36,10 @@ export interface RiisheStreamEvent {
   messageId?: string
   partial?: boolean
   tool?: { name: string; status: 'started' | 'done' | 'failed' }
+  /** M37 §5 — operational task stage, recorded from REAL execution events
+   *  (planning, reading documents, delegating, approval waiting, terminal
+   *  outcome). Additive; consumers that ignore it are unaffected. */
+  task?: { stage: string; detail?: string }
   meta?: MsgMeta
   firstTokenMs?: number
   durationMs?: number

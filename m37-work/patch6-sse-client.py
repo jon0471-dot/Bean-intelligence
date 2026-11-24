@@ -2,7 +2,7 @@
 """M37 patch: sse-client.ts — task-stage event on the wire (additive)."""
 import sys, pathlib
 
-p = pathlib.Path('/home/z/my-project/src/lib/riishe/sse-client.ts')
+p = pathlib.Path('/tmp/m37-run/src/lib/riishe/sse-client.ts')
 src = p.read_text()
 
 def sub(old, new):

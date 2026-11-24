@@ -2,7 +2,7 @@
 """M37 patch: builtin-registry.ts — register the coding-delegation tools."""
 import sys, pathlib
 
-p = pathlib.Path('/home/z/my-project/src/lib/riishe/tools/builtin-registry.ts')
+p = pathlib.Path('/tmp/m37-run/src/lib/riishe/tools/builtin-registry.ts')
 src = p.read_text()
 
 def sub(old, new):
@@ -30,12 +30,19 @@ sub("""import {
 } from './builtin'
 import { delegateCodingTool, checkCodingJobTool } from '../code-delegation'""")
 
-sub("""  registerTool(readDocumentTool)
-  registerTool(analyzeImageTool)
+sub("""  // M36-C — specialist delegation tools (LAXII / JAZMII / GANGZII via the
+  // existing durable job queue; explicit-permission gated, plan-narrowed).
+  registerTool(generateImageTool)
+  registerTool(createVideoTool)
+  registerTool(synthesizeSpeechTool)
   registered = true""",
-"""  registerTool(readDocumentTool)
-  registerTool(analyzeImageTool)
-  // M37 §3 — CODE GIFTZ engineering-workflow delegation (explicit permission).
+"""  // M36-C — specialist delegation tools (LAXII / JAZMII / GANGZII via the
+  // existing durable job queue; explicit-permission gated, plan-narrowed).
+  registerTool(generateImageTool)
+  registerTool(createVideoTool)
+  registerTool(synthesizeSpeechTool)
+  // M37 §3 — CODE GIFTZ engineering-workflow delegation (explicit permission,
+  // two-key gated like every specialist delegation; submit + status probe).
   registerTool(delegateCodingTool)
   registerTool(checkCodingJobTool)
   registered = true""")

@@ -2,7 +2,7 @@
 """M37 patch: states.ts — task-stage + workflow metadata (additive)."""
 import sys, pathlib
 
-p = pathlib.Path('/home/z/my-project/src/lib/riishe/states.ts')
+p = pathlib.Path('/tmp/m37-run/src/lib/riishe/states.ts')
 src = p.read_text()
 
 def sub(old, new):

@@ -2,7 +2,7 @@
 """M37 patch: trust/adapters/riishe.ts — task-progress steps in the receipt."""
 import sys, pathlib
 
-p = pathlib.Path('/home/z/my-project/src/lib/trust/adapters/riishe.ts')
+p = pathlib.Path('/tmp/m37-run/src/lib/trust/adapters/riishe.ts')
 src = p.read_text()
 
 def sub(old, new):

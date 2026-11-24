@@ -2,7 +2,7 @@
 """M37 patch: riishe/chat/route.ts — delegation permission key + task event forwarding."""
 import sys, pathlib
 
-p = pathlib.Path('/home/z/my-project/src/app/api/riishe/chat/route.ts')
+p = pathlib.Path('/tmp/m37-run/src/app/api/riishe/chat/route.ts')
 src = p.read_text()
 
 def sub(old, new):

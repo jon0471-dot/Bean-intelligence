@@ -2,7 +2,7 @@
 """M37 patch: files/extract.ts — genuine PDF page markers in the text layer."""
 import sys, pathlib
 
-p = pathlib.Path('/home/z/my-project/src/lib/files/extract.ts')
+p = pathlib.Path('/tmp/m37-run/src/lib/files/extract.ts')
 src = p.read_text()
 
 def sub(old, new):

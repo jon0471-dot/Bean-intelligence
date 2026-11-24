@@ -36,6 +36,9 @@ import { detectSensitiveCase } from '@/lib/research/sensitive'
 import { classifyTask, assertCapability, CHAT_BACKEND_CAPABILITIES, type TaskProfile } from './classify'
 import { classifyTaskDetailed } from './classify'
 import { planCapabilities } from './capability-plan'
+import { detectSourceContradictions, describeContradiction } from './contradictions'
+import { detectWorkflow } from './workflow'
+import { mapRiisheStatesToOutcome } from '@/lib/trust/types'
 import { buildMemoryBlock, composeMemoryContextView } from './memory'
 import { BeanApiError } from '@/lib/api/errors'
 import { buildSystemPrompt, buildUserTurn } from './prompts'
@@ -55,7 +58,7 @@ import { runToolLoop, stripToolCallSyntax } from './toolloop'
 import { describeTools } from './tools/registry'
 import { registerBuiltins } from './tools/builtin-registry'
 import type { ToolContext } from './tools/types'
-import type { MessageMetadata, ResponseState, TurnTimings, VerificationCheckView } from './states'
+import type { MessageMetadata, ResponseState, TaskStage, TurnTimings, VerificationCheckView } from './states'
 
 // Tools register once per process; duplicate registration is a startup error.
 registerBuiltins()
@@ -66,6 +69,13 @@ export type OrchestrationEvent =
   | { type: 'reset' }
   | { type: 'research'; queries: string[] }
   | { type: 'tool'; name: string; status: 'started' | 'done' | 'failed' }
+  /**
+   * M37 §5 — genuine operational task stage, emitted ONLY at real execution
+   * events (workflow detection, retrieval, document reads, delegation
+   * submissions, approval waits, sandbox runs, terminal outcome). Never a
+   * cosmetic or model-authored progress claim.
+   */
+  | { type: 'task'; stage: TaskStage; detail?: string }
 
 export interface AttachedDocument {
   id: string
@@ -197,6 +207,10 @@ export function selectTools(args: {
   allowImageGeneration?: boolean
   allowVideoCreation?: boolean
   allowSpeechSynthesis?: boolean
+  /** M37 §3 — CODE GIFTZ engineering-workflow delegation grants (permission
+   *  key AND capability plan must both agree; the orchestrator computes the
+   *  AND before calling). Grants BOTH the submit and the status probe. */
+  allowCodingDelegation?: boolean
 }): string[] {
   const tools = new Set<string>()
   const { searchNeeded, task, hasDocuments, allowCodeExecution, researchFailed, hasImageDocuments, deepResearch } = args
@@ -216,6 +230,10 @@ export function selectTools(args: {
   if (args.allowImageGeneration) tools.add('generate_image')
   if (args.allowVideoCreation) tools.add('create_video')
   if (args.allowSpeechSynthesis) tools.add('synthesize_speech')
+  if (args.allowCodingDelegation) {
+    tools.add('delegate_coding')
+    tools.add('check_coding_job')
+  }
   return [...tools]
 }
 
@@ -379,7 +397,17 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const { userMessage, history, caps, adapter, onEvent } = input
   const degraded: string[] = []
   const stages: MessageMetadata['stages'] = []
-
+  // M37 §5 — operational task stages, recorded ONLY at real execution events.
+  // Each stage is emitted once per turn; the array persists in metadata so
+  // the progress timeline survives conversation reloads.
+  const taskStages: NonNullable<MessageMetadata['taskStages']> = []
+  const seenTaskStages = new Set<string>()
+  const emitTaskStage = (stage: TaskStage, detail?: string): void => {
+    if (seenTaskStages.has(stage)) return
+    seenTaskStages.add(stage)
+    taskStages.push({ stage, at: new Date().toISOString() })
+    onEvent?.({ type: 'task', stage, ...(detail !== undefined ? { detail } : {}) })
+  }
   // ---- Understand ----------------------------------------------------------
   // Confidence-bearing classification: the decided task drives routing
   // exactly as before; confidence + signals are recorded (metadata/logs)
@@ -453,7 +481,44 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       responseMode = 'web-search'
     }
   }
-  const searchNeeded = decision.search && !isDocumentLike(userMessage)
+  // ---- Tool permissions (moved ABOVE the retrieval decision for M37: the
+  // strict document-grounding contract changes searchNeeded itself) --------
+  // Code execution is a SERVER-SIDE policy (no composer toggle). The route
+  // holds the per-request permission key; the capability planner narrows it
+  // to turns where executing code genuinely helps (explicit requests,
+  // simulations, heavy computation). Both must agree — this is the real
+  // approval gate the tool registry enforces on every run_code call.
+  const capabilityPlan = planCapabilities(userMessage, profile.task, documents.length > 0, documents.map((d) => d.kind ?? ''))
+  const allowCodeExecution =
+    input.toolContext?.permissions.has('allowCodeExecution') === true && capabilityPlan.codeExecution
+  // M36-C — specialist delegation gating (same two-key pattern as code
+  // execution): server-side permission key + per-turn capability plan must
+  // BOTH agree before a delegation tool enters the model's universe.
+  const allowImageGeneration =
+    input.toolContext?.permissions.has('allowImageGeneration') === true && capabilityPlan.imageGeneration
+  const allowVideoCreation =
+    input.toolContext?.permissions.has('allowVideoCreation') === true && capabilityPlan.videoCreation
+  const allowSpeechSynthesis =
+    input.toolContext?.permissions.has('allowSpeechSynthesis') === true && capabilityPlan.speechSynthesis
+  // M37 §3 — CODE GIFTZ delegation gating (same two-key pattern).
+  const allowCodingDelegation =
+    input.toolContext?.permissions.has('allowCodingDelegation') === true && capabilityPlan.codingDelegation
+  // M37 §2 — STRICT document grounding: when the user asked for answers based
+  // ONLY on the attached documents, web retrieval is suppressed for the turn
+  // so general knowledge can never silently substitute the documents.
+  const docGrounded = documents.length > 0 && capabilityPlan.docOnlyGrounding
+  const searchNeeded = decision.search && !isDocumentLike(userMessage) && !docGrounded
+  // M37 §4 — ONE workflow: the message spans several capability domains, so
+  // the turn gets the coordination protocol and its stages are tracked.
+  const workflow = detectWorkflow({
+    searchNeeded,
+    task: profile.task,
+    hasDocuments: documents.length > 0,
+    plan: capabilityPlan,
+  })
+  // M37 §4 — a detected multi-domain workflow genuinely enters its planning
+  // stage (the composer's first pass produces the plan under the protocol).
+  if (workflow.active) emitTaskStage('planning', workflow.parts.join('+'))
 
   // ---- Injection gate (input side, BEFORE generation) ----------------------
   // Measured evidence: the model non-deterministically echoes spoofed
@@ -476,29 +541,11 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   }
   const understandMs = Date.now() - t0
 
-  // ---- Tool permissions ------------------------------------------------------
-  // Code execution is a SERVER-SIDE policy (no composer toggle). The route
-  // holds the per-request permission key; the capability planner narrows it
-  // to turns where executing code genuinely helps (explicit requests,
-  // simulations, heavy computation). Both must agree — this is the real
-  // approval gate the tool registry enforces on every run_code call.
-  const capabilityPlan = planCapabilities(userMessage, profile.task, documents.length > 0, documents.map((d) => d.kind ?? ''))
-  const allowCodeExecution =
-    input.toolContext?.permissions.has('allowCodeExecution') === true && capabilityPlan.codeExecution
-  // M36-C — specialist delegation gating (same two-key pattern as code
-  // execution): server-side permission key + per-turn capability plan must
-  // BOTH agree before a delegation tool enters the model's universe.
-  const allowImageGeneration =
-    input.toolContext?.permissions.has('allowImageGeneration') === true && capabilityPlan.imageGeneration
-  const allowVideoCreation =
-    input.toolContext?.permissions.has('allowVideoCreation') === true && capabilityPlan.videoCreation
-  const allowSpeechSynthesis =
-    input.toolContext?.permissions.has('allowSpeechSynthesis') === true && capabilityPlan.speechSynthesis
-
   // ---- Retrieve -------------------------------------------------------------
   let pack: EvidencePack | null = null
   if (searchNeeded) {
     onEvent?.({ type: 'stage', stage: 'researching' })
+    emitTaskStage('researching')
     const tSearch = Date.now()
     pack = input.hooks?.runResearch
       ? await input.hooks.runResearch(userMessage, decision)
@@ -525,6 +572,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     allowImageGeneration,
     allowVideoCreation,
     allowSpeechSynthesis,
+    allowCodingDelegation,
   })
   const finalToolsActive = finalToolNames.length > 0 && input.toolContext != null
   // Recompute buffering now that the tool plan is known: without an echo
@@ -564,6 +612,11 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         hasImages: documents.some((d) => d.kind === 'image'),
         userLanguage: LANGUAGE_NAMES[langProfile.primary],
         toolNames: finalToolsActive ? finalToolNames : undefined,
+        // M37 §2 — multi-document comparison + strict grounding contracts.
+        multiDoc: documents.length > 1,
+        docGrounded,
+        // M37 §4 — the coordination protocol for multi-domain turns.
+        ...(workflow.active ? { workflow: { parts: workflow.parts } } : {}),
       },
       finalToolsActive ? describeTools(finalToolNames) : undefined,
     ) + buildMemoryBlock(memoryContents)
@@ -671,11 +724,25 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         },
       },
       solve: (messages) => runSolveOnce(messages),
-      onToolEvent: (e) => onEvent?.({ type: 'tool', name: e.name, status: e.status }),
+      onToolEvent: (e) => {
+        onEvent?.({ type: 'tool', name: e.name, status: e.status })
+        // M37 §5 — real tool starts map to honest operational stages.
+        if (e.status === 'started') {
+          if (e.name === 'read_document' || e.name === 'analyze_image') emitTaskStage('reading-documents')
+          else if (e.name === 'delegate_coding') emitTaskStage('delegating')
+          else if (e.name === 'run_code') emitTaskStage('executing')
+        }
+      },
     })
     stages.push({ stage: 'tools', durationMs: Date.now() - tTools })
     toolExecutions = loop.executions
     degraded.push(...loop.degraded)
+    // M37 §5 — a delegated job that is WAITING FOR APPROVAL is a real
+    // operational state, parsed from the status probe's ACTUAL output.
+    const waitingApproval = toolExecutions.some(
+      (e) => e.tool === 'check_coding_job' && e.ok && e.output.includes('WAITING FOR APPROVAL'),
+    )
+    if (waitingApproval) emitTaskStage('approval-waiting')
     solveResult = { content: loop.content, streamed: false }
   } else {
     // Controlled continuation: when the provider cuts the answer at its
@@ -822,6 +889,13 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   // numbering the UI displays.
   const dedupedUniverse = dedupeSourcesWithMap(auditUniversePre)
   const auditUniverse: AuditSource[] = dedupedUniverse.kept
+  // M37 §1 — cross-source claim comparison over the ACTUAL retrieved text:
+  // two different sources stating different figures/dates for the same
+  // entity is surfaced as an unresolved disagreement (never silently
+  // resolved, never flagged when the evidence is silent).
+  const sourceContradictions = auditUniverse.length >= 2 && !injectionBlocked
+    ? detectSourceContradictions(auditUniverse.map((s) => ({ id: s.id, title: s.title, snippet: s.snippet, excerpt: s.excerpt })))
+    : []
   if (dedupedUniverse.duplicatesRemoved > 0 && !injectionBlocked) {
     finalContent = remapCitationIds(finalContent, dedupedUniverse.idMap)
     degraded.push(`deduplicated ${dedupedUniverse.duplicatesRemoved} duplicate source(s) across search results`)
@@ -1021,6 +1095,14 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       .map((s) => `[${s.id}] ${s.title} — ${s.hostName}${s.date ? ` (dated ${s.date})` : ''}`)
       .join('\n')
     const repairItems: string[] = []
+    if (sourceContradictions.length > 0) {
+      repairItems.push(
+        'the retrieved sources themselves DISAGREE on the following points — state each disagreement explicitly, attribute every version to its source [n], and never silently pick one:
+' +
+          sourceContradictions.map((c) => `- ${describeContradiction(c)}`).join('
+'),
+      )
+    }
     if (initialSupport.unsupported.length > 0) {
       repairItems.push(
         'statements presented as fact that the retrieved evidence does NOT contain:\n' +
@@ -1206,6 +1288,20 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const ranCode = toolExecutions.some((e) => e.tool === 'run_code' && e.ok)
   const states = statesFrom(searchNeeded, pack, citationsValid, computation, degraded, ranCode, support)
 
+  // M37 §5 — the terminal task stage derives from the SAME response states
+  // (assigned from actual execution) through the SAME trust mapping — never
+  // from the model's own claim, and never manufactured when nothing ran.
+  if (finalContent.trim().length > 0) {
+    const outcome = mapRiisheStatesToOutcome(states, true)
+    emitTaskStage(
+      outcome.outcome === 'completed'
+        ? 'completed'
+        : outcome.outcome === 'failed'
+          ? 'failed'
+          : 'completed-with-limitations',
+    )
+  }
+
   // Sources shown to the reader: auditUniverse is already canonically
   // deduped (same-page duplicates collapsed, ids renumbered above); when the
   // answer cites specific sources, ONLY those (each one supports a real
@@ -1307,6 +1403,15 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       detail: staleCurrency,
     })
   }
+  if (sourceContradictions.length > 0) {
+    // M37 §1 — claim comparison/contradiction identification, from the real
+    // evidence text only. A warning, never a silent resolution.
+    verification.push({
+      check: 'cross-source consistency',
+      status: 'warning',
+      detail: `the retrieved sources disagree: ${sourceContradictions.map(describeContradiction).join('; ')}`.slice(0, 580),
+    })
+  }
   if (undatedAsOf.length > 0 && researchRan) {
     verification.push({
       check: 'dated status attribution',
@@ -1318,6 +1423,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   // Verification note: ONLY when something material could not be confirmed.
   // Undated CITED sources are a currency limitation: the answer must not
   // imply the latest status when a cited source carries no verifiable date.
+  const contradictionNote = sourceContradictions.length > 0
+    ? `the retrieved sources disagree on ${sourceContradictions.length} point${sourceContradictions.length === 1 ? '' : 's'} (${sourceContradictions.map(describeContradiction).join('; ')})`
+    : null
   const verificationNote = buildVerificationNote({
     researchRan,
     hasSources: auditUniverse.length > 0,
@@ -1340,6 +1448,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       (d) => d.includes('page read failed') || d.includes('error or blocked page'),
     ),
   })
+  // M37 §1 — the note carries unresolved source disagreements too.
+  const verificationNoteCombined =
+    [verificationNote, contradictionNote].filter(Boolean).join('. ') || null
 
   // Measured latency breakdown — real timestamps, never estimates. Reported
   // in metadata (persisted + sent to the client) and logged by the route.
@@ -1425,7 +1536,13 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     // can no longer present itself as a fresh check.
     ...(researchRan ? { retrievedAt: pack ? pack.fetchedAt : new Date().toISOString() } : {}),
     ...(injectionBlocked ? { injectionBlocked: true } : {}),
-    ...(verificationNote ? { verificationNote } : {}),
+    // M37 §5 — the operational stages this turn REALLY went through.
+    ...(taskStages.length > 0 ? { taskStages } : {}),
+    // M37 §4 — multi-domain workflow provenance (deterministic detection).
+    ...(workflow.active ? { workflow: { parts: [...workflow.parts] } } : {}),
+    // M37 §2 — the turn was served under the strict documents-only contract.
+    ...(docGrounded ? { docGrounded: true } : {}),
+    ...(verificationNoteCombined ? { verificationNote: verificationNoteCombined } : {}),
     // Phase-2 routing observability (additive): the deterministic router's
     // decision + capability plan + response mode for this turn.
     router: {

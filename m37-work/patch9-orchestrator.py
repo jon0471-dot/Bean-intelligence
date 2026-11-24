@@ -2,7 +2,7 @@
 """M37 patch: orchestrator.ts — workflow, delegation, contradictions, task stages."""
 import sys, pathlib
 
-p = pathlib.Path('/home/z/my-project/src/lib/riishe/orchestrator.ts')
+p = pathlib.Path('/tmp/m37-run/src/lib/riishe/orchestrator.ts')
 src = p.read_text()
 
 def sub(old, new):
