@@ -1097,10 +1097,8 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     const repairItems: string[] = []
     if (sourceContradictions.length > 0) {
       repairItems.push(
-        'the retrieved sources themselves DISAGREE on the following points — state each disagreement explicitly, attribute every version to its source [n], and never silently pick one:
-' +
-          sourceContradictions.map((c) => `- ${describeContradiction(c)}`).join('
-'),
+        'the retrieved sources themselves DISAGREE on the following points — state each disagreement explicitly, attribute every version to its source [n], and never silently pick one:\n' +
+          sourceContradictions.map((c) => `- ${describeContradiction(c)}`).join('\n'),
       )
     }
     if (initialSupport.unsupported.length > 0) {
