@@ -21,6 +21,12 @@
  *    server-only modules.
  */
 
+// M39: type-only mutual import (quality-routing imports ClientComputeTier
+// from here). Erased at runtime — no cycle in emitted JS.
+import type { TaskComplexity } from './quality-routing'
+
+export type { TaskComplexity }
+
 /** Product id as used by the BEAN registry (kept as `string` so future
  * products — BEAN FX, BEAN Folio — can attach without engine changes). */
 export type ComputeProductId = string
@@ -159,6 +165,10 @@ export interface ComputeTaskDescriptor<TInput = unknown, TOutput = unknown> {
   signal?: AbortSignal
   /** Expected output validator id (registered per kind). */
   outputValidator?: string
+  /** M39 quality-route input: honest qualitative load of THIS task
+   * (descriptor wins over the kind default; default 'standard'). Consumed
+   * only for MODEL-backed tasks by the quality-route policy. */
+  complexity?: TaskComplexity
 }
 
 export interface ComputeTaskOutput<TOutput = unknown> {
@@ -178,6 +188,10 @@ export interface ComputeTaskOutput<TOutput = unknown> {
   durationMs?: number
   /** Failed-target attempts, for honest diagnostics (states + reasons only). */
   attempts?: Array<{ target: ExecutionTarget; state: ComputeTaskState; reason?: string }>
+  /** M39: honest limitation carried when the output was produced under a
+   * quality-route caveat (e.g. 'local-with-limitation') — stated, never
+   * hidden; absent when the result was produced without a caveat. */
+  limitation?: string
 }
 
 /** Handler executed on a selected target. Receives bounded helpers — the
@@ -212,6 +226,8 @@ export interface RegisteredTaskKind<TInput = unknown, TOutput = unknown> {
   resourceClass?: ResourceClass
   /** Default timeout for the kind (ms). */
   timeoutMs?: number
+  /** M39 default complexity for this kind (descriptor may override). */
+  complexity?: TaskComplexity
 }
 
 /** Measured browser capability snapshot (spec Phase 2). Every field is a
