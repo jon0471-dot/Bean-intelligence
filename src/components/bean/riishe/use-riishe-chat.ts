@@ -67,6 +67,14 @@ export interface MsgMeta {
     policy: string
     policyDescription: string
   }
+  /** M37 §5 — operational task stages recorded from REAL execution events
+   *  (planning, delegation, terminal outcome). Server-composed; the UI only
+   *  renders what actually happened. */
+  taskStages?: Array<{ stage: string; at: string }>
+  /** M37 §4 — multi-domain workflow provenance (deterministic detection). */
+  workflow?: { parts: string[] }
+  /** M37 §2 — the turn was served under the strict documents-only contract. */
+  docGrounded?: boolean
 }
 
 export interface FileMeta {
@@ -119,6 +127,9 @@ export function useRiisheChat(refs: RiisheChatRefs) {
   const [streaming, setStreaming] = useState(false)
   const [researching, setResearching] = useState(false)
   const [runningTool, setRunningTool] = useState<string | null>(null)
+  // M37 §5 — genuine operational task stage, recorded by the server from
+  // REAL execution events (never a client-side guess).
+  const [liveTaskStage, setLiveTaskStage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [files, setFiles] = useState<FileMeta[]>([])
   const [uploadingCount, setUploadingCount] = useState(0)
@@ -536,6 +547,7 @@ export function useRiisheChat(refs: RiisheChatRefs) {
             if (evt.tool.status === 'started') setRunningTool(evt.tool.name)
             else setRunningTool(null)
           }
+          if (evt.task) setLiveTaskStage(evt.task.stage)
           if (evt.reset) {
             // Reset protocol: a verification rewrite replaced the streamed
             // draft — clear it so the final answer REPLACES, never appends.
@@ -562,6 +574,7 @@ export function useRiisheChat(refs: RiisheChatRefs) {
           serverDone = true
           setResearching(false)
           setRunningTool(null)
+          setLiveTaskStage(null)
           if (convId && !activeId) setActiveId(convId)
           if (evt.messageId) {
             setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, serverId: evt.messageId } : m)))
@@ -579,6 +592,7 @@ export function useRiisheChat(refs: RiisheChatRefs) {
           }
         },
         onFailure: (failure: StreamFailureInfo) => {
+          setLiveTaskStage(null)
           if (failure.kind === 'aborted') {
             // User pressed Stop: keep what arrived and label it honestly.
             // NO recovery fetch — stopping is an explicit user decision.
@@ -848,6 +862,7 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     streaming,
     researching,
     runningTool,
+    liveTaskStage,
     error,
     files,
     uploadingCount,
