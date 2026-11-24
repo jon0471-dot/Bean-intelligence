@@ -20,6 +20,30 @@ export const RESPONSE_STATES = [
 
 export type ResponseState = (typeof RESPONSE_STATES)[number]
 
+/**
+ * M37 §5 — customer-facing operational task stages. Every entry is recorded
+ * by the orchestrator from a REAL execution event (a workflow plan actually
+ * composed, a document actually read, a coding job actually submitted or
+ * probed, an approval actually pending, the terminal outcome actually
+ * derived from the assigned response states). The model has no field to set
+ * these and no authority over them — the same honesty contract as the
+ * response states above.
+ */
+export const TASK_STAGES = [
+  'planning',
+  'researching',
+  'reading-documents',
+  'delegating',
+  'approval-waiting',
+  'executing',
+  'verifying',
+  'completed',
+  'completed-with-limitations',
+  'failed',
+  'cancelled',
+] as const
+export type TaskStage = (typeof TASK_STAGES)[number]
+
 export interface EvidenceSourceView {
   id: number
   title: string
@@ -168,6 +192,28 @@ export interface MessageMetadata {
   verificationNote?: string
   /** Measured latency breakdown for this turn (performance reporting). */
   timings?: TurnTimings
+  /**
+   * M37 §5 — the operational task stages THIS turn actually went through,
+   * in order, each stamped when the real event fired. Absent for ordinary
+   * single-domain turns (no workflow, no delegation) so the UI adds no
+   * noise; a terminal entry (completed / completed-with-limitations /
+   * failed / cancelled) is present whenever the turn produced one from its
+   * assigned response states. Composed by the orchestrator — never by the
+   * model. Contains no backend/model identities (customer-facing).
+   */
+  taskStages?: Array<{ stage: TaskStage; at: string; durationMs?: number }>
+  /**
+   * M37 §4 — multi-step workflow provenance: the capability domains the
+   * turn actually coordinated (deterministic detection over the message +
+   * attachments + capability plan). Absent when the turn was single-domain.
+   */
+  workflow?: { parts: string[] }
+  /**
+   * M37 §2 — true when the user requested STRICT document grounding and the
+   * orchestrator served the turn under the documents-only contract (web
+   * retrieval suppressed). Absent otherwise.
+   */
+  docGrounded?: boolean
 }
 
 /** Build the customer-facing verification summary. Empty when nothing ran. */
