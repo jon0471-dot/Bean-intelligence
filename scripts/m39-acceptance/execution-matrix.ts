@@ -241,7 +241,8 @@ async function editLanes(j: ReturnType<typeof jar>, sourceImage: Uint8Array, sou
           const img = await j.call(outUrl)
           const buf = new Uint8Array(await img.arrayBuffer())
           const isJpeg = buf[0] === 0xff && buf[1] === 0xd8
-          record('bean-image-local-sharp', 'laxii.image-enhancement', isJpeg && buf.length > 1000, img.status, `REAL deterministic enhancement output ${buf.length} bytes (JPEG ${isJpeg})`, { bytes: buf.length })
+          const isPng = buf[0] === 0x89 && buf[1] === 0x50
+          record('bean-image-local-sharp', 'laxii.image-enhancement', (isJpeg || isPng) && buf.length > 1000, img.status, `REAL deterministic enhancement output ${buf.length} bytes (${isJpeg ? 'JPEG' : isPng ? 'PNG' : 'unknown container'})`, { bytes: buf.length })
         } else {
           record('bean-image-local-sharp', 'laxii.image-enhancement', true, 200, 'enhancement completed with persisted result', job.result)
         }
@@ -331,7 +332,8 @@ async function editLanes(j: ReturnType<typeof jar>, sourceImage: Uint8Array, sou
           const img = await j.call(outUrl)
           const buf = new Uint8Array(await img.arrayBuffer())
           const isJpeg = buf[0] === 0xff && buf[1] === 0xd8
-          record('bean-image-hosted-edit', 'laxii.image-editing-hosted', isJpeg && buf.length > 10_000, img.status, `REAL hosted edit output ${buf.length} bytes (JPEG ${isJpeg})`, { bytes: buf.length })
+          const isPng = buf[0] === 0x89 && buf[1] === 0x50
+          record('bean-image-hosted-edit', 'laxii.image-editing-hosted', (isJpeg || isPng) && buf.length > 10_000, img.status, `REAL hosted edit output ${buf.length} bytes (${isJpeg ? 'JPEG' : isPng ? 'PNG' : 'unknown container'})`, { bytes: buf.length })
         } else {
           record('bean-image-hosted-edit', 'laxii.image-editing-hosted', true, 200, 'hosted edit completed with persisted result', job.result)
         }
@@ -363,17 +365,18 @@ async function audioLanes(j: ReturnType<typeof jar>, wav: Uint8Array, source: st
     const form = new FormData()
     form.append('file', new Blob([wav as unknown as BlobPart], { type: 'audio/wav' }), 'matrix-tts.wav')
     const r = await j.call('/api/gangzii/transcribe', { method: 'POST', body: form })
-    const body = (await r.json().catch(() => ({}))) as { job?: { id: string }; text?: string; error?: { message?: string } }
+    const body = (await r.json().catch(() => ({}))) as { job?: { id: string }; text?: string; transcript?: string; error?: { message?: string } }
     if (r.status === 202 && body.job?.id) {
       const job = await waitJob(j, body.job.id, 180_000, 2_000)
       if (job?.status === 'completed') {
-        const text = String((job.result as { text?: string } | null)?.text ?? '')
-        record('bean-audio-asr-hosted-primary', 'gangzii.audio-transcription', text.toLowerCase().includes('bean') || text.toLowerCase().includes('speech') || text.length > 0, 200, `REAL ASR output (speech source: ${source}): "${text.slice(0, 120)}"`, { text })
+        const text = String((job.result as { transcript?: string; text?: string } | null)?.transcript ?? (job.result as { text?: string } | null)?.text ?? '')
+        record('bean-audio-asr-hosted-primary', 'gangzii.audio-transcription', text.length > 0, 200, `REAL ASR output (speech source: ${source}): "${text.slice(0, 120)}"`, { text })
       } else {
         record('bean-audio-asr-hosted-primary', 'gangzii.audio-transcription', job === null ? null : false, null, job ? `job ended ${job.status}: ${job.errorMessage}` : 'wait timeout', job)
       }
-    } else if (r.status === 200 && body.text) {
-      record('bean-audio-asr-hosted-primary', 'gangzii.audio-transcription', body.text.length > 0, r.status, `REAL ASR output (speech source: ${source}): "${body.text.slice(0, 120)}"`)
+    } else if ((r.status === 200 && body.text) || (r.status === 200 && body.transcript)) {
+      const text = body.transcript ?? body.text ?? ''
+      record('bean-audio-asr-hosted-primary', 'gangzii.audio-transcription', text.length > 0, r.status, `REAL ASR output (speech source: ${source}): "${text.slice(0, 120)}"`)
     } else {
       record('bean-audio-asr-hosted-primary', 'gangzii.audio-transcription', r.status === 429 ? null : false, r.status, body.error?.message ?? `transcribe rejected (HTTP ${r.status})`)
     }
@@ -421,18 +424,32 @@ async function audioLanes(j: ReturnType<typeof jar>, wav: Uint8Array, source: st
     const r = await j.call('/api/gangzii/produce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assetId, ops: [{ op: 'trim', params: { startSec: 0.2 } }, { op: 'fade-in', params: { durationSec: 0.3 } }] }),
+      body: JSON.stringify({ sourceAssetId: assetId, operations: [{ op: 'trim', params: { startSec: 0.2 } }, { op: 'fade-in', params: { durationSec: 0.3 } }], output: { format: 'wav' } }),
     })
-    const body = (await r.json().catch(() => ({}))) as { job?: { id: string }; error?: { message?: string } }
-    if (r.status === 202 && body.job?.id) {
-      const job = await waitJob(j, body.job.id, 120_000, 2_000)
-      if (job?.status === 'completed') {
-        record('bean-audio-tools-local-ffmpeg', 'gangzii.audio-production', true, 200, 'REAL ffmpeg production chain (trim + fade) completed with validated output', job.result)
+    const body = (await r.json().catch(() => ({}))) as { jobId?: string; rejected?: boolean; error?: { message?: string } }
+    // GANGZII keeps its own job surface (/api/gangzii/jobs) — /api/ai/jobs
+    // intentionally serves only the engine-managed products.
+    if (r.status === 202 && body.jobId) {
+      const deadline = Date.now() + 120_000
+      let gj: { status?: string; result?: Record<string, unknown> | null; errorMessage?: string } = {}
+      for (;;) {
+        const jr = await j.call(`/api/gangzii/jobs/${body.jobId}`)
+        const jb = (await jr.json().catch(() => ({}))) as { job?: { status?: string; result?: Record<string, unknown> | null; errorMessage?: string } }
+        gj = jb.job ?? {}
+        if (['completed', 'failed', 'cancelled'].includes(gj.status ?? '') || Date.now() > deadline) break
+        await new Promise((res) => setTimeout(res, 2_000))
+      }
+      const audioUrl = String(((gj.result ?? {}) as { audioUrl?: string }).audioUrl ?? '')
+      if (gj.status === 'completed' && audioUrl) {
+        const audio = await j.call(audioUrl)
+        const buf = new Uint8Array(await audio.arrayBuffer())
+        const isWav = buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
+        record('bean-audio-tools-local-ffmpeg', 'gangzii.audio-production', isWav && buf.length > 10_000, audio.status, `REAL ffmpeg production chain (trim + fade-in) output ${buf.length} bytes (RIFF ${isWav})`, { bytes: buf.length })
       } else {
-        record('bean-audio-tools-local-ffmpeg', 'gangzii.audio-production', job === null ? null : false, null, job ? `job ended ${job.status}: ${job.errorMessage}` : 'wait timeout', job)
+        record('bean-audio-tools-local-ffmpeg', 'gangzii.audio-production', false, null, `job ended ${gj.status ?? '?'}: ${gj.errorMessage ?? 'no result url'}`)
       }
     } else {
-      record('bean-audio-tools-local-ffmpeg', 'gangzii.audio-production', r.status === 429 ? null : false, r.status, body.error?.message ?? `produce rejected (HTTP ${r.status})`)
+      record('bean-audio-tools-local-ffmpeg', 'gangzii.audio-production', false, r.status, body.error?.message ?? `produce rejected (HTTP ${r.status})`)
     }
   }
 }
@@ -642,23 +659,27 @@ async function main() {
       record('bean-video-hosted-primary', 'jazmii.video-generation-hosted', r.status === 429 ? null : false, r.status, body.error ?? `submit rejected (HTTP ${r.status})`)
     }
 
-    // local motion lane (RIFE) — real local frame interpolation
+    // local motion lane (RIFE) — real local frame interpolation. The lane is
+    // IMAGE-to-video: it animates the submitted still (M26.2 contract), so the
+    // submission carries a REAL reference image (data URL). Without it the
+    // route honestly routes the job to the hosted lane instead.
     const rl = await j.call('/api/jazmii/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: 'gentle drift across the frame, calm motion', durationSec: 3, engine: 'local-motion' }),
+      body: JSON.stringify({ prompt: 'gentle drift across the frame, calm motion', durationSec: 3, engine: 'local-motion', imageUrl: `data:image/png;base64,${Buffer.from(makePng(256, 256)).toString('base64')}` }),
     })
     const rlBody = (await rl.json().catch(() => ({}))) as { job?: { id: string }; error?: string }
     if (rl.status === 202 && rlBody.job?.id) {
       const job = await waitJob(j, rlBody.job.id, 300_000, 3_000)
       if (job?.status === 'completed') {
-        const res = (job.result ?? {}) as { videoUrl?: string; mp4Url?: string }
+        const res = (job.result ?? {}) as { videoUrl?: string; mp4Url?: string; provenance?: { engine?: string } }
         const outUrl = res.videoUrl ?? res.mp4Url
+        const isLocalLane = res.provenance?.engine === 'local-motion-rife'
         if (outUrl) {
           const media = await j.call(outUrl, { headers: { Range: 'bytes=0-64' } })
-          record('bean-video-local-motion', 'jazmii.video-motion-local', media.status === 206 || media.status === 200, media.status, `REAL local motion+RIFE video artifact served (${outUrl})`, { outUrl })
+          record('bean-video-local-motion', 'jazmii.video-motion-local', (media.status === 206 || media.status === 200) && isLocalLane, media.status, isLocalLane ? `REAL local motion+RIFE video artifact served (${outUrl}; provenance engine ${res.provenance?.engine})` : `video artifact served but provenance is not the local lane (${res.provenance?.engine ?? 'none'})`, { outUrl, provenance: res.provenance })
         } else {
-          record('bean-video-local-motion', 'jazmii.video-motion-local', true, 200, 'local motion job completed with persisted result', job.result)
+          record('bean-video-local-motion', 'jazmii.video-motion-local', isLocalLane, 200, isLocalLane ? 'local motion job completed with persisted result' : `completed without a local-lane provenance (${res.provenance?.engine ?? 'none'})`, job.result)
         }
       } else {
         record('bean-video-local-motion', 'jazmii.video-motion-local', job === null ? null : false, null, job ? `job ended ${job.status}: ${job.errorMessage}` : 'wait timeout', job)
