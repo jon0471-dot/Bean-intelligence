@@ -4,8 +4,10 @@
   "private": true,
   "description": "Build-time dependencies for the BEAN browser AI worker bundles (public/workers/*.js, built by scripts/build-workers.mjs). Deliberately NESTED: the heavy browser runtimes (@mlc-ai/web-llm, @huggingface/transformers, onnxruntime-web) are never installed into the app's own node_modules — their presence measurably OOM-kills the Turbopack production build in memory-constrained environments, and the app graph never imports them (only the prebuilt, self-hosted worker bundles do).",
   "dependencies": {
-    "@mlc-ai/web-llm": "0.2.89",
     "@huggingface/transformers": "4.3.2",
+    "@mlc-ai/web-llm": "0.2.89",
+    "@wllama/wllama": "4.0.0",
+    "@wllama/wllama-compat": "4.0.0",
     "onnxruntime-web": "1.31.1"
   }
 }

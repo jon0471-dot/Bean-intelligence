@@ -39,6 +39,9 @@ export interface ClientCompute {
   /** Measured capability snapshot (cached from the last init). */
   getSnapshot: () => CapabilitySnapshot | null
   getProfile: () => DeviceProfile | null
+  /** M39 test seam: seed a measured snapshot WITHOUT DOM detection
+   *  (production never calls this — refresh() always detects for real). */
+  setSnapshotForTests: (snapshot: CapabilitySnapshot | null) => void
   /** Re-run detection + tier derivation (e.g. after a context change). */
   refresh: () => Promise<void>
   /** Optional, strictly-bounded CPU benchmark for tier refinement. */
@@ -149,6 +152,13 @@ class ClientComputeImpl implements ClientCompute {
 
   getSnapshot(): CapabilitySnapshot | null {
     return this.snapshot
+  }
+
+  /** M39 test seam: seed a measured snapshot WITHOUT DOM detection
+   *  (production never calls this — refresh() always detects for real). */
+  setSnapshotForTests(snapshot: CapabilitySnapshot | null): void {
+    this.snapshot = snapshot
+    this.profile = snapshot ? deriveDeviceProfile(snapshot, this.profile?.benchmark ?? null) : null
   }
 
   getProfile(): DeviceProfile | null {

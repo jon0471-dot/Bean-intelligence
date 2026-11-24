@@ -1,6 +1,6 @@
 'use client'
 
-import { CHAT_MODEL_ID } from '@/lib/client-compute/inference/device-capability-manager'
+import { CHAT_MODEL_ID, CHAT_CPU_MODEL_ID } from '@/lib/client-compute/inference/device-capability-manager'
 
 /**
  * RIISHE chat runtime — the state machine behind the conversational UI.
@@ -670,8 +670,10 @@ export function useRiisheChat(refs: RiisheChatRefs) {
         const status = await manager.getStatus()
         if (!alive) return
         const cap = status.capabilities.find((c) => c.capability === 'chat.on-device')
-        setOnDeviceAvailable(cap?.target === 'client-gpu')
-        setOnDeviceReady(status.activeHeavyModel === ON_DEVICE_MODEL_ID)
+        // M39 §B: the on-device lane is available on the GPU lane OR the
+        // registered CPU/WASM lane (same toggle, no new UI controls).
+        setOnDeviceAvailable(cap?.target === 'client-gpu' || cap?.target === 'client-cpu')
+        setOnDeviceReady(status.activeHeavyModel === ON_DEVICE_MODEL_ID || status.activeHeavyModel === CHAT_CPU_MODEL_ID)
       } catch {
         if (alive) setOnDeviceAvailable(false)
       }
@@ -693,16 +695,19 @@ export function useRiisheChat(refs: RiisheChatRefs) {
       return
     }
     const cap = status.capabilities.find((c) => c.capability === 'chat.on-device')
-    if (cap?.target !== 'client-gpu') {
+    if (cap?.target !== 'client-gpu' && cap?.target !== 'client-cpu') {
       setError(`On-device chat is not available on this device: ${cap?.reason ?? 'capability gate failed'}`)
       return
     }
-    if (status.activeHeavyModel === ON_DEVICE_MODEL_ID) {
+    if (status.activeHeavyModel === ON_DEVICE_MODEL_ID || status.activeHeavyModel === CHAT_CPU_MODEL_ID) {
       setOnDeviceReady(true)
       setOnDeviceMode(true)
       return
     }
-    const model = status.models.find((m) => m.id === ON_DEVICE_MODEL_ID)
+    // M39 §B: the size shown is the DECIDED lane's model (GPU lane or the
+    // CPU/WASM light build) — real measured bytes, never an estimate.
+    const decidedModelId = cap?.modelId ?? ON_DEVICE_MODEL_ID
+    const model = status.models.find((m) => m.id === decidedModelId)
     // Size confirmation BEFORE any model download (non-negotiable policy).
     setOnDeviceNeedsDownload(model?.sizeBytes ?? null)
   }
@@ -714,7 +719,9 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
     const manager = getDeviceCapabilityManager()
     try {
-      await manager.ensureOnDeviceChatReady({ onProgress: (p) => setOnDeviceProgress(p) })
+      // approval: true — the user explicitly confirmed the REAL model size in
+      // the dialog above (the registry's download gate requires this flag).
+      await manager.ensureOnDeviceChatReady({ onProgress: (p) => setOnDeviceProgress(p), approval: true })
       setOnDeviceReady(true)
       setOnDeviceMode(true)
     } catch (error) {
