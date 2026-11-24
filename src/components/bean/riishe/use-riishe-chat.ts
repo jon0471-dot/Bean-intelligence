@@ -144,6 +144,9 @@ export function useRiisheChat(refs: RiisheChatRefs) {
   const [onDeviceProgress, setOnDeviceProgress] = useState<{ note: string; progress: number | null } | null>(null)
   /** Bytes shown in the size-confirmation dialog (null = nothing pending). */
   const [onDeviceNeedsDownload, setOnDeviceNeedsDownload] = useState<number | null>(null)
+  /** M39 §B: honest runtime wording for the download dialog — names the
+   * DECIDED lane (GPU or the CPU/WASM light build), never a generic GPU claim. */
+  const [onDeviceLaneNote, setOnDeviceLaneNote] = useState<string | null>(null)
   const [onDeviceAvailable, setOnDeviceAvailable] = useState(false)
   const ON_DEVICE_MODEL_ID = CHAT_MODEL_ID
 
@@ -710,10 +713,16 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     const model = status.models.find((m) => m.id === decidedModelId)
     // Size confirmation BEFORE any model download (non-negotiable policy).
     setOnDeviceNeedsDownload(model?.sizeBytes ?? null)
+    setOnDeviceLaneNote(
+      cap.target === 'client-cpu'
+        ? "runs on this device's CPU (WebAssembly light build)"
+        : "runs on this device's GPU",
+    )
   }
 
   async function confirmOnDeviceDownload(): Promise<void> {
     setOnDeviceNeedsDownload(null)
+    setOnDeviceLaneNote(null)
     setOnDevicePreparing(true)
     setError(null)
     const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
@@ -735,6 +744,7 @@ export function useRiisheChat(refs: RiisheChatRefs) {
 
   function cancelOnDeviceDownload(): void {
     setOnDeviceNeedsDownload(null)
+    setOnDeviceLaneNote(null)
   }
 
   function disableOnDevice(): void {
@@ -880,6 +890,7 @@ export function useRiisheChat(refs: RiisheChatRefs) {
     onDevicePreparing,
     onDeviceProgress,
     onDeviceNeedsDownload,
+    onDeviceLaneNote,
     onDeviceAvailable,
     // actions
     setInput,

@@ -99,3 +99,19 @@ visitor hardware used for other visitors' work (each device executes only its ow
   live-session evidence carry that column.
 - Universal compatibility claims would require the §H performance profiles (low-end CPU-only →
   dedicated GPU); this host covers the CPU-only case plus the gated architecture.
+
+---
+
+## 8. M39 addendum — verified reality update (2026-11-24, same day)
+
+The M39 milestone (`feat/m39-universal-live-ai-runtime`, merged by the owner via PRs #17/#18/#19) changes several cells of the §2 snapshot. The M38 report above is preserved as the historical snapshot; this addendum records what M39 verified on top of it:
+
+| Capability | M38 snapshot said | M39 verified reality (same day) |
+|---|---|---|
+| Chat and reasoning — browser CPU lane | "not integrated (browser CPU-only LLM lane does not exist; WebLLM requires WebGPU)" | **Registered + real**: `riishe-chat-wasm-qwen2.5-0.5b-gguf` (Qwen2.5-0.5B q4_k_m GGUF, 491,400,032 B, sha256 `74a4da8c…7a9db`, wllama 4.0.0, `n_gpu_layers=0`), automatic GPU-failure→CPU fallback with recorded degradation. Same-day corrective pass fixed the malformed WASM SIMD probe (12-of-16 v128 bytes) that had gated every wasm lane off on all devices — after the fix the live browser measures "WebAssembly: supported + SIMD" and the on-device chat toggle appears. Full in-browser chat turn: environment-limited in the 4 GB sandbox (browser memory ceiling at 62% of the download, twice, recorded honestly); lane contracts unit-tested (16 tests); real-GPU acceptance pending owner hardware. |
+| Chat/reasoning routing | quality-routing policy (pure, unwired) | **Wired into automatic execution** (M39.1): scheduler consults `resolveQualityRoute` for MODEL-backed tasks; executor-mirrored evidence; 19 + 282-line test files green. |
+| Vision segmentation (browser) | bundled worker, not browser-measured | Probe now honestly passes (SIMD fix); runtime reported "available" in the live browser AI-Device panel; server-side MODNet lane re-verified live this day (636 ms matte + honest subject-fraction-0 refusal). |
+| Audio transcription (browser) | bundled, gated | Same SIMD-probe correction applies; runtime "available" in the live browser panel. |
+| Every registered backend (server side) | per-lane records | **Universal execution matrix** (`scripts/m39-acceptance/execution-matrix.ts`): 26 PASS / 8 honest-unavailable / 0 FAIL same-day, artifacts validated by magic bytes/content/provenance — `docs/ai/MODEL-EXECUTION-MATRIX-M39.md` is the authoritative per-capability table. |
+
+Not changed by M39, still honest: OCR (scanned images), retrieval embeddings/reranking, 3D/pose — not integrated; GPU Diffusers worker not deployed; Wan self-hosted video never implemented; credential-gated dormant lanes stay dormant without operator credentials.
