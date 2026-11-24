@@ -14,6 +14,7 @@ import {
   readDocumentTool,
   analyzeImageTool,
 } from './builtin'
+import { searchAtlasTool, readAtlasDocTool } from './atlas'
 import { delegateCodingTool, checkCodingJobTool } from '../code-delegation'
 import { generateImageTool, createVideoTool, synthesizeSpeechTool } from '../specialists'
 
@@ -27,6 +28,11 @@ export function registerBuiltins(): void {
   registerTool(runCodeTool)
   registerTool(readDocumentTool)
   registerTool(analyzeImageTool)
+  // M38-E — the curated world-knowledge atlas rides the existing tool loop
+  // (paged reads + deterministic section search over the license-registered
+  // docs/knowledge-atlas library; NOT a second retrieval architecture).
+  registerTool(searchAtlasTool)
+  registerTool(readAtlasDocTool)
   // M36-C — specialist delegation tools (LAXII / JAZMII / GANGZII via the
   // existing durable job queue; explicit-permission gated, plan-narrowed).
   registerTool(generateImageTool)

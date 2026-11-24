@@ -220,6 +220,12 @@ export function selectTools(args: {
   if (hasDocuments || (searchNeeded && researchFailed) || deepResearch) {
     tools.add('web_search')
     tools.add('read_url')
+    // M38-E — the curated world-knowledge atlas rides the SAME retrieval
+    // conditions: a local, instant, license-registered reference that
+    // complements (never replaces) the live web lanes. Deterministic section
+    // search + paged reads through the existing loop and citation universe.
+    tools.add('search_atlas')
+    tools.add('read_atlas_doc')
   }
   if (allowCodeExecution && (task === 'math' || task === 'coding' || task === 'document')) {
     tools.add('run_code')
