@@ -241,8 +241,11 @@ describe('delegate_coding — real submission through the product gates', () => 
     const params = JSON.parse(job!['paramsJson'] as string)
     expect(params.projectId).toBe((projectRows[0] as Record<string, unknown>)['id'])
     expect(params.message).toContain('portfolio site')
-    expect(executed.output).toContain('queued')
-    expect(executed.output).not.toMatch(/ready|completed|tested/i)
+    expect(executed.output).toContain('status: queued')
+    // The output must instruct the model NOT to claim completion — never
+    // claim the artifact itself exists.
+    expect(executed.output).toMatch(/do NOT claim/i)
+    expect(executed.output).not.toMatch(/(code|files|project) (is|are) (ready|complete|done)/i)
     expect(auditRows.some((a) => a.action === 'riishe.coding_delegate')).toBe(true)
   })
 

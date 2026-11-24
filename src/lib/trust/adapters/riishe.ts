@@ -124,6 +124,10 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
   let deliveryStepSeq: number | null = null
   let approvalStepSeq: number | null = null
   let workflowRecorded = false
+  // M37: task events arrive as fire-and-forget chains; two rapid events
+  // (delegating → approval-waiting) must allocate their per-task step seqs
+  // SERIALLY, so the ledger's per-task monotonic seq stays unique.
+  let taskEventChain: Promise<void> = Promise.resolve()
 
   const guard = async (method: string, fn: () => Promise<void>): Promise<void> => {
     try {
@@ -353,7 +357,10 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
 
   const onTaskEvent = (e: { stage: string; detail?: string }): void => {
     if (!taskId) return
-    void (async () => {
+    // Serialized chain: each event's ledger writes complete before the next
+    // event's begin (seq allocation and step transitions stay ordered).
+    taskEventChain = taskEventChain
+      .then(() => (async () => {
       if (e.stage === 'planning' && !workflowRecorded) {
         // REAL event: the turn was detected as a multi-domain workflow. The
         // parts list is deterministic routing provenance (no content, no
@@ -398,7 +405,8 @@ export function createRiisheTurnRecorder(input: RiisheTurnRecorderInput): Riishe
       if ((e.stage === 'completed' || e.stage === 'completed-with-limitations') && approvalStepSeq !== null) {
         await updateTrustStepStatus(taskId!, approvalStepSeq, 'done')
       }
-    })().catch(() => undefined)
+    })())
+      .catch(() => undefined)
   }
 
   const cancelled = async (): Promise<void> =>

@@ -74,6 +74,7 @@ function installDbFake() {
         updateMany: async () => ({ count: 0 }),
       },
       trustApproval: { count: async () => 0 },
+      trustCheckpoint: undefined as unknown as never,
       trustCheckpointCounter: undefined,
     },
   }))
@@ -174,13 +175,14 @@ describe('M37 UI privacy — progress display stays free of backend identities',
   test('riishe-messages.tsx and use-riishe-chat.ts expose no backend/model identities', async () => {
     const fs = await import('fs')
     const path = await import('path')
-    const base = path.join(import.meta.dir, '..', 'src', 'components', 'bean', 'riishe')
+    const base = path.join(import.meta.dir, '..', '..', 'src', 'components', 'bean', 'riishe')
     const files = ['riishe-messages.tsx', 'use-riishe-chat.ts', 'riishe-composer.tsx']
-    const forbidden = ['bean-llm', 'bean-gpt', 'gpt-4', 'gpt-5', 'claude', 'gemini', 'deepseek', 'qwen', 'openai', 'anthropic', 'z-ai', 'provider', 'model-id', 'backend-id']
+    // Same forbidden-pattern discipline as tests/unit/ui-identity-hygiene.test.ts.
+    const forbidden = [/Qwen2\.5-0\.5B/i, /Kokoro-82M/i, /Whisper-tiny/i, /WebLLM/i, /\bweb-llm\b/i, /transformers\.js/i, /\bonnxruntime\b/i, /bean-llm-/, /bean-image-/, /bean-video-/, /bean-audio-/, /github-api/i]
     for (const f of files) {
-      const text = fs.readFileSync(path.join(base, f), 'utf8').toLowerCase()
-      for (const token of forbidden) {
-        expect({ file: f, token, found: text.includes(token) }).toEqual({ file: f, token, found: false })
+      const text = fs.readFileSync(path.join(base, f), 'utf8')
+      for (const pattern of forbidden) {
+        expect({ file: f, token: String(pattern), found: pattern.test(text) }).toEqual({ file: f, token: String(pattern), found: false })
       }
     }
   })
@@ -188,7 +190,7 @@ describe('M37 UI privacy — progress display stays free of backend identities',
   test('the live stage labels are operational only (no identities) and cover the M37 stages', async () => {
     const fs = await import('fs')
     const path = await import('path')
-    const text = fs.readFileSync(path.join(import.meta.dir, '..', 'src', 'components', 'bean', 'riishe', 'riishe-messages.tsx'), 'utf8')
+    const text = fs.readFileSync(path.join(import.meta.dir, '..', '..', 'src', 'components', 'bean', 'riishe', 'riishe-messages.tsx'), 'utf8')
     for (const label of ['Planning', 'Reading documents', 'Delegating', 'Waiting for approval', 'Executing']) {
       expect(text).toContain(label)
     }

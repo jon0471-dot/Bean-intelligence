@@ -7,33 +7,25 @@
 import { describe, test, expect } from 'bun:test'
 import { extractPdf } from '../../src/lib/files/extract'
 
-/** Build a minimal valid 2-page PDF with distinct text per page. */
+/** Build a minimal valid 2-page PDF (no xref — pdf.js rebuilds it). */
 function buildTwoPagePdf(): Buffer {
-  const objects: string[] = []
   const content1 = 'BT /F1 12 Tf 72 720 Td (Alpha page content about coffee prices) Tj ET'
   const content2 = 'BT /F1 12 Tf 72 720 Td (Beta page content about tea tariffs) Tj ET'
-  objects.push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n')
-  objects.push('2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n')
-  objects.push('3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 6 0 R >> >> >>\nendobj\n')
-  objects.push('4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 6 0 R >> >> >>\nendobj\n')
-  objects.push(`5 0 obj\n<< /Length ${content1.length} >>\nstream\n${content1}\nendstream\nendobj\n`)
-  objects.push(`7 0 obj\n<< /Length ${content2.length} >>\nstream\n${content2}\nendstream\nendobj\n`)
-  objects.push('6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n')
-
-  let body = '%PDF-1.4\n'
-  const offsets: number[] = []
-  for (const obj of objects) {
-    offsets.push(body.length)
-    body += obj
-  }
-  const xrefStart = body.length
-  body += `xref\n0 ${objects.length + 1}\n`
-  body += '0000000000 65535 f \n'
-  for (const off of offsets) {
-    body += `${String(off).padStart(10, '0')} 00000 n \n`
-  }
-  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`
-  return Buffer.from(body, 'latin1')
+  const pdf = `%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 6 0 R >> >> >> endobj
+4 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 6 0 R >> >> >> endobj
+5 0 obj << /Length ${content1.length} >> stream
+${content1}
+endstream endobj
+7 0 obj << /Length ${content2.length} >> stream
+${content2}
+endstream endobj
+6 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+trailer << /Root 1 0 R /Size 8 >>
+%%EOF`
+  return Buffer.from(pdf, 'utf8')
 }
 
 describe('M37 PDF extraction — genuine page markers', () => {

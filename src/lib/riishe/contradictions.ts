@@ -73,15 +73,23 @@ const scaleOf = (s: string | undefined): number => {
 }
 
 const MEASURE_PATTERNS: ReadonlyArray<MeasurePattern> = [
+  // "24 people were killed" order (number before the measure word).
   { measure: 'dead', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:dead|killed|fatalities|died)\b/gi },
+  // "killed 24 people" order (the measure word leads the figure).
+  { measure: 'dead', re: /\b(?:dead|killed|fatalities|died)\b[^.?!]{0,40}?\b(\d[\d,]*(?:\.\d+)?)\s*(?:people)?\b/gi },
   { measure: 'injured', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:injured|wounded|hospitali[sz]ed)\b/gi },
+  { measure: 'injured', re: /\b(?:injured|wounded|hospitali[sz]ed)\b[^.?!]{0,40}?\b(\d[\d,]*(?:\.\d+)?)\s*(?:people)?\b/gi },
   { measure: 'percent', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:%|percent)\b/gi },
   { measure: 'money', re: /\$\s?(\d[\d,]*(?:\.\d+)?)\s*(million|billion|trillion|bn|mn|m)?\b/gi, scale: scaleOf },
-  { measure: 'magnitude', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(million|billion|trillion)\b(?!\s*(?:%|percent))/gi, scale: scaleOf },
+  // Magnitude must not double-report a money figure ($5 million): negative
+  // lookbehind on the currency sign (with or without its space).
+  { measure: 'magnitude', re: /(?<!\$)(?<!\$ )\b(\d[\d,]*(?:\.\d+)?)\s*(million|billion|trillion)\b(?!\s*(?:%|percent))/gi, scale: scaleOf },
   { measure: 'years-old', re: /\bage[ds]?\s+(?:of\s+)?(\d{1,3})\b/gi },
   { measure: 'years-old', re: /\b(\d{1,3})\s*years?\s*(?:old|of age)\b/gi },
   { measure: 'displaced', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:displaced|evacuated|homeless)\b/gi },
+  { measure: 'displaced', re: /\b(?:displaced|evacuated|homeless)\b[^.?!]{0,40}?\b(\d[\d,]*(?:\.\d+)?)\s*(?:people)?\b/gi },
   { measure: 'arrested', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:arrested|detained)\b/gi },
+  { measure: 'arrested', re: /\b(?:arrested|detained)\b[^.?!]{0,40}?\b(\d[\d,]*(?:\.\d+)?)\s*(?:people)?\b/gi },
 ]
 
 /** Full calendar dates (ISO or "Month D, YYYY" / "D Month YYYY"). */
@@ -101,6 +109,10 @@ const NAME_STOPWORDS = new Set([
   'july', 'august', 'september', 'october', 'november', 'december', 'reuters', 'afp',
   'associated', 'press', 'bbc', 'cnn', 'updated', 'published', 'image', 'source', 'getty',
   'said', 'says', 'reported', 'president', 'minister', 'government', 'ministry',
+  // Document-frame words (titles/headers) — they anchor nothing:
+  'report', 'reports', 'bulletin', 'coverage', 'snippet', 'page', 'wire',
+  'agency', 'ledger', 'update', 'latest', 'news', 'article', 'statement',
+  'release', 'court', 'filing', 'dispatch', 'brief',
 ])
 
 function splitSentences(text: string): string[] {
@@ -124,9 +136,11 @@ function entityTokens(sentence: string): string[] {
     if (lower.length < 4) continue
     if (MONTHS.has(lower)) continue
     if (NAME_STOPWORDS.has(lower)) continue
-    // Skip a sentence-INITIAL token when a lowercase word follows it — that
-    // position is usually the grammatical subject start, not a proper noun.
-    if (i === 0 && sentence.startsWith(t)) {
+    // Skip a token only when it LITERALLY starts the sentence and a lowercase
+    // word follows (a grammatical subject start like "Search teams ..." —
+    // not a proper noun). A name after "The ..." ("The Kapueras floods")
+    // is NOT sentence-initial and must be kept as the entity anchor.
+    if (sentence.startsWith(t)) {
       const after = sentence.slice(t.length).match(/^\s+[a-z]/)
       if (after) continue
     }

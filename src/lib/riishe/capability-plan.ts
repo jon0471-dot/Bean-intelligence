@@ -94,7 +94,7 @@ const CODE_BUILD_RE =
  * would blur the contract).
  */
 const DOC_ONLY_RE =
-  /\b(based\s+(only|solely|exclusively|just)\s+on\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|only\s+from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|attachments?|reports?|pdfs?)|from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?)\s+alone|(only|strictly)\s+(according\s+to|using|from)\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|(stick|limit)\s+(to|it)\s+(strictly\s+)?to\s+(the\s+)?(attached\s+)?(documents?|files?|reports?))\b/i
+  /\b(based\s+(only|solely|exclusively|just)\s+on\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|only\s+from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|attachments?|reports?|pdfs?)|from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?)\s+alone|(only|strictly)\s+(according\s+to|using|from)\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|using\s+only\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|answer\s+(only|solely)\s+from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|(stick|limit)\s+(to|it)\s+(strictly\s+)?to\s+(the\s+)?(attached\s+)?(documents?|files?|reports?))\b/i
 
 export function planCapabilities(
   message: string,
@@ -146,8 +146,13 @@ export function planCapabilities(
   }
 
   // M37 — CODE GIFTZ delegation planning (deterministic, plan-narrowed).
+  // A question/explanation opener ("how do I build...", "explain...") is an
+  // ANSWER request, never a build order — run_code/explanations stay the
+  // tools for those (same discipline as the execution-intent detector).
+  const QUESTION_OPENER_RE =
+    /^\s*(how\s+(do|can|to|does)|what\s+(does|is|are|will)|why\s+(does|is|do)|can\s+you\s+(explain|show|tell|describe|write)|explain|describe|walk\s+me\s+through|review)\b/i
   let codingDelegation = false
-  if (CODE_BUILD_RE.test(text)) {
+  if (CODE_BUILD_RE.test(text) && !QUESTION_OPENER_RE.test(text)) {
     codingDelegation = true
     reasons.push('implementation work requested explicitly: delegate to the engineering workspace')
   }
