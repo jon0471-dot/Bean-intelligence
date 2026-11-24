@@ -23,7 +23,7 @@ import {
   loadGiftzAttachments,
   type GiftzTurnCoreResult,
 } from '@/lib/giftz/turn'
-import { SYSTEM_PROMPT, buildProjectContext } from '@/lib/giftz/prompts'
+import { SYSTEM_PROMPT, buildProjectContext, buildEngineeringStandardsBrief } from '@/lib/giftz/prompts'
 import { WorkspaceApplyError } from '@/lib/giftz/workspace'
 import { createCodeGiftzBackgroundRecorder, type CodeGiftzBackgroundTurnResult } from '@/lib/trust/adapters/code-giftz'
 import type { GenerationGuard } from '@/lib/giftz/chat-stream'
@@ -106,7 +106,13 @@ export async function handleGiftzCodingJob(
     logger.warn('engine.giftz_techdocs_degraded', { jobId: job.id, degraded: techDocs.degraded })
   }
 
-  const userContent = [attachmentBlock, buildProjectContext(files), techDocs?.block ?? '', params.message]
+  const userContent = [
+    attachmentBlock,
+    buildProjectContext(files),
+    techDocs?.block ?? '',
+    buildEngineeringStandardsBrief(),
+    params.message,
+  ]
     .filter((s) => s.length > 0)
     .join('\n\n')
 
