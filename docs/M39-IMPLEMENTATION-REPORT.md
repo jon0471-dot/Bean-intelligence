@@ -92,11 +92,17 @@ The real application (existing project configuration: `bun run dev`, port 3000) 
 | Prisma | `bunx prisma validate` valid |
 | Build | `bun run build` success (pre-existing warnings only) |
 | Security | Secret/security scan clean; no new env access; no hardcoded keys |
-| Committed + pushed + remote-verified | Feature branch only; SHAs recorded in §1.1 and §1.2; remote SHA verified via `git ls-remote` after push (exact values in the commit that carries this report) |
+| Committed + pushed + remote-verified | Feature branch only; SHAs recorded in §1.1 and §1.2; remote SHA verified via `git ls-remote` after push (exact values in §8) |
 | Merged into main | PRs #17/#18/#19 merged by the repository owner (authorized via GitHub merge); the corrective commit rides the feature branch |
 | Live preview | Running from the real project configuration, verified in-browser (§5) |
 
-## 7. Remaining limitations (honest)
+## 7. Publication record (remote-verified)
+
+- Corrective commit: **`e856d571e60181fc98d0ea81b40eee6dbabe9092`** (`feat(m39.5)` — SIMD probe root-cause fix + 4 regression tests + honest lane dialog + this report + phase plan + coverage addendum + worklog). Parent: `eff0d9692572df5477ad295228c823efa462d531`.
+- Pushed as a normal fast-forward (`2c9c3e7..e856d57`); `git ls-remote origin feat/m39-universal-live-ai-runtime` returned exactly `e856d571e60181fc98d0ea81b40eee6dbabe9092`; GitHub commit page HTTP 200.
+- `main` was NOT touched by this session — it holds the owner-authorized PR merges at `eff0d9692572df5477ad295228c823efa462d531`.
+
+## 8. Remaining limitations (honest)
 
 1. Real-GPU acceptance pass (WebGPU chat lane, WebGPU matting/ASR backends, GPU-failure→CPU fallback on hardware) — **pending owner hardware** (RTX 5060 Ti not reachable from this environment). Everything hardware-independent about the GPU path (capability checks, honest states, automatic fallback contracts) is test-verified.
 2. In-browser WASM chat full turn — memory-limited in THIS sandbox (§2.3); reproducible on adequately provisioned browsers with the documented commands; unit-level contracts green.
