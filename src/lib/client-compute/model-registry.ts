@@ -21,6 +21,10 @@
 
 export type ClientModelRuntime = 'onnxruntime-web' | 'transformers.js' | 'web-llm' | 'wasm-binary' | 'custom'
 
+// M39: honest quality band consumed by the M38 quality-route policy (wired
+// into the scheduler this milestone). Type-only import — no runtime cycle.
+import type { ModelQualityClass } from './quality-routing'
+
 /** How the artifact bytes are verified (non-negotiable honesty field):
  *  - 'pinned-artifact-sha256': BEAN downloads + verifies the exact SHA-256
  *    itself (bean-managed-cache path; the strict gate in requestDownload).
@@ -68,6 +72,12 @@ export interface ClientModelEntry {
   limitations: string[]
   /** Whether this entry may be downloaded at all (license/config gate). */
   enabled: boolean
+  /** M39: honest quality band of this model (measured/evaluated, never
+   * invented) — consumed by the quality-route policy so a weak local model
+   * never silently replaces a stronger authorized route. Bands: 'minimal'
+   * serves only light tasks; 'balanced' serves light+standard; 'high'
+   * serves every complexity. */
+  qualityClass: ModelQualityClass
 }
 
 export type ModelDownloadCode =
@@ -207,6 +217,10 @@ export const CLIENT_MODEL_REGISTRY: ClientModelEntry[] = [
       'Weights download once into the browser cache after explicit user approval, from the pinned upstream revision.',
     ],
     enabled: true,
+    // M39: small on-device instruct model — honestly minimal-quality; the
+    // quality-route policy will not let it automatically serve standard or
+    // demanding tasks while an authorized stronger route exists.
+    qualityClass: 'minimal',
   },
   {
     id: 'gangzii-asr-browser-whisper-tiny',
@@ -235,6 +249,9 @@ export const CLIENT_MODEL_REGISTRY: ClientModelEntry[] = [
       'Audio never leaves the device — this lane exists for privacy, not for peak accuracy.',
     ],
     enabled: true,
+    // M39: compact ASR — adequate for everyday short clips, not for
+    // demanding long-form transcription (server lane stays honest fallback).
+    qualityClass: 'balanced',
   },
   {
     id: 'laxii-bgremoval-modnet',
@@ -262,6 +279,9 @@ export const CLIENT_MODEL_REGISTRY: ClientModelEntry[] = [
       'Runs in the browser (WASM SIMD, GPU attempted first); the artifact must match its pinned SHA-256 or it is refused.',
     ],
     enabled: true,
+    // M39: MODNet fully serves its dedicated segmentation task at every
+    // complexity — its quality is bounded by the algorithm, not the device.
+    qualityClass: 'high',
   },
 ]
 

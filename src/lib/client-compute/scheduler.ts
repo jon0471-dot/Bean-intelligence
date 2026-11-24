@@ -26,6 +26,12 @@ import { backendFallbackAllowed, mapCpuErrorToState, mapGpuErrorToState } from '
 import { getDefaultModelRegistry, type ModelRegistry } from './model-registry'
 import { isDeviceComputeAllowed, isLocalOnlyMode } from './privacy'
 import { ResourceManager } from './resource-manager'
+import {
+  applyQualityRouteToPlan,
+  DEFAULT_TASK_COMPLEXITY,
+  resolveSchedulerQualityRoute,
+} from './quality-route-integration'
+import type { QualityRouteResult } from './quality-routing'
 import { logDiagnostic } from './telemetry'
 import { validateOutput } from './validate'
 import type {
@@ -251,6 +257,33 @@ export class ComputeScheduler {
       const admissionGate = this.resources.canStartDeviceTask()
       const visibilityDeferred = this.resources.shouldDeferForVisibility()
 
+      // M39 §A — quality-route policy (M38 §B5 wired into AUTOMATIC target
+      // selection). Consulted ONLY for MODEL-backed tasks: deterministic
+      // compute lanes have no model choice, so the policy does not apply to
+      // them. The evidence mirrors the executor's own gates (model gate,
+      // backend gate, privacy) — the policy layer can never approve a lane
+      // the executor would refuse, and an authorized backend is never a
+      // hidden paid fallback (it is the product's existing route).
+      const requiredModelId = feasibility?.requiredModelId
+      let qualityRoute: QualityRouteResult | null = null
+      if (requiredModelId) {
+        const backendAllow = backendFallbackAllowed({
+          privacy,
+          fallbackPolicyAllowBackend: descriptor.fallbackPolicy?.allowBackendFallback,
+          isLocalOnlyMode,
+        })
+        const modelEntry = this.registry.getEntry(requiredModelId)
+        qualityRoute = resolveSchedulerQualityRoute({
+          profile,
+          complexity: descriptor.complexity ?? kind.complexity ?? DEFAULT_TASK_COMPLEXITY,
+          localModelVerified: modelGate.ok === true,
+          localModelQualityClass: modelEntry?.qualityClass ?? 'minimal',
+          authorizedBackendAvailable: backendAllow.allowed && this.backendDelegates.has(descriptor.productId),
+          localOnlyMode: localOnly,
+        })
+        logDiagnostic('info', 'scheduler', `task ${taskId} quality route: ${qualityRoute.decision} — ${qualityRoute.reasons.join('; ')}`)
+      }
+
       // Step 7: target selection — every candidate passes ALL gates.
       const policyOrder = descriptor.fallbackPolicy?.order ?? kind.preferredOrder ?? [...DEFAULT_TARGET_ORDER]
       const orderedTargets = orderedIntersection(DEFAULT_TARGET_ORDER, policyOrder)
@@ -354,7 +387,12 @@ export class ComputeScheduler {
       }
 
       // Step 8–10: execute in order, first success with valid output wins.
-      for (const step of plan) {
+      // M39: the order carries the quality-route decision — 'prefer-backend'
+      // moves backend steps first (verified local lanes remain as honest
+      // fallback after a REAL backend failure; the limitation is stated, not
+      // silently applied).
+      const executionOrder = qualityRoute ? applyQualityRouteToPlan(plan, qualityRoute.decision) : plan
+      for (const step of executionOrder) {
         if (step.gateState !== 'CLIENT_GPU_AVAILABLE' && step.gateState !== 'CLIENT_CPU_AVAILABLE' && step.gateState !== 'BACKEND_FALLBACK_RUNNING') {
           attempts.push({ target: step.target, state: step.gateState, reason: step.gateReason })
           continue
@@ -430,6 +468,18 @@ export class ComputeScheduler {
             outputValidated: true,
             durationMs: this.now() - started,
             attempts: attempts.length > 0 ? attempts : undefined,
+            // M39: a local result produced under a quality caveat carries the
+            // STATED limitation on the output — never a silent downgrade.
+            // This covers 'local-with-limitation' results AND 'prefer-backend'
+            // fallback execution (local lane ran after a real backend failure
+            // for a task whose quality bar favored the backend).
+            ...(qualityRoute
+              && (qualityRoute.decision === 'local-with-limitation'
+                || (qualityRoute.decision === 'prefer-backend' && (step.target === 'client-gpu' || step.target === 'client-cpu')))
+              && (step.target === 'client-gpu' || step.target === 'client-cpu')
+              && qualityRoute.limitation
+              ? { limitation: qualityRoute.limitation }
+              : {}),
           }
         } catch (error) {
           const aborted = descriptor.signal?.aborted === true || controller.signal.aborted
@@ -470,11 +520,16 @@ export class ComputeScheduler {
       ])
       const lastReal = [...attempts].reverse().find((a) => realFailureStates.has(a.state))
       const last = lastReal ?? attempts[attempts.length - 1]
+      // M39: when the quality route concluded 'no-route', its honest policy
+      // limitation rides on the final reason (the terminal state itself stays
+      // the executor's precise vocabulary).
+      const policyNote = qualityRoute?.decision === 'no-route' && qualityRoute.limitation ? qualityRoute.limitation : null
+      const finalReason = [last?.reason, policyNote].filter((v): v is string => typeof v === 'string' && v.length > 0).join(' ') || 'No execution path could run this task.'
       return {
         taskId,
         phase: descriptor.signal?.aborted === true ? 'cancelled' : 'failed',
         state: last?.state ?? 'NO_SUPPORTED_EXECUTION_PATH',
-        reason: last?.reason ?? 'No execution path could run this task.',
+        reason: finalReason,
         outputValidated: false,
         durationMs: this.now() - started,
         attempts,
