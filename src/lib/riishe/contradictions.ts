@@ -73,20 +73,20 @@ const scaleOf = (s: string | undefined): number => {
 }
 
 const MEASURE_PATTERNS: ReadonlyArray<MeasurePattern> = [
-  { measure: 'dead', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:dead|killed|fatalities|died)\b/i },
-  { measure: 'injured', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:injured|wounded|hospitali[sz]ed)\b/i },
-  { measure: 'percent', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:%|percent)\b/i },
-  { measure: 'money', re: /\$\s?(\d[\d,]*(?:\.\d+)?)\s*(million|billion|trillion|bn|mn|m)?\b/i, scale: scaleOf },
-  { measure: 'magnitude', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(million|billion|trillion)\b(?!\s*(?:%|percent))/i, scale: scaleOf },
-  { measure: 'years-old', re: /\bage[ds]?\s+(?:of\s+)?(\d{1,3})\b/i },
-  { measure: 'years-old', re: /\b(\d{1,3})\s*years?\s*(?:old|of age)\b/i },
-  { measure: 'displaced', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:displaced|evacuated|homeless)\b/i },
-  { measure: 'arrested', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:arrested|detained)\b/i },
+  { measure: 'dead', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:dead|killed|fatalities|died)\b/gi },
+  { measure: 'injured', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:injured|wounded|hospitali[sz]ed)\b/gi },
+  { measure: 'percent', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:%|percent)\b/gi },
+  { measure: 'money', re: /\$\s?(\d[\d,]*(?:\.\d+)?)\s*(million|billion|trillion|bn|mn|m)?\b/gi, scale: scaleOf },
+  { measure: 'magnitude', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(million|billion|trillion)\b(?!\s*(?:%|percent))/gi, scale: scaleOf },
+  { measure: 'years-old', re: /\bage[ds]?\s+(?:of\s+)?(\d{1,3})\b/gi },
+  { measure: 'years-old', re: /\b(\d{1,3})\s*years?\s*(?:old|of age)\b/gi },
+  { measure: 'displaced', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:displaced|evacuated|homeless)\b/gi },
+  { measure: 'arrested', re: /\b(\d[\d,]*(?:\.\d+)?)\s*(?:people\s+)?(?:arrested|detained)\b/gi },
 ]
 
 /** Full calendar dates (ISO or "Month D, YYYY" / "D Month YYYY"). */
 const DATE_RE =
-  /\b(\d{4}-\d{2}-\d{2})\b|\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b|\b\d{1,2}\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b/i
+  /\b(\d{4}-\d{2}-\d{2})\b|\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b|\b\d{1,2}\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b/gi
 
 const MONTH_NAMES = [
   'january', 'february', 'march', 'april', 'may', 'june', 'july',
