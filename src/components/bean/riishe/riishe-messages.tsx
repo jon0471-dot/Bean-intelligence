@@ -498,6 +498,14 @@ function AssistantMessage({
           <Markdown content={linkifyCitations(msg.content, msg.meta?.sources)} components={components} />
         </div>
         {msg.pending ? <Spinner className="ml-1 mt-1" /> : null}
+        {/* M37 §5 — while the turn is still running, the live operational
+            stage (server-recorded from real execution events) stays visible
+            next to the streamed content, e.g. "Verifying…" after the draft. */}
+        {msg.pending && chat.liveTaskStage ? (
+          <div className="mt-1.5">
+            <TaskStageChip stage={chat.liveTaskStage} />
+          </div>
+        ) : null}
         {msg.partial ? (
           <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
             <AlertTriangle className="h-3 w-3" /> Incomplete — the stream was stopped or ended early

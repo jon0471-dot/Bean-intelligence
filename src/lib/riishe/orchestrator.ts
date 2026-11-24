@@ -787,6 +787,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
 
   // ---- Verify ---------------------------------------------------------------
   onEvent?.({ type: 'stage', stage: 'verifying' })
+  // M37 §5 — the verification phase is a REAL execution event (deterministic
+  // audits over the produced answer), so the progress timeline records it.
+  emitTaskStage('verifying')
   const tVerify = Date.now()
 
   // 1. arithmetic verification (deterministic, in-process safe evaluator)

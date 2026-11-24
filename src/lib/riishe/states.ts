@@ -194,12 +194,15 @@ export interface MessageMetadata {
   timings?: TurnTimings
   /**
    * M37 §5 — the operational task stages THIS turn actually went through,
-   * in order, each stamped when the real event fired. Absent for ordinary
-   * single-domain turns (no workflow, no delegation) so the UI adds no
-   * noise; a terminal entry (completed / completed-with-limitations /
-   * failed / cancelled) is present whenever the turn produced one from its
-   * assigned response states. Composed by the orchestrator — never by the
-   * model. Contains no backend/model identities (customer-facing).
+   * in order, each stamped when the real event fired. Ordinary single-domain
+   * turns carry only the verification + terminal entries (the phases every
+   * turn really runs); workflow/delegation turns add the stages they really
+   * executed (planning, researching, reading-documents, delegating,
+   * approval-waiting, executing). A terminal entry (completed /
+   * completed-with-limitations / failed / cancelled) is present whenever the
+   * turn produced one from its assigned response states. Composed by the
+   * orchestrator — never by the model. Contains no backend/model identities
+   * (customer-facing).
    */
   taskStages?: Array<{ stage: TaskStage; at: string; durationMs?: number }>
   /**

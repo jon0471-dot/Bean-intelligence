@@ -249,7 +249,9 @@ describe('M37 §4 — strict grounding suppresses web retrieval (REAL orchestrat
       hooks: {
         runResearch: async () => ({
           sources: [
-            { id: 1, url: 'https://example.com/solar', title: 'Solar charger market', hostName: 'example.com', date: '2026-11-01', official: false, social: false, pageRead: true, snippet: 'The solar charger market grew steadily.', excerpt: 'The solar charger market grew steadily in 2026.', queries: ['solar'], degraded: [], staleness: null, geoWarning: null, durationMs: 5, searchMs: 5, pageReadMs: 0, searchCalls: 1, pageReadCalls: 0, cacheHits: 0, fetchedAt: new Date().toISOString() },
+            // Full EvidenceSource shape (freshness/year/authority/sourceType/score
+            // are required by the ranked-source type the pipeline returns).
+            { id: 1, url: 'https://example.com/solar', title: 'Solar charger market', hostName: 'example.com', date: '2026-11-01', official: false, social: false, pageRead: true, snippet: 'The solar charger market grew steadily.', excerpt: 'The solar charger market grew steadily in 2026.', queries: ['solar'], degraded: [], staleness: null, geoWarning: null, durationMs: 5, searchMs: 5, pageReadMs: 0, searchCalls: 1, pageReadCalls: 0, cacheHits: 0, fetchedAt: new Date().toISOString(), freshness: 0.9, year: 2026, authority: 0.5, sourceType: 'other' as const, score: 1 },
           ],
           queries: ['solar'],
           degraded: [],

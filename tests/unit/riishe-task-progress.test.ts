@@ -74,8 +74,6 @@ function installDbFake() {
         updateMany: async () => ({ count: 0 }),
       },
       trustApproval: { count: async () => 0 },
-      trustCheckpoint: undefined as unknown as never,
-      trustCheckpointCounter: undefined,
     },
   }))
   mock.module('@/lib/trust/resume', () => ({
