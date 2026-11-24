@@ -64,7 +64,7 @@ Files: `05-human-biomechanics-and-locomotion.md`, `06-human-actions-gestures-and
 
 ## 3. Animals and other organisms
 
-Files: `09`–`15`.
+Files: [09-animal-kingdom-taxonomy-and-evolution.md](09-animal-kingdom-taxonomy-and-evolution.md), [10-vertebrate-anatomy-and-physiology.md](10-vertebrate-anatomy-and-physiology.md), [11-insects-and-arthropods.md](11-insects-and-arthropods.md), [12-invertebrates-and-other-animal-groups.md](12-invertebrates-and-other-animal-groups.md), [13-bird-anatomy-flight-and-aerodynamics.md](13-bird-anatomy-flight-and-aerodynamics.md), [14-animal-locomotion-behaviour-and-communication.md](14-animal-locomotion-behaviour-and-communication.md), [15-plants-fungi-microbes-and-ecosystems.md](15-plants-fungi-microbes-and-ecosystems.md).
 
 | Subdomain | Subtopics included | Status |
 |---|---|---|
@@ -83,7 +83,7 @@ Primary sources: OpenStax *Biology 2e* (CC BY 4.0), GBIF (per-dataset licenses),
 
 ## 4. Physical world
 
-Files: `16`–`21`.
+Files: [16-physics-motion-forces-and-energy.md](16-physics-motion-forces-and-energy.md), [17-chemistry-atoms-molecules-and-reactions.md](17-chemistry-atoms-molecules-and-reactions.md), [18-materials-and-engineering-science.md](18-materials-and-engineering-science.md), [19-earth-oceans-weather-and-climate.md](19-earth-oceans-weather-and-climate.md), [20-ecology-evolution-and-environment.md](20-ecology-evolution-and-environment.md), [21-astronomy-and-space.md](21-astronomy-and-space.md).
 
 | Subdomain | Subtopics included | Status |
 |---|---|---|
@@ -104,7 +104,7 @@ public education portals (US Government public domain), NASA public domain.
 
 ## 5. Human world, technology and design
 
-Files: `22`–`26`.
+Files: [22-human-history-culture-and-society.md](22-human-history-culture-and-society.md), [23-languages-communication-and-social-behaviour.md](23-languages-communication-and-social-behaviour.md), [24-technology-engineering-and-computing.md](24-technology-engineering-and-computing.md), [25-architecture-art-music-and-visual-design.md](25-architecture-art-music-and-visual-design.md), [26-professional-software-ui-ux-and-motion-design.md](26-professional-software-ui-ux-and-motion-design.md).
 
 | Subdomain | Subtopics included | Status |
 |---|---|---|
@@ -117,7 +117,7 @@ Files: `22`–`26`.
 
 ## 6. AI and agent knowledge
 
-Files: `27`–`29`.
+Files: [27-ai-models-inference-and-multimodal-intelligence.md](27-ai-models-inference-and-multimodal-intelligence.md), [28-agent-planning-tools-verification-and-recovery.md](28-agent-planning-tools-verification-and-recovery.md), [29-professional-code-generation-and-product-engineering.md](29-professional-code-generation-and-product-engineering.md).
 
 | Subdomain | Subtopics included | Status |
 |---|---|---|

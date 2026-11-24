@@ -24,7 +24,7 @@ import type { TaskAdapter } from '@/lib/adapters/types'
 import { upstreamErrorCode, upstreamStreamErrorPayload, UpstreamRateLimitError, UpstreamAuthError, UpstreamBillingError } from '@/lib/upstream/gateway'
 import { createGiftzChatStream, type GenerationGuard, type GiftzTurnResult } from '@/lib/giftz/chat-stream'
 import { runGiftzTurnCore } from '@/lib/giftz/turn'
-import { SYSTEM_PROMPT, buildProjectContext, buildTargetedEditBrief } from '@/lib/giftz/prompts'
+import { SYSTEM_PROMPT, buildProjectContext, buildTargetedEditBrief, buildEngineeringStandardsBrief } from '@/lib/giftz/prompts'
 import { applyFiles } from '@/lib/giftz/workspace'
 import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
 import { detectFileOperation } from '@/lib/code/file-ops/detect'
@@ -446,6 +446,7 @@ export async function POST(request: Request) {
         techDocs?.block ?? '',
         frontendPlan.enabled ? frontendPlan.brief : '',
         targetedEditBrief,
+        buildEngineeringStandardsBrief(),
         body.message,
       ]
         .filter((s) => s.length > 0)

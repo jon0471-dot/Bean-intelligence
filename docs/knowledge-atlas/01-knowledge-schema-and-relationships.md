@@ -122,17 +122,22 @@ In-text: bracketed short refs like `[OpenStax A&P 2e §10.4]` or `[Uberon:000098
 IDs where they exist). Full records live in `02-source-provenance-and-licensing.md`; a document's
 References section lists only the refs it actually uses, each with publisher, URL and access date.
 
-## 6. Retrieval index contract (for the RIISHE atlas tool)
+## 6. Retrieval index contract (for the RIISHE atlas tools)
 
-- The tool `search_atlas` resolves a free-text topic to ranked document+section candidates using
-  the coverage map (`00`), each document's heading structure, and the relation spine (§4).
-- The tool `read_atlas_doc` pages a document at section granularity (mirrors the existing
-  `read_document` paging contract: offset + bounded characters, honest end-of-document note).
+- The RIISHE tools `search_atlas` and `read_atlas_doc` (in
+  `src/lib/riishe/tools/atlas.ts`) resolve a free-text topic to ranked
+  document+section candidates by scanning the ACTUAL files under this
+  directory at load time (cached per process). Because the index is derived
+  live from the files, it can never drift from reality — there is no
+  hand-maintained list to go stale.
+- `search_atlas` ranks sections with deterministic term-overlap scoring
+  (title > heading > body) and reports the scores; `read_atlas_doc` pages a
+  document or a single section (mirrors the existing `read_document` paging
+  contract: offset + bounded characters, honest end-of-document note).
 - Section citations produced from atlas reads are formatted `ATLAS-<NN> §<section>` so they render
   in RIISHE's citation list like any other source, with the file path as the locator.
-- The index is generated from the actual files at build/registration time (script
-  `scripts/m38-atlas-index.mjs` → `docs/knowledge-atlas/index.json`), so the tool never trusts a
-  hand-maintained list that could drift from reality.
+- When the library directory is absent (a deployment without the docs tree), both tools report the
+  gap honestly — nothing is synthesized in its place.
 
 ## 7. Versioning and traceability
 

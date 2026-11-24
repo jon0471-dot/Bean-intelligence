@@ -331,6 +331,200 @@ export function universalAvailability(
 }
 
 // ---------------------------------------------------------------------------
+// M38-B2: execution lifecycle ladder
+// ---------------------------------------------------------------------------
+
+/**
+ * The M38 §B2 execution lifecycle. A model/entry occupies exactly ONE stage —
+ * the HIGHEST stage whose requirements are fully satisfied by measured or
+ * configured evidence. Stages lower in the list are implied, never re-claimed:
+ * "execution-tested" cannot be reported while the artifact integrity is
+ * unverified, and only the terminal verified stages may be presented as
+ * operational anywhere in the product.
+ *
+ * The ladder is a vocabulary for honest capability reporting; it does not
+ * replace the nine-state availability (which answers "can this run NOW") —
+ * it answers "how far has this integration actually progressed".
+ */
+export type ExecutionLifecycleStage =
+  | 'discovered'
+  | 'registered'
+  | 'compatible'
+  | 'credential-configured'
+  | 'runtime-installed'
+  | 'hardware-compatible'
+  | 'download-approved'
+  | 'integrity-verified'
+  | 'execution-tested'
+  | 'output-validated'
+  | 'operational'
+
+/** Ordered ladder (index = stage depth). Used by derivation and tests. */
+export const EXECUTION_LIFECYCLE_ORDER: readonly ExecutionLifecycleStage[] = [
+  'discovered',
+  'registered',
+  'compatible',
+  'credential-configured',
+  'runtime-installed',
+  'hardware-compatible',
+  'download-approved',
+  'integrity-verified',
+  'execution-tested',
+  'output-validated',
+  'operational',
+] as const
+
+/** Stages that may be represented as operational in any user-facing surface. */
+export const OPERATIONAL_LIFECYCLE_STAGES: readonly ExecutionLifecycleStage[] = [
+  'execution-tested',
+  'output-validated',
+  'operational',
+] as const
+
+export function isOperationalLifecycleStage(stage: ExecutionLifecycleStage): boolean {
+  return (OPERATIONAL_LIFECYCLE_STAGES as readonly string[]).includes(stage)
+}
+
+/**
+ * Evidence for lifecycle derivation. Every field below a stage's gate must be
+ * true to pass that gate; absent evidence is treated as NOT satisfied (the
+ * honest default — unknown progress never advances the ladder).
+ */
+export interface ExecutionLifecycleEvidence {
+  /** The entry is known/queued in a discovery surface (catalogue, search). */
+  discovered?: boolean
+  /** The entry exists in a real registry (backends/engine/client registries). */
+  registered?: boolean
+  /** A compatible adapter/runtime binding exists for its task. */
+  compatible?: boolean
+  /** Required credentials are actually configured (not merely documented). */
+  credentialConfigured?: boolean
+  /** The runtime needed to execute is installed/bundled and loadable. */
+  runtimeInstalled?: boolean
+  /** Hardware-fit checks pass on the target device/host. */
+  hardwareCompatible?: boolean
+  /** The user/operator approved the download where one is required. */
+  downloadApproved?: boolean
+  /** The artifact integrity was verified (pinned checksum match). */
+  integrityVerified?: boolean
+  /** A real execution completed (not a compile, not a benchmark stub). */
+  executionTested?: boolean
+  /** The execution output passed task-level validation. */
+  outputValidated?: boolean
+  /** The lane is wired into an operational product surface end-to-end. */
+  operationallyServing?: boolean
+}
+
+export interface ExecutionLifecycleResult {
+  stage: ExecutionLifecycleStage
+  /** Index of the stage in EXECUTION_LIFECYCLE_ORDER. */
+  depth: number
+  /** The requirement that stopped progress (null once operational). */
+  blockedBy: string | null
+  /** Human-readable honest summary of what is and is not proven. */
+  explanation: string
+}
+
+interface LifecycleGate {
+  stage: ExecutionLifecycleStage
+  requirement: string
+  met: (e: ExecutionLifecycleEvidence) => boolean
+}
+
+const LIFECYCLE_GATES: readonly LifecycleGate[] = [
+  { stage: 'discovered', requirement: 'discovered', met: (e) => e.discovered !== false },
+  { stage: 'registered', requirement: 'registered', met: (e) => e.registered === true },
+  { stage: 'compatible', requirement: 'compatible', met: (e) => e.compatible === true },
+  { stage: 'credential-configured', requirement: 'credential-configured', met: (e) => e.credentialConfigured === true },
+  { stage: 'runtime-installed', requirement: 'runtime-installed', met: (e) => e.runtimeInstalled === true },
+  { stage: 'hardware-compatible', requirement: 'hardware-compatible', met: (e) => e.hardwareCompatible === true },
+  { stage: 'download-approved', requirement: 'download-approved', met: (e) => e.downloadApproved === true },
+  { stage: 'integrity-verified', requirement: 'integrity-verified', met: (e) => e.integrityVerified === true },
+  { stage: 'execution-tested', requirement: 'execution-tested', met: (e) => e.executionTested === true },
+  { stage: 'output-validated', requirement: 'output-validated', met: (e) => e.outputValidated === true },
+  { stage: 'operational', requirement: 'operationally-serving', met: (e) => e.operationallyServing === true },
+]
+
+/**
+ * Derive the honest execution lifecycle stage from evidence. The result is
+ * the HIGHEST stage whose gate is fully satisfied (the last verified state —
+ * exactly what M38 §B2 permits to be represented); `blockedBy` names the
+ * next unmet requirement. A stage can never be reported beyond the first
+ * open gate, so progress reports cannot skip real steps.
+ */
+export function executionLifecycle(evidence: ExecutionLifecycleEvidence): ExecutionLifecycleResult {
+  let lastSatisfied = -1
+  for (let i = 0; i < LIFECYCLE_GATES.length; i++) {
+    const gate = LIFECYCLE_GATES[i]
+    if (!gate.met(evidence)) {
+      if (lastSatisfied < 0) {
+        // Even discovery was explicitly denied — report the bottom of the
+        // ladder with the honest blocker, never a fabricated stage.
+        return {
+          stage: 'discovered',
+          depth: 0,
+          blockedBy: gate.requirement,
+          explanation:
+            `No lifecycle stage is verified: "${gate.requirement}" is not satisfied by evidence. ` +
+            `Nothing beyond discovery may be represented for this entry.`,
+        }
+      }
+      const stage = EXECUTION_LIFECYCLE_ORDER[lastSatisfied]
+      return {
+        stage,
+        depth: lastSatisfied,
+        blockedBy: gate.requirement,
+        explanation:
+          `Verified up to "${stage}"; "${gate.requirement}" is not satisfied by evidence, so no later ` +
+          `stage (including any operational claim) is permitted until it is met.`,
+      }
+    }
+    lastSatisfied = i
+  }
+  const stage = EXECUTION_LIFECYCLE_ORDER[EXECUTION_LIFECYCLE_ORDER.length - 1]
+  return {
+    stage,
+    depth: EXECUTION_LIFECYCLE_ORDER.length - 1,
+    blockedBy: null,
+    explanation:
+      'All gates satisfied: discovered, registered, compatible, credentials configured, runtime installed, ' +
+      'hardware compatible, download approved, integrity verified, execution tested, output validated, and ' +
+      'operationally serving end-to-end.',
+  }
+}
+
+/**
+ * Convenience: derive the lifecycle stage for a registry backend from the
+ * SAME evidence shape used for availability. Registry presence provides
+ * `registered`; adapter binding provides `compatible`; everything beyond
+ * must come from measured lane evidence the caller supplies (unknown = not
+ * satisfied — the honest default for never-executed lanes).
+ */
+export function executionLifecycleForBackend(
+  backendId: string,
+  laneEvidence: ExecutionLifecycleEvidence = {},
+): ExecutionLifecycleResult {
+  const b = getBackend(backendId)
+  if (!b) {
+    return {
+      stage: 'discovered',
+      depth: 0,
+      blockedBy: 'registered',
+      explanation: 'Backend id is not present in the private registry — only discovery can be claimed.',
+    }
+  }
+  return executionLifecycle({
+    discovered: true,
+    registered: true,
+    // Registry presence alone does not prove an executable binding: a
+    // documented handler-dispatch path counts as compatible, otherwise the
+    // caller must supply adapter evidence (default = not proven).
+    compatible: laneEvidence.compatible ?? HANDLER_DISPATCHED_BACKENDS.has(b.id),
+    ...laneEvidence,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Registry reconciliation (drift detection — pure, testable)
 // ---------------------------------------------------------------------------
 
