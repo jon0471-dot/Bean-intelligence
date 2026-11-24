@@ -168,6 +168,34 @@ describe('giftz workspace primitives (parse/diff/paths)', () => {
     expect(out).toEqual([{ path: 'main.js', content: 'console.log(42)\n' }])
   })
 
+  test('M39: a path directive the model places INSIDE the fence is honored, not leaked into the file body', () => {
+    // Observed live defect (M39 execution matrix, 2026-11-24): the model
+    // emitted the directive as the first content line; delivery then produced
+    // main.py containing "path=fizzbuzz.py" instead of fizzbuzz.py.
+    const out = parseFiles(
+      '```python\npath=fizzbuzz.py\nfor i in range(1, 16):\n    print(i)\n```',
+    )
+    expect(out).toEqual([{ path: 'fizzbuzz.py', content: 'for i in range(1, 16):\n    print(i)\n' }])
+  })
+
+  test('M39: inline directive also honored on a labeled fence without a meta path', () => {
+    const out = parseFiles(
+      '```python\npath=src/tools/report.py\nVALUE = 1\n```',
+    )
+    expect(out).toEqual([{ path: 'src/tools/report.py', content: 'VALUE = 1\n' }])
+  })
+
+  test('M39: a path= line that is not the first line stays ordinary content', () => {
+    const out = parseFiles(
+      '```python\nVALUE = 1\npath=not-a-directive.py\n```',
+    )
+    expect(out).toEqual([{ path: 'main.py', content: 'VALUE = 1\npath=not-a-directive.py\n' }])
+  })
+
+  test('M39: a fence whose only content is the inline directive produces no file', () => {
+    expect(parseFiles('```python\npath=fizzbuzz.py\n```')).toEqual([])
+  })
+
   test('diffContent emits real add/del lines only where content changed', () => {
     const d = diffContent('a\nb\nc', 'a\nX\nc')
     expect(d.some((l) => l.type === 'del' && l.text === 'b')).toBe(true)

@@ -30,6 +30,13 @@ export function assertSafeProjectPath(p: string): void {
  *   ```lang path=src/app.js
  * Fallback: a single unlabeled fence becomes main.<ext> so simple one-file
  * answers still produce a real, runnable project file.
+ *
+ * Model robustness (M39): some models place the path directive on the FIRST
+ * LINE INSIDE the fence (`path=fizzbuzz.py`) instead of the fence meta. That
+ * is an explicit delivery intent — honoring it (directive consumed, code
+ * lands at the named path) makes the delivery real instead of leaking the
+ * directive into the file body. A `path=` line that is NOT the first line
+ * stays ordinary content.
  */
 export function parseFiles(modelOutput: string): GiftzFile[] {
   const files: GiftzFile[] = []
@@ -38,11 +45,18 @@ export function parseFiles(modelOutput: string): GiftzFile[] {
   while ((match = fence.exec(modelOutput)) !== null) {
     const lang = match[1] || ''
     const meta = (match[2] || '').trim()
-    const content = match[3]
     const pathMatch = meta.match(/path=([\w.\-/ ]+)/)
-    if (pathMatch) {
-      const p = pathMatch[1].trim()
-      if (p.length > 0 && content.trim().length > 0) files.push({ path: p, content })
+    let path: string | null = pathMatch ? pathMatch[1].trim() : null
+    let content = match[3]
+    if (!path) {
+      const inline = content.match(/^\s*path=([\w.\-/ ]+)[ \t]*\r?\n/)
+      if (inline) {
+        path = inline[1].trim()
+        content = content.slice(inline[0].length)
+      }
+    }
+    if (path) {
+      if (path.length > 0 && content.trim().length > 0) files.push({ path, content })
     } else if (files.length === 0 && content.trim().length > 0) {
       const ext =
         { javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts', python: 'py', html: 'html', css: 'css', json: 'json' }[
