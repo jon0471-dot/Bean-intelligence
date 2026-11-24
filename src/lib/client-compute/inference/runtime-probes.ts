@@ -46,6 +46,13 @@ function ortAvailable(s: CapabilitySnapshotLike | null): boolean {
   // SIMD support cannot be measured the answer is false (refuse, never assume).
   return s?.wasm.supported === true && s.wasm.simd === true && s.workers === true
 }
+function wasmBinaryAvailable(s: CapabilitySnapshotLike | null): boolean {
+  // M39: the CPU chat lane (wllama/llama.cpp WASM). Same honest floor as the
+  // ORT build: WASM + SIMD + Workers. Multi-threaded mode is opportunistic
+  // (SharedArrayBuffer when cross-origin isolated) and NOT required — the
+  // runtime degrades to its single-thread build, it is never a separate lane.
+  return s?.wasm.supported === true && s.wasm.simd === true && s.workers === true
+}
 
 /** Idempotent registration. Probes answer false until detection resolves. */
 export function registerClientRuntimeProbes(): void {
@@ -54,6 +61,7 @@ export function registerClientRuntimeProbes(): void {
   registerModelRuntime('web-llm', () => state.resolved && webLlmAvailable(state.snapshot))
   registerModelRuntime('transformers.js', () => state.resolved && transformersAvailable(state.snapshot))
   registerModelRuntime('onnxruntime-web', () => state.resolved && ortAvailable(state.snapshot))
+  registerModelRuntime('wasm-binary', () => state.resolved && wasmBinaryAvailable(state.snapshot))
 }
 
 /** Run (or reuse) the capability detection backing the probes. */
@@ -70,11 +78,12 @@ export async function ensureProbesResolved(snapshot?: CapabilitySnapshotLike): P
 }
 
 /** Synchronous view of the current probe facts (for status surfaces). */
-export function currentRuntimeAvailability(): { webLlm: boolean; transformersJs: boolean; ortWeb: boolean; resolved: boolean } {
+export function currentRuntimeAvailability(): { webLlm: boolean; transformersJs: boolean; ortWeb: boolean; wasmBinary: boolean; resolved: boolean } {
   return {
     webLlm: state.resolved && webLlmAvailable(state.snapshot),
     transformersJs: state.resolved && transformersAvailable(state.snapshot),
     ortWeb: state.resolved && ortAvailable(state.snapshot),
+    wasmBinary: state.resolved && wasmBinaryAvailable(state.snapshot),
     resolved: state.resolved,
   }
 }

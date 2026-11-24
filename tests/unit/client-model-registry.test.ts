@@ -66,7 +66,10 @@ describe('client model registry', () => {
   test('listPublic never invents sizes: runtimeAvailable reflects registered probes (unregistered = false)', () => {
     const registry = getDefaultModelRegistry()
     const view = registry.listPublic()
-    expect(view.length).toBe(3)
+    // M39: the registry grew additively — the CPU/WASM chat entry joined the
+    // three M36 entries (GPU chat, browser ASR, browser segmentation).
+    expect(view.length).toBe(4)
+    expect(view.some((m) => m.id === 'riishe-chat-wasm-qwen2.5-0.5b-gguf')).toBe(true)
     for (const m of view) {
       // No runtime probe is registered in this bare test context — the honest
       // answer is false, never an assumed true.

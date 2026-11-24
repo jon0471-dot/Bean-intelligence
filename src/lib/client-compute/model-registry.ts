@@ -134,6 +134,7 @@ const runtimeProviders = new Map<ClientModelRuntime, () => boolean>()
 
 const CLIENT_MODEL_DISPLAY_NAMES: Record<string, string> = {
   'riishe-chat-webllm-qwen2.5-0.5b': 'On-device chat model',
+  'riishe-chat-wasm-qwen2.5-0.5b-gguf': 'On-device chat model (light build)',
   'gangzii-asr-browser-whisper-tiny': 'On-device speech transcription model',
   'laxii-bgremoval-modnet': 'On-device background removal model',
 }
@@ -212,7 +213,9 @@ export const CLIENT_MODEL_REGISTRY: ClientModelEntry[] = [
     downloadPath: 'runtime-managed-cache',
     supportedTasks: ['chat.on-device'],
     limitations: [
-      'Requires a GPU on this device (WebGPU) — no CPU fallback for this quantization; the server path is the honest fallback.',
+      // M39: this quantization still needs WebGPU; CPU devices now use the
+      // SEPARATE registered WASM/GGUF entry below (no silent substitution).
+      'Requires a GPU on this device (WebGPU) — this quantization has no CPU fallback; CPU devices use the registered light-build chat model instead.',
       'Small on-device model: quality is far below the server-hosted chat model; retrieval, tools, memory and citations are NOT part of the on-device lane.',
       'Weights download once into the browser cache after explicit user approval, from the pinned upstream revision.',
     ],
@@ -220,6 +223,39 @@ export const CLIENT_MODEL_REGISTRY: ClientModelEntry[] = [
     // M39: small on-device instruct model — honestly minimal-quality; the
     // quality-route policy will not let it automatically serve standard or
     // demanding tasks while an authorized stronger route exists.
+    qualityClass: 'minimal',
+  },
+  {
+    // M39 §B — the CPU/WASM chat lane: the SAME model family as the GPU lane,
+    // as a standard llama.cpp GGUF build so low-spec devices (and devices
+    // whose GPU failed) get a working compatible execution path.
+    id: 'riishe-chat-wasm-qwen2.5-0.5b-gguf',
+    version: '1',
+    // Pinned EXACT artifact (resolve/main against the pinned revision).
+    sourceUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf',
+    // Measured repo revision (HF API, 2026-11-24).
+    revision: '9217f5db79a29953eb74d5343926648285ec7e67',
+    license: 'Apache-2.0 (Qwen2.5-0.5B-Instruct; official GGUF build)',
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF',
+    runtime: 'wasm-binary',
+    runtimeAvailable: () => runtimeAvailable('wasm-binary'),
+    gpuCompatible: false,
+    cpuCompatible: true,
+    // Policy estimate: 469 MB weights + wasm heap + KV cache working set.
+    memoryEstimateMb: 768,
+    // Measured: downloaded + sha256sum'd 2026-11-24 (491,400,032 bytes).
+    sizeBytes: 491_400_032,
+    sizeUnverified: false,
+    sha256: '74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db',
+    integrity: 'pinned-artifact-sha256',
+    downloadPath: 'bean-managed-cache',
+    supportedTasks: ['chat.on-device'],
+    limitations: [
+      'Requires an explicit user-approved download before first use (size shown before approval); the artifact must match its pinned SHA-256 or it is refused.',
+      'Runs on the CPU (WebAssembly) — noticeably slower than the GPU chat lane or the server lane; context is adapted to the device memory budget.',
+      'Small on-device model: quality is far below the server-hosted chat model; retrieval, tools, memory and citations are NOT part of the on-device lane.',
+    ],
+    enabled: true,
     qualityClass: 'minimal',
   },
   {

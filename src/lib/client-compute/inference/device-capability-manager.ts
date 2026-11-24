@@ -43,6 +43,8 @@ import {
 } from './device-settings'
 import { ensureProbesResolved, registerClientRuntimeProbes, currentRuntimeAvailability } from './runtime-probes'
 import { AiErrorImpl, toAiError, type AiError } from './errors'
+import type { WebLlmChatClient } from './webllm-chat-client'
+import type { WasmChatClient } from './wasm-chat-client'
 import type { ExecutionTarget, ClientComputeConsent } from '../types'
 
 /** Honest status vocabulary (task §8). */
@@ -147,8 +149,27 @@ export interface SelectionDecision {
  *  rendered identity). Customer UI imports these instead of re-declaring the
  *  literal strings. */
 export const CHAT_MODEL_ID = 'riishe-chat-webllm-qwen2.5-0.5b'
+/** M39 §B: the registered CPU/WASM chat model (low-spec + GPU-failure lane). */
+export const CHAT_CPU_MODEL_ID = 'riishe-chat-wasm-qwen2.5-0.5b-gguf'
 export const ASR_MODEL_ID = 'gangzii-asr-browser-whisper-tiny'
 const SEGMENTATION_MODEL_ID = 'laxii-bgremoval-modnet'
+
+/** M39 §B test seams (production NEVER sets these): injectable client
+ *  factories + verified-artifact source, same honesty pattern as the
+ *  injectable engine fakes in cpu/engine and webgpu/engine. */
+export interface ChatClientSeams {
+  webllm?: () => Promise<{ getSharedWebLlmClient: () => WebLlmChatClient }>
+  wasm?: () => Promise<{ getSharedWasmChatClient: () => WasmChatClient }>
+  /** Produces the registry-verified artifact blob for a bean-managed model,
+   *  downloading it first when `approval` is true (the caller's dialog). */
+  artifact?: (modelId: string, approval: boolean, options: { onProgress?: (p: { note: string; progress: number | null }) => void; signal?: AbortSignal }) => Promise<Blob>
+}
+
+let chatClientSeams: ChatClientSeams = {}
+/** Test-only seam injection. */
+export function setChatClientSeamsForTests(seams: ChatClientSeams): void {
+  chatClientSeams = seams
+}
 
 export interface DeviceCapabilityManagerEvents {
   onStatusChanged?: () => void
@@ -273,13 +294,15 @@ export class DeviceCapabilityManager {
         reasons.push('device-compute consent has not been granted')
         return this.serverOrUnavailable(kind, reasons, s)
       }
+      // Step 1: compatible WebGPU model (skipped honestly in cpu-only mode —
+      // M39: the user's battery/thermal preference is respected on the GPU
+      // chat lane exactly like on the ASR lane).
       const entry = registry.getEntry(CHAT_MODEL_ID)
       if (!entry) {
         reasons.push('chat model entry missing from the registry')
         return this.serverOrUnavailable(kind, reasons, s)
       }
-      // Step 1: compatible WebGPU model.
-      if (runtimes.webLlm && entry.gpuCompatible && snapshot?.webgpu.adapterAvailable) {
+      if (runtimes.webLlm && entry.gpuCompatible && snapshot?.webgpu.adapterAvailable && s.mode !== 'cpu-only') {
         const { fits, budgetMb } = this.fitsMemoryBudget(entry)
         if (fits) {
           return { target: 'client-gpu', modelId: entry.id, reasons: [...reasons, `WebGPU adapter available; memory budget ${budgetMb} MB fits the ${entry.memoryEstimateMb} MB policy estimate`] }
@@ -288,10 +311,19 @@ export class DeviceCapabilityManager {
       } else {
         reasons.push(s.mode === 'cpu-only' ? 'CPU-only mode skips the WebGPU lane' : 'WebGPU adapter unavailable for the GPU chat lane')
       }
-      // Step 2: compatible CPU/WASM model — no CPU-capable chat model is
-      // registered (q4f16 weights are WebGPU-only), so this step honestly
-      // reports why it is skipped instead of pushing a 1B model onto WASM.
-      reasons.push('no CPU/WASM-capable chat model is registered (the pinned quantization requires WebGPU)')
+      // Step 2: compatible CPU/WASM model — M39 registers a WASM/GGUF chat
+      // model, so low-spec devices (and devices whose GPU failed) get a
+      // working compatible execution path instead of a dead end.
+      const cpuEntry = registry.getEntry(CHAT_CPU_MODEL_ID)
+      if (cpuEntry && runtimes.wasmBinary && snapshot?.wasm.supported && snapshot.workers) {
+        const { fits, budgetMb } = this.fitsMemoryBudget(cpuEntry)
+        if (fits) {
+          return { target: 'client-cpu', modelId: cpuEntry.id, reasons: [...reasons, `WASM/SIMD CPU lane available; memory budget ${budgetMb} MB fits the ${cpuEntry.memoryEstimateMb} MB policy estimate; context length adapted to the budget`] }
+        }
+        reasons.push(`WASM CPU lane exists but the memory budget (${budgetMb} MB) does not fit the model estimate (${cpuEntry.memoryEstimateMb} MB)`)
+      } else {
+        reasons.push('no CPU/WASM chat runtime available on this device')
+      }
       return this.serverOrUnavailable(kind, reasons, s)
     }
 
@@ -462,21 +494,94 @@ export class DeviceCapabilityManager {
   // On-device chat lane (Tier A)
   // -------------------------------------------------------------------------
 
-  /** Load the on-device chat model (consent + policy enforced). */
+  /**
+   * Load the on-device chat model (consent + policy enforced). M39 §B: the
+   * GPU lane is attempted first; when it fails with an honest GPU-class
+   * failure (device lost / WebGPU unavailable / out of memory) AND a
+   * compatible CPU/WASM lane exists, the CPU lane is the AUTOMATIC fallback
+   * — never a silent substitution (the degraded state records exactly why).
+   * `approval` is the user's explicit download decision from the size
+   * dialog (required before the bean-managed CPU artifact downloads).
+   */
   async ensureOnDeviceChatReady(
-    options: { onProgress?: (p: { note: string; progress: number | null }) => void; signal?: AbortSignal } = {},
-  ): Promise<{ modelId: string; target: 'client-gpu' }> {
+    options: { onProgress?: (p: { note: string; progress: number | null }) => void; signal?: AbortSignal; approval?: boolean } = {},
+  ): Promise<{ modelId: string; target: 'client-gpu' | 'client-cpu' }> {
     const decision = this.selectExecutionPath('chat.on-device')
-    if (decision.target !== 'client-gpu') {
-      const error = new AiErrorImpl('AI_WEBGPU_UNAVAILABLE', decision.reasons.join('; '))
-      this.recordFailure('chat.on-device', error)
-      throw error
+    if (decision.target === 'client-gpu') {
+      // M36-B — reserve the device's ONE heavy-model slot BEFORE loading
+      // (brief §7: "Reserve resources before loading or executing"). The slot
+      // makes chat and ASR mutually exclusive on this device instead of
+      // silently competing for memory.
+      const slot = await this.acquireDeviceHeavySlot(CHAT_MODEL_ID)
+      if (!slot.ok) {
+        const error = new AiErrorImpl('AI_RUNTIME_UNAVAILABLE', slot.reason)
+        this.recordFailure('chat.on-device', error)
+        throw error
+      }
+      this.clearFailure('chat.on-device')
+      this.setTransientStatus('chat.on-device', 'downloading')
+      const { getSharedWebLlmClient } = await this.importWebLlm()
+      const client = getSharedWebLlmClient()
+      try {
+        const modelId = await client.load(CHAT_MODEL_ID, options)
+        this.setTransientStatus('chat.on-device', null)
+        webLlmResidency.current = modelId
+        return { modelId, target: 'client-gpu' }
+      } catch (error) {
+        this.setTransientStatus('chat.on-device', null)
+        this.releaseDeviceHeavySlot(CHAT_MODEL_ID)
+        const mapped = toAiError(error)
+        // M39 §B — GPU unavailable or UNRELIABLE at load time: the registered
+        // CPU/WASM lane is the automatic fallback when this device can serve
+        // it. The fallback is never silent — it records the honest reason.
+        const gpuFailure = mapped.code === 'AI_GPU_DEVICE_LOST' || mapped.code === 'AI_WEBGPU_UNAVAILABLE' || mapped.code === 'AI_OUT_OF_MEMORY'
+        if (gpuFailure && this.canUseCpuChatLane()) {
+          try {
+            return await this.ensureCpuChatReady(options, `The GPU chat lane failed on this device (${mapped.code}); the model loaded on the CPU lane instead — slower generation, same device, same privacy.`)
+          } catch (cpuError) {
+            throw this.recordFailure('chat.on-device', cpuError)
+          }
+        }
+        throw this.recordFailure('chat.on-device', error)
+      }
     }
-    // M36-B — reserve the device's ONE heavy-model slot BEFORE loading
-    // (brief §7: "Reserve resources before loading or executing"). The slot
-    // makes chat and ASR mutually exclusive on this device instead of
-    // silently competing for memory.
-    const slot = await this.acquireDeviceHeavySlot(CHAT_MODEL_ID)
+    if (decision.target === 'client-cpu') {
+      return await this.ensureCpuChatReady(options)
+    }
+    const error = new AiErrorImpl('AI_WEBGPU_UNAVAILABLE', decision.reasons.join('; '))
+    this.recordFailure('chat.on-device', error)
+    throw error
+  }
+
+  /** M39 §B: does this device honestly qualify for the CPU/WASM chat lane? */
+  private canUseCpuChatLane(): boolean {
+    const s = getDeviceSettings()
+    if (s.mode !== 'auto' && s.mode !== 'gpu-preferred' && s.mode !== 'cpu-only') return false
+    if (!getConsent()?.granted) return false
+    const runtimes = currentRuntimeAvailability()
+    const entry = getDefaultModelRegistry().getEntry(CHAT_CPU_MODEL_ID)
+    if (!entry) return false
+    const snapshot = getClientCompute().getSnapshot()
+    if (!runtimes.wasmBinary || snapshot?.wasm.supported !== true || snapshot.workers !== true) return false
+    return this.fitsMemoryBudget(entry).fits
+  }
+
+  /** M39 §B: honest context-length adaptation from the SAME policy budget
+   *  that gated the model — constrained devices get a smaller context, not
+   *  a crashed heap. */
+  private cpuChatContextLength(): number {
+    const budget = this.estimateSafeModelMemoryBudgetMb() ?? 1024
+    if (budget >= 2048) return 2048
+    if (budget >= 1536) return 1536
+    return 1024
+  }
+
+  /** CPU/WASM chat lane load (heavy slot + verified artifact + runtime). */
+  private async ensureCpuChatReady(
+    options: { onProgress?: (p: { note: string; progress: number | null }) => void; signal?: AbortSignal; approval?: boolean } = {},
+    degradedNote?: string,
+  ): Promise<{ modelId: string; target: 'client-cpu' }> {
+    const slot = await this.acquireDeviceHeavySlot(CHAT_CPU_MODEL_ID)
     if (!slot.ok) {
       const error = new AiErrorImpl('AI_RUNTIME_UNAVAILABLE', slot.reason)
       this.recordFailure('chat.on-device', error)
@@ -484,51 +589,125 @@ export class DeviceCapabilityManager {
     }
     this.clearFailure('chat.on-device')
     this.setTransientStatus('chat.on-device', 'downloading')
-    const { getSharedWebLlmClient } = await import('./webllm-chat-client')
-    const client = getSharedWebLlmClient()
     try {
-      const modelId = await client.load(CHAT_MODEL_ID, options)
+      const blob = await this.loadVerifiedChatArtifact(CHAT_CPU_MODEL_ID, options.approval === true, options)
+      this.setTransientStatus('chat.on-device', 'loading')
+      const { getSharedWasmChatClient } = await this.importWasm()
+      const modelId = await getSharedWasmChatClient().load(CHAT_CPU_MODEL_ID, blob, {
+        nCtx: this.cpuChatContextLength(),
+        onProgress: options.onProgress,
+        signal: options.signal,
+      })
       this.setTransientStatus('chat.on-device', null)
-      webLlmResidency.current = modelId
-      return { modelId, target: 'client-gpu' }
+      wasmChatResidency.current = modelId
+      if (degradedNote) {
+        // Record the honest degradation so the capability view can state it.
+        this.recordFailure('chat.on-device', new AiErrorImpl('AI_RUNTIME_UNAVAILABLE', degradedNote))
+        this.clearFailure('chat.on-device')
+      }
+      return { modelId, target: 'client-cpu' }
     } catch (error) {
       this.setTransientStatus('chat.on-device', null)
-      this.releaseDeviceHeavySlot(CHAT_MODEL_ID)
+      this.releaseDeviceHeavySlot(CHAT_CPU_MODEL_ID)
       throw this.recordFailure('chat.on-device', error)
     }
   }
 
-  /** Stream one on-device chat turn. Resolves ONLY with real engine output. */
+  /** Registry-backed verified artifact (download with the caller's explicit
+   *  approval → SHA-256 gate → cached bytes). Never a raw upstream fetch. */
+  private async loadVerifiedChatArtifact(
+    modelId: string,
+    approval: boolean,
+    options: { onProgress?: (p: { note: string; progress: number | null }) => void; signal?: AbortSignal } = {},
+  ): Promise<Blob> {
+    if (chatClientSeams.artifact) return chatClientSeams.artifact(modelId, approval, options)
+    const { getDefaultModelRegistry } = await import('../model-registry')
+    const registry = getDefaultModelRegistry()
+    const install = await registry.getInstallState(modelId)
+    if (!install.installed) {
+      const result = await registry.requestDownload(modelId, {
+        approval,
+        signal: options.signal,
+        onProgress: (fraction, note) => options.onProgress?.({ note: note ?? 'downloading model', progress: fraction ?? null }),
+      })
+      if (!result.ok) {
+        const code = result.code === 'FETCH_ABORTED'
+          ? 'AI_MODEL_DOWNLOAD_CANCELLED'
+          : result.code === 'STORAGE_INSUFFICIENT'
+            ? 'AI_STORAGE_INSUFFICIENT'
+            : 'AI_MODEL_DOWNLOAD_FAILED'
+        throw new AiErrorImpl(code, result.reason)
+      }
+    }
+    const bytes = await registry.getArtifact(modelId)
+    if (!bytes) {
+      throw new AiErrorImpl('AI_MODEL_NOT_INSTALLED', 'The verified artifact is not readable from the browser cache.')
+    }
+    // Uint8Array is a valid BlobPart at runtime (the view's own bytes are
+    // used, no buffer copy); the cast satisfies the narrowed TS lib type.
+    return new Blob([bytes as unknown as BlobPart], { type: 'application/octet-stream' })
+  }
+
+  private importWebLlm(): Promise<{ getSharedWebLlmClient: () => WebLlmChatClient }> {
+    if (chatClientSeams.webllm) return chatClientSeams.webllm()
+    return import('./webllm-chat-client')
+  }
+
+  private importWasm(): Promise<{ getSharedWasmChatClient: () => WasmChatClient }> {
+    if (chatClientSeams.wasm) return chatClientSeams.wasm()
+    return import('./wasm-chat-client')
+  }
+
+  /** Stream one on-device chat turn. Resolves ONLY with real engine output.
+   *  M39 §B: routes to whichever chat engine is ACTUALLY loaded (GPU or CPU
+   *  lane) and reports the target honestly. */
   async streamOnDeviceChat(
     messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
     options: { onDelta?: (delta: string) => void; signal?: AbortSignal; maxTokens?: number; temperature?: number } = {},
-  ): Promise<{ text: string; finishReason: string; target: 'client-gpu'; modelId: string }> {
+  ): Promise<{ text: string; finishReason: string; target: 'client-gpu' | 'client-cpu'; modelId: string }> {
+    if (wasmChatResidency.current) {
+      const { getSharedWasmChatClient } = await this.importWasm()
+      try {
+        const result = await getSharedWasmChatClient().streamChat(messages, options)
+        this.clearFailure('chat.on-device')
+        return { ...result, target: 'client-cpu', modelId: wasmChatResidency.current }
+      } catch (error) {
+        throw this.recordFailure('chat.on-device', error)
+      }
+    }
+    if (webLlmResidency.current) {
+      const { getSharedWebLlmClient } = await this.importWebLlm()
+      try {
+        const result = await getSharedWebLlmClient().streamChat(messages, options)
+        this.clearFailure('chat.on-device')
+        return { ...result, target: 'client-gpu', modelId: webLlmResidency.current }
+      } catch (error) {
+        throw this.recordFailure('chat.on-device', error)
+      }
+    }
     const decision = this.selectExecutionPath('chat.on-device')
-    if (decision.target !== 'client-gpu') {
-      throw new AiErrorImpl('AI_WEBGPU_UNAVAILABLE', decision.reasons.join('; '))
-    }
-    const { getSharedWebLlmClient } = await import('./webllm-chat-client')
-    const client = getSharedWebLlmClient()
-    try {
-      const result = await client.streamChat(messages, options)
-      this.clearFailure('chat.on-device')
-      return { ...result, target: 'client-gpu', modelId: decision.modelId ?? CHAT_MODEL_ID }
-    } catch (error) {
-      throw this.recordFailure('chat.on-device', error)
-    }
+    throw this.recordFailure('chat.on-device', new AiErrorImpl('AI_MODEL_NOT_INSTALLED', `The on-device model is not loaded. ${decision.reasons.join('; ')}`))
   }
 
   async interruptOnDeviceChat(): Promise<void> {
-    const { getSharedWebLlmClient } = await import('./webllm-chat-client')
-    await getSharedWebLlmClient().interruptLoad()
+    if (wasmChatResidency.current) {
+      await (await this.importWasm()).getSharedWasmChatClient().interruptLoad()
+      return
+    }
+    await (await this.importWebLlm()).getSharedWebLlmClient().interruptLoad()
   }
 
-  /** Unload the on-device model (frees VRAM; cached weights stay). */
+  /** Unload the on-device model (frees VRAM/wasm heap; cached weights stay). */
   async unloadOnDeviceChat(): Promise<void> {
-    const { getSharedWebLlmClient } = await import('./webllm-chat-client')
-    await getSharedWebLlmClient().unload()
-    webLlmResidency.current = null
-    this.releaseDeviceHeavySlot(CHAT_MODEL_ID)
+    if (wasmChatResidency.current) {
+      await (await this.importWasm()).getSharedWasmChatClient().unload()
+      wasmChatResidency.current = null
+      this.releaseDeviceHeavySlot(CHAT_CPU_MODEL_ID)
+    } else {
+      await (await this.importWebLlm()).getSharedWebLlmClient().unload()
+      webLlmResidency.current = null
+      this.releaseDeviceHeavySlot(CHAT_MODEL_ID)
+    }
     this.emit()
   }
 
@@ -713,11 +892,13 @@ function tierLabelOf(tier: number): string {
 function getSharedChatModelResidency(): string | null {
   // Synchronous residency read without importing the worker bundle: the
   // client module records the loaded id on the singleton class instance.
-  return (webLlmResidency as { current: string | null }).current
+  return (webLlmResidency as { current: string | null }).current ?? (wasmChatResidency as { current: string | null }).current
 }
 
 /** Sync mirror of the WebLLM residency (set by the client after load). */
 export const webLlmResidency: { current: string | null } = { current: null }
+/** M39 §B: sync mirror of the CPU/WASM chat residency. */
+export const wasmChatResidency: { current: string | null } = { current: null }
 
 let singleton: DeviceCapabilityManager | null = null
 /** The shared manager instance (one per tab). */
