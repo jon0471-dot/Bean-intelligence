@@ -103,3 +103,40 @@ export function buildTargetedEditBrief(fileCount: number): string {
     '- If the request is genuinely ambiguous about WHERE or WHAT to change, ask one clarifying question instead of guessing.',
   ].join('\n')
 }
+
+// M38-F: the full standards live in docs/agents/ (PROFESSIONAL-ENGINEERING-STANDARD,
+// PROFESSIONAL-UI-UX-DESIGN-STANDARD, ANIMATION-AND-INTERACTION-STANDARD,
+// CODE-QUALITY-AND-ANTI-AI-SLOP-GATES, WEB-AND-APP-DELIVERY-CHECKLIST). This brief is the
+// bounded operational condensation injected into BOTH execution paths (live route +
+// background coding worker); it complements the frontend-intelligence brief and never
+// replaces the project context.
+const MAX_STANDARDS_BRIEF_CHARS = 3_500
+
+export const ENGINEERING_STANDARDS_BRIEF_MAX_CHARS = MAX_STANDARDS_BRIEF_CHARS
+
+/**
+ * M38-F — professional engineering/design standards brief.
+ *
+ * Injected for every CODE GIFTZ turn (both execution paths). It condenses the
+ * five docs/agents/ standards into the rules that change model behavior
+ * turn-to-turn. Bounded like every other context block.
+ */
+export function buildEngineeringStandardsBrief(): string {
+  const brief = [
+    'PROFESSIONAL ENGINEERING & DESIGN STANDARDS (full standards: docs/agents/ — engineering, UI/UX, animation, anti-slop gates, delivery checklist):',
+    'WORKFLOW: (1) understand the actual request and its intended users; (2) inspect the existing project, framework, files, dependencies, architecture; (3) identify purpose and required features; (4) write a concise requirements spec; (5) plan information architecture and routes; (6) define a visual direction SPECIFIC to this product (editorial/serif for content, technical/monospace-accent for developer tools, warm/minimal for consumer — never one template for everything); (7) plan data, APIs, security and state; (8) implement in the existing architecture; (9) test interactions and responsive behavior; (10) verify in a real browser preview.',
+    'PRESERVATION: never blindly overwrite an existing project — keep working components, functionality, integrations and data unless the user explicitly asks to change them. Follow the repository\'s actual conventions and security rules.',
+    'DESIGN QUALITY: deliberate visual hierarchy (size/weight/color/position); strong typography (scale, line-height 1.5-1.6 for body, 45-75ch measure); intentional 4/8px spacing; professional color tokens with WCAG AA contrast (4.5:1 normal text, 3:1 large); consistent components and interaction states (hover/focus/active/disabled/loading/empty/error/success); responsive desktop+tablet+mobile; accessible semantics (real labels, focus order, ARIA only as last resort).',
+    'EVERY VISIBLE CONTROL WORKS — or is clearly presented as disabled. No dead buttons, no fake forms, no invented backend functionality, no placeholder/lorem text, no fake charts, metrics or testimonials.',
+    'ANTI-SLOP: reject random purple/blue gradients everywhere, glowing cards, wrapping every section in identical rounded cards, oversized purposeless hero headings, emoji/icon decoration spam, meaningless metric dashboards, excessive glassmorphism, identical layouts across unrelated projects, decorative animations and scroll junk without product purpose.',
+    'ANIMATION: motion must have a product purpose (state feedback, spatial continuity, hierarchy reveal, progress). Use the project\'s existing tools (CSS transitions first; framer-motion for React entrance/exit/layout; GSAP for timeline/scroll choreography) — never stack extra animation libraries. Timing: micro-interactions 100-200ms, transitions 200-400ms, narrative moments 400-700ms; ease-out entrances, ease-in exits, ease-in-out state changes. Animate ONLY transform/opacity (compositor-friendly); avoid layout shifts, will-change spam and main-thread jank; ALWAYS respect prefers-reduced-motion; never block essential interactions.',
+    'ENGINEERING GATES: type-safe code; validation and error handling; semantic HTML; responsive layouts; no dead code; real builds and applicable tests MUST pass — compiling is NOT working.',
+    'DELIVERY HONESTY: report build/test results truthfully, name limitations, and verify in a real browser. A deliverable is complete only when built, tested and verified — not merely generated.',
+  ].join('\n')
+  if (brief.length > MAX_STANDARDS_BRIEF_CHARS) {
+    // The brief is authored under the budget; this guard exists so future edits
+    // fail loudly instead of silently bloating every prompt.
+    return brief.slice(0, MAX_STANDARDS_BRIEF_CHARS)
+  }
+  return brief
+}

@@ -178,7 +178,7 @@ describe('M38-E atlas tools — tool execution', () => {
 
     const recovery = selectTools({
       searchNeeded: true,
-      task: 'knowledge',
+      task: 'research',
       hasDocuments: false,
       allowCodeExecution: false,
       researchFailed: true,
@@ -187,7 +187,7 @@ describe('M38-E atlas tools — tool execution', () => {
 
     const plain = selectTools({
       searchNeeded: false,
-      task: 'chat',
+      task: 'general',
       hasDocuments: false,
       allowCodeExecution: false,
       researchFailed: false,
