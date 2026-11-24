@@ -12,8 +12,9 @@
 |---|---|
 | Starting `origin/main` (verified by fetch before any change) | `c6cb7f95e63e87b1073a52b101835e8becfd44d7` |
 | Working branch | `feat/m37-riishe-full-workflow-agent` |
-| Implementation commit | recorded in §11 (publication record) |
-| Remote verification | recorded in §11 (independent `ls-remote` after push) |
+| Implementation commit | `188d529a7f238bde37f9519c3c9a5432880529cb` |
+| Publication commit (this report's §1/§11 finalization) | `git rev-parse HEAD` of this branch after this commit — see the milestone report to the operator for the exact verified tip |
+| Remote verification | `git ls-remote origin feat/m37-riishe-full-workflow-agent` = `188d529a7f238bde37f9519c3c9a5432880529cb` = local implementation commit (verified immediately after the push); fresh `git fetch` of the branch resolves the same SHA; the GitHub commit page returns HTTP 200 |
 
 Publication SHAs are recorded in §11 after the push (the report cannot know its own commit's SHA before it exists; the publication commit below finalizes this section, the same reconciliation pattern as M36).
 
@@ -131,6 +132,11 @@ All receipt paths are covered by `riishe-task-progress.test.ts` (8 tests) agains
 - The TypeScript diagnostic set on this host is non-empty both before and after M37 (pre-existing harness debt, quantified in §6); the milestone gate used is "no new diagnostics introduced", verified by an identical-environment baseline comparison.
 - The working tree on the deployment host is subject to an environment auto-commit mechanism (UUID-named commits on the checked-out branch). Two such auto-commits had landed on the local `main` during development (partial M37 fragments + a 6.6 MB acceptance binary). Local `main` was restored to `origin/main` (`c6cb7f9`) — the documented, non-force recovery — and all M37 work lives on the working branch. No shared remote history was rewritten anywhere in this milestone.
 
-## 11. Publication record (finalized after push)
+## 11. Publication record
 
-Recorded in the publication commit on the same branch: implementation commit SHA, `git ls-remote` verification, and the independently fetched remote SHA comparison. See the commit history of `feat/m37-riishe-full-workflow-agent` for the exact values; they are also reproduced in the final milestone report to the operator.
+- **Implementation commit:** `188d529a7f238bde37f9519c3c9a5432880529cb` — pushed to `origin/feat/m37-riishe-full-workflow-agent` as a normal fast-forward (new remote branch; no force-push, no history rewrite).
+- **Independent remote verification (immediately after the push):**
+  - `git ls-remote origin feat/m37-riishe-full-workflow-agent` → `188d529a7f238bde37f9519c3c9a5432880529cb` (= local commit),
+  - fresh `git fetch origin feat/m37-riishe-full-workflow-agent` → `FETCH_HEAD` resolves to the same SHA,
+  - GitHub commit page `https://github.com/jon0471-dot/Bean-intelligence/commit/188d529a…` → HTTP 200.
+- The final branch tip is the publication commit that carries this report; its SHA and the tip's remote equality are re-verified with the same `ls-remote` procedure after this commit's push and reported to the operator in the final milestone report.
