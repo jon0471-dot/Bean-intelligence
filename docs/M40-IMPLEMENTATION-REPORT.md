@@ -2,7 +2,7 @@
 
 > Branch: `feat/m40-real-hardware-capability-completion` · Window: 2026-11-24 → 2026-11-25
 > Repository: `github.com/jon0471-dot/Bean-intelligence`
-> Companion docs: `docs/ai/M40-BASELINE-RECOVERY.md` (Milestone 0 record), `docs/ai/MODEL-EXECUTION-MATRIX-M40.md`, `docs/ai/MISSING-CAPABILITIES-M40.md`, `docs/ai/RTX-5060-TI-ACCEPTANCE-M40.md`, `docs/ai/LOW-SPEC-ACCEPTANCE-M40.md`.
+> Companion docs: `docs/ai/M40-BASELINE-RECOVERY.md` (Milestone 0 record), `docs/ai/MODEL-EXECUTION-MATRIX-M40.md`, `docs/ai/MISSING-CAPABILITIES-M40.md`, `docs/ai/RTX-5060-TI-ACCEPTANCE-M40.md`, `docs/ai/LOW-SPEC-ACCEPTANCE-M40.md`, `docs/ai/HOSTED-LLM-ACCEPTANCE-M40.md`, `docs/M40.9-FINAL-ACCEPTANCE-REPORT.md`.
 > Governing rules honored throughout: no placeholder responses, no mock inference, no simulated success, no lifecycle-state inflation; "a GPU capability probe … is NOT proof of actual model inference"; **no claim that every model works merely because all tests pass**; no new user-visible hardware/model/runtime controls; no merge into `main` without separate owner authorization.
 
 ## 1. Summary
@@ -83,7 +83,7 @@ mobile, all five product workspaces, `console.txt`, `page-errors.txt`):
 - **Zero page errors**; console contains only dev-mode HMR/React-DevTools info lines.
 - Internal provider/model names do not appear in customer-visible UI (asserted by the m40.5 composition tests and observed across the captured screens).
 
-### Milestone 8 — VERIFICATION AND DOCUMENTATION
+### Milestone 8 — VERIFICATION AND DOCUMENTATION (M40 base window)
 
 Validation at the final HEAD (all commands run in this window):
 
@@ -98,7 +98,26 @@ Validation at the final HEAD (all commands run in this window):
 
 Documentation set completed: this report + `MODEL-EXECUTION-MATRIX-M40.md` +
 `MISSING-CAPABILITIES-M40.md` + the earlier `RTX-5060-TI-ACCEPTANCE-M40.md`,
-`LOW-SPEC-ACCEPTANCE-M40.md`, `M40-BASELINE-RECOVERY.md`.
+`LOW-SPEC-ACCEPTANCE-M40.md`, `M40-BASELINE-RECOVERY.md`; extended in M40.9 by
+`HOSTED-LLM-ACCEPTANCE-M40.md` + `docs/M40.9-FINAL-ACCEPTANCE-REPORT.md` + the
+RTX doc §4.1/§5.1 and LOW-SPEC doc §9 appends.
+
+### Milestone 9 (M40.9) — FINAL REAL-HARDWARE & LIVE AI ACCEPTANCE (2026-11-25)
+
+| Commit | Content (full evidence in `docs/M40.9-FINAL-ACCEPTANCE-REPORT.md`) |
+|---|---|
+| `aec998a` (m40.9a) | ONE-COMMAND RTX runner (`run-rtx-acceptance.ps1`) + harness auto-POST evidence capture (`POST /evidence`) + draft-07 evidence schema + verdict validator (self-tested: cannot pass a partial run); pipeline measured end-to-end in the sandbox — honest-refusal evidence auto-saved, explicitly NOT a GPU result |
+| `f6b5757` (m40.9b) | low-spec COMPLETED on the real constrained host: soak 1,043/1,043 validated / 90 s / RSS bounded; 9/9 concurrent; 512-text spike + full recovery (`out/low-spec-soak.json`, LOW-SPEC doc §9) |
+| `35a272d` (m40.9c) | HOSTED LLM VERIFIED REAL: real 429s measured first (breaker refused, job ids recorded) → provider recovered → recovery run through the breaker's OWN cooldown: RIISHE chat + grounded QA (both planted facts) + GIFTZ generation/delivery/sandbox (exit 0, correct FizzBuzz stdout) — `HOSTED-LLM-ACCEPTANCE-M40.md` |
+| `ee5974f` (m40.9e) | live UI regression walk at the M40.9 HEAD: 8 distinct desktop+mobile captures, zero page errors, honest chips, UI unchanged (`validation/m40-ui/m40.9/`) |
+| `b0f0515` (m40.9d) | five-product regression: **14 PASS / 0 honest-unavailable / 0 FAIL** — first full-stack clean sweep incl. hosted T2V completing with a REAL servable artifact |
+| (m40.9f) this commit | final acceptance report + this milestone record; validation at final HEAD: 2827 pass / 0 fail, tsc baseline-identical, eslint clean, prisma valid, build success, privacy sweep 10/10, secret scan clean |
+
+GitHub state verified at M40.9 entry by fresh fetch + GitHub API: PRs #20
+(`0698d7e`), #21 (`1aa7bac`), #22 (`aec930b`) all merged — the complete M40
+diff through `e8ae37e` is on `main`; M40.9 continued on the feature branch
+with fast-forward pushes only, remote SHA verified after each push. `main`
+was not touched by M40.9.
 
 ## 3. Commit & push manifest (all normal fast-forward pushes, remote SHA verified via `git ls-remote` after each push)
 
@@ -112,11 +131,17 @@ Documentation set completed: this report + `MODEL-EXECUTION-MATRIX-M40.md` +
 | `ab7209e` m40.5 | matrix 12/12 + measured fixes | `git ls-remote` = `ab7209e…` (this window) |
 | this commit | product E2E + privacy sweep + UI evidence | verified at push |
 | docs commit | the three M40 docs | verified at push |
+| `aec998a` m40.9a | one-command RTX runner + evidence pipeline | yes (M40.9 window) |
+| `f6b5757` m40.9b | low-spec soak/concurrency/recovery | yes |
+| `35a272d` m40.9c | hosted-LLM verified-real + doc | yes |
+| `ee5974f` m40.9e | live UI regression walk | yes |
+| `b0f0515` m40.9d | five-product regression 14/0/0 | yes |
+| (m40.9f) this commit | M40.9 final acceptance report + report update | verified at push |
 
-## 4. What M40 does NOT claim (the honest remainder)
+## 4. What M40 does NOT claim (the honest remainder — updated by M40.9)
 
-1. **No RTX GPU inference claim.** The sandbox has no WebGPU adapter (physical fact). The acceptance harness + exact Windows-PC commands are delivered (`RTX-5060-TI-ACCEPTANCE-M40.md` §4); ten-of-ten `ok:true` there IS the RTX acceptance.
-2. **No physical low-end-device browser claim.** Real constrained-host CPU measurements exist; a physical old-laptop pass remains a separate, unclaimed evidence class.
-3. **No hosted-LLM re-validation claim for this window.** The upstream gateway returned sustained 429s throughout; the breaker refused to worsen it. Hosted-LLM lanes are honest nulls with the reason recorded, and the last verified hosted inference (M39, 2026-11-24: RIISHE chat + GIFTZ sandbox PASS) is dated and cited — never silently reused as if it were same-window evidence.
+1. **No RTX GPU inference claim — still.** The sandbox has no WebGPU adapter (physical fact). M40.9 closed every closable piece: the one-command runner + automatic schema-gated evidence capture + self-tested verdict validator (`RTX-5060-TI-ACCEPTANCE-M40.md` §4.1), with the full evidence pipeline measured end-to-end in the sandbox. The acceptance itself is now ONE owner command on the Windows PC; ten-of-ten `ok:true` in THAT evidence is the RTX acceptance.
+2. **No physical low-end-device browser claim — still.** Real constrained-host CPU measurements now include sustained soak, concurrency and load-spike recovery (LOW-SPEC doc §9); a physical old-laptop pass remains a separate, unclaimed evidence class.
+3. **Hosted-LLM: NOW verified real in the M40.9 window.** The M40-window sustained-429 record stands in the evidence trail; on 2026-11-25 the provider recovered and the acceptance held real content-validated hosted execution (RIISHE chat + grounded QA + GIFTZ generation + sandbox, exit 0) — reached strictly through the breaker's own cooldown, with the outage→recovery boundary explicit (`HOSTED-LLM-ACCEPTANCE-M40.md`). Availability remains window-bound by nature; the honest-degradation + automatic-recovery contract is the durable claim, and both halves are now demonstrated in the same window.
 4. **No claim that every model works because tests pass.** Per-capability operational status is exactly the matrix (§2/§3) + the missing-capabilities ledger; dormant-credential, not-deployed and never-implemented backends are named as such.
-5. `jazmii.video-generation-wan` remains **not implemented** (registry `enabled:false`) — an honest non-existent lane, not a hidden stub.
+5. `jazmii.video-generation-wan` remains **not implemented** (registry `enabled:false`) — an honest non-existent lane, not a hidden stub. (The EXISTING hosted T2V lane completed with a real servable artifact in the M40.9 regression — that is that lane's own provider recovering, not a new capability.)
