@@ -106,3 +106,29 @@ With `BEAN_LOCAL_MODEL_IDLE_UNLOAD_MS=4000` (the production env knob, default
 bun scripts/m40-acceptance/low-spec-probe.ts
 # → scripts/m40-acceptance/out/low-spec-probe.json (host facts + 3 lanes + reaper)
 ```
+
+## 9. M40.9 — soak, concurrency, load-spike recovery (measured on the same real constrained host)
+
+Re-measured 2026-11-25 (`scripts/m40-acceptance/low-spec-soak.ts` →
+`out/low-spec-soak.json`), same physical host as §3 (2 vCPU Intel Xeon,
+4,041 MB, no GPU — **real constrained-host measurement**, still not a
+simulated profile and still not a physical end-user laptop):
+
+| Point | Measured result |
+|---|---|
+| **Long-running stability** | 3-lane rotation (OCR + embeddings + rerank) sustained for a 90 s wall window: **1,043 runs / 1,043 validated / 0 failed**; per-run 51–174 ms (mean 86.3); RSS stayed bounded for the whole run (start 253.0 MB → end 279.3 MB, peak 315.9 MB, timeline flat ~278–284 MB across 200+ samples) — no leak over a thousand consecutive real inferences |
+| **Concurrent execution** | 3 concurrent 3-lane batches (9 real invocations interleaved on 2 vCPU): **9/9 validated**, 661 ms wall. Scope note recorded in the evidence: this measures the SERVER-side lanes; the browser worker-concurrency caps (2 normal / 1 conservative) remain a separate, test-backed evidence class (M39 battery, green in the M40.9 suite) |
+| **Load spike + graceful recovery** | a 512-text embeddings batch (real memory pressure on a 4 GB host) completed validated in 2,637 ms; the three follow-up normal runs all validated (82 / 78 / 49 ms) — the lane is fully functional after the spike; explicit unload returned RSS to 250.0 MB |
+| **Cancellation** | honest statement, not a measurement: the server-side local-model lanes expose no abort surface; mid-flight cancellation is enforced and contract-tested at the client-compute scheduler layer (abort propagation, worker cleanup, post-cancel health — pinned by the M39/M40 battery, re-verified green in the M40.9 full-suite run) |
+
+Reading: the low-spec execution path holds its per-run validation contract
+across sustained load, concurrent load and a deliberate memory spike — and
+releases memory on unload — on a genuinely constrained machine. The browser
+side on a physical low-end end-user device remains the same honest remainder
+as before (§5): hardware-dependent, pending owner hardware acceptance.
+
+```bash
+# reproduce (models installed through the admin-gated route, as above)
+bun scripts/m40-acceptance/low-spec-soak.ts
+# → scripts/m40-acceptance/out/low-spec-soak.json (host facts + soak + concurrency + spike/recovery + cancellation statement)
+```
