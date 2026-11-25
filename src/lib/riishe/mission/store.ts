@@ -28,6 +28,7 @@ import {
   type MissionStatus,
   type MissionTaskStatus,
 } from './types'
+import { sanitizeEvidenceText } from './safety'
 
 /** Mission-layer state errors (distinct name so callers can branch). */
 export class TrustStateMissionError extends Error {}
@@ -255,10 +256,10 @@ export async function transitionTask(
   if (patch?.attempts !== undefined) data.attempts = patch.attempts
   if (patch?.corrections !== undefined) data.corrections = patch.corrections
   if (patch?.specialistJobId !== undefined) data.specialistJobId = patch.specialistJobId
-  if (patch?.executionJson !== undefined) data.executionJson = bounded(patch.executionJson, 6000, 'task.executionJson')
-  if (patch?.verificationResultJson !== undefined) data.verificationResultJson = bounded(patch.verificationResultJson, 4000, 'task.verificationResultJson')
+  if (patch?.executionJson !== undefined) data.executionJson = bounded(sanitizeEvidenceText(patch.executionJson), 6000, 'task.executionJson')
+  if (patch?.verificationResultJson !== undefined) data.verificationResultJson = bounded(sanitizeEvidenceText(patch.verificationResultJson), 4000, 'task.verificationResultJson')
   if (patch?.failureNote !== undefined) data.failureNote = patch.failureNote === null ? null : bounded(patch.failureNote, 400, 'task.failureNote')
-  if (patch?.artifactJson !== undefined) data.artifactJson = bounded(patch.artifactJson, 4000, 'task.artifactJson')
+  if (patch?.artifactJson !== undefined) data.artifactJson = bounded(sanitizeEvidenceText(patch.artifactJson), 4000, 'task.artifactJson')
   if (patch?.objective !== undefined) data.objective = bounded(patch.objective, 6000, 'task.objective')
   const res = await db.agentMissionTask.updateMany({
     where: { missionId, taskId, status: from },
@@ -290,8 +291,8 @@ export async function updateRunningTask(missionId: string, taskId: string, patch
       ...(specialistJobId !== undefined ? { specialistJobId } : {}),
       ...(objective !== undefined ? { objective: bounded(objective, 6000, 'task.objective') } : {}),
       ...(failureNote !== undefined ? { failureNote: failureNote === null ? null : bounded(failureNote, 400, 'task.failureNote') } : {}),
-      ...(executionJson !== undefined ? { executionJson: bounded(executionJson, 6000, 'task.executionJson') } : {}),
-      ...(verificationResultJson !== undefined ? { verificationResultJson: bounded(verificationResultJson, 4000, 'task.verificationResultJson') } : {}),
+      ...(executionJson !== undefined ? { executionJson: bounded(sanitizeEvidenceText(executionJson), 6000, 'task.executionJson') } : {}),
+      ...(verificationResultJson !== undefined ? { verificationResultJson: bounded(sanitizeEvidenceText(verificationResultJson), 4000, 'task.verificationResultJson') } : {}),
     },
   })
   if (res.count !== 1) throw new TrustStateMissionError(`Task "${taskId}" is not running; update rejected.`)
@@ -308,10 +309,10 @@ export async function retryTask(missionId: string, taskId: string, patch: TaskSt
       ...(attempts !== undefined ? { attempts } : {}),
       ...(corrections !== undefined ? { corrections } : {}),
       ...(specialistJobId !== undefined ? { specialistJobId } : {}),
-      ...(executionJson !== undefined ? { executionJson: bounded(executionJson, 6000, 'task.executionJson') } : {}),
-      ...(verificationResultJson !== undefined ? { verificationResultJson: bounded(verificationResultJson, 4000, 'task.verificationResultJson') } : {}),
+      ...(executionJson !== undefined ? { executionJson: bounded(sanitizeEvidenceText(executionJson), 6000, 'task.executionJson') } : {}),
+      ...(verificationResultJson !== undefined ? { verificationResultJson: bounded(sanitizeEvidenceText(verificationResultJson), 4000, 'task.verificationResultJson') } : {}),
       ...(failureNote !== undefined ? { failureNote: failureNote === null ? null : bounded(failureNote, 400, 'task.failureNote') } : {}),
-      ...(artifactJson !== undefined ? { artifactJson: bounded(artifactJson, 4000, 'task.artifactJson') } : {}),
+      ...(artifactJson !== undefined ? { artifactJson: bounded(sanitizeEvidenceText(artifactJson), 4000, 'task.artifactJson') } : {}),
       ...(objective !== undefined ? { objective: bounded(objective, 6000, 'task.objective') } : {}),
     },
   })
