@@ -97,7 +97,7 @@ describe('orchestrator tool grants', () => {
   test('mission tools enter the universe only with the two-key agreement', () => {
     const base = {
       searchNeeded: false,
-      task: 'conversation' as const,
+      task: 'general' as const,
       hasDocuments: false,
       allowCodeExecution: false,
       researchFailed: false,
@@ -111,7 +111,7 @@ describe('orchestrator tool grants', () => {
   test('granting missions does not leak unrelated tools', () => {
     const tools = selectTools({
       searchNeeded: false,
-      task: 'conversation' as const,
+      task: 'general' as const,
       hasDocuments: false,
       allowCodeExecution: false,
       researchFailed: false,
