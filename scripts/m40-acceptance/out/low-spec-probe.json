@@ -1,0 +1,63 @@
+{
+  "startedAt": "2026-11-25T04:42:44.311Z",
+  "host": {
+    "cpus": 2,
+    "cpuModel": "Intel(R) Xeon(R) Processor",
+    "totalMemMb": 4041.56640625,
+    "freeMemMbStart": 3413.1484375,
+    "gpu": "none (physical fact of this host — WebGPU absent)",
+    "platform": "linux x64 5.10.134-013.15.kangaroo.al8.x86_64",
+    "classification": "real constrained host (4 GB class, CPU-only) — not a simulated profile"
+  },
+  "lanes": [
+    {
+      "lane": "ocr",
+      "validationOk": true,
+      "validationDetail": "confidence 94.0, 6 words",
+      "coldLoadMs": 622,
+      "runs": [
+        107,
+        96,
+        84
+      ],
+      "rssAfterLoadMb": 140.03125,
+      "rssAfterUnloadMb": 143.78125
+    },
+    {
+      "lane": "embeddings",
+      "validationOk": true,
+      "validationDetail": "dim 384, 8 texts, cos(para)=0.9654 > cos(unrel)=-0.0227",
+      "coldLoadMs": 179,
+      "runs": [
+        69,
+        59,
+        73
+      ],
+      "rssAfterLoadMb": 246.7734375,
+      "rssAfterUnloadMb": 226.44140625
+    },
+    {
+      "lane": "rerank",
+      "validationOk": true,
+      "validationDetail": "8 pairs, top=0 (expected 0), scores [1.000, 0.011, 0.006…]",
+      "coldLoadMs": 142,
+      "runs": [
+        63,
+        66,
+        72
+      ],
+      "rssAfterLoadMb": 264.45703125,
+      "rssAfterUnloadMb": 230.56640625
+    }
+  ],
+  "idleReaper": {
+    "knobMs": 4000,
+    "rssBaselineMb": 230.56640625,
+    "rssLoadedMb": 237.078125,
+    "rssAfterIdleMb": 212.70703125,
+    "reapedObserved": true,
+    "postReaperInferenceOk": true,
+    "note": "RSS return is the observable proxy in-process; the reaper disposes ORT sessions after the idle window"
+  },
+  "finishedAt": "2026-11-25T04:43:57.168Z"
+}
