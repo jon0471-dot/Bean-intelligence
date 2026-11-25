@@ -1,15 +1,12 @@
 {
   "summary": {
-    "pass": 8,
-    "honestUnavailable": 4,
+    "pass": 14,
+    "honestUnavailable": 0,
     "fail": 0,
-    "total": 12,
-    "runBudgetMs": 480000,
-    "only": [
-      "riishe-chat",
-      "giftz"
-    ],
-    "finishedAt": "2026-11-25T15:27:15.038Z"
+    "total": 14,
+    "runBudgetMs": 900000,
+    "only": null,
+    "finishedAt": "2026-11-25T16:10:47.702Z"
   },
   "steps": [
     {
@@ -18,7 +15,7 @@
       "ok": true,
       "status": 200,
       "detail": "fresh account registered + logged in for the E2E session",
-      "at": "2026-11-25T15:27:05.729Z"
+      "at": "2026-11-25T16:05:40.130Z"
     },
     {
       "backendId": "bean-image-local-sharp",
@@ -26,7 +23,7 @@
       "ok": true,
       "status": 200,
       "detail": "REAL deterministic enhancement: decoded png 256x256, 1899 bytes",
-      "at": "2026-11-25T15:00:25.589Z",
+      "at": "2026-11-25T16:05:43.741Z",
       "evidence": {
         "bytes": 1899,
         "meta": {
@@ -55,7 +52,7 @@
       "ok": true,
       "status": 400,
       "detail": "garbage bytes honestly rejected (HTTP 400: File is not a decodable image.)",
-      "at": "2026-11-25T15:00:25.632Z"
+      "at": "2026-11-25T16:05:43.845Z"
     },
     {
       "backendId": "bean-audio-tts-local-kokoro",
@@ -63,7 +60,7 @@
       "ok": true,
       "status": 200,
       "detail": "Kokoro-82M q8 installed with sha256 verification (or already present)",
-      "at": "2026-11-25T15:00:26.013Z",
+      "at": "2026-11-25T16:05:44.001Z",
       "evidence": {
         "ok": true,
         "action": "install",
@@ -108,7 +105,7 @@
       "ok": true,
       "status": 200,
       "detail": "REAL local Kokoro synthesis 184844 bytes (RIFF true)",
-      "at": "2026-11-25T15:00:39.089Z",
+      "at": "2026-11-25T16:05:56.020Z",
       "evidence": {
         "bytes": 184844
       }
@@ -118,38 +115,22 @@
       "capability": "riishe.image-ocr-route",
       "ok": true,
       "status": 200,
-      "detail": "documents route STORED the image with REAL local OCR beside the vision lane (318 chars; vision-flag independence is the m40.5 contract; vision lane honestly reported unavailable tonight)",
-      "at": "2026-11-25T15:00:40.937Z",
+      "detail": "documents route STORED the image with REAL local OCR beside the vision lane (532 chars; vision-flag independence is the m40.5 contract)",
+      "at": "2026-11-25T16:05:59.614Z",
       "evidence": {
-        "note": "Vision analysis was unavailable at upload time (the vision service is rate-limited right now); the original bytes are retained so the pixels can be analyzed on a later request. OCR text extracted locally (English; non-Latin scripts honestly reported when not recognized).",
-        "characters": 318
+        "note": "Image content analyzed by the vision pipeline; the original bytes are retained so follow-up questions can re-consult the actual pixels. OCR text extracted locally (English; non-Latin scripts honestly reported when not recognized).",
+        "characters": 532
       }
     },
     {
       "backendId": "bean-llm-hosted-primary",
       "capability": "riishe.text-generation",
-      "ok": null,
-      "status": null,
-      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-      "at": "2026-11-25T15:27:08.647Z",
+      "ok": true,
+      "status": 200,
+      "detail": "real chat completion; persisted answer: \"The capital of France is Paris.\"",
+      "at": "2026-11-25T16:06:02.809Z",
       "evidence": {
-        "id": "cmwwa1ftn003bl2bjrbcnkzcp",
-        "product": "riishe",
-        "task": "chat",
-        "capability": "chat",
-        "status": "failed",
-        "legacyStatus": "failed",
-        "terminal": true,
-        "progress": 0,
-        "errorCode": "UPSTREAM_RATE_LIMITED",
-        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-        "errorClass": "rate_limited",
-        "cancelRequested": false,
-        "result": null,
-        "eventCount": 2,
-        "queuedAt": "2026-11-25T15:27:05.819Z",
-        "startedAt": "2026-11-25T15:27:06.707Z",
-        "finishedAt": "2026-11-25T15:27:06.847Z"
+        "answer": "The capital of France is Paris."
       }
     },
     {
@@ -158,9 +139,9 @@
       "ok": true,
       "status": 200,
       "detail": "text extraction persisted (125 chars, status ready)",
-      "at": "2026-11-25T15:27:08.781Z",
+      "at": "2026-11-25T16:06:02.908Z",
       "evidence": {
-        "id": "cmwwa1i31003sl2bjxmhnvnun",
+        "id": "cmwwbfj4l02q8l2j7p05kb70q",
         "name": "offsite-brief.txt",
         "kind": "text",
         "status": "ready",
@@ -169,72 +150,53 @@
         "size": 125,
         "characters": 125,
         "truncated": false,
-        "createdAt": "2026-11-25T15:27:08.749Z"
+        "createdAt": "2026-11-25T16:06:02.901Z"
       }
     },
     {
       "backendId": "bean-documents-text",
       "capability": "riishe.document-grounded-qa",
-      "ok": null,
-      "status": null,
-      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-      "at": "2026-11-25T15:27:11.630Z",
+      "ok": true,
+      "status": 200,
+      "detail": "grounded answer persisted: \"According to the document, Lisbon hosts the offsite and the budget code is BX-77.\"",
+      "at": "2026-11-25T16:06:06.029Z",
       "evidence": {
-        "id": "cmwwa1i5b003yl2bjgvcwo184",
-        "product": "riishe",
-        "task": "chat",
-        "capability": "chat",
-        "status": "failed",
-        "legacyStatus": "failed",
-        "terminal": true,
-        "progress": 0,
-        "errorCode": "UPSTREAM_RATE_LIMITED",
-        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-        "errorClass": "rate_limited",
-        "cancelRequested": false,
-        "result": null,
-        "eventCount": 3,
-        "queuedAt": "2026-11-25T15:27:08.831Z",
-        "startedAt": "2026-11-25T15:27:09.724Z",
-        "finishedAt": "2026-11-25T15:27:09.786Z"
+        "answer": "According to the document, Lisbon hosts the offsite and the budget code is BX-77.",
+        "toolTrail": []
       }
     },
     {
       "backendId": "bean-code-llm-hosted-primary",
       "capability": "code-giftz.code-generation",
-      "ok": null,
-      "status": null,
-      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-      "at": "2026-11-25T15:27:15.037Z",
+      "ok": true,
+      "status": 200,
+      "detail": "coding job completed (project cmwwbflmf02rhl2j7jjtrthqw)",
+      "at": "2026-11-25T16:06:23.598Z",
       "evidence": {
-        "id": "cmwwa1kdq004rl2bj2zsfpgwt",
-        "product": "code-giftz",
-        "task": "coding-task",
-        "capability": "coding-task",
-        "status": "failed",
-        "legacyStatus": "failed",
-        "terminal": true,
-        "progress": 0,
-        "errorCode": "UPSTREAM_RATE_LIMITED",
-        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-        "errorClass": "rate_limited",
-        "cancelRequested": false,
-        "result": null,
-        "eventCount": 2,
-        "queuedAt": "2026-11-25T15:27:11.726Z",
-        "startedAt": "2026-11-25T15:27:12.722Z",
-        "finishedAt": "2026-11-25T15:27:12.812Z"
+        "projectId": "cmwwbflmf02rhl2j7jjtrthqw",
+        "messageId": "cmwwbfwpp057jl2j700et1tyj",
+        "changes": [
+          {
+            "path": "fizzbuzz.py",
+            "change": "added"
+          }
+        ],
+        "contentChars": 773,
+        "continuations": 0,
+        "versionSeq": 1,
+        "verification": null,
+        "durationMs": 15256
       }
     },
     {
       "backendId": "bean-video-hosted-primary",
       "capability": "jazmii.t2v-honesty",
-      "ok": null,
-      "status": null,
-      "detail": "poll window elapsed with the job still in flight (upstream video provider has been 429-throttled tonight — the job remains tracked and must settle to a truthful terminal state; NO success is claimed)",
-      "at": "2026-11-25T15:04:14.280Z",
+      "ok": true,
+      "status": 206,
+      "detail": "completed with a REAL servable artifact (/api/jazmii/jobs/cmwwbfztl05efl2j79js6x068/media)",
+      "at": "2026-11-25T16:09:27.437Z",
       "evidence": {
-        "jobId": "cmww93p0s003vl2cwqa54r5px"
+        "videoUrl": "/api/jazmii/jobs/cmwwbfztl05efl2j79js6x068/media"
       }
     },
     {
@@ -242,10 +204,10 @@
       "capability": "jazmii.video-motion-local",
       "ok": true,
       "status": 206,
-      "detail": "REAL local motion+RIFE video artifact served (/api/jazmii/jobs/cmww981mf0043l2cwsr7aw746/media; provenance engine local-motion-rife)",
-      "at": "2026-11-25T15:05:34.336Z",
+      "detail": "REAL local motion+RIFE video artifact served (/api/jazmii/jobs/cmwwbjx0f05evl2j7sktncd4t/media; provenance engine local-motion-rife)",
+      "at": "2026-11-25T16:10:47.698Z",
       "evidence": {
-        "outUrl": "/api/jazmii/jobs/cmww981mf0043l2cwsr7aw746/media",
+        "outUrl": "/api/jazmii/jobs/cmwwbjx0f05evl2j7sktncd4t/media",
         "provenance": {
           "engine": "local-motion-rife",
           "pipeline": "local-motion-animation",
@@ -255,6 +217,28 @@
           "framesGenerated": 72,
           "rifeCalls": 63
         }
+      }
+    },
+    {
+      "backendId": "bean-code-llm-hosted-primary",
+      "capability": "code-giftz.project-delivery",
+      "ok": true,
+      "status": 200,
+      "detail": "file fizzbuzz.py contains real FizzBuzz code",
+      "at": "2026-11-25T16:06:23.748Z"
+    },
+    {
+      "backendId": "bean-code-llm-hosted-primary",
+      "capability": "code-giftz.sandbox-execution",
+      "ok": true,
+      "status": 200,
+      "detail": "REAL sandbox run: FizzBuzz sequence verified in stdout",
+      "at": "2026-11-25T16:06:24.301Z",
+      "evidence": {
+        "exitCode": 0,
+        "timedOut": false,
+        "outputHead": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz\n",
+        "stderrHead": ""
       }
     }
   ]

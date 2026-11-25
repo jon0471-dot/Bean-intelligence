@@ -1,0 +1,17 @@
+{
+ "startedAt": "2026-11-25T15:42:38.411Z",
+ "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.0.0 Safari/537.36",
+ "checks": [
+  {
+   "point": "1",
+   "name": "gpu-adapter",
+   "ok": false,
+   "detail": "no WebGPU adapter — the GPU acceptance cannot run on this machine",
+   "evidence": {
+    "info": "(adapter.info unavailable in this Chrome — older requestAdapterInfo() path below)",
+    "legacyInfo": null
+   }
+  }
+ ],
+ "finishedAt": "2026-11-25T15:42:38.500Z"
+}

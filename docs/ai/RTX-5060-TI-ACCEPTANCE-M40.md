@@ -65,11 +65,49 @@ Additional honesty rules encoded in the harness:
 
 ## 4. Exact commands to complete the acceptance on the Windows PC
 
+### 4.1 The one-command runner (M40.9 — the primary path)
+
 ```bat
-:: 1. sync the branch (no force anything; plain fast-forward state)
+git fetch origin && git checkout feat/m40-real-hardware-capability-completion && git pull --ff-only origin feat/m40-real-hardware-capability-completion
+powershell -ExecutionPolicy Bypass -File scripts\m40-acceptance\run-rtx-acceptance.ps1
+```
+
+One command does the whole acceptance:
+
+1. **safe sync** — fetch + fast-forward ONLY (aborts if the tree is dirty; never
+   `reset --hard`, never discards local work);
+2. **deps** — `bun install` / `npm install` when `node_modules` is absent;
+3. **builds** — `npm run build` (workers + ORT assets) and the harness bundle
+   (`validation/m40-rtx/build.mjs`);
+4. **serves** the harness at `http://localhost:8787/harness` (localhost only)
+   and launches the installed **Chrome with `--js-flags=--expose-gc`**
+   (needed for check #9);
+5. **captures the evidence automatically** — the harness now POSTs its finished
+   results to the server (`POST /evidence`), which schema-gates and saves them
+   to `validation\m40-rtx\results-<utcstamp>.json` (the manual download button
+   remains as a fallback; switches `-SkipSync`, `-SkipBuild`,
+   `-TimeoutMinutes N`);
+6. **validates and verdicts** —
+   `node scripts\m40-acceptance\validate-rtx-evidence.mjs <file>` re-checks the
+   evidence against `validation/m40-rtx/evidence-schema.json` and prints the
+   acceptance verdict (full acceptance = 10/10 `ok:true`, with the single
+   allowed nuance of #7 recorded as an honest partial; the validator
+   structurally CANNOT pass a partial run — its verdict rules were self-tested
+   against a full run, a partial run and a missing-point run before shipping).
+
+The evidence JSON is the acceptance record: verbatim adapter info, providers,
+timings, heap deltas, device-lost events and per-check verdicts. It contains
+browser-side measurements only — no secrets and no local file paths — so it
+can be committed as-is. Commit it on the feature branch and the RTX acceptance
+is reported as executed on real hardware.
+
+### 4.2 Manual equivalent (unchanged, still supported)
+
+```bat
+:: 1. sync the branch (fast-forward only)
 git fetch origin
 git checkout feat/m40-real-hardware-capability-completion
-git reset --hard origin/feat/m40-real-hardware-capability-completion
+git pull --ff-only origin feat/m40-real-hardware-capability-completion
 
 :: 2. install dependencies (once) and build the production artifacts
 bun install        (or: npm install)
@@ -83,12 +121,10 @@ node scripts\m40-acceptance\rtx-harness-server.mjs
 "C:\Program Files\Google\Chrome\Application\chrome.exe" --js-flags="--expose-gc" "http://localhost:8787/harness"
 ```
 
-Then: wait for `DONE: N PASS / …` in the page, click **Download evidence JSON**,
-and save it as `validation/m40-rtx/results-<date>.json` in the repo. The
-evidence file (verbatim adapter info, providers, timings, heap deltas,
-device-lost events, per-check verdicts) is the acceptance record — attach it
-or commit it on the feature branch and the RTX acceptance can then be reported
-as executed on real hardware.
+Then: wait for `DONE: N PASS / …` in the page — the evidence now auto-saves to
+`validation\m40-rtx\results-<utcstamp>.json` (or click **Download evidence
+JSON** for a manual copy). The evidence file is the acceptance record; commit
+it on the feature branch.
 
 A check counts as PASSED only as written in §3. Ten of ten `ok:true` (with the
 one explicitly-allowed nuance: #7 recorded as partial with a validated wasm
@@ -127,6 +163,30 @@ browser-automation CLI against `scripts/m40-acceptance/rtx-harness-server.mjs`):
   CPU hardware in the LOW-SPEC acceptance (`docs/ai/LOW-SPEC-ACCEPTANCE-M40.md`)
   using the same production modules — the GPU-gated points remain exclusively
   real-hardware checks.
+
+### 5.1 M40.9 re-verification: the full evidence pipeline measured end-to-end (still no GPU claims)
+
+Re-measured 2026-11-25 (M40.9 window) on the same CPU-only sandbox host:
+
+- The harness entry now **auto-reports** its finished evidence to the harness
+  server (`POST /evidence`); the server schema-gates the payload and saves it
+  to `validation/m40-rtx/results-<utcstamp>.json`.
+- Measured with the REAL page in headless Chromium: all five routes 200
+  (`/harness`, `/bundle.js`, `/workers/segmentation-worker.js`,
+  `/ort/ort-wasm-simd-threaded.jsep.mjs`, `/portrait.jpg`); the page boots,
+  records the honest refusal (`1 gpu-adapter ok:false "no WebGPU adapter — the
+  GPU acceptance cannot run on this machine"`), finishes cleanly and the
+  console shows `evidence auto-report: HTTP 200 {"saved":…,"checks":1}` — the
+  evidence file landed on disk without any manual click. A malformed POST body
+  is refused 422 by the shape gate.
+- `scripts/m40-acceptance/validate-rtx-evidence.mjs` validated that real file
+  (`SCHEMA VALID` → verdict NOT-accepted with every missing point named) and
+  was self-tested against a synthetic 10/10 run (accepted, including the #7
+  honest-partial nuance) and a synthetic missing-point run (rejected) — the
+  verdict rules cannot inflate a partial run.
+- The honest refusal evidence file from this smoke is committed as the
+  pipeline's measured record; **it is a pipeline proof, not a GPU result** —
+  the RTX 5060 Ti pass remains exclusively the owner's §4.1 run.
 
 ## 6. Recorded honest limitations
 

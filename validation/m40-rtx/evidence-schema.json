@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "bean-m40/rtx-acceptance-evidence",
+  "title": "M40 RTX 5060 Ti acceptance evidence (harness output)",
+  "description": "Machine-readable evidence emitted by validation/m40-rtx/harness-entry.ts. Browser-side measurements only: no secrets, no local file paths. The full RTX 5060 Ti acceptance is 10/10 points ok:true, with the one explicitly-allowed nuance that point 7 may be recorded ok:null (honest partial: validated WASM recovery) while still counting as the documented fallback proof.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["startedAt", "checks"],
+  "properties": {
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "userAgent": { "type": "string", "description": "Runtime identity of the executing browser (hardware/runtime evidence; contains no personal data)." },
+    "fatal": { "type": "string", "description": "Present only when the harness itself crashed before completing the checklist — a fatal record is honest unavailability of the harness, never a GPU result." },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["point", "name", "ok", "detail"],
+        "properties": {
+          "point": { "type": "string", "pattern": "^[0-9]+$" },
+          "name": { "type": "string" },
+          "ok": { "type": ["boolean", "null"], "description": "true = check passed with evidence; false = the required behavior failed; null = honest unavailability with the exact reason in detail." },
+          "detail": { "type": "string" },
+          "evidence": { "description": "Verbatim measurements (providers, timings, heap deltas, adapter info, coverage/variance, device-lost events)." }
+        }
+      }
+    }
+  }
+}
