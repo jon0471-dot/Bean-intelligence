@@ -1,15 +1,15 @@
 {
   "summary": {
-    "pass": 8,
-    "honestUnavailable": 4,
+    "pass": 13,
+    "honestUnavailable": 1,
     "fail": 0,
-    "total": 12,
-    "runBudgetMs": 480000,
+    "total": 14,
+    "runBudgetMs": 600000,
     "only": [
       "riishe-chat",
       "giftz"
     ],
-    "finishedAt": "2026-11-25T15:27:15.038Z"
+    "finishedAt": "2026-11-25T16:04:12.929Z"
   },
   "steps": [
     {
@@ -18,7 +18,7 @@
       "ok": true,
       "status": 200,
       "detail": "fresh account registered + logged in for the E2E session",
-      "at": "2026-11-25T15:27:05.729Z"
+      "at": "2026-11-25T16:03:42.792Z"
     },
     {
       "backendId": "bean-image-local-sharp",
@@ -128,28 +128,12 @@
     {
       "backendId": "bean-llm-hosted-primary",
       "capability": "riishe.text-generation",
-      "ok": null,
-      "status": null,
-      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-      "at": "2026-11-25T15:27:08.647Z",
+      "ok": true,
+      "status": 200,
+      "detail": "real chat completion; persisted answer: \"The capital of France is Paris.\"",
+      "at": "2026-11-25T16:03:49.704Z",
       "evidence": {
-        "id": "cmwwa1ftn003bl2bjrbcnkzcp",
-        "product": "riishe",
-        "task": "chat",
-        "capability": "chat",
-        "status": "failed",
-        "legacyStatus": "failed",
-        "terminal": true,
-        "progress": 0,
-        "errorCode": "UPSTREAM_RATE_LIMITED",
-        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-        "errorClass": "rate_limited",
-        "cancelRequested": false,
-        "result": null,
-        "eventCount": 2,
-        "queuedAt": "2026-11-25T15:27:05.819Z",
-        "startedAt": "2026-11-25T15:27:06.707Z",
-        "finishedAt": "2026-11-25T15:27:06.847Z"
+        "answer": "The capital of France is Paris."
       }
     },
     {
@@ -158,9 +142,9 @@
       "ok": true,
       "status": 200,
       "detail": "text extraction persisted (125 chars, status ready)",
-      "at": "2026-11-25T15:27:08.781Z",
+      "at": "2026-11-25T16:03:49.780Z",
       "evidence": {
-        "id": "cmwwa1i31003sl2bjxmhnvnun",
+        "id": "cmwwbcodz0059l2j7llh7kbe5",
         "name": "offsite-brief.txt",
         "kind": "text",
         "status": "ready",
@@ -169,61 +153,42 @@
         "size": 125,
         "characters": 125,
         "truncated": false,
-        "createdAt": "2026-11-25T15:27:08.749Z"
+        "createdAt": "2026-11-25T16:03:49.752Z"
       }
     },
     {
       "backendId": "bean-documents-text",
       "capability": "riishe.document-grounded-qa",
-      "ok": null,
-      "status": null,
-      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-      "at": "2026-11-25T15:27:11.630Z",
+      "ok": true,
+      "status": 200,
+      "detail": "grounded answer persisted: \"Lisbon hosts the offsite, and the budget code is BX-77.\"",
+      "at": "2026-11-25T16:03:52.950Z",
       "evidence": {
-        "id": "cmwwa1i5b003yl2bjgvcwo184",
-        "product": "riishe",
-        "task": "chat",
-        "capability": "chat",
-        "status": "failed",
-        "legacyStatus": "failed",
-        "terminal": true,
-        "progress": 0,
-        "errorCode": "UPSTREAM_RATE_LIMITED",
-        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-        "errorClass": "rate_limited",
-        "cancelRequested": false,
-        "result": null,
-        "eventCount": 3,
-        "queuedAt": "2026-11-25T15:27:08.831Z",
-        "startedAt": "2026-11-25T15:27:09.724Z",
-        "finishedAt": "2026-11-25T15:27:09.786Z"
+        "answer": "Lisbon hosts the offsite, and the budget code is BX-77.",
+        "toolTrail": []
       }
     },
     {
       "backendId": "bean-code-llm-hosted-primary",
       "capability": "code-giftz.code-generation",
-      "ok": null,
-      "status": null,
-      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-      "at": "2026-11-25T15:27:15.037Z",
+      "ok": true,
+      "status": 200,
+      "detail": "coding job completed (project cmwwbcqxe006il2j7v8lyodbb)",
+      "at": "2026-11-25T16:04:10.393Z",
       "evidence": {
-        "id": "cmwwa1kdq004rl2bj2zsfpgwt",
-        "product": "code-giftz",
-        "task": "coding-task",
-        "capability": "coding-task",
-        "status": "failed",
-        "legacyStatus": "failed",
-        "terminal": true,
-        "progress": 0,
-        "errorCode": "UPSTREAM_RATE_LIMITED",
-        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
-        "errorClass": "rate_limited",
-        "cancelRequested": false,
-        "result": null,
-        "eventCount": 2,
-        "queuedAt": "2026-11-25T15:27:11.726Z",
-        "startedAt": "2026-11-25T15:27:12.722Z",
-        "finishedAt": "2026-11-25T15:27:12.812Z"
+        "projectId": "cmwwbcqxe006il2j7v8lyodbb",
+        "messageId": "cmwwbd1ug02b8l2j7xfk2eih8",
+        "changes": [
+          {
+            "path": "fizzbuzz.py",
+            "change": "added"
+          }
+        ],
+        "contentChars": 702,
+        "continuations": 0,
+        "versionSeq": 1,
+        "verification": null,
+        "durationMs": 15302
       }
     },
     {
@@ -255,6 +220,28 @@
           "framesGenerated": 72,
           "rifeCalls": 63
         }
+      }
+    },
+    {
+      "backendId": "bean-code-llm-hosted-primary",
+      "capability": "code-giftz.project-delivery",
+      "ok": true,
+      "status": 200,
+      "detail": "file fizzbuzz.py contains real FizzBuzz code",
+      "at": "2026-11-25T16:04:11.703Z"
+    },
+    {
+      "backendId": "bean-code-llm-hosted-primary",
+      "capability": "code-giftz.sandbox-execution",
+      "ok": true,
+      "status": 200,
+      "detail": "REAL sandbox run: FizzBuzz sequence verified in stdout",
+      "at": "2026-11-25T16:04:12.928Z",
+      "evidence": {
+        "exitCode": 0,
+        "timedOut": false,
+        "outputHead": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz\n",
+        "stderrHead": ""
       }
     }
   ]
