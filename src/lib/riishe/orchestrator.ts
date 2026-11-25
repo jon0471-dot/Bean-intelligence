@@ -211,6 +211,9 @@ export function selectTools(args: {
    *  key AND capability plan must both agree; the orchestrator computes the
    *  AND before calling). Grants BOTH the submit and the status probe. */
   allowCodingDelegation?: boolean
+  /** M41 — autonomous mission delegation grants (same two-key pattern).
+   *  Grants the mission submit, progress probe and owner cancel. */
+  allowMissionDelegation?: boolean
 }): string[] {
   const tools = new Set<string>()
   const { searchNeeded, task, hasDocuments, allowCodeExecution, researchFailed, hasImageDocuments, deepResearch } = args
@@ -248,6 +251,13 @@ export function selectTools(args: {
   if (args.allowCodingDelegation) {
     tools.add('delegate_coding')
     tools.add('check_coding_job')
+  }
+  // M41 — mission delegation enters the model's universe only when the
+  // objective is genuinely multi-part (plan) AND the route authority agrees.
+  if (args.allowMissionDelegation) {
+    tools.add('delegate_mission')
+    tools.add('check_mission')
+    tools.add('cancel_mission')
   }
   return [...tools]
 }
@@ -518,6 +528,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   // M37 §3 — CODE GIFTZ delegation gating (same two-key pattern).
   const allowCodingDelegation =
     input.toolContext?.permissions.has('allowCodingDelegation') === true && capabilityPlan.codingDelegation
+  // M41 — mission delegation gating (same two-key pattern as M36/M37).
+  const allowMissionDelegation =
+    input.toolContext?.permissions.has('allowMissionDelegation') === true && capabilityPlan.missionDelegation
   // M37 §2 — STRICT document grounding: when the user asked for answers based
   // ONLY on the attached documents, web retrieval is suppressed for the turn
   // so general knowledge can never silently substitute the documents.
@@ -588,6 +601,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     allowVideoCreation,
     allowSpeechSynthesis,
     allowCodingDelegation,
+    allowMissionDelegation,
   })
   const finalToolsActive = finalToolNames.length > 0 && input.toolContext != null
   // Recompute buffering now that the tool plan is known: without an echo
