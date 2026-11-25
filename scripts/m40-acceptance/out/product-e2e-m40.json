@@ -1,15 +1,12 @@
 {
   "summary": {
-    "pass": 13,
-    "honestUnavailable": 1,
+    "pass": 14,
+    "honestUnavailable": 0,
     "fail": 0,
     "total": 14,
-    "runBudgetMs": 600000,
-    "only": [
-      "riishe-chat",
-      "giftz"
-    ],
-    "finishedAt": "2026-11-25T16:04:12.929Z"
+    "runBudgetMs": 900000,
+    "only": null,
+    "finishedAt": "2026-11-25T16:10:47.702Z"
   },
   "steps": [
     {
@@ -18,7 +15,7 @@
       "ok": true,
       "status": 200,
       "detail": "fresh account registered + logged in for the E2E session",
-      "at": "2026-11-25T16:03:42.792Z"
+      "at": "2026-11-25T16:05:40.130Z"
     },
     {
       "backendId": "bean-image-local-sharp",
@@ -26,7 +23,7 @@
       "ok": true,
       "status": 200,
       "detail": "REAL deterministic enhancement: decoded png 256x256, 1899 bytes",
-      "at": "2026-11-25T15:00:25.589Z",
+      "at": "2026-11-25T16:05:43.741Z",
       "evidence": {
         "bytes": 1899,
         "meta": {
@@ -55,7 +52,7 @@
       "ok": true,
       "status": 400,
       "detail": "garbage bytes honestly rejected (HTTP 400: File is not a decodable image.)",
-      "at": "2026-11-25T15:00:25.632Z"
+      "at": "2026-11-25T16:05:43.845Z"
     },
     {
       "backendId": "bean-audio-tts-local-kokoro",
@@ -63,7 +60,7 @@
       "ok": true,
       "status": 200,
       "detail": "Kokoro-82M q8 installed with sha256 verification (or already present)",
-      "at": "2026-11-25T15:00:26.013Z",
+      "at": "2026-11-25T16:05:44.001Z",
       "evidence": {
         "ok": true,
         "action": "install",
@@ -108,7 +105,7 @@
       "ok": true,
       "status": 200,
       "detail": "REAL local Kokoro synthesis 184844 bytes (RIFF true)",
-      "at": "2026-11-25T15:00:39.089Z",
+      "at": "2026-11-25T16:05:56.020Z",
       "evidence": {
         "bytes": 184844
       }
@@ -118,11 +115,11 @@
       "capability": "riishe.image-ocr-route",
       "ok": true,
       "status": 200,
-      "detail": "documents route STORED the image with REAL local OCR beside the vision lane (318 chars; vision-flag independence is the m40.5 contract; vision lane honestly reported unavailable tonight)",
-      "at": "2026-11-25T15:00:40.937Z",
+      "detail": "documents route STORED the image with REAL local OCR beside the vision lane (532 chars; vision-flag independence is the m40.5 contract)",
+      "at": "2026-11-25T16:05:59.614Z",
       "evidence": {
-        "note": "Vision analysis was unavailable at upload time (the vision service is rate-limited right now); the original bytes are retained so the pixels can be analyzed on a later request. OCR text extracted locally (English; non-Latin scripts honestly reported when not recognized).",
-        "characters": 318
+        "note": "Image content analyzed by the vision pipeline; the original bytes are retained so follow-up questions can re-consult the actual pixels. OCR text extracted locally (English; non-Latin scripts honestly reported when not recognized).",
+        "characters": 532
       }
     },
     {
@@ -131,7 +128,7 @@
       "ok": true,
       "status": 200,
       "detail": "real chat completion; persisted answer: \"The capital of France is Paris.\"",
-      "at": "2026-11-25T16:03:49.704Z",
+      "at": "2026-11-25T16:06:02.809Z",
       "evidence": {
         "answer": "The capital of France is Paris."
       }
@@ -142,9 +139,9 @@
       "ok": true,
       "status": 200,
       "detail": "text extraction persisted (125 chars, status ready)",
-      "at": "2026-11-25T16:03:49.780Z",
+      "at": "2026-11-25T16:06:02.908Z",
       "evidence": {
-        "id": "cmwwbcodz0059l2j7llh7kbe5",
+        "id": "cmwwbfj4l02q8l2j7p05kb70q",
         "name": "offsite-brief.txt",
         "kind": "text",
         "status": "ready",
@@ -153,7 +150,7 @@
         "size": 125,
         "characters": 125,
         "truncated": false,
-        "createdAt": "2026-11-25T16:03:49.752Z"
+        "createdAt": "2026-11-25T16:06:02.901Z"
       }
     },
     {
@@ -161,10 +158,10 @@
       "capability": "riishe.document-grounded-qa",
       "ok": true,
       "status": 200,
-      "detail": "grounded answer persisted: \"Lisbon hosts the offsite, and the budget code is BX-77.\"",
-      "at": "2026-11-25T16:03:52.950Z",
+      "detail": "grounded answer persisted: \"According to the document, Lisbon hosts the offsite and the budget code is BX-77.\"",
+      "at": "2026-11-25T16:06:06.029Z",
       "evidence": {
-        "answer": "Lisbon hosts the offsite, and the budget code is BX-77.",
+        "answer": "According to the document, Lisbon hosts the offsite and the budget code is BX-77.",
         "toolTrail": []
       }
     },
@@ -173,33 +170,33 @@
       "capability": "code-giftz.code-generation",
       "ok": true,
       "status": 200,
-      "detail": "coding job completed (project cmwwbcqxe006il2j7v8lyodbb)",
-      "at": "2026-11-25T16:04:10.393Z",
+      "detail": "coding job completed (project cmwwbflmf02rhl2j7jjtrthqw)",
+      "at": "2026-11-25T16:06:23.598Z",
       "evidence": {
-        "projectId": "cmwwbcqxe006il2j7v8lyodbb",
-        "messageId": "cmwwbd1ug02b8l2j7xfk2eih8",
+        "projectId": "cmwwbflmf02rhl2j7jjtrthqw",
+        "messageId": "cmwwbfwpp057jl2j700et1tyj",
         "changes": [
           {
             "path": "fizzbuzz.py",
             "change": "added"
           }
         ],
-        "contentChars": 702,
+        "contentChars": 773,
         "continuations": 0,
         "versionSeq": 1,
         "verification": null,
-        "durationMs": 15302
+        "durationMs": 15256
       }
     },
     {
       "backendId": "bean-video-hosted-primary",
       "capability": "jazmii.t2v-honesty",
-      "ok": null,
-      "status": null,
-      "detail": "poll window elapsed with the job still in flight (upstream video provider has been 429-throttled tonight — the job remains tracked and must settle to a truthful terminal state; NO success is claimed)",
-      "at": "2026-11-25T15:04:14.280Z",
+      "ok": true,
+      "status": 206,
+      "detail": "completed with a REAL servable artifact (/api/jazmii/jobs/cmwwbfztl05efl2j79js6x068/media)",
+      "at": "2026-11-25T16:09:27.437Z",
       "evidence": {
-        "jobId": "cmww93p0s003vl2cwqa54r5px"
+        "videoUrl": "/api/jazmii/jobs/cmwwbfztl05efl2j79js6x068/media"
       }
     },
     {
@@ -207,10 +204,10 @@
       "capability": "jazmii.video-motion-local",
       "ok": true,
       "status": 206,
-      "detail": "REAL local motion+RIFE video artifact served (/api/jazmii/jobs/cmww981mf0043l2cwsr7aw746/media; provenance engine local-motion-rife)",
-      "at": "2026-11-25T15:05:34.336Z",
+      "detail": "REAL local motion+RIFE video artifact served (/api/jazmii/jobs/cmwwbjx0f05evl2j7sktncd4t/media; provenance engine local-motion-rife)",
+      "at": "2026-11-25T16:10:47.698Z",
       "evidence": {
-        "outUrl": "/api/jazmii/jobs/cmww981mf0043l2cwsr7aw746/media",
+        "outUrl": "/api/jazmii/jobs/cmwwbjx0f05evl2j7sktncd4t/media",
         "provenance": {
           "engine": "local-motion-rife",
           "pipeline": "local-motion-animation",
@@ -228,7 +225,7 @@
       "ok": true,
       "status": 200,
       "detail": "file fizzbuzz.py contains real FizzBuzz code",
-      "at": "2026-11-25T16:04:11.703Z"
+      "at": "2026-11-25T16:06:23.748Z"
     },
     {
       "backendId": "bean-code-llm-hosted-primary",
@@ -236,7 +233,7 @@
       "ok": true,
       "status": 200,
       "detail": "REAL sandbox run: FizzBuzz sequence verified in stdout",
-      "at": "2026-11-25T16:04:12.928Z",
+      "at": "2026-11-25T16:06:24.301Z",
       "evidence": {
         "exitCode": 0,
         "timedOut": false,
