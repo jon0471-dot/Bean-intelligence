@@ -23,7 +23,9 @@ import {
   universalCapabilityRecords,
   universalAvailability,
   reconcileRegistries,
+  executionLifecycleForBackend,
 } from '../../src/lib/registry/capability-records'
+import { ADAPTERS } from '../../src/lib/router/router'
 import { AI_MODEL_REGISTRY } from '../../src/lib/ai-engine/model-registry'
 
 /** A minimal fake adapter set: every backend id bound, except one. */
@@ -124,10 +126,17 @@ describe('universal capability records — adapter binding', () => {
     expect(records.find((r) => r.backendId === 'bean-video-composition-local')!.adapterBound).toBe(true)
   })
 
-  test('without an adapter map only the documented handler-dispatch backend is bound', () => {
+  test('without an adapter map only the documented handler-dispatch backends are bound', () => {
     const records = universalCapabilityRecords()
     const bound = records.filter((r) => r.adapterBound).map((r) => r.backendId)
-    expect(bound).toEqual(['bean-video-composition-local'])
+    expect(bound).toEqual([
+      // JAZMII director-worker composition stage.
+      'bean-video-composition-local',
+      // M40 retrieval lanes (dispatched by RIISHE route/tool handlers).
+      'bean-documents-ocr-local',
+      'bean-embeddings-local-minilm',
+      'bean-rerank-local-ms-marco-minilm',
+    ])
   })
 })
 
@@ -213,5 +222,45 @@ describe('registry reconciliation — drift detection', () => {
     const hit = drift.find((d) => d.kind === 'missing-adapter-binding' && d.backendId === 'bean-image-selfhosted-diffusers')
     expect(hit).toBeDefined()
     expect(hit!.detail).not.toContain('ENABLED')
+  })
+
+  test('M40: the REAL router adapter map produces no binding drift for the retrieval lanes', () => {
+    // The router never binds the three retrieval backends (execution rides
+    // the RIISHE documents route + search_document tool, not a TaskAdapter).
+    // The documented handler-dispatch classification must keep the real map
+    // drift-free — this pins the exact gap M40.1 left open.
+    const drift = reconcileRegistries(ADAPTERS)
+    for (const id of ['bean-documents-ocr-local', 'bean-embeddings-local-minilm', 'bean-rerank-local-ms-marco-minilm']) {
+      expect(drift.find((d) => d.kind === 'missing-adapter-binding' && d.backendId === id)).toBeUndefined()
+    }
+  })
+})
+
+describe('M40 — handler-dispatched retrieval lanes (OCR / embeddings / reranking)', () => {
+  const retrievalIds = ['bean-documents-ocr-local', 'bean-embeddings-local-minilm', 'bean-rerank-local-ms-marco-minilm']
+
+  test('each retrieval backend is executable through its documented dispatch path (no adapter map needed)', () => {
+    for (const id of retrievalIds) {
+      const r = capabilityRecordFor(id)
+      expect(r).not.toBeNull()
+      expect(r!.adapterBound).toBe(true)
+    }
+  })
+
+  test('availability resolves past unsupported-by-adapter once measured healthy', () => {
+    for (const id of retrievalIds) {
+      const r = capabilityRecordFor(id)! // adapterBound=true via handler dispatch
+      expect(
+        universalAvailability(r, { health: { healthy: true }, credentialPresent: true }),
+      ).toBe('available-verified')
+    }
+  })
+
+  test('execution lifecycle reaches compatible from registry presence + documented dispatch alone', () => {
+    for (const id of retrievalIds) {
+      const lc = executionLifecycleForBackend(id)
+      expect(lc.stage).toBe('compatible')
+      expect(lc.blockedBy).not.toBeNull() // execution evidence is separate — never auto-claimed
+    }
   })
 })

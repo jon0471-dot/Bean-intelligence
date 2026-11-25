@@ -244,8 +244,24 @@ function downloadFor(b: BackendDescriptor): UniversalCapabilityRecord['download'
  *    (src/lib/jobs/director-worker.ts) through resolveCompositionEngine —
  *    the registry entry describes the local composition stage, and routing
  *    never attempts an adapter lookup for it.
+ *  - bean-documents-ocr-local: executed directly by the RIISHE documents
+ *    route (src/app/api/riishe/documents/route.ts) — image attachments run
+ *    recognizeImageText (src/lib/riishe/ocr.ts, tesseract.js over the pinned
+ *    traineddata) beside the vision summary; routing never attempts an
+ *    adapter lookup for it.
+ *  - bean-embeddings-local-minilm / bean-rerank-local-ms-marco-minilm:
+ *    executed directly by the RIISHE `search_document` tool
+ *    (src/lib/riishe/tools/builtin.ts) through the bounded retrieval lane
+ *    (src/lib/riishe/doc-retrieval.ts → src/lib/riishe/embeddings.ts +
+ *    src/lib/riishe/rerank.ts, CPU ONNX over SHA-256-pinned artifacts) —
+ *    routing never attempts an adapter lookup for them.
  */
-const HANDLER_DISPATCHED_BACKENDS = new Set(['bean-video-composition-local'])
+const HANDLER_DISPATCHED_BACKENDS = new Set([
+  'bean-video-composition-local',
+  'bean-documents-ocr-local',
+  'bean-embeddings-local-minilm',
+  'bean-rerank-local-ms-marco-minilm',
+])
 
 /** Build the universal capability record for one backend. */
 export function capabilityRecordFor(

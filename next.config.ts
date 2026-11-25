@@ -91,6 +91,25 @@ const nextConfig: NextConfig = {
       // p5-based Vanta effects (trunk, topology).
       "./node_modules/vanta/vendor/p5.min.js",
     ],
+    // M40 (2026-11-25): runtime-loaded package assets the standalone trace
+    // cannot see, measured on the acceptance host —
+    //  - tesseract.js spawns its worker through worker_threads from the
+    //    PACKAGE directory at OCR time; that worker script requires
+    //    regenerator-runtime at runtime, outside any bundle. Without the
+    //    full package + runtime the standalone deployment HANGS on the
+    //    first image upload (measured: createWorker never resolves).
+    //  - kokoro-js reads its bundled voices/*.bin from the package dir
+    //    (M27 note above) — the trace missed them (measured ENOENT).
+    //  - phonemizer loads its espeak-ng WASM + data by relative path and
+    //    must be present whole beside the kokoro-js chain.
+    "/api/riishe/**": [
+      "./node_modules/tesseract.js/**/*",
+      "./node_modules/regenerator-runtime/**/*",
+    ],
+    "/api/gangzii/**": [
+      "./node_modules/kokoro-js/**/*",
+      "./node_modules/phonemizer/**/*",
+    ],
   },
   // W6 security review (SEC-W6-02): app-level security headers.
   // DELIBERATELY EXCLUDED: X-Frame-Options / CSP frame-ancestors — this
