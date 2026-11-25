@@ -37,6 +37,14 @@ export type BeanTask =
   // family of operations ran.
   | 'audio-production'
   | 'music-generation'
+  // M40 — RIISHE retrieval/understanding lanes. REAL local-inference tasks
+  // (OCR over scanned images/documents, genuine text embeddings and
+  // cross-encoder passage reranking). They exist so capability records,
+  // manifests and receipts can state WHICH family ran — there is no
+  // user-facing task selector; the orchestrator routes automatically.
+  | 'document-ocr'
+  | 'text-embeddings'
+  | 'passage-reranking'
 
 export interface ProductCapability {
   /** Human-readable capability shown in the UI. */

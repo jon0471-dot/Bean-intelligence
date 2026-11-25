@@ -37,8 +37,21 @@ export interface LocalModelDescriptor {
   /** Human summary of what the model does and what it does NOT do. */
   role: string
   limitations: string
-  runtime: 'onnxruntime-node (CPU EP; GPU EP used automatically when available)'
+  runtime: 'onnxruntime-node (CPU EP; GPU EP used automatically when available)' | 'tesseract.js 6 (WebAssembly CPU; traineddata verified per artifact)'
   downloadSizeMb: number
+  /**
+   * Additional pinned artifacts REQUIRED by the same model (e.g. the BERT
+   * vocab.txt beside the ONNX graph). Installed + hash-verified together with
+   * the main file; the model is never 'ready' unless every companion is too.
+   */
+  companionFiles?: LocalModelCompanionFile[]
+}
+
+export interface LocalModelCompanionFile {
+  file: string
+  sourceUrl: string
+  sha256: string
+  bytes: number
 }
 
 export const LOCAL_MODELS: Record<string, LocalModelDescriptor> = {
@@ -100,6 +113,85 @@ export const LOCAL_MODELS: Record<string, LocalModelDescriptor> = {
     runtime: 'onnxruntime-node (CPU EP; GPU EP used automatically when available)',
     downloadSizeMb: 20.6,
   },
+  /**
+   * M40 — RIISHE retrieval lanes (all Apache-2.0, CPU-only, quantized ONNX).
+   * Artifact hashes below were measured from the pinned downloads themselves
+   * (2026-11-25) and verified by REAL inference probes before the descriptors
+   * were written; a mismatching artifact can never reach 'ready'.
+   */
+  'minilm-l6-embeddings': {
+    id: 'minilm-l6-embeddings',
+    file: 'model_quantized.onnx',
+    sourceUrl: 'https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/onnx/model_quantized.onnx',
+    sha256: 'afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1',
+    bytes: 22_972_370,
+    license: {
+      name: 'Apache-2.0 (sentence-transformers/all-MiniLM-L6-v2; ONNX export Xenova/all-MiniLM-L6-v2)',
+      commercialUse: 'permitted',
+      sourceUrl: 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2',
+      verifiedAt: '2026-11-25',
+    },
+    task: 'text embeddings (384-dim, mean pooling, L2-normalized)',
+    role: 'Genuine sentence/document embeddings for RIISHE document retrieval: embeds the query and document chunks so relevant passages surface first (replaces blind paging through long documents).',
+    limitations:
+      'English-biased model (BERT English vocabulary; multilingual text embeds but quality degrades outside English). Quantized (int8) weights — measured cosine separation may differ marginally from fp32. 512-token input cap per chunk.',
+    runtime: 'onnxruntime-node (CPU EP; GPU EP used automatically when available)',
+    downloadSizeMb: 22.1,
+    companionFiles: [
+      {
+        file: 'vocab.txt',
+        sourceUrl: 'https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/vocab.txt',
+        sha256: '07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3',
+        bytes: 231_508,
+      },
+    ],
+  },
+  'ms-marco-minilm-rerank': {
+    id: 'ms-marco-minilm-rerank',
+    file: 'model_quantized.onnx',
+    sourceUrl: 'https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2/resolve/main/onnx/model_quantized.onnx',
+    sha256: 'e9d8ebf845c413e981c175bfe49a3bfa9b3dcce2a3ba54875ee5df5a58639fbe',
+    bytes: 23_143_499,
+    license: {
+      name: 'Apache-2.0 (cross-encoder/ms-marco-MiniLM-L-6-v2; ONNX export Xenova/ms-marco-MiniLM-L-6-v2)',
+      commercialUse: 'permitted',
+      sourceUrl: 'https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2',
+      verifiedAt: '2026-11-25',
+    },
+    task: 'passage reranking (query/passage relevance scores, sigmoid)',
+    role: 'Genuine cross-encoder reranking for RIISHE document retrieval: re-scores candidate passages AGAINST the query pair-wise and orders them by measured relevance.',
+    limitations:
+      'English-biased (MS MARCO training corpus). Pair-wise scoring cost is linear in candidates — the retrieval lane caps rerank input at 8 passages. 512-token input cap per pair.',
+    runtime: 'onnxruntime-node (CPU EP; GPU EP used automatically when available)',
+    downloadSizeMb: 22.3,
+    companionFiles: [
+      {
+        file: 'vocab.txt',
+        sourceUrl: 'https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2/resolve/main/vocab.txt',
+        sha256: '07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3',
+        bytes: 231_508,
+      },
+    ],
+  },
+  'ocr-eng-traineddata': {
+    id: 'ocr-eng-traineddata',
+    file: 'eng.traineddata',
+    sourceUrl: 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata',
+    sha256: '7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2',
+    bytes: 4_113_088,
+    license: {
+      name: 'Apache-2.0 (tesseract-ocr/tessdata_fast; tesseract.js 6 Apache-2.0 runtime)',
+      commercialUse: 'permitted',
+      sourceUrl: 'https://github.com/tesseract-ocr/tessdata_fast',
+      verifiedAt: '2026-11-25',
+    },
+    task: 'optical character recognition (scanned image/document text extraction)',
+    role: 'REAL OCR for image attachments and scanned documents: extracts actual machine-readable text with per-run confidence, validated before the text is reported.',
+    limitations:
+      'English traineddata (tessdata_fast, integer-speed build) — non-Latin scripts are NOT recognized and are honestly reported as no-text/low-confidence rather than guessed. The tesseract.js WebAssembly core itself ships via the npm lockfile (recorded boundary note, same as the Kokoro voice packs); the LANGUAGE DATA is byte-verified here. Best on clean, level, well-lit scans ≥ ~12 px glyph height.',
+    runtime: 'tesseract.js 6 (WebAssembly CPU; traineddata verified per artifact)',
+    downloadSizeMb: 3.9,
+  },
   u2netp: {
     id: 'u2netp',
     file: 'u2netp.onnx',
@@ -145,6 +237,28 @@ export function localModelsRoot(): string {
 
 function modelFile(id: string): string {
   return path.join(localModelsRoot(), id, LOCAL_MODELS[id].file)
+}
+
+/** Absolute path of a companion artifact (vocab.txt, traineddata, …). */
+export function localModelCompanionPath(id: string, file: string): string {
+  const desc = LOCAL_MODELS[id]
+  if (!desc) throw new Error(`Unknown local model: ${id}`)
+  if (!desc.companionFiles?.some((c) => c.file === file)) {
+    throw new Error(`'${file}' is not a declared companion artifact of ${id}`)
+  }
+  return path.join(localModelsRoot(), id, file)
+}
+
+/**
+ * Absolute path of a model artifact — the MAIN file by default, or a
+ * declared companion when a file name is given (M40 lanes resolve their
+ * pinned ONNX/vocab/traineddata through this single accessor).
+ */
+export function localModelArtifactPath(id: string, file?: string): string {
+  const desc = LOCAL_MODELS[id]
+  if (!desc) throw new Error(`Unknown local model: ${id}`)
+  if (!file || file === desc.file) return path.join(localModelsRoot(), id, desc.file)
+  return localModelCompanionPath(id, file)
 }
 
 interface InstallState {
@@ -201,6 +315,30 @@ export function localModelState(id: string): LocalModelStateReport {
       installedBytes: size,
       sha256Ok: false,
       error: 'SHA-256 mismatch — the artifact on disk is not the manifest artifact; reinstall',
+    }
+  }
+  // Companions are REQUIRED: a model whose pinned vocab/traineddata is
+  // missing or corrupted is never 'ready' (the runtime would either fail or,
+  // worse, silently fetch an unpinned replacement — both refused).
+  for (const c of desc.companionFiles ?? []) {
+    const cFile = localModelCompanionPath(id, c.file)
+    if (!fs.existsSync(cFile)) {
+      return {
+        ...base,
+        state: 'corrupted',
+        installedBytes: size,
+        sha256Ok: false,
+        error: `companion artifact '${c.file}' is missing — reinstall the model`,
+      }
+    }
+    if (fs.statSync(cFile).size !== c.bytes || sha256File(cFile) !== c.sha256) {
+      return {
+        ...base,
+        state: 'corrupted',
+        installedBytes: size,
+        sha256Ok: false,
+        error: `companion artifact '${c.file}' failed integrity verification — reinstall the model`,
+      }
     }
   }
   return { ...base, state: 'ready', installedBytes: size, sha256Ok: true, error: null }
@@ -260,8 +398,31 @@ export async function installLocalModel(
     const hash = sha256File(tmp)
     if (hash !== desc.sha256) throw new Error(`downloaded SHA-256 ${hash} != manifest ${desc.sha256}`)
     fs.renameSync(tmp, path.join(dir, desc.file))
+    // Companion artifacts: same download → size+SHA-256 gate → atomic rename.
+    // A failed companion leaves the model NOT ready (state derives from disk).
+    for (const c of desc.companionFiles ?? []) {
+      if (state.cancelled || opts.signal?.aborted) throw new Error('download cancelled')
+      const res2 = await fetch(c.sourceUrl, { redirect: 'follow' })
+      if (!res2.ok || !res2.body) throw new Error(`companion download failed: HTTP ${res2.status} from ${c.sourceUrl}`)
+      const chunks2: Buffer[] = []
+      for await (const chunk of res2.body as unknown as AsyncIterable<Uint8Array>) {
+        if (state.cancelled || opts.signal?.aborted) throw new Error('download cancelled')
+        chunks2.push(Buffer.from(chunk))
+      }
+      const cBuf = Buffer.concat(chunks2)
+      if (cBuf.length !== c.bytes) throw new Error(`companion '${c.file}' size ${cBuf.length} != manifest ${c.bytes}`)
+      const cHash = crypto.createHash('sha256').update(cBuf).digest('hex')
+      if (cHash !== c.sha256) throw new Error(`companion '${c.file}' SHA-256 ${cHash} != manifest ${c.sha256}`)
+      fs.writeFileSync(path.join(dir, `${c.file}.part`), cBuf)
+      fs.renameSync(path.join(dir, `${c.file}.part`), path.join(dir, c.file))
+    }
     opts.onProgress?.({ phase: 'done', receivedBytes: size, totalBytes: size })
     logger.info('localmodels.installed', { id, bytes: size })
+    // Clear the install marker BEFORE reading the on-disk state — otherwise
+    // localModelState() sees the still-active install and reports
+    // 'downloading' for a completed, verified install (measured 2026-11-25;
+    // the finally block below is idempotent).
+    installs.delete(id)
     return localModelState(id)
   } finally {
     installs.delete(id)

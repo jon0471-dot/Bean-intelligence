@@ -274,6 +274,8 @@ export async function POST(request: Request) {
       permissions: new Set(['allowCodeExecution', 'allowImageGeneration', 'allowVideoCreation', 'allowSpeechSynthesis', 'allowCodingDelegation']),
       // M36-C: specialist delegation submits jobs under THIS user only.
       userId: user.id,
+      // M40: conversation-scoped cache key for the retrieval lanes.
+      conversationKey: conversationId,
       documents: new Map(
         documents.map((d) => [d.id, { name: d.name, text: d.text, truncated: d.truncated, kind: d.kind, storagePath: d.storagePath }]),
       ),

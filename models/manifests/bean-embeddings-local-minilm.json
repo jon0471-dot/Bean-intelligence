@@ -1,0 +1,48 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-embeddings-local-minilm",
+  "product": "riishe",
+  "task": "text-embeddings",
+  "status": "deployed-local-inference",
+  "deploymentMode": "self-hosted",
+  "provider": "BEAN Intelligence local inference (onnxruntime-node CPU EP)",
+  "modelIdentity": "all-MiniLM-L6-v2 sentence embeddings (384-dim, mean pooling, L2-normalized), int8 quantized ONNX",
+  "revision": "model @ afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1; vocab @ 07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3; HF commit 751bff37182d3f1213fa05d7196b954e230abad9",
+  "endpointType": "local-inference",
+  "artifacts": [
+    {
+      "file": "model_quantized.onnx",
+      "sourceUrl": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/onnx/model_quantized.onnx",
+      "sha256": "afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1",
+      "bytes": 22972370
+    },
+    {
+      "file": "vocab.txt",
+      "sourceUrl": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/vocab.txt",
+      "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "bytes": 231508
+    }
+  ],
+  "capabilities": {
+    "embeddings": true,
+    "dimensions": 384,
+    "pooling": "mean over token embeddings, L2-normalized (model-card convention)",
+    "tokenizer": "BERT WordPiece (pinned vocab.txt, dependency-free implementation, unit-tested against known tokenizations)",
+    "maxTokensPerText": 512,
+    "languageLimitation": "English-biased vocabulary; multilingual text embeds but relevance quality degrades outside English"
+  },
+  "limits": {
+    "maxTextsPerRequest": "bounded micro-batches (8 per batch, per-text runs keep the CPU arena fixed-size)",
+    "integrity": "install refuses any artifact whose bytes/SHA-256 mismatch the manifest; the lane is never 'ready' unless every artifact verifies"
+  },
+  "verifiedProbes": [
+    {
+      "date": "2026-11-25",
+      "test": "embed('The capital of France is Paris.') vs paraphrase vs unrelated sentence",
+      "result": "PASS",
+      "latencyMs": "session load 102 ms; per-sentence inference tens of ms (CPU)",
+      "measured": "dim 384; normalized length 1.0000; cosine(paraphrase)=0.9654; cosine(unrelated)=-0.0227"
+    }
+  ],
+  "license": { "name": "Apache-2.0 (sentence-transformers/all-MiniLM-L6-v2; Xenova ONNX export)", "sourceUrl": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2", "verifiedAt": "2026-11-25" }
+}

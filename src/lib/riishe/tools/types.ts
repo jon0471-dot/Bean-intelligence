@@ -23,6 +23,10 @@ export interface ToolContext {
    *  jobs under the SAME user — never on anyone else's behalf). Absent in
    *  tool-only unit tests that do not exercise delegation. */
   userId?: string
+  /** Conversation scope for the bounded retrieval cache (M40 search_document).
+   *  Chunk vectors live only within this conversation's process cache; absent
+   *  in unit tests (falls back to a per-user ephemeral scope). */
+  conversationKey?: string
   /** Documents attached to THIS request (id -> extracted text), already
    *  ownership-validated by the route before the orchestrator runs. `kind`
    *  is the detected file capability ('image', 'pdf', 'text', …). For image

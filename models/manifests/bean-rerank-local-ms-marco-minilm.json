@@ -1,0 +1,47 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-rerank-local-ms-marco-minilm",
+  "product": "riishe",
+  "task": "passage-reranking",
+  "status": "deployed-local-inference",
+  "deploymentMode": "self-hosted",
+  "provider": "BEAN Intelligence local inference (onnxruntime-node CPU EP)",
+  "modelIdentity": "ms-marco-MiniLM-L-6-v2 cross-encoder (query/passage pair scoring, sigmoid relevance), int8 quantized ONNX",
+  "revision": "model @ e9d8ebf845c413e981c175bfe49a3bfa9b3dcce2a3ba54875ee5df5a58639fbe; vocab @ 07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3; HF commit a09144355adeed5f58c8ed011d209bf8ee5a1fec",
+  "endpointType": "local-inference",
+  "artifacts": [
+    {
+      "file": "model_quantized.onnx",
+      "sourceUrl": "https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2/resolve/main/onnx/model_quantized.onnx",
+      "sha256": "e9d8ebf845c413e981c175bfe49a3bfa9b3dcce2a3ba54875ee5df5a58639fbe",
+      "bytes": 23143499
+    },
+    {
+      "file": "vocab.txt",
+      "sourceUrl": "https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2/resolve/main/vocab.txt",
+      "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "bytes": 231508
+    }
+  ],
+  "capabilities": {
+    "reranking": true,
+    "scoring": "sigmoid(single logit) per (query, passage) pair — real forward passes, not keyword heuristics",
+    "ordering": "descending relevance; candidate cap 8 pairs per request keeps CPU bounded",
+    "tokenizer": "BERT WordPiece (pinned vocab.txt), pair truncation keeps the query at half the budget minimum",
+    "maxTokensPerPair": 512,
+    "languageLimitation": "trained on MS MARCO (English); non-English pairs score poorly and the retrieval lane says so in its limitations"
+  },
+  "limits": {
+    "integrity": "install refuses any artifact whose bytes/SHA-256 mismatch the manifest; the lane is never 'ready' unless every artifact verifies"
+  },
+  "verifiedProbes": [
+    {
+      "date": "2026-11-25",
+      "test": "score('How many people live in Berlin?', population passage) vs (Metropolitan Museum passage)",
+      "result": "PASS",
+      "latencyMs": "session load 87 ms; per-pair inference tens of ms (CPU)",
+      "measured": "relevant=0.9998; irrelevant=0.0000; ordering correct with wide margin"
+    }
+  ],
+  "license": { "name": "Apache-2.0 (cross-encoder/ms-marco-MiniLM-L-6-v2; Xenova ONNX export)", "sourceUrl": "https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2", "verifiedAt": "2026-11-25" }
+}

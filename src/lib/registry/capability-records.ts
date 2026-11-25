@@ -125,6 +125,11 @@ function capabilitiesFor(b: BackendDescriptor): UniversalCapability[] {
   if (b.task === 'speech-synthesis') caps.push('speech-synthesis')
   if (b.task === 'audio-transcription') caps.push('audio-transcription')
   if (b.task === 'audio-conversion') caps.push('audio-conversion')
+  // M40 — retrieval/understanding lanes (REAL local inference; the verbs were
+  // reserved in the M36 vocabulary, the integrations exist since M40).
+  if (b.task === 'document-ocr') caps.push('ocr', 'document-parsing')
+  if (b.task === 'text-embeddings') caps.push('embeddings')
+  if (b.task === 'passage-reranking') caps.push('reranking')
   return caps
 }
 
@@ -168,6 +173,11 @@ function inputModalitiesFor(b: BackendDescriptor): string[] {
       return ['audio']
     case 'audio-conversion':
       return ['audio']
+    case 'document-ocr':
+      return ['image', 'document']
+    case 'text-embeddings':
+    case 'passage-reranking':
+      return ['text']
     default:
       return ['text']
   }
@@ -193,6 +203,11 @@ function outputModalitiesFor(b: BackendDescriptor): string[] {
       return ['text']
     case 'audio-conversion':
       return ['audio']
+    case 'document-ocr':
+    case 'text-embeddings':
+      return ['text']
+    case 'passage-reranking':
+      return ['relevance-scores']
     default:
       return ['text']
   }
