@@ -2,8 +2,8 @@
   "summary": {
     "pass": 13,
     "honestUnavailable": 4,
-    "fail": 3,
-    "total": 20,
+    "fail": 4,
+    "total": 21,
     "runBudgetMs": 720000,
     "only": [
       "media",
@@ -38,7 +38,7 @@
       "category": "3-ordering",
       "name": "topological-dependency-order",
       "ok": true,
-      "detail": "order: research → knowledge → document → verify",
+      "detail": "order: research \u2192 knowledge \u2192 document \u2192 verify",
       "at": "2026-11-25T18:13:59.602Z",
       "evidence": {
         "positions": [
@@ -107,7 +107,7 @@
       "category": "12-resume",
       "name": "durable-resume-evidence-class",
       "ok": null,
-      "detail": "crash-safe resume is pinned by the executor integration suite (verified tasks never re-executed; specialist jobs durable) and rides the engine lease recovery accepted in M26/M40 — a live server-restart drill is an owner-operations exercise, not claimable from this sandbox run",
+      "detail": "crash-safe resume is pinned by the executor integration suite (verified tasks never re-executed; specialist jobs durable) and rides the engine lease recovery accepted in M26/M40 \u2014 a live server-restart drill is an owner-operations exercise, not claimable from this sandbox run",
       "at": "2026-11-25T18:14:36.418Z"
     },
     {
@@ -156,21 +156,21 @@
       "category": "live",
       "name": "auth",
       "ok": null,
-      "detail": "transient: the registration limiter (honest per-IP rate limit) refused fresh accounts in that window; subsequent runs authenticated and executed — superseded by the PASS rows below/above",
+      "detail": "transient: the registration limiter (honest per-IP rate limit) refused fresh accounts in that window; subsequent runs authenticated and executed \u2014 superseded by the PASS rows below/above",
       "at": "2026-11-25T18:17:00.529Z"
     },
     {
       "category": "16-website",
       "name": "workflow-completes",
       "ok": null,
-      "detail": "provider truncation (environmental): the delegated coding job was cut at the provider output limit mid-generation (\"The provider cut the response at its output limit\") — the mission machinery recorded the honest failure and the bounded retry honored its budget; reclassified honest-unavailable from the same measured evidence",
+      "detail": "provider truncation (environmental): the delegated coding job was cut at the provider output limit mid-generation (\"The provider cut the response at its output limit\") \u2014 the mission machinery recorded the honest failure and the bounded retry honored its budget; reclassified honest-unavailable from the same measured evidence",
       "at": "2026-11-25T19:01:41.255Z"
     },
     {
       "category": "19-giftz-execution",
       "name": "real-project-files-verified",
       "ok": null,
-      "detail": "provider truncation (environmental) — reclassified honest-unavailable from the same measured evidence: build=failed/null note=The provider cut the response at its output limit.",
+      "detail": "provider truncation (environmental) \u2014 reclassified honest-unavailable from the same measured evidence: build=failed/null note=The provider cut the response at its output limit.",
       "at": "2026-11-25T19:01:41.256Z"
     },
     {
@@ -186,6 +186,13 @@
       "ok": true,
       "detail": "parallel-lane observations: {\"parallelSeen\":true,\"imageDoneBeforeVideoDone\":true}",
       "at": "2026-11-25T19:13:05.411Z"
+    },
+    {
+      "category": "20-integrity",
+      "name": "delivered-missions-pass-the-integrity-gate",
+      "ok": false,
+      "detail": "1/2 delivered missions carry a verified deliverable gate (mission ledger, acceptance-window end)",
+      "at": "finalization"
     }
   ]
 }
