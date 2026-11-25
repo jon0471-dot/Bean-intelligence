@@ -1028,6 +1028,126 @@ const HOSTED_GANGZII_ASR: BackendDescriptor = {
   retries: { maxAttempts: 1, backoffMs: 0 },
 }
 
+/**
+ * RIISHE — REAL OCR backend (M40). Genuine optical character recognition on
+ * image attachments and scanned documents through tesseract.js 6 (WebAssembly
+ * CPU) with the SHA-256-pinned tessdata_fast `eng` language data. Replaces the
+ * honest "OCR is not available in this deployment" gap recorded by M39.
+ */
+const LOCAL_DOCUMENT_OCR: BackendDescriptor = {
+  id: 'bean-documents-ocr-local',
+  productId: 'riishe',
+  task: 'document-ocr',
+  provider: 'BEAN Intelligence local inference (tesseract.js WebAssembly)',
+  modelIdentity: 'Tesseract 5.3.x eng LSTM (tessdata_fast, SHA-256-pinned traineddata)',
+  revision: 'ocr-eng-traineddata @ 7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2',
+  endpointType: 'local-inference',
+  deploymentMode: 'self-hosted',
+  runtime: 'tesseract.js 6 WebAssembly CPU — no GPU required; recognition runs in-process with a cached worker and the pinned language data served from the local-model manager',
+  limits: {
+    maxImageMb: 20,
+    language: 'eng (tessdata_fast) — non-Latin scripts are honestly reported as not-recognized, never guessed',
+    confidenceFloor: 40,
+    honesty: 'text below the measured confidence floor or with no recognized characters is an honest no-usable-text outcome',
+  },
+  license: {
+    name: 'Apache-2.0 (tesseract-ocr/tessdata_fast; tesseract.js 6 runtime)',
+    commercialUse: 'permitted',
+    note: 'Verified 2026-11-25 against tesseract-ocr/tessdata_fast (Apache-2.0). The tesseract.js WASM core ships via the npm lockfile (recorded boundary note).',
+    sourceUrl: 'https://github.com/tesseract-ocr/tessdata_fast',
+    verifiedAt: '2026-11-25',
+  },
+  dataHandling:
+    'Images are processed by the BEAN local worker; extracted text is stored with the rest of the document text under the existing per-user document storage and access checks.',
+  metering: { unit: 'image', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 2 },
+  timeouts: { requestMs: 90_000, queueMs: 30_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
+ * RIISHE — REAL text-embedding backend (M40). Genuine 384-dim sentence
+ * embeddings (all-MiniLM-L6-v2 quantized ONNX, SHA-256-pinned) on
+ * onnxruntime-node CPU through the existing local-model manager. Feeds the
+ * document retrieval lane; no new vector database is created.
+ */
+const LOCAL_TEXT_EMBEDDINGS: BackendDescriptor = {
+  id: 'bean-embeddings-local-minilm',
+  productId: 'riishe',
+  task: 'text-embeddings',
+  provider: 'BEAN Intelligence local inference (onnxruntime-node)',
+  modelIdentity: 'all-MiniLM-L6-v2 sentence embeddings (Apache-2.0, Xenova/all-MiniLM-L6-v2 quantized ONNX export, SHA-256-pinned + pinned vocab.txt)',
+  revision: 'minilm-l6-embeddings @ afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1; vocab @ 07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3; HF revision 751bff37182d3f1213fa05d7196b954e230abad9',
+  endpointType: 'local-inference',
+  deploymentMode: 'self-hosted',
+  runtime: 'onnxruntime-node CPU EP — no GPU required; one resident session with idle unload, mean pooling + L2 normalization per the model card',
+  limits: {
+    dimensions: 384,
+    maxTokensPerText: 512,
+    quantization: 'int8 (model_quantized.onnx)',
+    honesty: 'uninstalled/corrupted artifacts are honest unavailable states — never zero/hash/random vectors',
+  },
+  license: {
+    name: 'Apache-2.0 (sentence-transformers/all-MiniLM-L6-v2 + Xenova export)',
+    commercialUse: 'permitted',
+    note: 'Verified 2026-11-25 against sentence-transformers/all-MiniLM-L6-v2 (Apache-2.0).',
+    sourceUrl: 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2',
+    verifiedAt: '2026-11-25',
+  },
+  dataHandling:
+    'Text embedded on the BEAN host for the requesting conversation only; chunk vectors live in a bounded conversation-scoped in-process cache (not a database) and evaporate with the process.',
+  metering: { unit: 'request', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 2 },
+  timeouts: { requestMs: 60_000, queueMs: 30_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
+/**
+ * RIISHE — REAL passage-reranking backend (M40). Genuine cross-encoder
+ * relevance scoring (ms-marco-MiniLM-L-6-v2 quantized ONNX, SHA-256-pinned)
+ * on onnxruntime-node CPU. Orders candidate passages by MEASURED relevance —
+ * never keyword-overlap heuristics presented as model scores.
+ */
+const LOCAL_PASSAGE_RERANK: BackendDescriptor = {
+  id: 'bean-rerank-local-ms-marco-minilm',
+  productId: 'riishe',
+  task: 'passage-reranking',
+  provider: 'BEAN Intelligence local inference (onnxruntime-node)',
+  modelIdentity: 'ms-marco-MiniLM-L-6-v2 cross-encoder (Apache-2.0, Xenova/ms-marco-MiniLM-L-6-v2 quantized ONNX export, SHA-256-pinned + pinned vocab.txt)',
+  revision: 'ms-marco-minilm-rerank @ e9d8ebf845c413e981c175bfe49a3bfa9b3dcce2a3ba54875ee5df5a58639fbe; vocab @ 07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3; HF revision a09144355adeed5f58c8ed011d209bf8ee5a1fec',
+  endpointType: 'local-inference',
+  deploymentMode: 'self-hosted',
+  runtime: 'onnxruntime-node CPU EP — no GPU required; one resident session with idle unload; sigmoid relevance per (query, passage) pair',
+  limits: {
+    maxPairsPerRequest: 8,
+    maxTokensPerPair: 512,
+    quantization: 'int8 (model_quantized.onnx)',
+    honesty: 'scores are real forward passes, capped pair counts keep CPU bounded',
+  },
+  license: {
+    name: 'Apache-2.0 (cross-encoder/ms-marco-MiniLM-L-6-v2 + Xenova export)',
+    commercialUse: 'permitted',
+    note: 'Verified 2026-11-25 against cross-encoder/ms-marco-MiniLM-L-6-v2 (Apache-2.0).',
+    sourceUrl: 'https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2',
+    verifiedAt: '2026-11-25',
+  },
+  dataHandling:
+    'Query/passage pairs are processed by the BEAN local worker for the requesting conversation only; nothing persists beyond the bounded conversation-scoped cache.',
+  metering: { unit: 'request', costUnit: null },
+  secrets: [],
+  fallbacks: [],
+  enabled: true,
+  concurrency: { maxInFlightPerUser: 1, maxInFlightTotal: 2 },
+  timeouts: { requestMs: 60_000, queueMs: 30_000 },
+  retries: { maxAttempts: 1, backoffMs: 0 },
+}
+
 /** Private registry — the only place product→backend mappings exist. */
 export const BACKEND_REGISTRY: BackendDescriptor[] = [
   HOSTED_LLM,
@@ -1050,6 +1170,9 @@ export const BACKEND_REGISTRY: BackendDescriptor[] = [
   LOCAL_AUDIO_TOOLS,
   LOCAL_AUDIO_CONVERT,
   HOSTED_GANGZII_ASR,
+  LOCAL_DOCUMENT_OCR,
+  LOCAL_TEXT_EMBEDDINGS,
+  LOCAL_PASSAGE_RERANK,
 ]
 
 export function getBackendsForProduct(productId: BeanProductId): BackendDescriptor[] {

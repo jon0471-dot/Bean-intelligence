@@ -22,6 +22,7 @@ import { evaluateExpression } from '@/lib/verify/exprcheck'
 import { runInSandbox, type SandboxFile } from '@/lib/sandbox/runner'
 import { readStoredDocumentByPath } from '@/lib/files/riishe-store'
 import { describeImage } from '@/lib/files/media'
+import { searchDocument, EmbeddingUnavailableError, RerankUnavailableError } from '../doc-retrieval'
 import type { ToolDescriptor, ToolResult } from './types'
 
 const MAX_SEARCH_OUTPUT = 6
@@ -210,6 +211,72 @@ export const readDocumentTool: ToolDescriptor<z.infer<typeof readDocInput>> = {
     const nextOffset = offset + slice.length
     const more = nextOffset < doc.text.length ? `\n[more text remains: call again with offset=${nextOffset}]` : '\n[end of document]'
     return { ok: true, output: clip(`FILE: ${doc.name} (offset ${offset})\n\n${slice}${more}`, MAX_DOC_CHARS) }
+  },
+}
+
+// ---- search_document (embedding retrieval + cross-encoder rerank) -----------
+
+const searchDocInput = z.object({
+  documentId: z.string().min(1).max(64),
+  query: z.string().min(2).max(500),
+})
+
+export const searchDocumentTool: ToolDescriptor<z.infer<typeof searchDocInput>> = {
+  name: 'search_document',
+  description:
+    'Search ONE attached document for the passages most relevant to a query. ' +
+    'Input: {"documentId": string, "query": string}. ' +
+    'Returns the top passages (real embedding retrieval + cross-encoder reranking, with measured relevance scores) ' +
+    'and the character offset each passage starts at. Far more precise than paging with read_document when the ' +
+    'document is long and the question is specific.',
+  // 'standard' is safe: the tool only runs on documents the route already
+  // ownership-validated for THIS request; the retrieval lanes execute locally
+  // on the BEAN host and keep nothing beyond the bounded conversation cache.
+  permission: 'standard',
+  timeoutMs: 45_000,
+  validate(input) {
+    return searchDocInput.parse(input)
+  },
+  async execute({ documentId, query }, ctx): Promise<ToolResult> {
+    const doc = ctx.documents.get(documentId)
+    if (!doc) {
+      return { ok: false, output: `No attached document has id ${documentId}. Available: ${[...ctx.documents.keys()].join(', ') || 'none'}.` }
+    }
+    if (!doc.text || doc.text.length === 0) {
+      return { ok: false, output: `"${doc.name}" has no extractable text to search (it may be an image without OCR-readable content).` }
+    }
+    try {
+      const result = await searchDocument({
+        conversationKey: ctx.conversationKey ?? `user:${ctx.userId ?? 'anon'}`,
+        documentId,
+        documentName: doc.name,
+        documentText: doc.text,
+        query,
+      })
+      const lines = result.passages.map(
+        (p, i) =>
+          `[passage ${i + 1}] relevance=${p.relevance.toFixed(3)} (embedding cosine ${p.cosine.toFixed(3)}) chars ${p.charStart}-${p.charEnd}\n${p.text.trim()}`,
+      )
+      const cache = result.provenance.cache
+      const note =
+        `(lanes: embeddings ${result.provenance.embeddings.model} + reranker ${result.provenance.rerank.model}; ` +
+        `chunks ${cache.cachedChunks}${cache.recomputed ? ' (chunked+embedded this request)' : ' (cached)'}). ` +
+        'Quote passages with their character ranges; use read_document with those offsets for wider context.'
+      return { ok: true, output: `SEARCH_DOCUMENT "${doc.name}" query="${query}"\n\n${lines.join('\n\n')}\n\n${note}` }
+    } catch (e) {
+      // HONEST degradation: the retrieval lanes are local, admin-installed
+      // models. When they are not installed (or an artifact failed its
+      // integrity gate) the tool says exactly that and points back to the
+      // always-available paging path — never a fabricated result.
+      if (e instanceof EmbeddingUnavailableError || e instanceof RerankUnavailableError) {
+        return {
+          ok: false,
+          output: `Document retrieval lanes are not available on this host (${e.message}) — fall back to read_document paging for "${doc.name}".`,
+        }
+      }
+      const msg = e instanceof Error ? e.message.replace(/\/[\w./-]+/g, '<path>').slice(0, 240) : 'retrieval failed'
+      return { ok: false, output: `search_document failed: ${msg} — fall back to read_document paging.` }
+    }
   },
 }
 

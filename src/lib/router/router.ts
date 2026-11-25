@@ -47,7 +47,14 @@ import type {
   TaskAdapter,
 } from '@/lib/adapters/types'
 
-const ADAPTERS: Record<string, TaskAdapter> = {
+/**
+ * Exported (M40) so registry reconciliation can verify the REAL routing map:
+ * reconcileRegistries(ADAPTERS) must report no `missing-adapter-binding` for
+ * any enabled backend — enabled backends are either adapter-bound here or
+ * documented handler-dispatched (capability-records.ts). Read-only by
+ * convention; routing code treats the map as static.
+ */
+export const ADAPTERS: Record<string, TaskAdapter> = {
   // The hosted LLM gateway serves both RIISHE (chat) and CODE GIFTZ
   // (coding-task); it is registered under each backend id it backs.
   'bean-llm-hosted-primary': hostedLlmAdapter,

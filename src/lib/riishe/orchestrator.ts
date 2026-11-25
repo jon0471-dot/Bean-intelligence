@@ -215,7 +215,16 @@ export function selectTools(args: {
   const tools = new Set<string>()
   const { searchNeeded, task, hasDocuments, allowCodeExecution, researchFailed, hasImageDocuments, deepResearch } = args
   if (task === 'math') tools.add('calculate')
-  if (hasDocuments) tools.add('read_document')
+  if (hasDocuments) {
+    tools.add('read_document')
+    // M40 — genuine embedding retrieval + reranking over attached documents.
+    // Admitted unconditionally (cheap admission): when the pinned local lanes
+    // are not installed the tool executes and returns its HONEST unavailable
+    // note, so the model falls back to read_document paging — never a silent
+    // downgrade, never a fabricated result. Long documents with specific
+    // questions measurably benefit even when the lanes are present.
+    tools.add('search_document')
+  }
   if (hasImageDocuments) tools.add('analyze_image')
   if (hasDocuments || (searchNeeded && researchFailed) || deepResearch) {
     tools.add('web_search')

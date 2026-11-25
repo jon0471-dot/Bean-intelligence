@@ -7,7 +7,11 @@
  * offline-resilience choice. ort.env.wasm.wasmPaths = '/ort/' (see
  * src/lib/client-compute/inference/ort-segmentation.ts).
  *
- * Files copied (onnxruntime-web 1.31.1):
+ * Files copied (onnxruntime-web, the version locked in bun.lock —
+ * 1.22.0-dev.20250409-89f8206ba4, pinned by @huggingface/transformers 3.8.1;
+ * realigned 2026-11-25 M40.2: the previously committed assets were a stale
+ * copy from an older install and did NOT match the locked runtime — verified
+ * byte-identical (sha256) against node_modules/onnxruntime-web/dist):
  *  - ort-wasm-simd-threaded.jsep.wasm / .mjs  (WebGPU-capable JSEP build)
  *  - ort-wasm-simd-threaded.wasm / .mjs       (CPU/WASM build)
  */

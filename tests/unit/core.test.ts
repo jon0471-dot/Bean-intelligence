@@ -60,11 +60,17 @@ describe('private backend registry (server-only source of truth)', () => {
     const jazmiiTasks = new Set(['video-generation', 'video-production'])
     // GANGZII AUDIO PRODUCTION (M27, 2026-11-21): the audio task families.
     const gangziiTasks = new Set(['speech-synthesis', 'audio-transcription', 'audio-conversion', 'audio-production', 'music-generation'])
+    // M40 (2026-11-25): RIISHE retrieval/understanding families — REAL local
+    // inference lanes (scanned-image OCR, text embeddings, passage reranking)
+    // integrated into the existing documents/retrieval surface. There is no
+    // user-facing task selector; the orchestrator routes automatically.
+    const riisheTasks = new Set(['document-ocr', 'text-embeddings', 'passage-reranking'])
     for (const b of BACKEND_REGISTRY) {
       const product = getProduct(b.productId)
       expect(product).toBeDefined()
       const valid =
         b.task === product!.task ||
+        (b.productId === 'riishe' && riisheTasks.has(b.task)) ||
         (b.productId === 'laxii' && laxiiTasks.has(b.task)) ||
         (b.productId === 'jazmii' && jazmiiTasks.has(b.task)) ||
         (b.productId === 'gangzii' && gangziiTasks.has(b.task))

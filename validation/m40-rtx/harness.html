@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BEAN — RTX 5060 Ti acceptance harness (M40)</title>
+  <style>
+    body { background: #0a0a0a; color: #ddd; font: 13px/1.5 ui-monospace, monospace; padding: 16px; margin: 0; }
+    h1 { color: #d4af37; font-size: 16px; }
+    h2 { color: #d4af37; font-size: 13px; margin-top: 18px; }
+    #banner { color: #d4af37; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+    button { background: #d4af37; color: #0a0a0a; border: 0; padding: 6px 12px; font: inherit; cursor: pointer; margin-top: 12px; }
+    input[type=file] { color: #ddd; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>BEAN — RTX 5060 Ti acceptance harness (M40)</h1>
+  <div id="banner">drives the REAL client-compute segmentation lane (pinned MODNet, SHA-256-verified)
+  through onnxruntime-web on this machine. Not part of the product UI — validation instrument only.</div>
+  <h2>Input image (leave empty to auto-load portrait.jpg)</h2>
+  <input type="file" id="portrait" accept="image/*" />
+  <button id="download" style="display:none">Download evidence JSON</button>
+  <h2>Live results</h2>
+  <pre id="results">running…</pre>
+  <script src="./bundle.js"></script>
+</body>
+</html>

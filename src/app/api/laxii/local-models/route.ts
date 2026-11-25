@@ -11,11 +11,12 @@ import {
 } from '@/lib/media/local-models'
 
 /**
- * Local inference model management (M26.2) — honest install states for the
- * server-side ONNX models (matting / inpainting / frame interpolation).
+ * Local inference model management (M26.2; extended M40) — honest install
+ * states for the server-side ONNX/WebAssembly models (matting / inpainting /
+ * frame interpolation / embeddings / cross-encoder reranking / OCR traineddata).
  * GET lists real on-disk states; POST installs EXPLICITLY (download +
- * SHA-256 verify); DELETE cancels an in-flight download. No model is ever
- * reported installed unless the verified artifact is on disk.
+ * SHA-256 verify, companions included); DELETE cancels an in-flight download.
+ * No model is ever reported installed unless the verified artifact is on disk.
  */
 export async function GET() {
   return handle(async () => {
@@ -24,7 +25,7 @@ export async function GET() {
   })
 }
 
-const installSchema = z.object({ id: z.enum(['modnet', 'lama', 'rife', 'u2netp']) })
+const installSchema = z.object({ id: z.enum(['modnet', 'lama', 'rife', 'u2netp', 'minilm-l6-embeddings', 'ms-marco-minilm-rerank', 'ocr-eng-traineddata']) })
 
 export async function POST(request: Request) {
   return handle(async () => {

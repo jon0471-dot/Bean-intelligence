@@ -1,0 +1,46 @@
+{
+  "manifestVersion": "1.0",
+  "backendId": "bean-documents-ocr-local",
+  "product": "riishe",
+  "task": "document-ocr",
+  "status": "deployed-local-inference",
+  "deploymentMode": "self-hosted",
+  "provider": "BEAN Intelligence local inference (tesseract.js 6 WebAssembly CPU)",
+  "modelIdentity": "Tesseract 5.3.x eng LSTM language data (tessdata_fast, integer-speed build)",
+  "revision": "ocr-eng-traineddata @ 7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+  "endpointType": "local-inference",
+  "artifacts": [
+    {
+      "file": "eng.traineddata",
+      "sourceUrl": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata",
+      "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "bytes": 4113088
+    }
+  ],
+  "runtimeBoundaryNote": "The tesseract.js 6 WebAssembly core ships via the npm lockfile (bun.lock) — same recorded boundary as the Kokoro voice packs; the LANGUAGE DATA is byte-verified above before any recognition runs.",
+  "capabilities": {
+    "ocr": true,
+    "imageTextExtraction": true,
+    "documentScannedPageText": "image attachments (png/jpeg/webp) — scanned-PDF page rasterization is NOT available server-side; scanned PDFs remain honestly limited to their text layer",
+    "languages": ["eng"],
+    "languageLimitation": "tessdata_fast English only. Non-Latin scripts are honestly reported as no-usable-text/low-confidence, never guessed.",
+    "confidenceFloor": 40,
+    "validation": "word count + measured confidence gate; below the floor the run returns an honest no-usable-text outcome"
+  },
+  "limits": {
+    "maxImageMb": 20,
+    "timeoutMs": 60000,
+    "bestConditions": "clean, level, well-lit scans; glyph height >= ~12 px"
+  },
+  "verifiedProbes": [
+    {
+      "date": "2026-11-25",
+      "test": "sharp-rendered text image (two lines: 'Bean Intelligence OCR 2026' / 'Invoice 48291 total 1250 USD') through recognizeImageText",
+      "result": "PASS",
+      "latencyMs": 910,
+      "confidence": 95.0,
+      "note": "all planted fragments extracted verbatim (3/3); tesseract.js 6.0.1 + tessdata_fast eng on onnxruntime-free CPU path"
+    }
+  ],
+  "license": { "name": "Apache-2.0 (tesseract-ocr/tessdata_fast; tesseract.js 6)", "sourceUrl": "https://github.com/tesseract-ocr/tessdata_fast", "verifiedAt": "2026-11-25" }
+}

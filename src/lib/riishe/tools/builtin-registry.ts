@@ -13,6 +13,7 @@ import {
   runCodeTool,
   readDocumentTool,
   analyzeImageTool,
+  searchDocumentTool,
 } from './builtin'
 import { searchAtlasTool, readAtlasDocTool } from './atlas'
 import { delegateCodingTool, checkCodingJobTool } from '../code-delegation'
@@ -28,6 +29,10 @@ export function registerBuiltins(): void {
   registerTool(runCodeTool)
   registerTool(readDocumentTool)
   registerTool(analyzeImageTool)
+  // M40 — genuine embedding retrieval + cross-encoder reranking over the
+  // attached documents (pinned local ONNX lanes; honest unavailable fallback
+  // to read_document paging when the lanes are not installed).
+  registerTool(searchDocumentTool)
   // M38-E — the curated world-knowledge atlas rides the existing tool loop
   // (paged reads + deterministic section search over the license-registered
   // docs/knowledge-atlas library; NOT a second retrieval architecture).

@@ -35,6 +35,8 @@ import {
   ExtractionError,
 } from '@/lib/files/extract'
 import { describeImage, transcribeAudio, inspectVideo, probeMedia, describeMediaMeta, withTempFile } from '@/lib/files/media'
+// M40 — REAL OCR lane (tesseract.js + pinned tessdata, local-model manager).
+import { recognizeImageText, OcrUnavailableError } from '@/lib/riishe/ocr'
 import { inspectArchive, UnsafeArchiveError } from '@/lib/files/archive'
 import { storeDocumentBytes } from '@/lib/files/riishe-store'
 
@@ -191,11 +193,31 @@ async function processByCapability(
     }
     case 'image': {
       const description = await describeImage(bytes, 'image/png')
+      // M40 — REAL OCR over image attachments when the pinned English
+      // traineddata is installed. Runs ALONGSIDE the vision summary (the two
+      // lanes answer different questions); an unavailable/no-usable-text OCR
+      // outcome is recorded honestly in the note instead of failing the
+      // upload, and the vision analysis below always still runs.
+      let ocrSection = ''
+      let ocrNote = ''
+      try {
+        const ocr = await recognizeImageText(bytes)
+        ocrSection = `\n\n[OCR TEXT — extracted from the image (tesseract eng, confidence ${ocr.confidence.toFixed(1)}, ${ocr.wordCount} words)]\n${ocr.text}`
+        ocrNote = ' OCR text extracted locally (English; non-Latin scripts honestly reported when not recognized).'
+      } catch (e) {
+        const reason =
+          e instanceof OcrUnavailableError
+            ? e.message.replace(/\/[\w./-]+/g, '<path>').slice(0, 220)
+            : 'OCR could not run on this image'
+        ocrNote = ` OCR: ${reason} — ask an operator to install the local OCR language data, or read the text from the vision analysis.`
+      }
       return {
         status: 'ready',
-        text: `[IMAGE ANALYSIS — ${displayName}]\n${description}`,
+        text: `[IMAGE ANALYSIS — ${displayName}]\n${description}${ocrSection}`,
         truncated: false,
-        note: 'Image content analyzed by the vision pipeline; the original bytes are retained so follow-up questions can re-consult the actual pixels.',
+        note:
+          'Image content analyzed by the vision pipeline; the original bytes are retained so follow-up questions can re-consult the actual pixels.' +
+          ocrNote,
         metaJson: JSON.stringify({ vision: true, stored: true }),
       }
     }
