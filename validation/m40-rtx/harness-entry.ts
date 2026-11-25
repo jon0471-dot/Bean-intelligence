@@ -24,8 +24,10 @@
  *   10. worker cancel + cleanup + health     (mid-flight abort, then a fresh run)
  *
  * Every check records ok:true / ok:false / ok:null (honest unavailability with
- * the exact reason) + verbatim evidence. Results land in window.__RESULTS and
- * the page's download button.
+ * the exact reason) + verbatim evidence. Results land in window.__RESULTS,
+ * the page's download button, AND (M40.9) are auto-POSTed to the harness
+ * server's /evidence endpoint so the one-command PowerShell runner can capture
+ * and schema-validate them without a manual click.
  *
  * NO simulated device profiles and NO benchmark round-trips count as inference:
  * the only GPU proof this harness accepts is the worker's verbatim provider
@@ -123,6 +125,20 @@ async function main(): Promise<void> {
     const fail = results.checks.filter((c) => c.ok === false).length
     const na = results.checks.filter((c) => c.ok === null).length
     console.log(`[m40-rtx] DONE: ${pass} PASS / ${fail} FAIL / ${na} honest-unavailable`)
+    // M40.9: auto-report the finished evidence to the harness server so the
+    // one-command runner can capture it. The manual download button stays for
+    // standalone use. An unreachable /evidence endpoint must never hide the
+    // run itself — the button remains functional either way.
+    fetch('/evidence', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(results),
+    })
+      .then(async (res) => {
+        const body = await res.text().catch(() => '')
+        console.log(`[m40-rtx] evidence auto-report: HTTP ${res.status} ${body.slice(0, 200)}`)
+      })
+      .catch((e) => console.log(`[m40-rtx] evidence auto-report unavailable (${(e as Error).message}) — use the download button`))
     const btn = document.getElementById('download') as HTMLElement
     btn.style.display = 'inline-block'
     btn.addEventListener('click', () => {
@@ -346,5 +362,8 @@ async function main(): Promise<void> {
 main().catch((e) => {
   const el = document.getElementById('results') as HTMLElement
   el.textContent = `HARNESS FAILED: ${e?.message ?? e}`
-  ;(window as unknown as { __RESULTS?: unknown }).__RESULTS = { fatal: String(e) }
+  const fatal = { startedAt: new Date().toISOString(), userAgent: navigator.userAgent, finishedAt: new Date().toISOString(), fatal: String(e?.message ?? e), checks: [] }
+  ;(window as unknown as { __RESULTS?: unknown }).__RESULTS = fatal
+  // even a fatal harness error is honest evidence — report it the same way
+  fetch('/evidence', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(fatal) }).catch(() => {})
 })

@@ -17,10 +17,20 @@
  * existing files and nothing else. It is a validation instrument, not part of
  * the product.
  *
- * Windows usage (real RTX 5060 Ti hardware):
+ * Windows usage (real RTX 5060 Ti hardware) — see the ONE-COMMAND runner:
+ *   powershell -ExecutionPolicy Bypass -File scripts\m40-acceptance\run-rtx-acceptance.ps1
+ * Manual usage (equivalent, still supported):
  *   node scripts\m40-acceptance\rtx-harness-server.mjs
  *   chrome --js-flags="--expose-gc" "http://localhost:8787/harness"
  * (build artifacts must exist first: npm run build  OR  npm run dev once)
+ *
+ * M40.9 addition: the harness page now POSTs its finished evidence JSON to
+ * POST /evidence (same origin). The server schema-gates the payload, saves it
+ * to validation/m40-rtx/results-<utcstamp>.json and answers with the saved
+ * path — so the PowerShell runner can wait for the file instead of requiring
+ * a manual download-button click. The payload is exactly what the page
+ * rendered (browser-side measurements only): no secrets and no local file
+ * paths exist in it by construction.
  */
 import http from 'node:http'
 import { createReadStream, existsSync, statSync } from 'node:fs'
@@ -54,9 +64,69 @@ function send(res, code, body) {
   res.end(body)
 }
 
-const server = http.createServer((req, res) => {
+const OUT_DIR = path.join(ROOT, 'validation', 'm40-rtx')
+
+/** Minimal shape gate for harness evidence (full JSON-Schema validation happens
+ * in validate-rtx-evidence.mjs; the server only refuses clearly-broken bodies). */
+function plausibleEvidence(body) {
+  return (
+    body != null &&
+    typeof body === 'object' &&
+    !Array.isArray(body) &&
+    typeof body.startedAt === 'string' &&
+    Array.isArray(body.checks) &&
+    body.checks.every(
+      (c) =>
+        c != null &&
+        typeof c === 'object' &&
+        typeof c.point === 'string' &&
+        typeof c.name === 'string' &&
+        (typeof c.ok === 'boolean' || c.ok === null) &&
+        typeof c.detail === 'string',
+    )
+  )
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0
+    const chunks = []
+    req.on('data', (chunk) => {
+      size += chunk.length
+      if (size > 16 * 1048576) {
+        reject(new Error('evidence payload too large'))
+        req.destroy()
+        return
+      }
+      chunks.push(chunk)
+    })
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
+const server = http.createServer(async (req, res) => {
   const url = (req.url ?? '/').split('?')[0]
   try {
+    if (req.method === 'POST' && url === '/evidence') {
+      const raw = await readBody(req)
+      let body
+      try {
+        body = JSON.parse(raw.toString('utf8'))
+      } catch {
+        return send(res, 400, 'evidence POST body is not valid JSON')
+      }
+      if (!plausibleEvidence(body)) {
+        return send(res, 422, 'evidence payload does not match the harness evidence shape (startedAt/checks[{point,name,ok,detail}])')
+      }
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const file = path.join(OUT_DIR, `results-${stamp}.json`)
+      const { writeFileSync } = await import('node:fs')
+      writeFileSync(file, JSON.stringify(body, null, 1))
+      console.log(`[m40-rtx] evidence received (${body.checks.length} checks) → ${path.relative(ROOT, file)}`)
+      res.writeHead(200, { 'content-type': 'application/json' })
+      return res.end(JSON.stringify({ saved: path.relative(ROOT, file), checks: body.checks.length }))
+    }
     const exact = MAP.find((m) => m.route === url)
     if (exact) {
       const abs = path.join(ROOT, exact.file)
