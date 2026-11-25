@@ -1,0 +1,44 @@
+{
+  "capturedAt": "2026-11-25",
+  "purpose": "Pixel-level verification that the m39 base-run size-floor rejections (enhance 493 B, lama inpaint 492 B vs the >1000 B fixture-calibrated floor) are REAL inference outputs, not pipeline failures.",
+  "reproduction": "scripts/m40-acceptance/probe-laxii-lanes.ts drives the SAME production lanes (/api/laxii/enhance, /api/laxii/edit object-removal with maskStrokes) with the SAME 96x96 fixture construction as scripts/m39-acceptance/execution-matrix.ts (node:zlib deflateSync PNG builder).",
+  "enhanceOutput": {
+    "file": "probe-enhance-output.png",
+    "bytes": 493,
+    "width": 96,
+    "height": 96,
+    "channels": 3,
+    "format": "png",
+    "channelMeans": [
+      118.1,
+      118,
+      118.2
+    ],
+    "channelStdev": [
+      39.5,
+      56.2,
+      71
+    ],
+    "verdict": "VALID PNG, full 96x96 resolution, genuine per-channel variance — the real deterministic sharp lane (denoise/exposure/local-contrast) output."
+  },
+  "lamaOutput": {
+    "file": "probe-lama-output.png",
+    "bytes": 492,
+    "width": 96,
+    "height": 96,
+    "channels": 3,
+    "format": "png",
+    "channelMeans": [
+      169,
+      148.5,
+      132.3
+    ],
+    "channelStdev": [
+      56.2,
+      70.5,
+      79.1
+    ],
+    "verdict": "VALID PNG, full 96x96 resolution, masked region inpainted (channel means shifted vs enhance output; real structure retained)."
+  },
+  "conclusion": "The m39 validator byte-size floors are fixture-calibrated heuristics; on the 96x96 fixture a fully valid enhanced/inpainted PNG is ~0.5 KB. Classified as SIZE-FLOOR false alarms by the M40 wrapper, with the lane steps own verbatim records preserved."
+}

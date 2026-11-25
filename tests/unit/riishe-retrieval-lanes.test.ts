@@ -19,6 +19,7 @@
  * acceptance matrix records, run here at unit scope for regression pinning.
  */
 import { describe, test, expect, afterAll } from 'bun:test'
+import { existsSync } from 'node:fs'
 import {
   embedTexts,
   cosineSimilarity,
@@ -34,7 +35,14 @@ import {
   MAX_CACHED_DOCS,
   MAX_CHUNKS_PER_DOC,
 } from '@/lib/riishe/doc-retrieval'
-import { recognizeImageText, ocrLaneReady, OcrUnavailableError, releaseOcrWorker } from '@/lib/riishe/ocr'
+import {
+  recognizeImageText,
+  ocrLaneReady,
+  ocrWorkerScriptPath,
+  OCR_WORKER_SPAWN_TIMEOUT_MS,
+  OcrUnavailableError,
+  releaseOcrWorker,
+} from '@/lib/riishe/ocr'
 import {
   localModelState,
   unloadAllLocalModels,
@@ -244,6 +252,26 @@ describe('REAL OCR (tesseract.js 6 + tessdata_fast eng, WebAssembly CPU)', () =>
     useEmptyModelDir()
     expect(ocrLaneReady()).toBe(false)
     await expect(recognizeImageText(Buffer.from('not really an image but sized'))).rejects.toBeInstanceOf(OcrUnavailableError)
+  })
+
+  test('the recognition worker resolves a REAL installed worker script (bundled-context honesty)', () => {
+    // tesseract.js' __dirname-based default breaks in a bundled server
+    // context (measured live: "/ROOT/node_modules/..." MODULE_NOT_FOUND in
+    // `next dev`); the runtime resolver must hand the spawn a path that
+    // EXISTS on disk in every supported context (dev worktree, standalone
+    // trace, unbundled module lane). The real-inference test above proves
+    // the resolved path end-to-end: the worker spawns through it and
+    // recognizes real text.
+    const p = ocrWorkerScriptPath()
+    expect(p).toContain('tesseract.js')
+    expect(p.endsWith('worker-script/node/index.js') || p.endsWith('worker-script\\node\\index.js')).toBe(true)
+    expect(existsSync(p)).toBe(true)
+  })
+
+  test('the worker spawn is bounded — a hanging spawn is an honest unavailable, never a route hang', () => {
+    expect(Number.isFinite(OCR_WORKER_SPAWN_TIMEOUT_MS)).toBe(true)
+    expect(OCR_WORKER_SPAWN_TIMEOUT_MS).toBeGreaterThan(0)
+    expect(OCR_WORKER_SPAWN_TIMEOUT_MS).toBeLessThanOrEqual(120_000)
   })
 })
 

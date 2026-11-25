@@ -163,6 +163,50 @@ interface ProcessOutcome {
   metaJson: string | null
 }
 
+export interface ImageLaneInput {
+  displayName: string
+  /** Real vision analysis of the pixels; null when the vision service could not be reached. */
+  description: string | null
+  /** Customer-safe reason the vision service was unavailable (no internal provider/model names). */
+  visionUnavailableReason?: string
+  /** Real local OCR extraction when it produced usable text. */
+  ocrText?: { text: string; confidence: number; wordCount: number } | null
+  /** Customer-safe reason local OCR produced no usable text, when ocrText is null. */
+  ocrUnavailableReason?: string
+}
+
+export interface ImageLaneOutcome {
+  text: string
+  note: string
+  visionAnalyzed: boolean
+}
+
+/**
+ * Compose the image upload's extraction text + honest note (PURE — unit
+ * tested). The vision analysis and the local OCR lane answer different
+ * questions and fail independently: either one being unavailable is recorded
+ * as an honest limitation on a STORED document (status stays ready), never
+ * as a corrupted file, and the other lane's real output is still delivered.
+ * Notes are customer-safe: no internal provider/model names.
+ */
+export function composeImageExtraction(input: ImageLaneInput): ImageLaneOutcome {
+  const visionAnalyzed = input.description !== null
+  const description =
+    input.description ??
+    `Vision analysis could not be completed (${input.visionUnavailableReason ?? 'the vision service is unavailable right now'}). The original image was stored unchanged, so its pixels can be analyzed on a later request.`
+  let text = `[IMAGE ANALYSIS — ${input.displayName}]\n${description}`
+  let note = visionAnalyzed
+    ? 'Image content analyzed by the vision pipeline; the original bytes are retained so follow-up questions can re-consult the actual pixels.'
+    : `Vision analysis was unavailable at upload time (${input.visionUnavailableReason ?? 'service unavailable'}); the original bytes are retained so the pixels can be analyzed on a later request.`
+  if (input.ocrText) {
+    text += `\n\n[OCR TEXT — extracted from the image (tesseract eng, confidence ${input.ocrText.confidence.toFixed(1)}, ${input.ocrText.wordCount} words)]\n${input.ocrText.text}`
+    note += ' OCR text extracted locally (English; non-Latin scripts honestly reported when not recognized).'
+  } else if (input.ocrUnavailableReason) {
+    note += ` OCR: ${input.ocrUnavailableReason} — ask an operator to install the local OCR language data, or read the text from the vision analysis.`
+  }
+  return { text, note, visionAnalyzed }
+}
+
 /** Run the capability-appropriate REAL processor for an upload. */
 async function processByCapability(
   plan: CapabilityPlan,
@@ -192,33 +236,43 @@ async function processByCapability(
       return { status: 'ready', text: out.text, truncated: out.truncated, note: out.note, metaJson: null }
     }
     case 'image': {
-      const description = await describeImage(bytes, 'image/png')
+      // The vision analysis can legitimately fail (measured live: an external
+      // rate limit returns 429 while the image itself is perfectly valid) —
+      // the upload must then be STORED with an honest limitation note, never
+      // rejected as "corrupted", and the local OCR lane's real output must
+      // still be delivered beside it.
+      let description: string | null = null
+      let visionReason: string | undefined
+      try {
+        description = await describeImage(bytes, 'image/png')
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        visionReason = /429|too many requests|rate[ -]?limit/i.test(msg)
+          ? 'the vision service is rate-limited right now'
+          : 'the vision service is unavailable right now'
+      }
       // M40 — REAL OCR over image attachments when the pinned English
-      // traineddata is installed. Runs ALONGSIDE the vision summary (the two
-      // lanes answer different questions); an unavailable/no-usable-text OCR
-      // outcome is recorded honestly in the note instead of failing the
-      // upload, and the vision analysis below always still runs.
-      let ocrSection = ''
-      let ocrNote = ''
+      // traineddata is installed. Runs ALONGSIDE the vision summary; an
+      // unavailable/no-usable-text OCR outcome is recorded honestly in the
+      // note instead of failing the upload.
+      let ocrText: ImageLaneInput['ocrText'] = null
+      let ocrReason: string | undefined
       try {
         const ocr = await recognizeImageText(bytes)
-        ocrSection = `\n\n[OCR TEXT — extracted from the image (tesseract eng, confidence ${ocr.confidence.toFixed(1)}, ${ocr.wordCount} words)]\n${ocr.text}`
-        ocrNote = ' OCR text extracted locally (English; non-Latin scripts honestly reported when not recognized).'
+        ocrText = { text: ocr.text, confidence: ocr.confidence, wordCount: ocr.wordCount }
       } catch (e) {
-        const reason =
+        ocrReason =
           e instanceof OcrUnavailableError
             ? e.message.replace(/\/[\w./-]+/g, '<path>').slice(0, 220)
             : 'OCR could not run on this image'
-        ocrNote = ` OCR: ${reason} — ask an operator to install the local OCR language data, or read the text from the vision analysis.`
       }
+      const composed = composeImageExtraction({ displayName, description, visionUnavailableReason: visionReason, ocrText, ocrUnavailableReason: ocrReason })
       return {
         status: 'ready',
-        text: `[IMAGE ANALYSIS — ${displayName}]\n${description}${ocrSection}`,
+        text: composed.text,
         truncated: false,
-        note:
-          'Image content analyzed by the vision pipeline; the original bytes are retained so follow-up questions can re-consult the actual pixels.' +
-          ocrNote,
-        metaJson: JSON.stringify({ vision: true, stored: true }),
+        note: composed.note,
+        metaJson: JSON.stringify({ vision: composed.visionAnalyzed, stored: true }),
       }
     }
     case 'audio': {
@@ -365,7 +419,8 @@ export async function POST(request: Request) {
     if (plan.capability === 'image') {
       try {
         storagePath = await storeDocumentBytes(user.id, doc.id, bytes)
-        await db.document.update({ where: { id: doc.id }, data: { metaJson: JSON.stringify({ vision: true, stored: true, storagePath }) } })
+        // Merge — never overwrite the honest vision/OCR flags composed above.
+        await db.document.update({ where: { id: doc.id }, data: { metaJson: JSON.stringify({ ...(outcome.metaJson ? (JSON.parse(outcome.metaJson) as Record<string, unknown>) : {}), storagePath }) } })
       } catch (e) {
         // Non-fatal: the upload-time description still grounds the turn; the
         // analyze_image tool reports the missing pixels honestly.
