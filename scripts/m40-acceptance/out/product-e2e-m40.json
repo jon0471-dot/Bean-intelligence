@@ -1,0 +1,261 @@
+{
+  "summary": {
+    "pass": 8,
+    "honestUnavailable": 4,
+    "fail": 0,
+    "total": 12,
+    "runBudgetMs": 480000,
+    "only": [
+      "riishe-chat",
+      "giftz"
+    ],
+    "finishedAt": "2026-11-25T15:27:15.038Z"
+  },
+  "steps": [
+    {
+      "backendId": "bean-auth",
+      "capability": "auth",
+      "ok": true,
+      "status": 200,
+      "detail": "fresh account registered + logged in for the E2E session",
+      "at": "2026-11-25T15:27:05.729Z"
+    },
+    {
+      "backendId": "bean-image-local-sharp",
+      "capability": "laxii.image-enhancement",
+      "ok": true,
+      "status": 200,
+      "detail": "REAL deterministic enhancement: decoded png 256x256, 1899 bytes",
+      "at": "2026-11-25T15:00:25.589Z",
+      "evidence": {
+        "bytes": 1899,
+        "meta": {
+          "format": "png",
+          "size": 1899,
+          "width": 256,
+          "height": 256,
+          "space": "srgb",
+          "channels": 3,
+          "depth": "uchar",
+          "isProgressive": false,
+          "isPalette": false,
+          "bitsPerSample": 8,
+          "hasProfile": false,
+          "hasAlpha": false,
+          "autoOrient": {
+            "width": 256,
+            "height": 256
+          }
+        }
+      }
+    },
+    {
+      "backendId": "bean-image-local-sharp",
+      "capability": "laxii.invalid-input-rejection",
+      "ok": true,
+      "status": 400,
+      "detail": "garbage bytes honestly rejected (HTTP 400: File is not a decodable image.)",
+      "at": "2026-11-25T15:00:25.632Z"
+    },
+    {
+      "backendId": "bean-audio-tts-local-kokoro",
+      "capability": "gangzii.engine-install",
+      "ok": true,
+      "status": 200,
+      "detail": "Kokoro-82M q8 installed with sha256 verification (or already present)",
+      "at": "2026-11-25T15:00:26.013Z",
+      "evidence": {
+        "ok": true,
+        "action": "install",
+        "manifest": {
+          "installedAt": "2026-11-25T06:37:21.479Z",
+          "repo": "onnx-community/Kokoro-82M-v1.0-ONNX",
+          "revision": "main",
+          "dtype": "q8",
+          "files": [
+            {
+              "file": "config.json",
+              "bytes": 44,
+              "sha256": null
+            },
+            {
+              "file": "onnx/model_quantized.onnx",
+              "bytes": 92361116,
+              "sha256": "fbae9257e1e05ffc727e951ef9b9c98418e6d79f1c9b6b13bd59f5c9028a1478"
+            },
+            {
+              "file": "tokenizer.json",
+              "bytes": 3497,
+              "sha256": null
+            },
+            {
+              "file": "tokenizer_config.json",
+              "bytes": 113,
+              "sha256": null
+            }
+          ],
+          "installMs": 11730,
+          "engineVersion": "kokoro-js@unknown",
+          "checksumSource": "huggingface-canonical",
+          "revisionCommit": null
+        },
+        "message": "The local TTS engine is already installed."
+      }
+    },
+    {
+      "backendId": "bean-audio-tts-local-kokoro",
+      "capability": "gangzii.speech-synthesis-local",
+      "ok": true,
+      "status": 200,
+      "detail": "REAL local Kokoro synthesis 184844 bytes (RIFF true)",
+      "at": "2026-11-25T15:00:39.089Z",
+      "evidence": {
+        "bytes": 184844
+      }
+    },
+    {
+      "backendId": "bean-documents-ocr-local",
+      "capability": "riishe.image-ocr-route",
+      "ok": true,
+      "status": 200,
+      "detail": "documents route STORED the image with REAL local OCR beside the vision lane (318 chars; vision-flag independence is the m40.5 contract; vision lane honestly reported unavailable tonight)",
+      "at": "2026-11-25T15:00:40.937Z",
+      "evidence": {
+        "note": "Vision analysis was unavailable at upload time (the vision service is rate-limited right now); the original bytes are retained so the pixels can be analyzed on a later request. OCR text extracted locally (English; non-Latin scripts honestly reported when not recognized).",
+        "characters": 318
+      }
+    },
+    {
+      "backendId": "bean-llm-hosted-primary",
+      "capability": "riishe.text-generation",
+      "ok": null,
+      "status": null,
+      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
+      "at": "2026-11-25T15:27:08.647Z",
+      "evidence": {
+        "id": "cmwwa1ftn003bl2bjrbcnkzcp",
+        "product": "riishe",
+        "task": "chat",
+        "capability": "chat",
+        "status": "failed",
+        "legacyStatus": "failed",
+        "terminal": true,
+        "progress": 0,
+        "errorCode": "UPSTREAM_RATE_LIMITED",
+        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
+        "errorClass": "rate_limited",
+        "cancelRequested": false,
+        "result": null,
+        "eventCount": 2,
+        "queuedAt": "2026-11-25T15:27:05.819Z",
+        "startedAt": "2026-11-25T15:27:06.707Z",
+        "finishedAt": "2026-11-25T15:27:06.847Z"
+      }
+    },
+    {
+      "backendId": "bean-documents-text",
+      "capability": "riishe.document-understanding",
+      "ok": true,
+      "status": 200,
+      "detail": "text extraction persisted (125 chars, status ready)",
+      "at": "2026-11-25T15:27:08.781Z",
+      "evidence": {
+        "id": "cmwwa1i31003sl2bjxmhnvnun",
+        "name": "offsite-brief.txt",
+        "kind": "text",
+        "status": "ready",
+        "note": null,
+        "mime": "application/octet-stream",
+        "size": 125,
+        "characters": 125,
+        "truncated": false,
+        "createdAt": "2026-11-25T15:27:08.749Z"
+      }
+    },
+    {
+      "backendId": "bean-documents-text",
+      "capability": "riishe.document-grounded-qa",
+      "ok": null,
+      "status": null,
+      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
+      "at": "2026-11-25T15:27:11.630Z",
+      "evidence": {
+        "id": "cmwwa1i5b003yl2bjgvcwo184",
+        "product": "riishe",
+        "task": "chat",
+        "capability": "chat",
+        "status": "failed",
+        "legacyStatus": "failed",
+        "terminal": true,
+        "progress": 0,
+        "errorCode": "UPSTREAM_RATE_LIMITED",
+        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
+        "errorClass": "rate_limited",
+        "cancelRequested": false,
+        "result": null,
+        "eventCount": 3,
+        "queuedAt": "2026-11-25T15:27:08.831Z",
+        "startedAt": "2026-11-25T15:27:09.724Z",
+        "finishedAt": "2026-11-25T15:27:09.786Z"
+      }
+    },
+    {
+      "backendId": "bean-code-llm-hosted-primary",
+      "capability": "code-giftz.code-generation",
+      "ok": null,
+      "status": null,
+      "detail": "job ended failed: chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
+      "at": "2026-11-25T15:27:15.037Z",
+      "evidence": {
+        "id": "cmwwa1kdq004rl2bj2zsfpgwt",
+        "product": "code-giftz",
+        "task": "coding-task",
+        "capability": "coding-task",
+        "status": "failed",
+        "legacyStatus": "failed",
+        "terminal": true,
+        "progress": 0,
+        "errorCode": "UPSTREAM_RATE_LIMITED",
+        "errorMessage": "chat completion not attempted: upstream gateway is rate-limited (HTTP 429 observed moments ago); call skipped to avoid worsening the throttle",
+        "errorClass": "rate_limited",
+        "cancelRequested": false,
+        "result": null,
+        "eventCount": 2,
+        "queuedAt": "2026-11-25T15:27:11.726Z",
+        "startedAt": "2026-11-25T15:27:12.722Z",
+        "finishedAt": "2026-11-25T15:27:12.812Z"
+      }
+    },
+    {
+      "backendId": "bean-video-hosted-primary",
+      "capability": "jazmii.t2v-honesty",
+      "ok": null,
+      "status": null,
+      "detail": "poll window elapsed with the job still in flight (upstream video provider has been 429-throttled tonight — the job remains tracked and must settle to a truthful terminal state; NO success is claimed)",
+      "at": "2026-11-25T15:04:14.280Z",
+      "evidence": {
+        "jobId": "cmww93p0s003vl2cwqa54r5px"
+      }
+    },
+    {
+      "backendId": "bean-video-local-motion",
+      "capability": "jazmii.video-motion-local",
+      "ok": true,
+      "status": 206,
+      "detail": "REAL local motion+RIFE video artifact served (/api/jazmii/jobs/cmww981mf0043l2cwsr7aw746/media; provenance engine local-motion-rife)",
+      "at": "2026-11-25T15:05:34.336Z",
+      "evidence": {
+        "outUrl": "/api/jazmii/jobs/cmww981mf0043l2cwsr7aw746/media",
+        "provenance": {
+          "engine": "local-motion-rife",
+          "pipeline": "local-motion-animation",
+          "mode": "image-to-video",
+          "laneClass": "motion animation of the provided still (pan/zoom trajectory + RIFE neural in-between frames) — NOT diffusion scene synthesis",
+          "motionProgram": "default gentle push-in (no explicit motion in the instruction); push-in 7%; subtle intensity",
+          "framesGenerated": 72,
+          "rifeCalls": 63
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+=== M40 M6 PRIVACY & RELIABILITY SWEEP (2026-11-25T15:08:18Z) ===
+--- hard prohibitions (must be absent from product source) ---
+PASS [refined] Ollama appears ONLY in the two explicit policy-refusal comments; zero imports/usage/subprocess references
+PASS [absent] no crypto-miner indicators (0 hits in src/prisma/build scripts)
+PASS [absent] no hardcoded API key literals (sk-…/Bearer …) (0 hits in src/prisma/build scripts)
+PASS [absent] no cross-visitor compute dispatch (0 hits in src/prisma/build scripts)
+--- required guarantees (must be present) ---
+PASS [present] explicit download consent gate (15 hits; e.g. src/lib/client-compute/inference/device-capability-manager.ts)
+PASS [present] SHA-256 integrity verification of pinned artifacts (42 hits; e.g. src/lib/client-compute/model-registry.ts)
+PASS [present] bounded concurrency caps consulted by the scheduler (33 hits; e.g. src/lib/client-compute/resource-manager.ts)
+PASS [present] abort/cancellation on every lane (31 hits; e.g. src/lib/client-compute/cpu/engine.ts)
+PASS [present] memory feasibility / tier budget gate (39 hits; e.g. src/lib/client-compute/resource-manager.ts)
+PASS [present] own-session-only client compute (privacy.ts rule + consent gate; no cross-visitor dispatch exists) (33 hits; e.g. src/lib/client-compute/privacy.ts)
+--- verdict: fail=0 (0 = all checks green) ---
