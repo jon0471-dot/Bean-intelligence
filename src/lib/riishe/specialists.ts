@@ -58,8 +58,11 @@ export interface SpecialistSubmission {
   reason: string | null
 }
 
-/** One shared submission pipeline: gates → dedupe → durable row → worker. */
-async function submitSpecialistJob(
+/** One shared submission pipeline: gates → dedupe → durable row → worker.
+ * M41: exported for the mission executor — the SAME gates, dedupe and
+ * durable rows, so a mission's media tasks are indistinguishable from
+ * product-submitted jobs in fairness and honesty. */
+export async function submitSpecialistJob(
   userId: string,
   spec:
     | { product: 'laxii'; task: 'image-generation'; params: Record<string, unknown>; dedupe: Record<string, unknown> }

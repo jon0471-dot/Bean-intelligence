@@ -346,6 +346,20 @@ export function planMission(objective: string): MissionPlanResult {
     const topic = extractResearchTopic(text)
     const docPath = extractDocumentPath(text)
     const research = researchTask(topic)
+    // Supporting (non-blocking) context: the Knowledge Atlas consultation is
+    // a genuine side task — if it fails, the mission completes PARTIAL with
+    // the verified deliverable intact (never silently dropped).
+    const knowledge = buildTaskSpec({
+      id: 'knowledge',
+      kind: 'knowledge',
+      title: 'Consult the knowledge atlas',
+      objective: `Consult the curated knowledge atlas for established background on: ${clip(topic, 300)}.`,
+      params: { topic: clip(topic, 300) },
+      expectedOutput: 'At least one relevant atlas reference consulted.',
+      dependsOn: [],
+      verification: { minSources: 1 },
+      limits: { executionTimeoutMs: 60_000, maxAttempts: 1, maxCorrections: 0 },
+    })
     const doc = documentDraftTask(text, docPath, ['research'])
     const verify = verifyDeliverableTask(
       ['document'],
@@ -354,7 +368,7 @@ export function planMission(objective: string): MissionPlanResult {
     return finish(
       'research-document',
       ['live research requested', `document deliverable (${docPath}) requested`],
-      [research, doc, verify],
+      [research, knowledge, doc, verify],
       'document',
     )
   }

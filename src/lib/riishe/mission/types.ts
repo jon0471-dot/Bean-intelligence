@@ -220,7 +220,9 @@ export const MISSION_TASK_STATUSES = [
 export type MissionTaskStatus = (typeof MISSION_TASK_STATUSES)[number]
 
 const TASK_TRANSITIONS: Record<MissionTaskStatus, readonly MissionTaskStatus[]> = {
-  pending: ['ready', 'skipped', 'cancelled'],
+  // pending → running is the scheduler's direct execution edge (readiness is
+  // decided by the DAG kernel, not by a separate ready write).
+  pending: ['ready', 'running', 'skipped', 'cancelled'],
   ready: ['running', 'skipped', 'cancelled'],
   running: ['done', 'failed', 'skipped', 'cancelled'],
   done: [],

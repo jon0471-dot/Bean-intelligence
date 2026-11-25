@@ -303,10 +303,15 @@ describe('mission outcome decision', () => {
     expect(d.reason).toContain('deliverable chain')
   })
 
-  test('unfinished deliverable → failed (a plan is not a completion)', () => {
+  test('unfinished deliverable → incomplete while executing (never a premature verdict)', () => {
     const d = decideMissionOutcome(tasks, new Map([['a', 'done'], ['side', 'done'], ['verify', 'running']]), 'verify')
+    expect(d.outcome).toBe('incomplete')
+  })
+
+  test('stuck deliverable with terminal failure upstream → failed (a plan is not a completion)', () => {
+    const d = decideMissionOutcome(tasks, new Map([['a', 'failed'], ['side', 'done'], ['verify', 'skipped']]), 'verify')
     expect(d.outcome).toBe('failed')
-    expect(d.reason).toContain('did not complete')
+    expect(d.reason).toContain('deliverable chain')
   })
 
   test('active side tasks → incomplete (executor keeps running)', () => {

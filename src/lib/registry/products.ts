@@ -45,6 +45,11 @@ export type BeanTask =
   | 'document-ocr'
   | 'text-embeddings'
   | 'passage-reranking'
+  // M41 — RIISHE AUTONOMOUS MISSIONS: the durable multi-agent driver task.
+  // One claimed mission-run job coordinates the mission's specialist tasks
+  // (which run as their OWN product jobs through the existing delegation
+  // paths with all gates intact). There is no user-facing task selector.
+  | 'mission-run'
 
 export interface ProductCapability {
   /** Human-readable capability shown in the UI. */

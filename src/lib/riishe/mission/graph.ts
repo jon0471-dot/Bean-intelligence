@@ -238,7 +238,18 @@ export function decideMissionOutcome(
   const chain = deliverableChain(tasks, deliverableTaskId)
   const statusOf = (id: string) => states.get(id) ?? 'pending'
   const deliverableStatus = statusOf(deliverableTaskId)
+  // Active chain states mean the mission is still in flight — 'incomplete',
+  // never a premature terminal verdict (the executor polls until the shape
+  // is terminal; a plan is still never mistaken for a completion).
+  const ACTIVE: readonly MissionTaskStatus[] = ['pending', 'ready', 'running']
   const chainFailure = [...chain].find((id) => ['failed', 'skipped', 'cancelled'].includes(statusOf(id)))
+  const chainActive = [...chain].some((id) => (ACTIVE as readonly string[]).includes(statusOf(id)))
+  if (chainActive && !chainFailure) {
+    return {
+      outcome: 'incomplete',
+      reason: `The deliverable chain is still executing (deliverable "${deliverableTaskId}" is ${deliverableStatus}).`,
+    }
+  }
   if (deliverableStatus !== 'done' || chainFailure) {
     return {
       outcome: 'failed',

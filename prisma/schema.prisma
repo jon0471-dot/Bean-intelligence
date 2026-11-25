@@ -38,6 +38,7 @@ model User {
   trustTasks          TrustTask[]
   narrationProjects   NarrationProject[]
   gangziiAudioAssets  GangziiAudioAsset[]
+  missions            AgentMission[]
 }
 
 model Session {
@@ -886,4 +887,73 @@ model GangziiAudioAsset {
   createdAt      DateTime @default(now())
 
   @@index([userId, kind])
+}
+
+// ---------------------------------------------------------------------------
+// M41 — AUTONOMOUS MULTI-AGENT MISSIONS (2026-11-26)
+// ---------------------------------------------------------------------------
+// One AgentMission per planned multi-part objective; its specialist tasks are
+// AgentMissionTask rows with explicit dependencies, authorization scopes,
+// verification criteria and bounded resource limits. Execution runs on the
+// EXISTING durable engine (a GenerationJob with product 'riishe' and task
+// 'mission-run' claims + heartbeats + lease recovery), specialist work runs
+// through the EXISTING delegation paths (coding jobs + media jobs with their
+// own preflight/dedupe/quota gates), provenance lives in the EXISTING Trust
+// Engine. No second queue, no second ledger. No secrets in any field; every
+// free-text field is size-bounded at write time.
+
+model AgentMission {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  missionType       String // website-build | media-production | research-document | debug-app
+  objective         String // the user's objective, bounded at submit time
+  deliverableTaskId String // mission success stands on this task
+  status            String // planned | running | completed | completed_partial | failed | cancelled
+  planJson          String // the planned task specs (bounded)
+  detectedJson      String? // customer-safe detection summary (JSON array)
+  trustTaskId       String? // the Trust Engine provenance task for this mission
+  jobId             String? // the mission-run GenerationJob driving execution
+  cancelRequested   Boolean  @default(false)
+  failureNote       String? // truthful reason for failed/cancelled missions
+  outcomeSummary    String? // bounded customer-safe delivery summary
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  tasks             AgentMissionTask[]
+
+  @@index([userId, status])
+  @@index([jobId])
+}
+
+model AgentMissionTask {
+  id                     String   @id @default(cuid())
+  missionId              String
+  mission                AgentMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  taskId                 String // stable in-plan id ('build', 'verify', …)
+  kind                   String // fixed M41 task kind vocabulary
+  agent                  String // fixed kind→agent routing (audit copy)
+  title                  String // short customer-safe title
+  objective              String // enriched at execution time (handoffs), bounded
+  paramsJson             String // validated task params
+  expectedOutput         String // the verifier's contract
+  dependsOnJson          String // JSON array of taskIds
+  authScope              String // fixed kind→scope routing (audit copy)
+  verificationJson       String // criteria JSON
+  limitsJson             String // bounded resource limits
+  status                 String // pending | ready | running | done | failed | skipped | cancelled
+  attempts               Int      @default(0)
+  corrections            Int      @default(0)
+  specialistJobId        String? // the delegated durable GenerationJob (media/coding)
+  executionJson          String? // bounded REAL execution payload digest
+  verificationResultJson String? // {status, reasons[], artifacts[]} from the deterministic verifier
+  failureNote            String?
+  artifactJson           String? // admitted artifacts (JSON array)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([missionId, taskId])
+  @@index([missionId, status])
+  @@index([specialistJobId])
 }

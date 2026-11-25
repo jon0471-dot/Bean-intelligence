@@ -16,6 +16,7 @@ import { processAudioJob } from '@/lib/jobs/audio-worker'
 import { processProductionJob } from '@/lib/jobs/director-worker'
 import { handleRiisheChatJob } from './riishe-chat-handler'
 import { handleGiftzCodingJob } from './giftz-coding-handler'
+import { runMissionJob } from '@/lib/riishe/mission/executor'
 
 /**
  * Legacy processors branch on the LEGACY vocabulary (video: 'queued' →
@@ -65,6 +66,14 @@ export const engineHandlers: Record<string, WorkerHandler> = {
   },
   chat: handleRiisheChatJob,
   'coding-task': handleGiftzCodingJob,
+  // M41 — the durable multi-agent mission driver. One claimed job runs the
+  // mission's task graph to a terminal outcome; specialist tasks become
+  // their OWN product jobs (all preflight/dedupe/quota gates intact) and
+  // the executor settles its own row exactly like the director worker.
+  'mission-run': async (job) => {
+    await runMissionJob(job)
+    return { result: {} }
+  },
   // GANGZII AUDIO PRODUCTION (M27, 2026-11-21): real speech synthesis
   // (local Kokoro-82M when installed, else the authorized hosted gateway —
   // voice-driven selection, never a silent swap), transcription, conversion
