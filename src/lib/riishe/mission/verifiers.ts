@@ -161,7 +161,11 @@ export function verifyDocumentDraft(
   handedOffSources: number,
 ): TaskVerificationOutcome {
   const base = verifyCodeBuild(payload, criteria)
-  if (base.status === 'failed') return base
+  // NEVER wrap a non-verified base verdict: an unproven coding job stays
+  // needs_correction/failed with ITS reasons — a "verified" status carrying
+  // an unproven reason would be a contradiction (caught live during the
+  // M41 acceptance run; this guard makes that shape structurally impossible).
+  if (base.status !== 'verified') return base
   const reasons: string[] = []
   const path = criteria.deliverablePath
   if (path) {
@@ -181,7 +185,7 @@ export function verifyDocumentDraft(
     }
   }
   if (reasons.length > 0) return outcome('needs_correction', reasons, base.artifacts)
-  return outcome('verified', base.reasons, base.artifacts)
+  return outcome('verified', ['Verified: the deliverable file exists with the citation contract satisfied.'], base.artifacts)
 }
 
 export function verifyImageAsset(payload: ImageJobPayload | null, criteria: VerificationCriteria): TaskVerificationOutcome {
