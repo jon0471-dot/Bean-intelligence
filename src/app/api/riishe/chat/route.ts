@@ -271,7 +271,7 @@ export async function POST(request: Request) {
       // the registry's permission gate. Code execution additionally runs the
       // restricted sandbox; specialist delegation submits durable jobs through
       // the SAME preflight gates as the product routes.
-      permissions: new Set(['allowCodeExecution', 'allowImageGeneration', 'allowVideoCreation', 'allowSpeechSynthesis', 'allowCodingDelegation']),
+      permissions: new Set(['allowCodeExecution', 'allowImageGeneration', 'allowVideoCreation', 'allowSpeechSynthesis', 'allowCodingDelegation', 'allowMissionDelegation']),
       // M36-C: specialist delegation submits jobs under THIS user only.
       userId: user.id,
       // M40: conversation-scoped cache key for the retrieval lanes.

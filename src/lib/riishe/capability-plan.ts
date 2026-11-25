@@ -48,6 +48,14 @@ export interface CapabilityPlan {
    * the composer must not silently substitute general knowledge.
    */
   docOnlyGrounding: boolean
+  /**
+   * M41 — the objective spans several specialist domains (a website build,
+   * a debug order, a media production with narration/visuals, research plus
+   * a document deliverable): the deterministic mission planner accepts it,
+   * so the orchestrator may grant delegate_mission (two-key gated like
+   * every delegation).
+   */
+  missionDelegation: boolean
   /** Human-readable reasons (logged; safe for support). */
   reasons: string[]
 }
@@ -95,6 +103,8 @@ const CODE_BUILD_RE =
  */
 const DOC_ONLY_RE =
   /\b(based\s+(only|solely|exclusively|just)\s+on\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|only\s+from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|attachments?|reports?|pdfs?)|from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?)\s+alone|(only|strictly)\s+(according\s+to|using|from)\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|using\s+only\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|answer\s+(only|solely)\s+from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|(stick|limit)\s+(to|it)\s+(strictly\s+)?to\s+(the\s+)?(attached\s+)?(documents?|files?|reports?))\b/i
+
+import { planMission } from './mission/planner'
 
 export function planCapabilities(
   message: string,
@@ -165,6 +175,20 @@ export function planCapabilities(
     reasons.push('strict document grounding requested: answer only from the attached documents')
   }
 
+  // M41 — multi-agent mission detection: the PLANNER is the single source of
+  // truth (a mission is offered exactly when the deterministic planner
+  // accepts the objective; refusals keep ordinary turns exactly as before).
+  let missionDelegation = false
+  try {
+    const plan = planMission(text)
+    if (plan.ok) {
+      missionDelegation = true
+      reasons.push(`multi-part objective detected (${plan.missionType}): multi-agent mission available`)
+    }
+  } catch {
+    missionDelegation = false
+  }
+
   return {
     codeExecution,
     imageAnalysis: hasImage,
@@ -173,6 +197,7 @@ export function planCapabilities(
     speechSynthesis,
     codingDelegation,
     docOnlyGrounding,
+    missionDelegation,
     reasons,
   }
 }

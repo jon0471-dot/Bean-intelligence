@@ -18,6 +18,9 @@ import {
 import { searchAtlasTool, readAtlasDocTool } from './atlas'
 import { delegateCodingTool, checkCodingJobTool } from '../code-delegation'
 import { generateImageTool, createVideoTool, synthesizeSpeechTool } from '../specialists'
+// M41 — autonomous mission delegation (plan → durable execution → verified
+// delivery across the specialists; same two-key permission discipline).
+import { delegateMissionTool, checkMissionTool, cancelMissionTool } from '../mission/tools'
 
 let registered = false
 
@@ -47,5 +50,10 @@ export function registerBuiltins(): void {
   // two-key gated like every specialist delegation; submit + status probe).
   registerTool(delegateCodingTool)
   registerTool(checkCodingJobTool)
+  // M41 — autonomous mission delegation (delegate + probe + cancel; explicit
+  // permission, plan-narrowed like every delegation).
+  registerTool(delegateMissionTool)
+  registerTool(checkMissionTool)
+  registerTool(cancelMissionTool)
   registered = true
 }
