@@ -1,0 +1,221 @@
+{
+  "summary": {
+    "pass": 12,
+    "honestUnavailable": 0,
+    "fail": 0,
+    "total": 12,
+    "durationMs": 1589227,
+    "finishedAt": "2026-11-25T07:54:28.277Z"
+  },
+  "base": {
+    "source": "scripts/m39-acceptance/out/execution-matrix.json",
+    "summary": {
+      "pass": 14,
+      "honestUnavailable": 15,
+      "fail": 3,
+      "total": 32,
+      "durationMs": 1587808,
+      "finishedAt": "2026-11-25T07:54:26.884Z"
+    }
+  },
+  "supersededRows": [
+    {
+      "m39Row": "bean-supporting-ocr/documents.ocr-scanned",
+      "supersededBy": "the REAL lanes recorded in steps[] of this file"
+    },
+    {
+      "m39Row": "bean-supporting-embeddings/retrieval.embeddings",
+      "supersededBy": "the REAL lanes recorded in steps[] of this file"
+    },
+    {
+      "m39Row": "bean-supporting-rerank/retrieval.reranking",
+      "supersededBy": "the REAL lanes recorded in steps[] of this file"
+    }
+  ],
+  "steps": [
+    {
+      "backendId": "bean-m40-matrix",
+      "capability": "m39-base-run",
+      "ok": true,
+      "status": null,
+      "detail": "M39 base run: 14 PASS / 15 honest-unavailable / 3 FAIL — fail step(s) verified NOT application failures: EXTERNAL-429 bean-audio-asr-hosted-primary | SIZE-FLOOR bean-image-local-sharp (REAL deterministic enhancement output 493 bytes (PNG)) | SIZE-FLOOR bean-image-local-edit (REAL local LaMa inpaint output 492 bytes) (log: scripts/m40-acceptance/out/m39-base-run.log)",
+      "at": "2026-11-25T07:54:26.889Z",
+      "evidence": {
+        "pass": 14,
+        "honestUnavailable": 15,
+        "fail": 3,
+        "total": 32,
+        "durationMs": 1587808,
+        "finishedAt": "2026-11-25T07:54:26.884Z"
+      }
+    },
+    {
+      "backendId": "bean-m40-matrix",
+      "capability": "model-install",
+      "ok": true,
+      "status": null,
+      "detail": "minilm-l6-embeddings: already installed + integrity-verified (sha256Ok=true)",
+      "at": "2026-11-25T07:54:26.932Z"
+    },
+    {
+      "backendId": "bean-m40-matrix",
+      "capability": "model-install",
+      "ok": true,
+      "status": null,
+      "detail": "ms-marco-minilm-rerank: already installed + integrity-verified (sha256Ok=true)",
+      "at": "2026-11-25T07:54:26.961Z"
+    },
+    {
+      "backendId": "bean-m40-matrix",
+      "capability": "model-install",
+      "ok": true,
+      "status": null,
+      "detail": "ocr-eng-traineddata: already installed + integrity-verified (sha256Ok=true)",
+      "at": "2026-11-25T07:54:26.966Z"
+    },
+    {
+      "backendId": "bean-documents-ocr-local",
+      "capability": "documents.ocr-real-inference",
+      "ok": true,
+      "status": null,
+      "detail": "REAL tesseract CPU inference: all 3 planted fragments verbatim, confidence 95.0 >= floor 40, 9 words in 629ms",
+      "at": "2026-11-25T07:54:27.652Z",
+      "evidence": {
+        "confidence": 95,
+        "wordCount": 9,
+        "provenance": {
+          "model": "tesseract 5.3.x eng (tessdata_fast, bean-pinned sha256)",
+          "runtime": "tesseract.js 6 WebAssembly CPU",
+          "language": "eng",
+          "latencyMs": 624
+        },
+        "latencyMs": 629
+      }
+    },
+    {
+      "backendId": "bean-documents-ocr-local",
+      "capability": "documents.ocr-product-route",
+      "ok": true,
+      "status": 200,
+      "detail": "REAL product path: documents route ran OCR beside the vision summary (document cmwvtvcmd00jyl2omdbhs50hq, 326 chars, note records local OCR extraction)",
+      "at": "2026-11-25T07:54:27.882Z",
+      "evidence": {
+        "id": "cmwvtvcmd00jyl2omdbhs50hq",
+        "name": "m40-ocr-route.png",
+        "kind": "image",
+        "status": "ready",
+        "note": "Vision analysis was unavailable at upload time (the vision service is rate-limited right now); the original bytes are retained so the pixels can be analyzed on a later request. OCR text extracted locally (English; non-Latin scripts honestly reported when not recognized).",
+        "mime": "application/octet-stream",
+        "size": 11986,
+        "characters": 326,
+        "truncated": false,
+        "createdAt": "2026-11-25T07:54:27.877Z"
+      }
+    },
+    {
+      "backendId": "bean-embeddings-local-minilm",
+      "capability": "retrieval.embeddings-real-inference",
+      "ok": true,
+      "status": null,
+      "detail": "REAL MiniLM CPU inference: 384-dim vectors, ||v||=1.0000, cosine(paraphrase)=0.9654 > cosine(unrelated)=-0.0227 (+0.9881 margin), 136ms",
+      "at": "2026-11-25T07:54:28.049Z",
+      "evidence": {
+        "dimensions": 384,
+        "cRel": 0.9653760842010558,
+        "cUnrel": -0.0227260042637686,
+        "provenance": {
+          "model": "all-MiniLM-L6-v2 (quantized ONNX, bean-pinned sha256)",
+          "runtime": "onnxruntime-node CPU",
+          "texts": 3,
+          "latencyMs": 136
+        },
+        "latencyMs": 165
+      }
+    },
+    {
+      "backendId": "bean-rerank-local-ms-marco-minilm",
+      "capability": "retrieval.reranking-real-inference",
+      "ok": true,
+      "status": null,
+      "detail": "REAL cross-encoder CPU inference: scores [0.9998, 0.0000, 0.0002], ordering [0, 2, 1] — relevant first, irrelevant last, 3 pairs in 140ms (cap 8 pinned by unit tests)",
+      "at": "2026-11-25T07:54:28.191Z",
+      "evidence": {
+        "scores": [
+          0.9997990625129138,
+          0.000013000927743422188,
+          0.0001766912175264316
+        ],
+        "ordering": [
+          0,
+          2,
+          1
+        ],
+        "provenance": {
+          "model": "ms-marco-MiniLM-L-6-v2 cross-encoder (quantized ONNX, bean-pinned sha256)",
+          "runtime": "onnxruntime-node CPU",
+          "pairs": 3,
+          "latencyMs": 115
+        }
+      }
+    },
+    {
+      "backendId": "bean-m40-matrix",
+      "capability": "registry.reconciliation",
+      "ok": true,
+      "status": null,
+      "detail": "reconcileRegistries(REAL router adapters): zero missing-adapter-binding drift (5 documented drift entries of other kinds: backend-missing-engine-entry)",
+      "at": "2026-11-25T07:54:28.276Z",
+      "evidence": [
+        {
+          "kind": "backend-missing-engine-entry",
+          "backendId": "bean-image-local-segmentation",
+          "detail": "enabled backend has no engine-catalog entry (cost/hardware metadata incomplete)"
+        },
+        {
+          "kind": "backend-missing-engine-entry",
+          "backendId": "bean-image-local-edit",
+          "detail": "enabled backend has no engine-catalog entry (cost/hardware metadata incomplete)"
+        },
+        {
+          "kind": "backend-missing-engine-entry",
+          "backendId": "bean-video-local-motion",
+          "detail": "enabled backend has no engine-catalog entry (cost/hardware metadata incomplete)"
+        },
+        {
+          "kind": "backend-missing-engine-entry",
+          "backendId": "bean-audio-tts-hosted-primary",
+          "detail": "enabled backend has no engine-catalog entry (cost/hardware metadata incomplete)"
+        },
+        {
+          "kind": "backend-missing-engine-entry",
+          "backendId": "bean-audio-asr-hosted-primary",
+          "detail": "enabled backend has no engine-catalog entry (cost/hardware metadata incomplete)"
+        }
+      ]
+    },
+    {
+      "backendId": "bean-m40-matrix",
+      "capability": "lifecycle.bean-documents-ocr-local",
+      "ok": true,
+      "status": null,
+      "detail": "bean-documents-ocr-local: code-derived lifecycle stage=compatible blockedBy=credential-configured (execution-tested/output-validated claimed ONLY by the measured lanes in this run)",
+      "at": "2026-11-25T07:54:28.277Z"
+    },
+    {
+      "backendId": "bean-m40-matrix",
+      "capability": "lifecycle.bean-embeddings-local-minilm",
+      "ok": true,
+      "status": null,
+      "detail": "bean-embeddings-local-minilm: code-derived lifecycle stage=compatible blockedBy=credential-configured (execution-tested/output-validated claimed ONLY by the measured lanes in this run)",
+      "at": "2026-11-25T07:54:28.277Z"
+    },
+    {
+      "backendId": "bean-m40-matrix",
+      "capability": "lifecycle.bean-rerank-local-ms-marco-minilm",
+      "ok": true,
+      "status": null,
+      "detail": "bean-rerank-local-ms-marco-minilm: code-derived lifecycle stage=compatible blockedBy=credential-configured (execution-tested/output-validated claimed ONLY by the measured lanes in this run)",
+      "at": "2026-11-25T07:54:28.277Z"
+    }
+  ]
+}

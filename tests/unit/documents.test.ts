@@ -4,7 +4,7 @@
  * 10 MB limit and filename sanitization.
  */
 import { describe, test, expect } from 'bun:test'
-import { extractDocumentText, sanitizeDisplayName, extensionOf } from '../../src/app/api/riishe/documents/route'
+import { extractDocumentText, sanitizeDisplayName, extensionOf, composeImageExtraction } from '../../src/app/api/riishe/documents/route'
 import { BeanApiError } from '../../src/lib/api/errors'
 
 function textPdf(text: string): Buffer {
@@ -87,5 +87,66 @@ describe('filename handling (display-only, path-safe)', () => {
   test('extensionOf is case-insensitive', () => {
     expect(extensionOf('X.PDF')).toBe('pdf')
     expect(extensionOf('noext')).toBe('')
+  })
+})
+
+describe('image upload composition (M40: vision and OCR fail independently, never a fake 422)', () => {
+  const PLANTED = { text: 'Bean Intelligence OCR 2026', confidence: 95, wordCount: 4 }
+
+  test('both lanes healthy: vision description + real OCR, stored ready', () => {
+    const out = composeImageExtraction({ displayName: 'photo.png', description: 'A two-tone test scene.', ocrText: PLANTED })
+    expect(out.visionAnalyzed).toBe(true)
+    expect(out.text).toContain('A two-tone test scene.')
+    expect(out.text).toContain('[OCR TEXT')
+    expect(out.text).toContain('Bean Intelligence OCR 2026')
+    expect(out.text).toContain('95.0')
+    expect(out.note).toContain('analyzed by the vision pipeline')
+    expect(out.note).toContain('OCR text extracted locally')
+  })
+
+  test('vision service throttled but OCR real: the document is STORED with the OCR text and an honest limitation (measured live regression: this used to 422 as a corrupted file)', () => {
+    const out = composeImageExtraction({
+      displayName: 'photo.png',
+      description: null,
+      visionUnavailableReason: 'the vision service is rate-limited right now',
+      ocrText: PLANTED,
+    })
+    expect(out.visionAnalyzed).toBe(false)
+    expect(out.text).toContain('rate-limited')
+    expect(out.text).toContain('[OCR TEXT')
+    expect(out.text).toContain('Bean Intelligence OCR 2026')
+    expect(out.note).toContain('rate-limited')
+    expect(out.note).toContain('OCR text extracted locally')
+    // Customer-safe: no internal provider/model identifiers in the note.
+    expect(out.note).not.toMatch(/z-?ai|glm|gateway|backend/i)
+    expect(out.text).not.toMatch(/z-?ai|glm|gateway|backend/i)
+  })
+
+  test('OCR unavailable but vision real: vision output delivered, OCR limitation stated', () => {
+    const out = composeImageExtraction({
+      displayName: 'photo.png',
+      description: 'A two-tone test scene.',
+      ocrText: null,
+      ocrUnavailableReason: 'OCR is unavailable on this host: the pinned English language data is not installed.',
+    })
+    expect(out.visionAnalyzed).toBe(true)
+    expect(out.text).toContain('A two-tone test scene.')
+    expect(out.text).not.toContain('[OCR TEXT')
+    expect(out.note).toContain('not installed')
+    expect(out.note).toContain('analyzed by the vision pipeline')
+  })
+
+  test('both lanes unavailable: honest stored placeholder, no fabricated analysis', () => {
+    const out = composeImageExtraction({
+      displayName: 'photo.png',
+      description: null,
+      visionUnavailableReason: 'the vision service is unavailable right now',
+      ocrText: null,
+      ocrUnavailableReason: 'OCR is unavailable on this host.',
+    })
+    expect(out.visionAnalyzed).toBe(false)
+    expect(out.text).toContain('Vision analysis could not be completed')
+    expect(out.text).toContain('stored unchanged')
+    expect(out.note).toContain('OCR is unavailable on this host.')
   })
 })

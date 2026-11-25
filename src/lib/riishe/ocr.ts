@@ -21,12 +21,51 @@
  */
 import { createWorker, type Worker } from 'tesseract.js'
 import path from 'node:path'
+import { existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { localModelState, localModelArtifactPath } from '@/lib/media/local-models'
 
 export const OCR_MODEL_ID = 'ocr-eng-traineddata'
 export const OCR_MIN_CONFIDENCE = 40 // below this the text is refused, not guessed
 const OCR_TIMEOUT_MS = Number(process.env.BEAN_OCR_TIMEOUT_MS ?? 60_000)
+/** A recognition worker that cannot START is an honest unavailable state —
+ * it must never hang a route forever (measured live: a missing worker script
+ * leaves createWorker pending indefinitely). */
+export const OCR_WORKER_SPAWN_TIMEOUT_MS = Number(process.env.BEAN_OCR_WORKER_SPAWN_TIMEOUT_MS ?? 30_000)
 const OCR_MAX_BYTES = 20 * 1024 * 1024
+
+/**
+ * Resolve the REAL installed worker script at runtime. tesseract.js computes
+ * its default `workerPath` from `__dirname` at module scope — in a bundled
+ * server context that path points into the bundle, not node_modules, and the
+ * recognition worker dies with MODULE_NOT_FOUND (measured live in `next dev`:
+ * "/ROOT/node_modules/tesseract.js/...MODULE_NOT_FOUND"; the same class was
+ * measured in the standalone build, fixed there by carrying the package dir
+ * beside the route). The resolver is bundler-proof: the primary path is the
+ * deterministic cwd-relative install location (works for `next dev`, `next
+ * start` and standalone alike), and the module-graph fallback composes its
+ * specifier at runtime so no bundler can rewrite it into a module id
+ * (measured live: Turbopack replaced a literal require.resolve with the
+ * number 884375).
+ */
+export function ocrWorkerScriptPath(): string {
+  // Primary: the deterministic cwd-relative install path. `next dev` and
+  // `next start` run with cwd at the project root (node_modules beside it);
+  // a standalone deployment runs with cwd at the standalone root, where the
+  // output-tracing fix (next.config.ts) carries the tesseract.js package dir.
+  const cwdPath = path.join(process.cwd(), 'node_modules', 'tesseract.js', 'src', 'worker-script', 'node', 'index.js')
+  if (existsSync(cwdPath)) return cwdPath
+  // Fallback: resolve through the module graph. The specifier is composed at
+  // runtime so the bundler cannot statically rewrite it into a module id
+  // (measured live: Turbopack replaced the literal require.resolve with the
+  // number 884375, which worker_threads then rejected as a filename).
+  const specifier = ['tesseract.js', 'src', 'worker-script', 'node', 'index.js'].join('/')
+  try {
+    return createRequire(import.meta.url).resolve(specifier)
+  } catch {
+    return cwdPath
+  }
+}
 
 export class OcrUnavailableError extends Error {}
 
@@ -73,9 +112,36 @@ export async function releaseOcrWorker(): Promise<void> {
 async function getWorker(langPath: string): Promise<Worker> {
   if (cachedWorker) return cachedWorker
   // OEM 1 = LSTM_ONLY (the tessdata_fast engine); gzip:false because the
-  // pinned artifact is stored uncompressed and verified by hash.
-  cachedWorker = await createWorker('eng', 1, { langPath, gzip: false, cacheMethod: 'none' as never })
-  return cachedWorker
+  // pinned artifact is stored uncompressed and verified by hash. The spawn
+  // is explicitly bounded: a worker that cannot start is reported as an
+  // HONEST unavailable state and any late-spawning worker is terminated, so
+  // a broken worker script can neither hang the route nor leak a thread.
+  const spawning = createWorker('eng', 1, {
+    langPath,
+    workerPath: ocrWorkerScriptPath(),
+    gzip: false,
+    cacheMethod: 'none' as never,
+  })
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    cachedWorker = await Promise.race([
+      spawning,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`the recognition worker did not spawn within ${OCR_WORKER_SPAWN_TIMEOUT_MS}ms`)),
+          OCR_WORKER_SPAWN_TIMEOUT_MS,
+        )
+      }),
+    ])
+    return cachedWorker
+  } catch (e) {
+    // A late spawn after a timeout/failure must not leak a live worker thread.
+    spawning.then((w) => w.terminate().catch(() => undefined), () => undefined)
+    const reason = e instanceof Error ? e.message : String(e)
+    throw new OcrUnavailableError(`OCR is unavailable on this host: the recognition worker could not start (${reason.slice(0, 160)}).`)
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
 }
 
 /** Genuine OCR over image bytes (CPU WebAssembly inference, measured). */
