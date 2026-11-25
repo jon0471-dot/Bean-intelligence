@@ -40,7 +40,8 @@ export function RiisheComposer({ chat }: { chat: RiisheChat }) {
             <div className="mb-1 font-semibold text-[#f0c75e]">Download the on-device chat model?</div>
             <p className="leading-relaxed">
               Approx. size: <span className="text-[#f0c75e]">{formatBytes(chat.onDeviceNeedsDownload)}</span>{' '}
-              (compact chat model, Apache-2.0 license, runs on this device's GPU). The model runs entirely in this
+              (compact chat model, Apache-2.0 license, {chat.onDeviceLaneNote ?? 'runs entirely on this device'}). The
+              model runs entirely in this
               browser afterward — nothing is uploaded — and the download happens once into the browser cache.
             </p>
             <div className="mt-2 flex gap-2">

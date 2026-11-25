@@ -18,13 +18,19 @@ import type { CapabilitySnapshot } from './types'
 import type { StructGPU, StructGPUAdapter } from './webgpu/engine'
 
 /** Minimal wasm module with a v128 SIMD opcode, used for a real SIMD probe.
- * This is a hand-built 8-byte header + 12-byte code section skeleton that
- * WebAssembly.validate() accepts iff SIMD is enabled. */
-// v128 constant bytes for the SIMD probe (module: (module (func (result v128) (v128.const i32x4 0 0 0 0))))
+ * Module: (module (func (result v128) (v128.const i32x4 0 0 0 0)))
+ * — 8-byte header, type section ([] -> v128), function section, code section
+ * whose body is locals=0 + `v128.const 0xfd 0x0c` + the FULL 16 v128 data
+ * bytes + `end`. WebAssembly.validate() accepts it iff SIMD is enabled.
+ * M39 fix: the previous hand-built module carried only 12 of the 16 required
+ * v128 data bytes (body size 15 instead of 20), so WebAssembly.validate()
+ * rejected it on EVERY runtime — the probe always reported simd:false and
+ * gated the CPU/WASM chat lane (and every wasm model lane) off everywhere.
+ */
 const SIMD_WASM_BYTES = new Uint8Array([
   0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7b, 0x03,
-  0x02, 0x01, 0x00, 0x0a, 0x11, 0x01, 0x0f, 0x00, 0xfd, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b,
+  0x02, 0x01, 0x00, 0x0a, 0x16, 0x01, 0x14, 0x00, 0xfd, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b,
 ])
 
 /** A small valid non-SIMD wasm module, used to probe base WASM support. */
