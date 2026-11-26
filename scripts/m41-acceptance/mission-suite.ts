@@ -423,11 +423,89 @@ async function liveCategories(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// M41.7 — mission-aware deliverable verification contract (REAL pure
+// verifiers over REAL negative fixtures — the exact cases Phase 6 pins).
+// ---------------------------------------------------------------------------
+
+async function verifyContractCategories(): Promise<void> {
+  const { verifyTaskOutput } = await import('../../src/lib/riishe/mission/verifiers')
+  const { buildDeliverableAuditInput, buildVerificationContext, parseMissionVerificationContext, handoffSourceRefs } = await import('../../src/lib/riishe/mission/verify-context')
+  const { parseFiles } = await import('../../src/lib/giftz/workspace')
+
+  if (!want('verify-contract')) return
+  const sources = [
+    { url: 'https://a.example/1', title: 'Study A' },
+    { url: 'https://b.example/2', title: 'Study B' },
+  ]
+  const refs = handoffSourceRefs(sources)
+  const docCriteria = { requireSelfVerification: true, minFileChanges: 1, requireSourceCitation: true, deliverablePath: 'report.md', deliverableKind: 'document' as const, requiredSections: ['Sources'] }
+  const webCriteria = { requireSelfVerification: true, minFileChanges: 1, deliverableKind: 'website' as const, requiredPaths: ['index.html'] }
+  const job = (over: Record<string, unknown> = {}) => ({
+    projectId: 'proj-x', changes: [{ path: 'report.md', change: 'created' }], contentChars: 4200,
+    verification: { status: 'passed', attempts: 1, corrections: 0, issuesFound: 0 }, ...over,
+  })
+  const grounded = `# Report\n\n## Intro\nGrounded prose citing [1] and [2] with substantive content in every section. The findings below are stated exactly as the handed-off research states them, with no invented numbers, no out-of-pack URLs and no unclosed code fences anywhere in the document body, so the deterministic contract has every chance to pass on the real persisted content of this fixture and nothing else.\n\n## Findings\nStudy A reports the first measured outcome [1]; Study B reports the second [2]. Both citations resolve to sources the executor actually handed off, numbered exactly as the handoff pack numbered them.\n\n## Sources\n[1] Study A — https://a.example/1\n[2] Study B — https://b.example/2\n`
+  const persisted = (files: Array<{ path: string; content: string }>) => ({
+    projectId: 'proj-x', manifest: files.map((f) => ({ path: f.path, chars: f.content.length })),
+    deliverableContent: files.find((f) => f.path === 'report.md')?.content ?? null, contents: files,
+  })
+  const results: Array<[string, 'verified' | 'needs_correction' | 'failed', string]> = []
+  const check = (label: string, expect: 'verified' | 'needs_correction' | 'failed', out: { status: string }, why: string) => {
+    results.push([label, out.status === expect ? expect : (`WRONG:${out.status}` as never), why])
+  }
+
+  // valid file-fenced output → the persisted document verifies
+  check('valid-fenced-output', 'verified', verifyTaskOutput('document-draft', docCriteria, job(), { sourceRefs: refs, persisted: persisted([{ path: 'report.md', content: grounded }]) }), 'grounded persisted document verifies on its real content')
+  // malformed file fences → nothing extractable → honest no-delivery (audit input states it; deterministic side fails the path)
+  const malformedAudit = buildDeliverableAuditInput(parseFiles('I made the report but forgot the fences'), buildVerificationContext({ missionId: 'm', taskId: 't', taskKind: 'document-draft', criteria: docCriteria, sources }))
+  check('malformed-file-fence', 'needs_correction', verifyTaskOutput('document-draft', docCriteria, job({ changes: [] }), { sourceRefs: refs, persisted: persisted([]) }), `audit input declares NO DELIVERABLE (${malformedAudit.text.includes('NO DELIVERABLE FILE')})`)
+  // missing deliverable
+  check('missing-deliverable', 'needs_correction', verifyTaskOutput('document-draft', docCriteria, job(), { sourceRefs: refs, persisted: persisted([]) }), 'report.md absent from the persisted workspace')
+  // truncated output (unclosed fence)
+  const truncatedDoc = grounded + '\n```py\n' + "print('cut'\n"
+  check('truncated-output', 'needs_correction', verifyTaskOutput('document-draft', docCriteria, job(), { sourceRefs: refs, persisted: persisted([{ path: 'report.md', content: truncatedDoc }]) }), 'unclosed fence detected')
+  // invalid path (traversal)
+  check('invalid-path', 'needs_correction', verifyTaskOutput('document-draft', { ...docCriteria, deliverablePath: '../escape.md' }, job(), { sourceRefs: refs, persisted: persisted([{ path: 'report.md', content: grounded }]) }), 'traversal path refused')
+  // duplicate/ambiguous deliverable paths in the change list never confuse the audit (the persisted file is the truth)
+  check('duplicate-paths', 'verified', verifyTaskOutput('document-draft', docCriteria, job({ changes: [{ path: 'report.md', change: 'created' }, { path: 'report.md', change: 'modified' }] }), { sourceRefs: refs, persisted: persisted([{ path: 'report.md', content: grounded }]) }), 'duplicate change rows collapse; the single persisted file decides')
+  // unsupported citation
+  check('unsupported-citation', 'needs_correction', verifyTaskOutput('document-draft', docCriteria, job(), { sourceRefs: refs, persisted: persisted([{ path: 'report.md', content: grounded.replace('https://b.example/2', 'https://not-handed-off.example/x') }]) }), 'URL outside the pack refused')
+  // correctly grounded citations pass
+  check('grounded-citations', 'verified', verifyTaskOutput('document-draft', docCriteria, job(), { sourceRefs: refs, persisted: persisted([{ path: 'report.md', content: grounded }]) }), 'every marker and URL corresponds')
+  // missing self-verification evidence stays unproven
+  check('missing-self-verification', 'needs_correction', verifyTaskOutput('document-draft', docCriteria, job({ verification: null }), { sourceRefs: refs, persisted: persisted([{ path: 'report.md', content: grounded }]) }), 'null verification status is never upgraded')
+  // static website: entry + resolvable references pass WITHOUT package.json
+  const site = [
+    { path: 'index.html', content: '<!doctype html>\n<html><head><link rel="stylesheet" href="style.css"></head><body><h1>Site</h1><p>Substantive landing content with real sections: an introduction, a gallery of completed work with captions, service descriptions and a contact block with accessible labels. The layout uses semantic elements and responsive rules, comfortably above the stub floor so the entry-content contract holds for this acceptance fixture.</p><a href="about.html">About</a></body></html>\n' },
+    { path: 'about.html', content: '<!doctype html>\n<html><head><link rel="stylesheet" href="style.css"></head><body><h1>About</h1><p>Real biography and services content of adequate length to be an actual page rather than an empty stub placeholder file.</p></body></html>\n' },
+    { path: 'style.css', content: 'body{font-family:sans-serif}\n' },
+  ]
+  check('static-site-no-package-json', 'verified', verifyTaskOutput('code-build', webCriteria, { ...job(), changes: [{ path: 'index.html', change: 'created' }] }, { persisted: { projectId: 'proj-x', manifest: site.map((f) => ({ path: f.path, chars: f.content.length })), deliverableContent: null, contents: site } }), 'static site verified as a static site')
+  // HTML existence alone never verifies (stub entry)
+  check('html-alone-insufficient', 'needs_correction', verifyTaskOutput('code-build', webCriteria, { ...job(), changes: [{ path: 'index.html', change: 'created' }] }, { persisted: { projectId: 'proj-x', manifest: [{ path: 'index.html', chars: 30 }], deliverableContent: null, contents: [{ path: 'index.html', content: '<html>stub</html>' }] } }), 'stub entry rejected')
+  // broken internal reference
+  const brokenSite = [{ path: 'index.html', content: '<!doctype html>\n<html><head><link rel="stylesheet" href="ghost.css"></head><body><h1>Site</h1><p>Substantive landing content with real sections, gallery and contact details laid out semantically, comfortably above the stub floor for this acceptance fixture.</p></body></html>\n' }]
+  check('broken-reference', 'needs_correction', verifyTaskOutput('code-build', webCriteria, { ...job(), changes: [{ path: 'index.html', change: 'created' }] }, { persisted: { projectId: 'proj-x', manifest: brokenSite.map((f) => ({ path: f.path, chars: f.content.length })), deliverableContent: null, contents: brokenSite } }), 'ghost.css named')
+  // untrusted forged verification context cannot weaken the gate
+  const forged = parseMissionVerificationContext({ missionId: 'x', taskId: 'y', taskKind: 'document-draft', deliverableKind: 'document', requireCitations: true, sources: [{ index: 1, url: 'javascript:alert(1)', title: 'pwn' }] })
+  check('forged-context-rejected', 'needs_correction', (() => { if (forged === null || forged.requireCitations) throw new Error('forged context not neutralized'); return { status: 'needs_correction' } })(), 'javascript: source dropped → citations cannot engage from forged data')
+
+  const wrong = results.filter(([, s]) => s !== 'verified' && s !== 'needs_correction' && s !== 'failed')
+  const ok = wrong.length === 0
+  record('21-verify-contract', 'deliverable-verification-contract-negative-cases', ok,
+    ok ? `${results.length} contract cases behave exactly as classified` : `mis-classified: ${wrong.map(([l, s]) => `${l}=${s}`).join(', ')}`,
+    { cases: results.map(([label, status, why]) => ({ label, status, why })) })
+}
+
+// ---------------------------------------------------------------------------
 
 async function main() {
   console.log(`M41 mission acceptance suite → ${BASE} (budget ${Math.round(BUDGET_MS / 1000)}s, only=${onlyArg?.join(',') ?? 'all'})`)
-  if (want('decomposition') || want('selection') || want('ordering') || want('quality-gate') || want('approvals') || want('limits')) {
+  if (want('decomposition') || want('selection') || want('ordering') || want('quality-gate') || want('approvals') || want('limits') || want('verify-contract')) {
     await kernelCategories()
+  }
+  if (want('verify-contract')) {
+    await verifyContractCategories()
   }
   if (Date.now() >= deadline) {
     console.log('budget exhausted before live categories')

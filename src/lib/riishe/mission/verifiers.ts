@@ -163,7 +163,14 @@ export function verifyCodeBuild(
     if (!v || !v.status) {
       return outcome('needs_correction', ['The job completed but its self-verification did not report a status — the change is unproven.'], artifacts)
     }
-    const okStatus = ['passed', 'pass', 'ok', 'success', 'clean'].includes(v.status.toLowerCase())
+    // The hosted self-verification pipeline's honest SUCCESS vocabulary is
+    // 'verified' (pass above threshold) and 'corrected' (revised then
+    // re-verified PASS) — live-measured during M41.7 acceptance when the
+    // mission-aware audit produced a genuinely verified document and this
+    // gate still refused it with the contradictory reason "Self-verification
+    // reported \"verified\"". 'unverified' / 'corrected-unverified' / any
+    // unknown status remain NOT-ok (the gate never upgrades).
+    const okStatus = ['passed', 'pass', 'ok', 'success', 'clean', 'verified', 'corrected'].includes(v.status.toLowerCase())
     if (!okStatus) {
       reasons.push(`Self-verification reported "${v.status}" (${v.issuesFound ?? '?'} issue(s) found).`)
     }
@@ -326,8 +333,21 @@ export function verifyDocumentDraft(
       // (6)-(9) the citation contract, checked against the EXACT handed-off
       // sources (correspondence, never vibes).
       if (criteria.requireSourceCitation && sourceRefs.length > 0) {
-        // (6) citations are actually present.
-        const markers = [...content.matchAll(/\[(\d{1,2})\]/g)].map((m) => Number(m[1]))
+        // (6) citations are actually present. Real documents cite in
+        // clustered styles — "[1]", "[1, 4]", "[2][3]", "[1-3]" — live
+        // measured during the M41.7 acceptance run; every number inside a
+        // bracketed cluster is one citation marker.
+        const markers = [...content.matchAll(/\[(\d{1,2}(?:\s*[,;\u2013\u2014-]\s*\d{1,2})*)\]/g)].flatMap((m) =>
+          m[1].split(/\s*[,;]\s*/).flatMap((part) => {
+            const range = part.match(/^(\d{1,2})\s*[\u2013\u2014-]\s*(\d{1,2})$/)
+            if (range) {
+              const lo = Number(range[1])
+              const hi = Number(range[2])
+              if (lo >= 1 && lo <= hi && hi - lo <= 11) return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
+            }
+            return [Number(part)]
+          }),
+        )
         if (markers.length === 0) {
           reasons.push('The document cites no numbered sources — the citation contract requires [n] markers grounded in the handed-off research.')
         }

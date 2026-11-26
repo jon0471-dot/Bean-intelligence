@@ -343,6 +343,27 @@ describe('document deliverable verifier (persisted audit)', () => {
     expect(out.status).toBe('needs_correction')
     expect(out.reasons.join(' ')).toContain('unverified')
   })
+
+  test('M41.7 live regression: the hosted pipeline SUCCESS vocabulary (verified/corrected) passes the gate', () => {
+    // Live-measured 2026-11-26: the mission-aware hosted audit returned
+    // status 'verified' (0 issues) for a good document and the gate still
+    // refused it with the contradictory reason "Self-verification reported
+    // \"verified\"" — poisoning the correction round that followed.
+    const verified = verifyDocumentDraft(jobPayload({ verification: { status: 'verified', attempts: 1, corrections: 0, issuesFound: 0 } }), DOC_CRITERIA, { ...ctx, persisted: persistedDoc(GROUNDED_REPORT) })
+    expect(verified.status).toBe('verified')
+    const corrected = verifyDocumentDraft(jobPayload({ verification: { status: 'corrected', attempts: 2, corrections: 1, issuesFound: 0 } }), DOC_CRITERIA, { ...ctx, persisted: persistedDoc(GROUNDED_REPORT) })
+    expect(corrected.status).toBe('verified')
+  })
+
+  test('M41.7 live regression: clustered citation styles ([1, 4], [1-3]) parse for correspondence', () => {
+    const clustered = GROUNDED_REPORT.replace('[1][2][3]', '[1, 2, 3]').replace('[1]. Study B found hybrid teams thrive [2]', '[1, 2]. Study B found hybrid teams thrive')
+    const ranged = GROUNDED_REPORT.replace('[1][2][3]', '[1-3]')
+    expect(verifyDocumentDraft(jobPayload(), DOC_CRITERIA, { ...ctx, persisted: persistedDoc(clustered) }).status).toBe('verified')
+    expect(verifyDocumentDraft(jobPayload(), DOC_CRITERIA, { ...ctx, persisted: persistedDoc(ranged) }).status).toBe('verified')
+    // an out-of-range number inside a cluster is still caught
+    const badRange = GROUNDED_REPORT.replace('[1][2][3]', '[1, 9]')
+    expect(verifyDocumentDraft(jobPayload(), DOC_CRITERIA, { ...ctx, persisted: persistedDoc(badRange) }).status).toBe('needs_correction')
+  })
 })
 
 type TaskVerificationExtras = import('../../src/lib/riishe/mission/verifiers').TaskVerificationContext
