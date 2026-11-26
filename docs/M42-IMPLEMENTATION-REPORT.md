@@ -13,6 +13,9 @@
 | `6409257` | M42.3b | Security-advisory + community adapters (OSV.dev by-id + package query, Stack Exchange, Hacker News) with decision records, UGC labeling/authority discipline, `guardedFetch` POST support (initial-hop body only), registry honesty fixes (stale rows corrected, GitLab honest row added); live probe 6/7 PASS, Stack Exchange 429 honest. Two field defects found by the probe and fixed pre-commit (wrapper-vs-Response misuse; missing non-2xx handling). |
 | `a75b62b` | M42.5 | Race-loser rejection sinks at all four research-path timeout races + regression hygiene tests; live specialist-contract acceptance suite (7 consumers + fiction exclusion through the real execution path) — 9/9 PASS. Diagnosis note: the suspected "late 504 crash" was proven (tracer + exit-code capture) to be the SDK's console.error of HANDLED failures; the process exits 0 — recorded because the diagnosis discipline matters. |
 | *(this commit)* | docs | This report + the four required M42 documents + worklog/HANDOFF/capability-matrix updates. |
+| `e02b551` | docs | Final verification sweep recorded (full suite / build / lint / secret / UI checks — §2.0). |
+
+**Merge state (observed, not performed by this session):** the OWNER merged **PR #32** from this branch into `main` on GitHub (2026-11-26 22:13 IST, merge commit `5cad5a0`) while this session was running — main therefore contains M42 through `6409257`. The three commits above it (`a75b62b`, `ace7023`, `e02b551`) remain branch-only awaiting the owner's next authorization; this session performed no merge and no force-push.
 
 ## 2. Test evidence (all green on the committed tree)
 
