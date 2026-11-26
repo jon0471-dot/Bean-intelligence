@@ -26,7 +26,6 @@ import { ResearchToolError } from './provider'
 import type { RankedSource } from './rank'
 
 /** Fixed host allowlist — a redirect to any other host invalidates the item. */
-/** Fixed host allowlist — a redirect to any other host invalidates the item. */
 export const ACADEMIC_ALLOWED_HOSTS: ReadonlySet<string> = new Set([
   'api.crossref.org',
   'api.openalex.org',
@@ -70,18 +69,25 @@ async function academicFetchJson(url: string, timeoutMs: number): Promise<unknow
   }
 }
 
-async function assertHostAllowed(url: string): Promise<string> {
+/**
+ * THE runtime host guard every adapter call passes through before any
+ * network I/O (exported for direct structural tests — the pure set test
+ * alone cannot catch a broken reference here, as measured in the field).
+ */
+export async function assertAcademicHostAllowed(url: string): Promise<string> {
   let parsed: URL
   try {
     parsed = new URL(url)
   } catch {
     throw new ResearchToolError('direct_fetch', `invalid academic API URL: ${url.slice(0, 80)}`)
   }
-  if (parsed.protocol !== 'https:' || !ALLOWED_HOSTS.has(parsed.hostname)) {
+  if (parsed.protocol !== 'https:' || !ACADEMIC_ALLOWED_HOSTS.has(parsed.hostname)) {
     throw new ResearchToolError('direct_fetch', `academic adapter host not allowlisted: ${parsed.hostname}`)
   }
   return parsed.toString()
 }
+
+const assertHostAllowed = assertAcademicHostAllowed
 
 function hostOf(url: string): string {
   try {

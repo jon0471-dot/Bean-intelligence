@@ -198,4 +198,34 @@ describe('M42.3 academic lane dispatch (pure)', () => {
       expect(ACADEMIC_ALLOWED_HOSTS.has(h)).toBe(false)
     }
   })
+
+  test('the RUNTIME guard every adapter call passes through accepts exactly the allowlisted https hosts (regression: a broken guard reference shipped once — 0/7 real adapters passed while pure set tests stayed green)', async () => {
+    const { assertAcademicHostAllowed } = await import('../../src/lib/research/academic')
+    for (const h of ['api.crossref.org', 'api.openalex.org', 'export.arxiv.org', 'doaj.org', 'registry.npmjs.org', 'pypi.org']) {
+      const guarded = await assertAcademicHostAllowed(`https://${h}/works?x=1`)
+      expect(guarded.startsWith(`https://${h}/`)).toBe(true)
+    }
+  })
+
+  test('the runtime guard rejects loopback/metadata/foreign/non-https targets with the typed direct_fetch error (never a bare ReferenceError)', async () => {
+    const { assertAcademicHostAllowed } = await import('../../src/lib/research/academic')
+    for (const bad of [
+      'http://api.crossref.org/works',            // right host, wrong scheme
+      'https://localhost/works',                  // loopback
+      'https://127.0.0.1/works',                  // loopback IP
+      'https://169.254.169.254/latest/meta-data', // cloud metadata
+      'https://evil.example.com/works',           // not allowlisted
+      'not a url at all',                         // unparseable
+    ]) {
+      let threw: unknown = null
+      try {
+        await assertAcademicHostAllowed(bad)
+      } catch (e) {
+        threw = e
+      }
+      expect(threw).not.toBeNull()
+      expect((threw as Error).name).toBe('ResearchToolError')
+      expect((threw as Error).message).not.toContain('not defined')
+    }
+  })
 })
