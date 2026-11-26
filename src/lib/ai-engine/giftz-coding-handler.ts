@@ -17,6 +17,7 @@ import { resolveBackgroundAdapter } from '@/lib/router/router'
 import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
 import { verificationConfig } from '@/lib/verification/config'
 import { publicVerificationSummary } from '@/lib/verification/pipeline'
+import { parseMissionVerificationContext, type MissionVerificationContext } from '@/lib/riishe/mission/verify-context'
 import {
   runGiftzTurnCore,
   persistGiftzAssistantTurn,
@@ -42,6 +43,10 @@ interface GiftzJobParams {
   /** The user row persisted at submission — excluded from history. */
   userMessageId?: string
   fileIds?: string[]
+  /** M41.7: the mission verification context, attached ONLY by the mission
+   *  executor (system authority). Parsed with the shape-checked reader —
+   *  anything unexpected disables the mission framing entirely. */
+  mission?: unknown
 }
 
 export async function handleGiftzCodingJob(
@@ -118,6 +123,9 @@ export async function handleGiftzCodingJob(
 
   const maxPromptChars = Number(backend.limits.maxPromptChars ?? 12_000)
   const verifyCfg = await verificationConfig()
+  // M41.7: the mission-aware verification context (untrusted parse — a
+  // malformed context means NO mission framing, never a weakened gate).
+  const missionContext: MissionVerificationContext | null = parseMissionVerificationContext(params.mission)
 
   const buildTurnMessages = () => [
     { role: 'assistant' as const, content: SYSTEM_PROMPT },
@@ -164,7 +172,12 @@ export async function handleGiftzCodingJob(
       return { verification: publicSummary, verificationSkippedReason: null }
     }
     if (!verifyCfg.enabled) {
-      return { verification: null, verificationSkippedReason: 'self-verification is disabled by the operator configuration' }
+      return {
+        verification: null,
+        verificationSkippedReason: missionContext
+          ? 'self-verification is disabled by the operator configuration (the mission ledger\'s deterministic deliverable gate still ran)'
+          : 'self-verification is disabled by the operator configuration',
+      }
     }
     return {
       verification: null,
@@ -185,6 +198,7 @@ export async function handleGiftzCodingJob(
       maxPromptChars,
       projectId: params.projectId,
       verifyCfg,
+      ...(missionContext ? { mission: missionContext } : {}),
       onEvent,
       guard,
     })
@@ -256,6 +270,12 @@ export async function handleGiftzCodingJob(
       // nothing changed or the snapshot was skipped).
       ...(result.versionSeq !== undefined ? { versionSeq: result.versionSeq } : {}),
       verification: publicVerificationSummary(result.verification),
+      // M41.7: honest self-verification unavailability (distinguishes
+      // operator-disabled from missing evidence in mission diagnostics).
+      verificationSkippedReason: receiptFields.verificationSkippedReason,
+      // M41.7: the mission framing rode with this job (bounded reference —
+      // ids only; the context payload itself stays in paramsJson).
+      ...(missionContext ? { missionTask: { missionId: missionContext.missionId, taskId: missionContext.taskId, deliverableKind: missionContext.deliverableKind } } : {}),
       // M33 ADDITIVE: real sandbox execution outcome (bounded — no stdout).
       ...(result.execution
         ? {

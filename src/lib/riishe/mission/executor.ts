@@ -29,6 +29,8 @@ import type { ClaimedJob } from '@/lib/ai-engine/types'
 import { submitCodingDelegation } from '@/lib/riishe/code-delegation'
 import { submitSpecialistJob } from '@/lib/riishe/specialists'
 import { webSearchTool, readUrlTool } from '@/lib/riishe/tools/builtin'
+import { buildVerificationContext, handoffSourceRefs, type MissionVerificationContext, type MissionSourceRef } from './verify-context'
+import type { PersistedDeliverableEvidence } from './verifiers'
 import { searchAtlasTool } from '@/lib/riishe/tools/atlas'
 import type { ToolContext, ToolSource } from '@/lib/riishe/tools/types'
 import { addTrustEvidence, cancelTrustTask, failTrustTask, finalizeTrustTask, planTrustSteps, updateTrustStepStatus } from '@/lib/trust/tasks'
@@ -299,15 +301,59 @@ interface DelegationOutcome {
   reason: string | null
 }
 
-async function delegateCoding(mission: MissionRow, objective: string, projectName?: string): Promise<DelegationOutcome> {
+async function delegateCoding(mission: MissionRow, objective: string, projectName?: string, verificationContext?: MissionVerificationContext): Promise<DelegationOutcome> {
   try {
-    const outcome = await submitCodingDelegation(mission.userId, {
-      objective: clip(objective, 8000),
-      ...(projectName ? { projectName } : {}),
-    })
+    const outcome = await submitCodingDelegation(
+      mission.userId,
+      {
+        objective: clip(objective, 8000),
+        ...(projectName ? { projectName } : {}),
+      },
+      verificationContext,
+    )
     return { ok: outcome.ok, jobId: outcome.jobId, reason: outcome.reason }
   } catch (e) {
     return { ok: false, jobId: null, reason: e instanceof Error ? e.message.slice(0, 200) : 'coding delegation failed' }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// M41.7 — persisted-deliverable evidence (the project workspace snapshot the
+// deterministic verifier audits). Project-scoped by the specialist job's OWN
+// project id (from the job result payload — the project the delegation
+// created/resolved); a mission can never audit another user's files because
+// the delegation path is owner-scoped end to end.
+// ---------------------------------------------------------------------------
+
+const PERSISTED_SNAPSHOT_MAX_FILES = 16
+const PERSISTED_SNAPSHOT_PER_FILE_CHARS = 60_000
+const PERSISTED_DELIVERABLE_CHARS = 160_000
+
+async function loadPersistedDeliverable(
+  spec: MissionTaskSpec,
+  payload: CodingJobPayload | null,
+): Promise<PersistedDeliverableEvidence | undefined> {
+  // Only deliverable-shaped coding tasks get a persisted audit; debug/plain
+  // code builds keep the job-payload gates.
+  const kind = spec.verification.deliverableKind ?? (spec.kind === 'document-draft' ? 'document' : 'code')
+  if (kind === 'code') return undefined
+  const projectId = payload?.projectId ?? null
+  if (!projectId) return undefined
+  const files = await db.codeFile.findMany({
+    where: { projectId },
+    select: { path: true, content: true },
+    orderBy: { path: 'asc' },
+  })
+  const deliverablePath = spec.verification.deliverablePath ?? null
+  const deliverableRow = deliverablePath ? files.find((f) => f.path === deliverablePath) : undefined
+  return {
+    projectId,
+    manifest: files.slice(0, 100).map((f) => ({ path: f.path, chars: f.content.length })),
+    deliverableContent: deliverableRow ? deliverableRow.content.slice(0, PERSISTED_DELIVERABLE_CHARS) : null,
+    contents:
+      kind === 'website'
+        ? files.slice(0, PERSISTED_SNAPSHOT_MAX_FILES).map((f) => ({ path: f.path, content: f.content.slice(0, PERSISTED_SNAPSHOT_PER_FILE_CHARS) }))
+        : [],
   }
 }
 
@@ -468,17 +514,33 @@ async function startTask(mission: MissionRow, row: TaskRow, spec: MissionTaskSpe
   // --- delegated lanes (durable specialist jobs) ----------------------------
   let objective = spec.objective
   const handoffBlocks: HandoffBlock[] = []
+  let handedOffRefs: MissionSourceRef[] = []
   if (deps.length > 0) {
     const { artifacts, sources } = await researchPackFor(mission, deps)
     if (sources.length > 0 && (spec.kind === 'document-draft' || spec.kind === 'code-build')) {
       handoffBlocks.push(researchPackHandoff(artifacts, sources))
+      // M41.7: the numbered refs the consumer ACTUALLY received — the same
+      // list rides in the verification context so citation correspondence
+      // is checked against exactly what was handed off.
+      handedOffRefs = handoffSourceRefs(sources)
     }
   }
   if (handoffBlocks.length > 0) objective = enrichObjective(objective, handoffBlocks)
 
+  const verificationContext =
+    spec.kind === 'code-build' || spec.kind === 'document-draft'
+      ? buildVerificationContext({
+          missionId: mission.id,
+          taskId: row.taskId,
+          taskKind: spec.kind,
+          criteria: spec.verification,
+          sources: handedOffRefs,
+        })
+      : undefined
+
   const outcome =
     spec.kind === 'code-build' || spec.kind === 'document-draft'
-      ? await delegateCoding(mission, objective, spec.params.projectName)
+      ? await delegateCoding(mission, objective, spec.params.projectName, verificationContext)
       : await delegateMedia(mission, spec.kind, spec.params)
 
   if (!outcome.ok || !outcome.jobId) {
@@ -524,8 +586,15 @@ async function refreshDelegatedTask(mission: MissionRow, row: TaskRow, spec: Mis
 
   if (job.status === 'completed') {
     const payload = parsePayload<CodingJobPayload>(job.resultJson)
-    const handedOff = (await researchPackFor(mission, parseDeps(row.dependsOnJson))).sources.length
-    const outcome = verifyTaskOutput(spec.kind, spec.verification, payload, { handedOffSources: handedOff })
+    const deps = parseDeps(row.dependsOnJson)
+    const handedOffPack = await researchPackFor(mission, deps)
+    const handedOff = handedOffPack.sources.length
+    // M41.7: the mission-aware verification context — the EXACT handed-off
+    // source list plus the ACTUAL persisted workspace snapshot, loaded
+    // project-scoped from the specialist job's own project.
+    const sourceRefs = handedOff > 0 ? handoffSourceRefs(handedOffPack.sources) : []
+    const persisted = await loadPersistedDeliverable(spec, payload)
+    const outcome = verifyTaskOutput(spec.kind, spec.verification, payload, { handedOffSources: handedOff, sourceRefs, persisted })
     if (outcome.status === 'verified') {
       await transitionTask(mission.id, row.taskId, 'running', 'done', {
         executionJson: clip(job.resultJson ?? '{}', 6000),
@@ -540,12 +609,22 @@ async function refreshDelegatedTask(mission: MissionRow, row: TaskRow, spec: Mis
     if (outcome.status === 'needs_correction' && row.corrections < limits.maxCorrections) {
       // Bounded correction round: resubmit with the concrete failure digest.
       const blocks = [correctionHandoff(outcome.reasons)]
-      const { artifacts, sources } = await researchPackFor(mission, parseDeps(row.dependsOnJson))
+      const { artifacts, sources } = await researchPackFor(mission, deps)
       if (sources.length > 0) blocks.push(researchPackHandoff(artifacts, sources))
       const corrected = enrichObjective(spec.objective, blocks)
+      const verificationContext =
+        spec.kind === 'code-build' || spec.kind === 'document-draft'
+          ? buildVerificationContext({
+              missionId: mission.id,
+              taskId: row.taskId,
+              taskKind: spec.kind,
+              criteria: spec.verification,
+              sources: handoffSourceRefs(sources),
+            })
+          : undefined
       const resubmission =
         spec.kind === 'code-build' || spec.kind === 'document-draft'
-          ? await delegateCoding(mission, corrected, spec.params.projectName)
+          ? await delegateCoding(mission, corrected, spec.params.projectName, verificationContext)
           : await delegateMedia(mission, spec.kind, spec.params)
       if (resubmission.ok && resubmission.jobId) {
         await updateRunningTask(mission.id, row.taskId, {

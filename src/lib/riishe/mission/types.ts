@@ -117,6 +117,12 @@ export const KIND_AUTH_SCOPE: Record<MissionTaskKind, MissionAuthScope> = {
 // decide from the REAL execution payloads, never from model claims.
 // ---------------------------------------------------------------------------
 
+/** M41.7: what KIND of deliverable a coding task produces — decides which
+ *  persisted-deliverable verifier inspects the real files. Absent on legacy
+ *  rows (parsed as the kind-derived default: document-draft → document,
+ *  code-build → code). */
+export type MissionDeliverableKind = 'document' | 'website' | 'code'
+
 export interface VerificationCriteria {
   /** Specialist job self-verification must report success (coding jobs). */
   requireSelfVerification?: boolean
@@ -134,6 +140,17 @@ export interface VerificationCriteria {
   requireSourceCitation?: boolean
   /** The named deliverable file path (document/code deliverables). */
   deliverablePath?: string
+  /** M41.7: the deliverable category — dispatches the persisted-file
+   *  verifier ('website' gains the static-structure audit, 'document' the
+   *  document + citation audit). Derived from the task kind when absent. */
+  deliverableKind?: MissionDeliverableKind
+  /** M41.7: project files that MUST exist in the persisted workspace
+   *  (website entry points). Bounded set; validated paths. */
+  requiredPaths?: string[]
+  /** M41.7: section headings that MUST appear in a document deliverable
+   *  (e.g. 'Sources' when citations are required). Matched case-insensitively
+   *  as markdown headings. */
+  requiredSections?: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -379,8 +396,49 @@ export function buildTaskSpec(input: {
     expectedOutput,
     dependsOn,
     authScope: KIND_AUTH_SCOPE[input.kind],
-    verification: input.verification ?? {},
+    verification: normalizeVerificationCriteria(input.kind, input.verification ?? {}),
     limits: normalizeLimits(input.limits),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// M41.7 — verification-criteria normalization. Bounded, path-safe, and the
+// deliverable kind can never contradict the task kind (a document-draft task
+// can never become a 'website' and vice versa). The verifier trusts ONLY
+// criteria that passed through here.
+// ---------------------------------------------------------------------------
+
+const CRITERIA_PATH_RE = /^[\w][\w.\-/ ]{0,198}\.[a-zA-Z0-9]{1,8}$/
+
+function normalizeVerificationCriteria(kind: MissionTaskKind, criteria: VerificationCriteria): VerificationCriteria {
+  const kindDefault: MissionDeliverableKind = kind === 'document-draft' ? 'document' : 'code'
+  const requested = criteria.deliverableKind ?? kindDefault
+  // A code-build may be a website OR plain code; a document-draft is always
+  // a document. Anything else is a contract error, never silently accepted.
+  const deliverableKind: MissionDeliverableKind =
+    kind === 'document-draft'
+      ? requested === 'document' ? 'document' : (() => { throw new MissionContractError('A document-draft task cannot declare a non-document deliverable kind.') })()
+      : requested === 'website' || requested === 'code' ? requested : (() => { throw new MissionContractError('A code-build task cannot declare a document deliverable kind.') })()
+  const cleanPaths = (list: string[] | undefined, max: number): string[] | undefined => {
+    if (!list || list.length === 0) return undefined
+    const bounded = list.slice(0, max)
+    for (const p of bounded) {
+      if (!CRITERIA_PATH_RE.test(p) || p.includes('..')) {
+        throw new MissionContractError(`Verification path "${p.slice(0, 60)}" is not a safe project-relative file path.`)
+      }
+    }
+    return bounded
+  }
+  const cleanSections = (list: string[] | undefined): string[] | undefined => {
+    if (!list || list.length === 0) return undefined
+    const bounded = list.slice(0, 6).map((s) => s.trim()).filter((s) => s.length > 0 && s.length <= 80)
+    return bounded.length > 0 ? bounded : undefined
+  }
+  return {
+    ...criteria,
+    deliverableKind,
+    ...(deliverableKind === 'website' ? { requiredPaths: cleanPaths(criteria.requiredPaths, 6) ?? ['index.html'] } : {}),
+    ...(deliverableKind === 'document' ? { requiredSections: cleanSections(criteria.requiredSections) } : {}),
   }
 }
 

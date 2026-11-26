@@ -42,6 +42,9 @@ interface FakeJob {
 const missions = new Map<string, FakeMission>()
 const tasks = new Map<string, FakeTask>()
 const jobs = new Map<string, FakeJob>()
+/** M41.7: the persisted project workspace fake — the executor's
+ *  persisted-deliverable audit loads these through the codeFile boundary. */
+const projectFiles = new Map<string, Array<{ path: string; content: string }>>()
 const trustTasks = new Map<string, { id: string; userId: string; product: string; kind: string; title: string; status: string; outcomeSummary: string | null; verificationSummary: string | null; failureNote: string | null }>()
 const trustSteps: Array<{ taskId: string; seq: number; kind: string; title: string; status: string }> = []
 const trustEvidence: Array<{ taskId: string; kind: string; ref: string; note: string | null }> = []
@@ -192,8 +195,13 @@ function fakeDb(): Record<string, unknown> {
     },
     count: async () => trustEvidence.length,
   }
+  const codeFileApi = {
+    findMany: async ({ where }: { where: { projectId: string } }) =>
+      (projectFiles.get(where.projectId) ?? []).map((f) => ({ ...f })),
+  }
   return {
     agentMission: missionApi, agentMissionTask: taskApi, generationJob: jobApi,
+    codeFile: codeFileApi,
     trustTask: trustApi, trustStep: stepApi, trustEvidence: evidenceApi,
     trustApproval: { count: async () => 0, findUnique: async () => null, updateMany: async () => ({ count: 0 }) },
     trustCheckpoint: { count: async () => 0, findFirst: async () => null, create: async ({ data }: { data: Record<string, unknown> }) => data, updateMany: async () => ({ count: 0 }) },
@@ -381,12 +389,58 @@ async function driveToSettlement(missionId: string, service: (task: FakeTask, j:
 
 beforeEach(() => {
   missions.clear(); tasks.clear(); jobs.clear()
+  projectFiles.clear()
   trustTasks.clear(); trustSteps.length = 0; trustEvidence.length = 0
   delegated.length = 0
   codingSubmission = { ok: true, jobId: null, reason: null }
   mediaSubmission = { ok: true, jobId: null, reason: null }
   searchOverride.fn = null
 })
+
+// ---- M41.7 persisted-workspace fixtures --------------------------------------
+/** Persist the workspace the way the REAL coding turn would have (the
+ *  delegation always lands in project 'proj-x' in this fake). */
+function persistProjectFiles(files: Array<{ path: string; content: string }>): void {
+  projectFiles.set('proj-x', files)
+}
+
+/** A grounded report that satisfies the M41.7 document contract against
+ *  THREE_SOURCES: substantive, structured, Sources section, numbered
+ *  markers and URLs that all correspond to the handed-off research. */
+const GROUNDED_REPORT = `# Remote Work and Productivity: What the Research Shows
+
+## Introduction
+This report summarizes the handed-off research on remote work and productivity, citing each finding to its source [1][2][3].
+
+## Findings
+Study A measured that remote work raised output [1]. Study B found hybrid teams thrive [2]. Study C confirmed the output gains hold over time [3].
+
+## Conclusion
+Across the three handed-off studies, remote and hybrid arrangements show durable productivity gains; no claim beyond the cited sources is made.
+
+## Sources
+[1] Study A — https://a.example/1
+[2] Study B — https://b.example/2
+[3] Study C — https://c.example/3
+`
+
+/** A static website fixture satisfying the M41.7 website contract: entry
+ *  page with substantive content, internal references that resolve. */
+const WEBSITE_FIXTURE = [
+  {
+    path: 'index.html',
+    content:
+      '<!doctype html>\n<html><head><title>Portfolio</title>\n<link rel="stylesheet" href="style.css"></head>\n<body><h1>Portfolio</h1>\n<main><p>A real landing page with substantive content: an intro, a gallery of work, and a contact section. ' +
+      'The layout uses a responsive grid, semantic sections and accessible labels. Every internal reference points at a real project file, ' +
+      'so the static audit resolves the stylesheet and the about page without missing assets or broken links.</p>\n<a href="about.html">About</a></main></body></html>\n',
+  },
+  {
+    path: 'about.html',
+    content:
+      '<!doctype html>\n<html><head><title>About</title><link rel="stylesheet" href="style.css"></head>\n<body><h1>About</h1><p>Biography and services with real substance — enough content to be a real page rather than a stub placeholder.</p></body></html>\n',
+  },
+  { path: 'style.css', content: 'body{font-family:sans-serif;margin:0}main{max-width:60rem}\n' },
+]
 
 // ---------------------------------------------------------------------------
 // Store: submission, CAS, isolation, customer-safe view
@@ -466,6 +520,7 @@ describe('mission executor', () => {
     const plan = planMission(objective)
     if (!plan.ok) throw new Error('plan failed')
     const sub = await createMissionFromPlan('user-1', objective, plan)
+    persistProjectFiles([{ path: 'report.md', content: GROUNDED_REPORT }])
     await driveToSettlement(sub.missionId, (task, j) => {
       if (task.kind === 'document-draft') completeSpecialistJob(j.id, codingPayload([{ path: 'report.md', change: 'created' }]))
     })
@@ -515,6 +570,7 @@ describe('mission executor', () => {
     const plan = planMission(objective)
     if (!plan.ok) throw new Error('plan failed')
     const sub = await createMissionFromPlan('user-1', objective, plan)
+    persistProjectFiles(WEBSITE_FIXTURE)
     await driveToSettlement(sub.missionId, (task, j) => {
       if (task.kind === 'image-asset') {
         j.status = 'failed'
@@ -539,6 +595,7 @@ describe('mission executor', () => {
     const plan = planMission(objective)
     if (!plan.ok) throw new Error('plan failed')
     const sub = await createMissionFromPlan('user-1', objective, plan)
+    persistProjectFiles([{ path: 'report.md', content: GROUNDED_REPORT }])
     await driveToSettlement(sub.missionId, (task, j) => {
       if (task.kind === 'document-draft') completeSpecialistJob(j.id, codingPayload([{ path: 'report.md', change: 'created' }]))
     })
@@ -591,6 +648,7 @@ describe('mission executor', () => {
     img.verificationResultJson = JSON.stringify({ status: 'verified', reasons: [], artifacts: [{ artifact: 'image-asset', taskId: 'asset-image', ref: 'a1', label: 'poster' }] })
     img.artifactJson = JSON.stringify([{ artifact: 'image-asset', taskId: 'asset-image', ref: 'a1', label: 'poster' }])
     mission.status = 'running'
+    persistProjectFiles(WEBSITE_FIXTURE)
     await driveToSettlement(sub.missionId, (task, j) => {
       if (task.kind === 'code-build') completeSpecialistJob(j.id, codingPayload([{ path: 'index.html', change: 'created' }]))
     })
@@ -614,6 +672,7 @@ describe('mission executor', () => {
     if (!plan.ok) throw new Error('plan failed')
     const sub = await createMissionFromPlan('user-1', objective, plan)
     let firstAttempt = true
+    persistProjectFiles(WEBSITE_FIXTURE)
     await driveToSettlement(sub.missionId, (task, j) => {
       if (task.kind !== 'code-build') return
       if (firstAttempt) {
