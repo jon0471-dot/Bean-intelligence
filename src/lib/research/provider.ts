@@ -124,8 +124,16 @@ function withTimeout<T>(promise: Promise<T>, ms: number, tool: 'web_search' | 'p
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new ResearchToolError(tool, `${tool} timed out after ${ms}ms`)), ms)
   })
+  // The race loser must never become an unhandled rejection (measured live:
+  // a late gateway 504 that lost the race crashed the whole process AFTER
+  // the caller had already recorded its results). The sink only marks the
+  // promise handled — the race still sees and surfaces the real rejection
+  // whenever the tool promise settles first.
+  void promise.catch(() => {})
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
+
+export { withTimeout }
 
 /**
  * CHAT-RECOVERY (2026-11-10): record every REAL functions-class attempt

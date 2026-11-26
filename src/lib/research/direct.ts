@@ -510,8 +510,13 @@ async function withBudget<T>(p: Promise<T>, ms: number): Promise<T> {
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new ResearchToolError('direct_fetch', `independent retrieval timed out after ${ms}ms budget`)), ms)
   })
+  // Race-loser sink: a late rejection after the timeout won must never
+  // become an unhandled rejection (see provider.withTimeout — measured).
+  void p.catch(() => {})
   return Promise.race([p, timeout]).finally(() => clearTimeout(timer))
 }
+
+export { withBudget }
 
 function safeHost(url: string): string {
   try {

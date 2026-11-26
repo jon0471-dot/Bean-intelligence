@@ -1,0 +1,169 @@
+{
+  "at": "2026-11-26T16:46:39.730Z",
+  "rows": [
+    {
+      "consumer": "riishe",
+      "kind": "task-relevant",
+      "objective": "Research the current state of the European EV charging market with sources",
+      "classification": "PASS",
+      "evidenceCount": 4,
+      "hosts": [
+        "www.iea.org",
+        "www.gminsights.com",
+        "www.accuracy.com",
+        "www.facebook.com"
+      ],
+      "datedSources": [
+        "[S1](Thu, 26 No)"
+      ],
+      "reason": null,
+      "ms": 3382
+    },
+    {
+      "consumer": "code-giftz",
+      "kind": "task-relevant",
+      "objective": "upgrade our project to the latest zod npm package version — check the official documentation and compatibility notes",
+      "classification": "PASS",
+      "evidenceCount": 5,
+      "hosts": [
+        "www.npmjs.com",
+        "github.com",
+        "stackoverflow.com",
+        "zod.dev",
+        "news.ycombinator.com"
+      ],
+      "datedSources": [
+        "[S1](2026-10-12)",
+        "[S2](Jun 9, 202)",
+        "[S5](May 19, 20)"
+      ],
+      "reason": null,
+      "ms": 6683
+    },
+    {
+      "consumer": "laxii",
+      "kind": "task-relevant",
+      "objective": "photorealistic kingfisher illustration — real anatomy and plumage references",
+      "classification": "PASS",
+      "evidenceCount": 3,
+      "hosts": [
+        "www.facebook.com",
+        "evolution.earthathome.org"
+      ],
+      "datedSources": [
+        "[S2](May 14, 20)"
+      ],
+      "reason": null,
+      "ms": 12602
+    },
+    {
+      "consumer": "jazmii",
+      "kind": "task-relevant",
+      "objective": "documentary about kingfishers — real diving behavior and habitat references",
+      "classification": "PASS",
+      "evidenceCount": 5,
+      "hosts": [
+        "www.allaboutbirds.org",
+        "www.facebook.com",
+        "www.sciencenews.org",
+        "www.nationalgeographic.com"
+      ],
+      "datedSources": [
+        "[S3](Nov 6, 202)",
+        "[S5](Mar 16, 20)"
+      ],
+      "reason": null,
+      "ms": 2018
+    },
+    {
+      "consumer": "gangzii",
+      "kind": "task-relevant",
+      "objective": "pronunciation references for the Icelandic place name Þingvellir — authoritative phonetic sources",
+      "classification": "PASS",
+      "evidenceCount": 5,
+      "hosts": [
+        "guidetoiceland.is",
+        "www.facebook.com",
+        "bustravel.is",
+        "www.google.com"
+      ],
+      "datedSources": [
+        "[S1](2026-04-23)",
+        "[S3](May 23, 20)"
+      ],
+      "reason": null,
+      "ms": 8246
+    },
+    {
+      "consumer": "knowledge",
+      "kind": "task-relevant",
+      "objective": "assemble sources on the global semiconductor supply chain with publication dates",
+      "classification": "PASS",
+      "evidenceCount": 5,
+      "hosts": [
+        "cset.georgetown.edu",
+        "www.semiconductors.org",
+        "www.tandfonline.com",
+        "www.rabobank.com",
+        "www.csis.org"
+      ],
+      "datedSources": [
+        "[S4](Jun 14, 20)",
+        "[S5](May 30, 20)"
+      ],
+      "reason": null,
+      "ms": 12355
+    },
+    {
+      "consumer": "quality",
+      "kind": "task-relevant",
+      "objective": "fact-check: which Node.js release line currently holds Active LTS status — official sources only",
+      "classification": "PASS",
+      "evidenceCount": 5,
+      "hosts": [
+        "nodejs.org",
+        "www.herodevs.com",
+        "tuxcare.com",
+        "hidekazu-konishi.com",
+        "endoflife.date"
+      ],
+      "datedSources": [
+        "[S1](2026-10-29)",
+        "[S2](Jun 23, 20)",
+        "[S3](Jul 31, 20)",
+        "[S4](Jul 26, 20)",
+        "[S5](Nov 12, 20)"
+      ],
+      "reason": null,
+      "ms": 11233
+    },
+    {
+      "consumer": "riishe",
+      "kind": "fiction-exclusion",
+      "objective": "write a fantasy story about an imaginary glass cloud city",
+      "classification": "PASS",
+      "evidenceCount": 0,
+      "hosts": [],
+      "datedSources": [],
+      "reason": "the deterministic trigger refused the fiction/transform objective — no network call was made",
+      "ms": 1
+    },
+    {
+      "consumer": "riishe",
+      "kind": "fiction-exclusion",
+      "objective": "reformat my meeting notes into bullet points",
+      "classification": "PASS",
+      "evidenceCount": 0,
+      "hosts": [],
+      "datedSources": [],
+      "reason": "the deterministic trigger refused the fiction/transform objective — no network call was made",
+      "ms": 0
+    }
+  ],
+  "summary": {
+    "pass": 9,
+    "honestUnavailable": 0,
+    "fail": 0,
+    "total": 9
+  }
+}

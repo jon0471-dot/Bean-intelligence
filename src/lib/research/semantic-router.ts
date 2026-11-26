@@ -88,11 +88,16 @@ export async function semanticFreshnessCheck(
 
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
+    const routingCall = transport([
+      { role: 'assistant', content: ROUTER_SYSTEM },
+      { role: 'user', content: trimmed.slice(0, 2000) },
+    ])
+    // Race-loser sink: when the timer wins, a late transport rejection must
+    // never surface as an unhandled rejection (see provider.withTimeout —
+    // measured: the loser once crashed the process after results recorded).
+    void routingCall.catch(() => {})
     const classified = await Promise.race([
-      transport([
-        { role: 'assistant', content: ROUTER_SYSTEM },
-        { role: 'user', content: trimmed.slice(0, 2000) },
-      ]),
+      routingCall,
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error('semantic routing timeout')), timeoutMs)
       }),
