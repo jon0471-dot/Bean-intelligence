@@ -31,6 +31,7 @@ import { submitCodingDelegation } from '@/lib/riishe/code-delegation'
 import { submitSpecialistJob } from '@/lib/riishe/specialists'
 import { webSearchTool, readUrlTool } from '@/lib/riishe/tools/builtin'
 import { buildVerificationContext, handoffSourceRefs, type MissionVerificationContext, type MissionSourceRef } from './verify-context'
+import { runSpecialistResearch, renderEvidenceBlock, shouldPreflightResearch, type SpecialistConsumer } from '@/lib/research/agent-evidence'
 import type { PersistedDeliverableEvidence } from './verifiers'
 import { searchAtlasTool } from '@/lib/riishe/tools/atlas'
 import type { ToolContext, ToolSource } from '@/lib/riishe/tools/types'
@@ -358,18 +359,67 @@ async function loadPersistedDeliverable(
   }
 }
 
+/** M42: the specialist consumer behind each delegated media task kind. */
+function mediaConsumer(kind: MissionTaskKind): SpecialistConsumer {
+  if (kind === 'image-asset') return 'laxii'
+  if (kind === 'video-asset') return 'jazmii'
+  return 'gangzii'
+}
+
+/**
+ * M42 — mission preflight research: when a media task's objective materially
+ * needs real-world references, the executor runs the SHARED specialist
+ * research contract (mission-scoped budget) and hands the bounded,
+ * provenance-preserving reference block to the specialist job. The block
+ * rides in the job params (persisted → resume-safe) and is framed as
+ * UNTRUSTED REFERENCE DATA by the shared renderer. An empty/failed pack
+ * changes nothing — references are additive, never a fake source.
+ */
+async function preflightMediaReferences(
+  mission: MissionRow,
+  row: TaskRow,
+  kind: MissionTaskKind,
+  spec: MissionTaskSpec,
+): Promise<string> {
+  const objective = paramsText(spec)
+  if (!shouldPreflightResearch(objective, mediaConsumer(kind))) return ''
+  try {
+    const pack = await runSpecialistResearch({
+      consumer: mediaConsumer(kind),
+      objective,
+      userId: mission.userId,
+      missionId: mission.id,
+      taskId: row.taskId,
+      purpose: kind === 'image-asset' ? 'visual-reference' : kind === 'video-asset' ? 'video-reference' : 'audio-reference',
+      freshness: 'stable',
+      missionScoped: true,
+    })
+    if (pack.evidence.length === 0) return ''
+    return renderEvidenceBlock(pack)
+  } catch {
+    return '' // additive evidence — a failed preflight never blocks the task
+  }
+}
+
+function paramsText(spec: MissionTaskSpec): string {
+  const p = spec.params.prompt ?? spec.params.text ?? ''
+  return `${spec.objective}${p ? ` — ${p}` : ''}`.slice(0, 2000)
+}
+
 async function delegateMedia(
   mission: MissionRow,
   kind: MissionTaskKind,
   params: Record<string, string>,
+  researchContext?: string,
 ): Promise<DelegationOutcome> {
   try {
     if (kind === 'image-asset') {
+      const prompt = params.prompt ?? params.objective ?? 'mission visual asset'
       const submission = await submitSpecialistJob(mission.userId, {
         product: 'laxii',
         task: 'image-generation',
-        params: { prompt: params.prompt ?? params.objective ?? 'mission visual asset', size: '1024x1024' },
-        dedupe: { prompt: params.prompt ?? params.objective ?? 'mission visual asset', size: '1024x1024' } as Record<string, unknown>,
+        params: { prompt, size: '1024x1024', ...(researchContext ? { researchContext } : {}) },
+        dedupe: { prompt, size: '1024x1024' } as Record<string, unknown>,
       })
       return { ok: submission.ok, jobId: submission.jobId, reason: submission.reason }
     }
@@ -378,17 +428,18 @@ async function delegateMedia(
       const submission = await submitSpecialistJob(mission.userId, {
         product: 'jazmii',
         task: 'video-generation',
-        params: { prompt },
+        params: { prompt, ...(researchContext ? { researchContext } : {}) },
         dedupe: { prompt, imageUrl: null, quality: null, withAudio: null, size: null, durationSec: null, fps: null },
       })
       return { ok: submission.ok, jobId: submission.jobId, reason: submission.reason }
     }
-    // audio-asset
+    // audio-asset: the synthesis TEXT is never altered by references — the
+    // provenance block rides on the job for receipt/audit honesty only.
     const text = params.text ?? ''
     const submission = await submitSpecialistJob(mission.userId, {
       product: 'gangzii',
       task: 'speech-synthesis',
-      params: { text, speed: 1.0, source: 'studio' },
+      params: { text, speed: 1.0, source: 'studio', ...(researchContext ? { researchContext } : {}) },
       dedupe: { text, speed: 1.0, source: 'studio' },
     })
     return { ok: submission.ok, jobId: submission.jobId, reason: submission.reason }
@@ -539,10 +590,17 @@ async function startTask(mission: MissionRow, row: TaskRow, spec: MissionTaskSpe
         })
       : undefined
 
+  // M42: media specialists receive a bounded, verified reference block
+  // through the shared research contract (provenance-preserving, additive).
+  const researchContext =
+    spec.kind === 'image-asset' || spec.kind === 'video-asset' || spec.kind === 'audio-asset'
+      ? await preflightMediaReferences(mission, row, spec.kind, spec)
+      : undefined
+
   const outcome =
     spec.kind === 'code-build' || spec.kind === 'document-draft'
       ? await delegateCoding(mission, objective, spec.params.projectName, verificationContext)
-      : await delegateMedia(mission, spec.kind, spec.params)
+      : await delegateMedia(mission, spec.kind, spec.params, researchContext)
 
   if (!outcome.ok || !outcome.jobId) {
     const note = `submission refused: ${outcome.reason ?? 'the specialist declined the request'}`
@@ -623,10 +681,14 @@ async function refreshDelegatedTask(mission: MissionRow, row: TaskRow, spec: Mis
               sources: handoffSourceRefs(sources),
             })
           : undefined
+      const mediaContext =
+        spec.kind === 'image-asset' || spec.kind === 'video-asset' || spec.kind === 'audio-asset'
+          ? await preflightMediaReferences(mission, row, spec.kind, spec)
+          : undefined
       const resubmission =
         spec.kind === 'code-build' || spec.kind === 'document-draft'
           ? await delegateCoding(mission, corrected, spec.params.projectName, verificationContext)
-          : await delegateMedia(mission, spec.kind, spec.params)
+          : await delegateMedia(mission, spec.kind, spec.params, mediaContext)
       if (resubmission.ok && resubmission.jobId) {
         await updateRunningTask(mission.id, row.taskId, {
           attempts: row.attempts + 1,
@@ -656,10 +718,14 @@ async function refreshDelegatedTask(mission: MissionRow, row: TaskRow, spec: Mis
     const note = job.errorMessage?.trim() || job.errorCode || 'specialist job failed'
     const transient = job.errorClass ? TRANSIENT_CLASSES.has(job.errorClass) : false
     if (transient && row.attempts < limits.maxAttempts) {
+      const mediaRetryContext =
+        spec.kind === 'image-asset' || spec.kind === 'video-asset' || spec.kind === 'audio-asset'
+          ? await preflightMediaReferences(mission, row, spec.kind, spec)
+          : undefined
       const resubmission =
         spec.kind === 'code-build' || spec.kind === 'document-draft'
           ? await delegateCoding(mission, spec.objective, spec.params.projectName)
-          : await delegateMedia(mission, spec.kind, spec.params)
+          : await delegateMedia(mission, spec.kind, spec.params, mediaRetryContext)
       if (resubmission.ok && resubmission.jobId) {
         await updateRunningTask(mission.id, row.taskId, {
           attempts: row.attempts + 1,

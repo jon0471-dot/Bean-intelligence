@@ -159,11 +159,20 @@ interface TtsParams {
   speed: number
   source?: string
   narrationSegmentId?: string
+  /** M42 ADDITIVE (mission preflight): provenance-preserving reference block
+   *  recorded on the job receipt for audit honesty. The synthesis TEXT is
+   *  NEVER altered by references — spoken content stays exactly as provided. */
+  researchContext?: string
 }
 
 async function processSpeechSynthesis(job: ClaimedJob, signal: { aborted: boolean }): Promise<HandlerOutcome> {
   const params = JSON.parse(job.paramsJson) as TtsParams
   const requestPreview = `TTS request: voice=${params.voice}, speed=${params.speed}, ${params.text.length} chars: "${params.text.slice(0, 180)}"`
+  // M42: reference provenance is RECORDED, never spoken — count + note only.
+  const missionReferences =
+    typeof params.researchContext === 'string' && params.researchContext.trim().length > 0
+      ? params.researchContext.trim().slice(0, 2600)
+      : null
 
   // Engine selection is determined by the requested VOICE — the catalogs are
   // disjoint, so the choice is deterministic and never silently swapped:
@@ -262,6 +271,8 @@ async function processSpeechSynthesis(job: ClaimedJob, signal: { aborted: boolea
       durationSec: stream?.durationSec ?? result.durationSec,
       bytes,
       format: 'wav',
+      // M42: honest reference provenance (the synthesis text is untouched).
+      ...(missionReferences ? { missionReferencesChars: missionReferences.length } : {}),
       sampleRateHz: stream?.sampleRateHz ?? 24_000,
       channels: stream?.channels ?? 1,
       channelLayout: (stream?.channels ?? 1) === 1 ? 'mono' : 'stereo',
