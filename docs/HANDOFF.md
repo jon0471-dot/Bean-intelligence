@@ -1,9 +1,16 @@
 # BEAN Intelligence — Project Handoff (Session Continuity Document)
 
-> Maintained for future Z.ai development sessions. Last updated: 2026-11-12 (UTC+8).
+> Maintained for future Z.ai development sessions. Last updated: 2026-11-27 (UTC+8).
 > This document contains environment variable NAMES only — never secret values.
 
-## 0. Permanent GitHub Sync & Update Policy (standing, every session)
+## 0. CURRENT STATE (2026-11-27 — supersedes the snapshot in §1 for sync purposes)
+
+- **origin/main** = `cc21b80` (PR #31, M41.7 complete: mission-aware file-fenced deliverable verification + docs + historical evidence reconciliation). M41 phases are all merged (PRs #24/#26/#27/#28/#29/#30/#31).
+- **Open working branch:** `feat/m42-universal-web-research-access` — universal web research & reference access for every BEAN specialist. M42.1 merged to main via PR #30 (`bfdd034`); the branch tip carries M42.2 (mission integration, `dbac26a`), M42.3 (scholarly/registry adapters + the `541be5d` runtime-guard fix), M42.3b (OSV/StackExchange/HackerNews adapters, `6409257`), M42.5 (race-loser sinks + live 7-consumer acceptance, `a75b62b`) and the M42 documentation set (operating manual, source-platform coverage with decision records, agent reference contract, security/copyright/privacy, implementation report). Every pushed SHA was fetched back and independently verified. **NO M42 PR beyond #30 has been merged — merging to main requires separate owner authorization.**
+- Standing M42 rules: one shared research gateway + one evidence contract (`src/lib/research/agent-evidence.ts`); no per-product scrapers; honest registry states (`available / requires_configuration / requires_login / experimental / unavailable / disabled / not_integrated`); "supports all websites" is never claimed; do not enable paid/restricted platforms without owner approval.
+- Worklog entry `0-M42` (worklog.md) carries the full milestone trail with live-evidence summaries.
+
+## 0.1 Permanent GitHub Sync & Update Policy (standing, every session)
 
 **Official repository (confirmed by owner 2026-11-12):** `https://github.com/jon0471-dot/Bean-intelligence.git` — owner `jon0471-dot`, name `Bean-intelligence`, branch `main`. Never switch repositories, never push to similarly-named repos, never create replacements without explicit owner approval.
 
