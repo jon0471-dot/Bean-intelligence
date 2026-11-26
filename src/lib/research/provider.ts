@@ -39,6 +39,10 @@ export interface WebSearchResult {
   rank: number
   /** Provider-supplied date string, when present (format varies). */
   date: string | null
+  /** M42 ADDITIVE (universal reference access): author when a lane supplies
+   *  one (Agent Reach items carry it) — null/absent from the plain gateway
+   *  search lane. Preserved for citation provenance; never invented. */
+  author?: string | null
 }
 
 export interface WebSearchOptions {

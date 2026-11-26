@@ -37,6 +37,8 @@ export interface RankedSource {
   social: boolean
   /** Coarse source class used for ranking and UI labeling. */
   sourceType: SourceType
+  /** M42 ADDITIVE: author when the supplying lane declared one (never invented). */
+  author?: string | null
   score: number
 }
 
@@ -379,6 +381,7 @@ export function rankSources(query: string, results: WebSearchResult[], opts: Ran
       official: isOfficialHost(r.hostName),
       social: isSocialHost(r.hostName),
       sourceType: classifyHost(r.hostName).sourceType,
+      ...(r.author ? { author: r.author.slice(0, 200) } : {}),
       score,
     } satisfies RankedSource
   })
