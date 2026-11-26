@@ -70,6 +70,18 @@ function fakeDb(): Record<string, unknown> {
       if (!m) return null
       return { ...m, tasks: orderedTasks([...tasks.values()].filter((t) => t.missionId === m.id)) }
     },
+    findMany: async ({ where, select }: { where: { status?: { in?: string[] } }; select?: string[] }) => {
+      const rows = [...missions.values()].filter((m) => (where.status?.in ? where.status.in.includes(m.status) : true))
+      return rows.map((m) => {
+        const full = { ...m, tasks: orderedTasks([...tasks.values()].filter((t) => t.missionId === m.id)) }
+        if (select && select.length > 0) {
+          const picked: Record<string, unknown> = {}
+          for (const k of select) picked[k] = (full as Record<string, unknown>)[k]
+          return picked
+        }
+        return full
+      })
+    },
     findFirst: async ({ where }: { where: { userId: string; objective: string; status?: { in?: string[] } } }) => {
       for (const m of missions.values()) {
         if (m.userId !== where.userId || m.objective !== where.objective) continue
@@ -317,7 +329,7 @@ mock.module('@/lib/ai-engine/events', () => ({
   pruneOldJobEvents: async () => undefined,
 }))
 
-const { runMissionJob } = await import('../../src/lib/riishe/mission/executor')
+const { runMissionJob, settleOrphanedRunningMissions } = await import('../../src/lib/riishe/mission/executor')
 const { createMissionFromPlan, requestMissionCancel, getMissionById, toProgressView } = await import('../../src/lib/riishe/mission/store')
 import { planMission } from '../../src/lib/riishe/mission/planner'
 import type { ClaimedJob } from '../../src/lib/ai-engine/types'
@@ -724,5 +736,39 @@ describe('mission executor', () => {
     expect(delegated.filter((d) => d.kind === 'jazmii').length).toBe(1)
     const audio = delegated.find((d) => d.kind === 'gangzii')
     expect(JSON.stringify(audio!.params)).toContain('Trailheads open at sunrise')
+  })
+
+  test40('M41.7 orphan sweeper: a RUNNING mission with a terminally-dead driver settles honestly', async () => {
+    const objective = 'Build a website for the orphan probe bakery with a menu'
+    const plan = planMission(objective)
+    if (!plan.ok) throw new Error('plan failed')
+    const sub = await createMissionFromPlan('user-1', objective, plan)
+    // Mutate the STORED row (getMissionById returns a copy).
+    ;(missions.get(sub.missionId))!.status = 'running'
+    // The driver job died terminally (the live harness scenario: repeated
+    // window kills burned its retry budget mid-run) while the build task is
+    // still 'running'.
+    const driver = [...jobs.values()].find((j) => j.task === 'mission-run')!
+    driver.status = 'failed'
+    driver.errorClass = 'worker_lost'
+    const build = [...tasks.values()].find((t) => t.missionId === sub.missionId && t.taskId === 'build')!
+    build.status = 'running'
+    const settled = await settleOrphanedRunningMissions()
+    expect(settled).toBeGreaterThanOrEqual(1)
+    const final = (await getMissionById(sub.missionId))!
+    expect(final.status).toBe('failed')
+    expect(final.failureNote).toContain('retry budget')
+    expect(build.status).toBe('failed')
+    const verify = [...tasks.values()].find((t) => t.missionId === sub.missionId && t.taskId === 'verify')!
+    expect(['cancelled', 'skipped']).toContain(verify.status)
+    // A LIVE mission (driver queued, not terminal) is never touched.
+    const objective2 = 'Build a website for the orphan probe second bakery with a gallery'
+    const plan2 = planMission(objective2)
+    if (!plan2.ok) throw new Error('plan2 failed')
+    const sub2 = await createMissionFromPlan('user-1', objective2, plan2)
+    ;(missions.get(sub2.missionId))!.status = 'running'
+    const before = (await getMissionById(sub2.missionId))!
+    await settleOrphanedRunningMissions()
+    expect((await getMissionById(sub2.missionId))!.status).toBe(before.status)
   })
 })

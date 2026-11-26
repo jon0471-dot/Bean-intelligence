@@ -310,15 +310,28 @@ export function startWorkerPool(
     logger.error('engine.pool_crashed', { product, message: e instanceof Error ? e.message : String(e) }),
   )
 
+  // M41.7: the riishe pool also sweeps orphaned missions — a mission whose
+  // DRIVER job died terminally mid-run (retry budget exhausted by repeated
+  // worker loss) would otherwise stay 'running' forever. Dynamic import: the
+  // mission executor statically pulls the queue module; a static import here
+  // would cycle at module-init time.
+  const sweepOrphanedMissions = (): void => {
+    if (product !== 'riishe') return
+    void import('@/lib/riishe/mission/executor')
+      .then((m) => m.settleOrphanedRunningMissions())
+      .catch(() => undefined)
+  }
   const maintenance = setInterval(() => {
     if (state.stopping) return
     void recoverStaleJobs().catch(() => undefined)
+    sweepOrphanedMissions()
     void pruneOldJobEvents(engineConfig().eventRetentionHours).catch(() => undefined)
   }, 60_000)
   state.idle.add(maintenance)
   // Immediate recovery on startup — jobs orphaned by a previous process
   // (crash/restart) are re-queued before the first poll.
   void recoverStaleJobs().catch(() => undefined)
+  sweepOrphanedMissions()
 
   const handle: PoolHandle = {
     product,
