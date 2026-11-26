@@ -23,6 +23,7 @@
  *    summary built from ACTUAL execution evidence.
  */
 import { db } from '@/lib/db'
+import { logger } from '@/lib/observability/logger'
 import { appendJobEventSafe } from '@/lib/ai-engine/events'
 import { finishCompleted, finishFailed, requestCancel } from '@/lib/ai-engine/queue'
 import type { ClaimedJob } from '@/lib/ai-engine/types'
@@ -942,6 +943,87 @@ export async function runMissionJob(claimed: ClaimedJob): Promise<void> {
     }).catch(() => undefined)
     throw e
   }
+}
+
+// ---------------------------------------------------------------------------
+// M41.7 durability closure — orphaned-mission settlement.
+//
+// A mission whose DRIVER job burned its retry budget mid-run (repeated
+// worker loss — the sandbox's server-window kills exposed this live) or ran
+// past its wall-clock deadline with a dead driver would otherwise stay
+// 'running' forever: no driver exists to reach the deadline settlement. The
+// pool's maintenance loop sweeps these orphans and settles them with the
+// SAME honest deadline semantics (active specialist jobs signalled to stop,
+// non-terminal tasks marked truthfully, mission failed with the real
+// reason, Trust task failed).
+// ---------------------------------------------------------------------------
+
+export async function settleOrphanedRunningMissions(): Promise<number> {
+  let settled = 0
+  let running: Array<{ id: string; jobId: string | null; startedAt: Date | null; trustTaskId: string | null }> = []
+  try {
+    const rows = await db.agentMission.findMany({
+      where: { status: 'running' },
+      select: { id: true, jobId: true, startedAt: true, trustTaskId: true },
+    })
+    running = rows as typeof running
+  } catch {
+    return 0
+  }
+  for (const m of running) {
+    if (!m.jobId) continue
+    let driver: { status: string } | null = null
+    try {
+      driver = await db.generationJob.findUnique({ where: { id: m.jobId }, select: { status: true } })
+    } catch {
+      continue
+    }
+    if (!driver || !['failed', 'cancelled'].includes(driver.status)) continue
+    // Terminal driver + running mission = orphan. Settle with deadline
+    // semantics. Every write is CAS-guarded; a concurrent settlement (or a
+    // late recovery) simply loses the race and the ledger keeps its truth.
+    try {
+      const current = await loadMission(m.id)
+      if (!current || current.status !== 'running') continue
+      for (const row of current.tasks) {
+        const status = row.status as MissionTaskStatus
+        if (['done', 'failed', 'skipped', 'cancelled'].includes(status)) continue
+        if (status === 'running' && row.specialistJobId) {
+          await requestCancel(row.specialistJobId, current.userId).catch(() => undefined)
+        }
+        try {
+          await transitionTask(m.id, row.taskId, status, status === 'running' ? 'failed' : 'cancelled', {
+            failureNote: 'The mission runner exhausted its retry budget after repeated worker loss; this task did not finish.',
+          })
+          await trustStep(row, status === 'running' ? 'failed' : 'skipped', current, 'mission runner orphaned')
+        } catch {
+          /* settled concurrently */
+        }
+      }
+      try {
+        await transitionMission(m.id, 'running', 'failed', {
+          failureNote: 'The mission runner exhausted its retry budget after repeated worker loss while the mission was in flight; remaining work was settled honestly.',
+        })
+      } catch {
+        /* settled concurrently */
+      }
+      try {
+        if (current.trustTaskId) {
+          await failTrustTask(current.trustTaskId, {
+            failureNote: 'The mission runner was orphaned (driver retry budget exhausted); the ledger settled the mission failed.',
+          })
+        }
+      } catch {
+        /* the Trust ledger is append-only and bounds-checked; the mission row
+           already carries the honest outcome */
+      }
+      settled += 1
+      logger.warn('mission.orphan_settled', { missionId: m.id })
+    } catch {
+      /* the sweep never executes work — a read failure skips this orphan */
+    }
+  }
+  return settled
 }
 
 /** Settle the mission row + Trust ledger from ACTUAL evidence. */
