@@ -158,6 +158,34 @@ function codeBuildTask(objective: string, deps: string[], opts: { debug?: boolea
   })
 }
 
+/** Website builds: the M41.7 mission-aware contract — the persisted project
+ *  files (not the assistant's delivery wrapper) are the audited deliverable.
+ *  Static websites are validated as static sites: an entry HTML file with
+ *  resolvable internal references; never a package.json demand. */
+function websiteBuildTask(objective: string, deps: string[]): MissionTaskSpec {
+  const projectName = extractProjectName(objective)
+  const instruction = `Architect and build the requested website${projectName ? ` (project name: "${projectName}")` : ''} as real, ` +
+    `working files in a new engineering project. Include an index.html entry page; internal links and assets must ` +
+    `reference real project files. Use a professional, coherent design; no generic template look. The site must ` +
+    `render correctly as static HTML/CSS/JS. Objective from the user: ${clip(objective, MISSION_LIMITS.taskObjectiveChars - 400)}`
+  return buildTaskSpec({
+    id: 'build',
+    kind: 'code-build',
+    title: 'Architect, build and verify the website',
+    objective: instruction,
+    params: projectName ? { projectName } : {},
+    expectedOutput: 'A completed coding job whose persisted project files include a working entry page with resolvable internal references and a passing self-verification.',
+    dependsOn: deps,
+    verification: {
+      requireSelfVerification: true,
+      minFileChanges: 1,
+      deliverableKind: 'website',
+      requiredPaths: ['index.html'],
+    },
+    limits: { executionTimeoutMs: 20 * 60_000, maxAttempts: 1, maxCorrections: 1 },
+  })
+}
+
 function documentDraftTask(objective: string, docPath: string, deps: string[]): MissionTaskSpec {
   return buildTaskSpec({
     id: 'document',
@@ -176,6 +204,10 @@ function documentDraftTask(objective: string, docPath: string, deps: string[]): 
       minFileChanges: 1,
       requireSourceCitation: deps.length > 0,
       deliverablePath: docPath,
+      deliverableKind: 'document',
+      // The deterministic document contract: a grounded report names its
+      // sources in a Sources section (only when sources were handed off).
+      ...(deps.length > 0 ? { requiredSections: ['Sources'] } : {}),
     },
     // Two bounded attempts: every attempt still passes the REAL hosted
     // verifier; the budget only buys generation variance (measured live
@@ -299,7 +331,7 @@ export function planMission(objective: string): MissionPlanResult {
       tasks.push(imageAssetTask(imageClause))
       detected.push('visual asset requested: the LAXII specialist prepares it before the build')
     }
-    tasks.push(codeBuildTask(text, imageClause ? ['asset-image'] : []))
+    tasks.push(websiteBuildTask(text, imageClause ? ['asset-image'] : []))
     tasks.push(
       verifyDeliverableTask(
         ['build'],

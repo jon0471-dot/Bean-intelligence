@@ -39,6 +39,7 @@ import { engineConfig } from '@/lib/ai-engine/config'
 import { ACTIVE_STATES } from '@/lib/ai-engine/types'
 import { shouldCollapseDuplicateUserMessage } from '@/lib/giftz/retry'
 import { recordAudit } from '@/lib/observability/metering'
+import { serializeVerificationContext, type MissionVerificationContext } from './mission/verify-context'
 import type { ToolContext, ToolDescriptor, ToolResult } from './tools/types'
 
 // ⚠️ IMPORT-CYCLE GUARD (same pattern as M36 specialists.ts): `@/lib/jobs/queue`
@@ -100,6 +101,13 @@ export interface CodingDelegationOutcome {
 export async function submitCodingDelegation(
   userId: string,
   input: DelegateCodingInput,
+  /** M41.7 SERVER-ONLY: the mission verification context. Deliberately NOT
+   *  part of DelegateCodingInput — the model-called delegate_coding tool
+   *  builds its input through validateDelegateCodingInput, which has no
+   *  mission field, so a specialist can never attach or alter a verification
+   *  framing for itself. Only the mission executor (system authority) passes
+   *  this, built from the mission ledger's own task contract. */
+  mission?: MissionVerificationContext,
 ): Promise<CodingDelegationOutcome> {
   // Same gates as the product route: availability, rate limit, quota, budget.
   // The concurrency slot is released immediately — the background worker
@@ -196,6 +204,7 @@ export async function submitCodingDelegation(
           projectId,
           userMessageId: userMessage?.id ?? null,
           fileIds: [],
+          ...(mission ? { mission: JSON.parse(serializeVerificationContext(mission)) as Record<string, unknown> } : {}),
         }),
       },
     })

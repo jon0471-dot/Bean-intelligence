@@ -29,6 +29,7 @@ import { finalizeFrontendTurn } from '@/lib/frontend-intel/engine'
 import type { FrontendPlan, FrontendTurnResult } from '@/lib/frontend-intel/types'
 import { verifyAndCorrect, type VerificationOutcome } from '@/lib/verification/pipeline'
 import type { VerificationConfig } from '@/lib/verification/config'
+import { buildDeliverableAuditInput, buildMissionAuditRequest, type MissionVerificationContext } from '@/lib/riishe/mission/verify-context'
 import { BeanApiError } from '@/lib/api/errors'
 import { UpstreamTruncatedError } from '@/lib/adapters/hosted-llm'
 import { CONTINUATION_INSTRUCTION } from '@/lib/riishe/continuation'
@@ -114,6 +115,13 @@ export interface GiftzTurnCoreInput {
    *  actually used + degraded notes) persisted on the message metadata and
    *  returned on the turn result. Absent when no research ran. */
   research?: import('@/lib/intel/techdocs-reach').GiftzResearchArtifact
+  /** M41.7: the mission verification context (system-authored, threaded by
+   *  the mission executor through the delegation). When present, the hosted
+   *  self-verification pass audits the EXTRACTED DELIVERABLE content — the
+   *  actual document/website files — instead of the file-fenced reply
+   *  wrapper, and the deterministic mission framing states the real
+   *  acceptance contract. Absent ⇒ the turn behaves exactly as before. */
+  mission?: MissionVerificationContext
   /** Stream sink (background worker / SSE); omit for a fully buffered turn. */
   onEvent?: (e: { delta?: string; stage?: string }) => void
   guard?: GenerationGuard
@@ -220,61 +228,145 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
   // Independent verification of the draft against the original request, one
   // bounded corrective revision when the verifier finds blocking issues.
   // DISABLED unless the operator enabled it (runtime setting or env).
+  //
+  // M41.7 ROOT-CAUSE REPAIR: for MISSION deliverable tasks the draft the
+  // verifier audits is the EXTRACTED DELIVERABLE (the actual document/site
+  // files parsed out of the reply), never the file-fenced wrapper itself.
+  // The wrapper is delivery syntax; the pipeline's structure (bounds,
+  // revision budget, honesty outcomes) is unchanged — only the audited
+  // input changes. A corrective revision regenerates the FULL wrapper,
+  // which is re-extracted and re-audited; the persisted reply stays the
+  // conversational answer either way.
   let verification: VerificationOutcome | null = null
   let draftCharCount = 0
   if (verifyCfg.enabled) {
     const draftContent = content
     draftCharCount = draftContent.length
-    verification = await verifyAndCorrect({
-      originalRequest: requestText,
-      draft: draftContent,
-      config: verifyCfg,
-      ctx: {
-        userId: null,
-        apiKeyId: null,
-        authKind: 'internal',
-        endpoint: 'background-worker:code-giftz',
-        signal: null,
-      },
-      guard: guard ?? { aborted: false },
-      onStage: (stage) => onEvent?.({ stage }),
-      streamRevision: onEvent
-        ? (instruction) =>
-            streamRevisionTurn({
-              instruction,
-              draft: draftContent,
-              buildTurnMessages,
-              maxPromptChars,
-              backendRequestMs,
-              guard: guard ?? { aborted: false },
-              onDelta: (delta) => onEvent?.({ delta }),
-              adapter,
-            })
-        : undefined,
-      generateRevision: onEvent
-        ? undefined
-        : async (instruction) => {
-            const revised = await solveWithContinuation({
-              baseMessages: [
-                ...buildTurnMessages(),
-                { role: 'assistant' as const, content: draftContent },
-                { role: 'user' as const, content: instruction },
-              ],
-              maxContinuations: MAX_SOLVE_CONTINUATIONS,
-              solvePass: async (messages) => {
-                const result = await adapter.codeTask!({
-                  mode: 'generate',
-                  messages,
-                  maxPromptChars: Math.max(maxPromptChars, CONTINUATION_MAX_PROMPT_CHARS),
-                  timeoutMs: backendRequestMs,
-                })
-                return result.content
-              },
-            })
-            return revised.content
-          },
-    })
-    content = verification.finalContent
+    if (input.mission) {
+      let wrapper = draftContent
+      const auditInput = (): string => buildDeliverableAuditInput(parseFiles(wrapper), input.mission!).text
+      const regenerateWrapper = async (instruction: string): Promise<void> => {
+        if (onEvent) {
+          let revised = ''
+          for await (const delta of streamRevisionTurn({
+            instruction,
+            draft: wrapper,
+            buildTurnMessages,
+            maxPromptChars,
+            backendRequestMs,
+            guard: guard ?? { aborted: false },
+            onDelta: (d) => {
+              revised += d
+              onEvent?.({ delta: d })
+            },
+            adapter,
+          })) {
+            void delta
+          }
+          if (revised.trim()) wrapper = revised
+        } else {
+          const revised = await solveWithContinuation({
+            baseMessages: [
+              ...buildTurnMessages(),
+              { role: 'assistant' as const, content: wrapper },
+              { role: 'user' as const, content: instruction },
+            ],
+            maxContinuations: MAX_SOLVE_CONTINUATIONS,
+            solvePass: async (messages) => {
+              const result = await adapter.codeTask!({
+                mode: 'generate',
+                messages,
+                maxPromptChars: Math.max(maxPromptChars, CONTINUATION_MAX_PROMPT_CHARS),
+                timeoutMs: backendRequestMs,
+              })
+              return result.content
+            },
+          })
+          if (revised.content.trim()) wrapper = revised.content
+        }
+      }
+      verification = await verifyAndCorrect({
+        originalRequest: buildMissionAuditRequest(requestText, input.mission),
+        draft: auditInput(),
+        config: verifyCfg,
+        ctx: {
+          userId: null,
+          apiKeyId: null,
+          authKind: 'internal',
+          endpoint: 'background-worker:code-giftz:mission',
+          signal: null,
+        },
+        guard: guard ?? { aborted: false },
+        onStage: (stage) => onEvent?.({ stage }),
+        streamRevision: onEvent
+          ? async function* (instruction) {
+              // Regenerate the FULL corrected wrapper (deltas stream to the
+              // job event log), then hand the pipeline the re-extracted
+              // audit input as the revised text it re-verifies.
+              await regenerateWrapper(instruction)
+              yield auditInput()
+            }
+          : undefined,
+        generateRevision: onEvent
+          ? undefined
+          : async (instruction) => {
+              await regenerateWrapper(instruction)
+              return auditInput()
+            },
+      })
+      content = wrapper
+    } else {
+      verification = await verifyAndCorrect({
+        originalRequest: requestText,
+        draft: draftContent,
+        config: verifyCfg,
+        ctx: {
+          userId: null,
+          apiKeyId: null,
+          authKind: 'internal',
+          endpoint: 'background-worker:code-giftz',
+          signal: null,
+        },
+        guard: guard ?? { aborted: false },
+        onStage: (stage) => onEvent?.({ stage }),
+        streamRevision: onEvent
+          ? (instruction) =>
+              streamRevisionTurn({
+                instruction,
+                draft: draftContent,
+                buildTurnMessages,
+                maxPromptChars,
+                backendRequestMs,
+                guard: guard ?? { aborted: false },
+                onDelta: (delta) => onEvent?.({ delta }),
+                adapter,
+              })
+          : undefined,
+        generateRevision: onEvent
+          ? undefined
+          : async (instruction) => {
+              const revised = await solveWithContinuation({
+                baseMessages: [
+                  ...buildTurnMessages(),
+                  { role: 'assistant' as const, content: draftContent },
+                  { role: 'user' as const, content: instruction },
+                ],
+                maxContinuations: MAX_SOLVE_CONTINUATIONS,
+                solvePass: async (messages) => {
+                  const result = await adapter.codeTask!({
+                    mode: 'generate',
+                    messages,
+                    maxPromptChars: Math.max(maxPromptChars, CONTINUATION_MAX_PROMPT_CHARS),
+                    timeoutMs: backendRequestMs,
+                  })
+                  return result.content
+                },
+              })
+              return revised.content
+            },
+      })
+      content = verification.finalContent
+    }
   }
 
   // Persist the FINAL (verified/corrected when applicable) output, then the
