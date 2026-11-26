@@ -29,7 +29,8 @@ import { finalizeFrontendTurn } from '@/lib/frontend-intel/engine'
 import type { FrontendPlan, FrontendTurnResult } from '@/lib/frontend-intel/types'
 import { verifyAndCorrect, type VerificationOutcome } from '@/lib/verification/pipeline'
 import type { VerificationConfig } from '@/lib/verification/config'
-import { buildDeliverableAuditInput, buildMissionAuditRequest, type MissionVerificationContext } from '@/lib/riishe/mission/verify-context'
+import { buildDeliverableAuditInput, buildMissionAuditRequest, type MissionVerificationContext, type DeterministicPrecheck } from '@/lib/riishe/mission/verify-context'
+import { auditPreview } from '@/lib/code/preview-audit'
 import { BeanApiError } from '@/lib/api/errors'
 import { UpstreamTruncatedError } from '@/lib/adapters/hosted-llm'
 import { CONTINUATION_INSTRUCTION } from '@/lib/riishe/continuation'
@@ -244,7 +245,40 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
     draftCharCount = draftContent.length
     if (input.mission) {
       let wrapper = draftContent
+      // M41.7: deterministic pre-checks over the EXTRACTED files — the same
+      // pure facts the executor's verifier will establish. They ride in the
+      // audit request as settled evidence so the hosted audit adds judgment
+      // on content instead of re-litigating (or inventing contradicting)
+      // presence/reference facts.
+      const precheckFor = (): DeterministicPrecheck => {
+        const extracted = parseFiles(wrapper)
+        const facts: string[] = []
+        const manifest = extracted.map((f) => `${f.path} (${f.content.length} chars)`).join(', ') || 'NONE'
+        facts.push(`Extracted file inventory: ${manifest}.`)
+        if (input.mission!.deliverablePath) {
+          const doc = extracted.find((f) => f.path === input.mission!.deliverablePath)
+          if (doc) {
+            const headings = doc.content.match(/^#{1,4} .+$/gm) ?? []
+            const sections = (input.mission!.requiredSections ?? []).filter((s) => headings.some((h) => h.replace(/^#{1,4}\s+/, '').trim().toLowerCase() === s.toLowerCase()))
+            facts.push(`The deliverable file "${doc.path}" EXISTS on disk with ${doc.content.length} characters and ${headings.length} markdown heading(s)${sections.length > 0 ? `; required sections present: ${sections.join(', ')}` : ''}.`)
+          } else {
+            facts.push(`The deliverable file "${input.mission!.deliverablePath}" was NOT extracted — flag this.`)
+          }
+        }
+        if (input.mission!.deliverableKind === 'website') {
+          const preview = auditPreview(extracted)
+          facts.push(`Static-site audit: ${preview.htmlFiles.length} HTML file(s); entry: ${preview.entry ?? 'NONE'}; broken internal links: ${preview.brokenInternalLinks.length}; missing assets: ${preview.missingAssets.length}.`)
+          for (const required of input.mission!.requiredPaths) {
+            const entry = extracted.find((f) => f.path === required)
+            facts.push(entry
+              ? `Required entry "${required}" EXISTS with ${entry.content.length} characters of content.`
+              : `Required entry "${required}" is MISSING — flag this.`)
+          }
+        }
+        return { factLines: facts }
+      }
       const auditInput = (): string => buildDeliverableAuditInput(parseFiles(wrapper), input.mission!).text
+      let auditRequest = buildMissionAuditRequest(requestText, input.mission, precheckFor())
       const regenerateWrapper = async (instruction: string): Promise<void> => {
         if (onEvent) {
           let revised = ''
@@ -286,7 +320,7 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
         }
       }
       verification = await verifyAndCorrect({
-        originalRequest: buildMissionAuditRequest(requestText, input.mission),
+        originalRequest: auditRequest,
         draft: auditInput(),
         config: verifyCfg,
         ctx: {
@@ -304,6 +338,7 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
               // job event log), then hand the pipeline the re-extracted
               // audit input as the revised text it re-verifies.
               await regenerateWrapper(instruction)
+              auditRequest = buildMissionAuditRequest(requestText, input.mission!, precheckFor())
               yield auditInput()
             }
           : undefined,
@@ -311,6 +346,7 @@ export async function runGiftzTurnCore(input: GiftzTurnCoreInput): Promise<Giftz
           ? undefined
           : async (instruction) => {
               await regenerateWrapper(instruction)
+              auditRequest = buildMissionAuditRequest(requestText, input.mission!, precheckFor())
               return auditInput()
             },
       })

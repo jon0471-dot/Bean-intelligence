@@ -155,6 +155,13 @@ export function parseVerifierReport(raw: string): VerifierReport | null {
               description: String(i.description).slice(0, 2_000),
               correction: String(i.correction).slice(0, 2_000),
             }))
+            // Live-measured M41.7: a verifier reply can repeat the SAME issue
+            // (one row truncated mid-JSON, re-emitted with a mangled prefix).
+            // Duplicate rows are noise, not additional evidence — dedupe by
+            // severity+type+description, keep the first occurrence.
+            .filter((issue, idx, all) =>
+              all.findIndex((o) => o.severity === issue.severity && o.type === issue.type && o.description === issue.description) === idx,
+            )
         : []
       return { verdict, confidence: confidence ?? (verdict === 'pass' ? 0.5 : 0.1), issues }
     } catch {
