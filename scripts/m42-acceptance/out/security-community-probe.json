@@ -1,0 +1,86 @@
+{
+  "at": "2026-11-26T16:31:32.370Z",
+  "rows": [
+    {
+      "adapter": "osv-by-id",
+      "ok": true,
+      "url": "https://osv.dev/vulnerability/CVE-2021-23336",
+      "title": "CVE-2021-23336 (aka BIT-django-2021-23336, BIT-libpython-2021-23336, BIT-python-2021-23336",
+      "date": "2026-11-23T22:00:05.731128409Z",
+      "author": null,
+      "community": false,
+      "ms": 274,
+      "error": null
+    },
+    {
+      "adapter": "osv-package-npm",
+      "ok": true,
+      "url": "https://osv.dev/vulnerability/GHSA-29mw-wpgm-hmr9",
+      "title": "lodash (npm): GHSA-29mw-wpgm-hmr9 (aka CVE-2020-28500)",
+      "date": "2025-09-29T21:12:31.102523Z",
+      "author": null,
+      "community": false,
+      "ms": 343,
+      "error": null
+    },
+    {
+      "adapter": "osv-package-pypi",
+      "ok": true,
+      "url": "https://osv.dev/vulnerability/GHSA-2655-q453-22f9",
+      "title": "django (PyPI): GHSA-2655-q453-22f9 (aka CVE-2012-4520, PYSEC-2012-7)",
+      "date": "2024-09-18T19:08:46.313528Z",
+      "author": null,
+      "community": false,
+      "ms": 1666,
+      "error": null
+    },
+    {
+      "adapter": "stackexchange",
+      "ok": false,
+      "url": null,
+      "title": null,
+      "date": null,
+      "author": null,
+      "community": null,
+      "ms": 49,
+      "error": "security/community fetch of api.stackexchange.com returned HTTP 429"
+    },
+    {
+      "adapter": "hackernews",
+      "ok": true,
+      "url": "https://phiresky.github.io/blog/2020/sqlite-performance-tuning/",
+      "title": "SQLite performance tuning: concurrent reads, multiple GBs and 100k SELECTs/s",
+      "date": "2023-04-12T22:19:55Z",
+      "author": "Maksadbek",
+      "community": true,
+      "ms": 464,
+      "error": null
+    },
+    {
+      "adapter": "dispatch-advisory-lane",
+      "ok": true,
+      "url": "https://osv.dev/vulnerability/CVE-2021-23336",
+      "title": "CVE-2021-23336 (aka BIT-django-2021-23336, BIT-libpython-2021-23336, BIT-python-2021-23336",
+      "date": "2026-11-23T22:00:05.731128409Z",
+      "author": null,
+      "community": false,
+      "ms": 234,
+      "error": null
+    },
+    {
+      "adapter": "dispatch-community-lane",
+      "ok": true,
+      "url": "https://news.ycombinator.com/item?id=49024620",
+      "title": "Launch HN: Screenpipe (YC S26) – Record how you work and turn that into agents",
+      "date": "2026-07-23T16:48:38Z",
+      "author": "louis030195",
+      "community": true,
+      "ms": 375,
+      "error": null
+    }
+  ],
+  "summary": {
+    "pass": 6,
+    "total": 7
+  }
+}
