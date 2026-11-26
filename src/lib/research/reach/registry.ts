@@ -27,13 +27,24 @@ export type ResearchSourceState =
   | 'experimental'
   | 'unavailable'
   | 'disabled'
+  | 'not_integrated'
 
-export type BeanProductRef = 'riishe' | 'code-giftz'
+/** M42: every BEAN specialist role — the shared gateway serves them all. */
+export type BeanProductRef =
+  | 'riishe'
+  | 'code-giftz'
+  | 'laxii'
+  | 'jazmii'
+  | 'gangzii'
+  | 'knowledge'
+  | 'quality'
+
+export const ALL_SPECIALISTS: readonly BeanProductRef[] = ['riishe', 'code-giftz', 'laxii', 'jazmii', 'gangzii', 'knowledge', 'quality']
 
 export interface ResearchSourceStatus {
   id: string
   label: string
-  kind: 'agent-reach' | 'browser'
+  kind: 'agent-reach' | 'browser' | 'direct'
   /** Upstream maturity level (informational; `experimental` also derives a state). */
   level: 'default' | 'optional' | 'experimental'
   loginRequired: boolean
@@ -43,6 +54,8 @@ export interface ResearchSourceStatus {
   actions: string[]
   /** Which BEAN products may use this source today. */
   products: BeanProductRef[]
+  /** M42: source family from the platform catalogue (Tier A–G). */
+  family: string
   checkedAt: string
 }
 
@@ -53,26 +66,29 @@ export interface ResearchGatewayStatus {
   checkedAt: string
 }
 
-/** Initial priority per the integration brief (1 = highest). */
-const SOURCE_PRIORITY: Array<{ id: string; label: string; products: BeanProductRef[] }> = [
-  { id: 'github', label: 'GitHub', products: ['riishe', 'code-giftz'] },
-  { id: 'web', label: 'Web search & pages', products: ['riishe', 'code-giftz'] },
-  { id: 'youtube', label: 'YouTube', products: ['riishe'] },
-  { id: 'reddit', label: 'Reddit', products: ['riishe'] },
-  { id: 'bilibili', label: 'Bilibili', products: ['riishe'] },
-  { id: 'v2ex', label: 'V2EX', products: ['riishe', 'code-giftz'] },
+/** Initial priority per the integration brief (1 = highest).
+ *  M42: every allowlisted channel serves EVERY specialist — the per-product
+ *  restrictions were the M42 access gap (the registry previously scoped
+ *  products to riishe/code-giftz only). Actions stay allowlist-bound. */
+const SOURCE_PRIORITY: Array<{ id: string; label: string; products: BeanProductRef[]; family: string }> = [
+  { id: 'github', label: 'GitHub', products: [...ALL_SPECIALISTS], family: 'developer' },
+  { id: 'web', label: 'Web search & pages', products: [...ALL_SPECIALISTS], family: 'general-web' },
+  { id: 'youtube', label: 'YouTube', products: [...ALL_SPECIALISTS], family: 'video-audio' },
+  { id: 'reddit', label: 'Reddit', products: [...ALL_SPECIALISTS], family: 'community' },
+  { id: 'bilibili', label: 'Bilibili', products: [...ALL_SPECIALISTS], family: 'video-audio' },
+  { id: 'v2ex', label: 'V2EX', products: [...ALL_SPECIALISTS], family: 'community' },
 ]
 
 /** Upstream channels BEAN deliberately does not allowlist (reported honestly). */
-const DISABLED_UPSTREAM_CHANNELS: Array<{ id: string; label: string }> = [
-  { id: 'twitter', label: 'X / Twitter' },
-  { id: 'linkedin', label: 'LinkedIn' },
-  { id: 'xiaohongshu', label: 'Xiaohongshu' },
-  { id: 'xueqiu', label: 'Xueqiu' },
-  { id: 'facebook', label: 'Facebook' },
-  { id: 'instagram', label: 'Instagram' },
-  { id: 'xiaoyuzhou', label: 'Xiaoyuzhou' },
-  { id: 'boss', label: 'BOSS' },
+const DISABLED_UPSTREAM_CHANNELS: Array<{ id: string; label: string; family: string }> = [
+  { id: 'twitter', label: 'X / Twitter', family: 'social' },
+  { id: 'linkedin', label: 'LinkedIn', family: 'social' },
+  { id: 'xiaohongshu', label: 'Xiaohongshu', family: 'social' },
+  { id: 'xueqiu', label: 'Xueqiu', family: 'social' },
+  { id: 'facebook', label: 'Facebook', family: 'social' },
+  { id: 'instagram', label: 'Instagram', family: 'social' },
+  { id: 'xiaoyuzhou', label: 'Xiaoyuzhou', family: 'video-audio' },
+  { id: 'boss', label: 'BOSS', family: 'social' },
 ]
 
 function deriveChannelState(
@@ -162,6 +178,7 @@ export async function getResearchGatewayStatus(): Promise<ResearchGatewayStatus>
       note,
       actions: spec.actions.map((a) => a.action),
       products: p.products,
+      family: p.family,
       checkedAt,
     })
   }
@@ -177,6 +194,7 @@ export async function getResearchGatewayStatus(): Promise<ResearchGatewayStatus>
       note: 'not enabled in the BEAN research gateway allowlist',
       actions: [],
       products: [],
+      family: d.family,
       checkedAt,
     })
   }
@@ -191,8 +209,53 @@ export async function getResearchGatewayStatus(): Promise<ResearchGatewayStatus>
     note: obscura.available ? null : obscura.reason,
     actions: ['fetchRenderedPage', 'extractText', 'extractLinks', 'captureScreenshot'],
     products: ['riishe', 'code-giftz'],
+    family: 'general-web',
     checkedAt,
   })
+
+  // M42: the DIRECT official-source lane (no gateway, no keys) — measured as
+  // one family: the pipeline's independent lane serves Wikipedia/MediaWiki
+  // APIs + selected official pages, and the M42 academic adapters extend it.
+  const directAvailable = true // the lane is in-process fetch code — present on every host
+  sources.push({
+    id: 'direct-official',
+    label: 'Direct official & Wikimedia sources',
+    kind: 'direct',
+    level: 'default',
+    loginRequired: false,
+    state: directAvailable ? 'available' : 'unavailable',
+    note: null,
+    actions: ['officialPage', 'wikipediaApi', 'nodeReleaseIndex', 'crossref', 'arxiv', 'openalex', 'doaj'],
+    products: [...ALL_SPECIALISTS],
+    family: 'general-web',
+    checkedAt,
+  })
+
+  // M42 catalogue families with NO adapter yet — honest not_integrated rows
+  // (M42 §10: state must reflect measured reality; a name in the catalogue is
+  // not an adapter).
+  const notIntegrated: Array<{ id: string; label: string; family: string; note: string }> = [
+    { id: 'family-scholarly', label: 'Scholarly APIs (Crossref/OpenAlex/arXiv/DOAJ adapters)', family: 'scholarly', note: 'direct adapters implemented in the pipeline academic lane where listed under direct-official actions; remaining APIs not integrated yet' },
+    { id: 'family-packages', label: 'Package registries (npm/PyPI/…) via dedicated adapter', family: 'developer', note: 'reachable today through general web search + GitHub; dedicated registry adapters not integrated yet' },
+    { id: 'family-standards', label: 'Standards bodies (W3C/WHATWG/IETF/ISO public catalogue)', family: 'standards', note: 'reachable through general web search; dedicated adapters not integrated yet' },
+    { id: 'family-images', label: 'Licensed image libraries (Wikimedia Commons metadata/Unsplash/Openverse)', family: 'images', note: 'not integrated; Wikimedia API text lanes exist, per-file image license metadata adapters not integrated yet' },
+    { id: 'family-geo', label: 'Map/geospatial official APIs', family: 'geo', note: 'not integrated (existing geo context heuristic is query-side only)' },
+  ]
+  for (const f of notIntegrated) {
+    sources.push({
+      id: f.id,
+      label: f.label,
+      kind: 'direct',
+      level: 'optional',
+      loginRequired: false,
+      state: 'not_integrated',
+      note: f.note,
+      actions: [],
+      products: [],
+      family: f.family,
+      checkedAt,
+    })
+  }
 
   return { runtime, obscura, sources, checkedAt }
 }

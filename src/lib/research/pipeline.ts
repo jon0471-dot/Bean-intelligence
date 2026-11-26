@@ -810,6 +810,8 @@ export async function runResearch(
             hostName: r.hostName,
             rank: r.rank,
             date: r.date,
+            // M42 ADDITIVE: preserve author provenance into the ranked pool.
+            author: r.author,
           })),
         )
       }
