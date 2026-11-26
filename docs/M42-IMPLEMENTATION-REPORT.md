@@ -16,6 +16,21 @@
 
 ## 2. Test evidence (all green on the committed tree)
 
+### 2.0 Final verification sweep (post-docs window, this branch tip)
+
+| Check | Result |
+|---|---|
+| FULL test suite (`bun test --isolate tests/`, 224 files) | **2990 pass / 0 fail / 10 skip** (exit 0) — the 10 skips are the standing honest self-skips (real ONNX embedding/reranking inference, OCR, HyperFrames renders: local model artifacts not installed in this sandbox) |
+| Full-suite environmental note | one transient failure in the FIRST sweep was `riishe-text-tokenizer.test.ts` reading the gitignored pinned `vocab.txt` (absent after sandbox recycle — the artifact is session-local by design); restored from the manifest's pinned source and **SHA-256 verified** (`07eced375cec…` = the manifest pin, 231,508 bytes exact) before re-running — not a code defect; no test weakened |
+| Production build (`bun run build`: worker prep + `next build` + standalone assembly + native libs) | **exit 0** — all routes built, `copy-native-libs` copied 17 onnxruntime-node files into `.next/standalone` (initial attempt failed only on the worktree's symlinked `node_modules` — a sandbox-worktree artifact, resolved with a real copy; not a code issue) |
+| eslint — every M42-touched file (src/tests/scripts diff vs main) | 0 errors |
+| eslint — full repo | 51 errors, ALL pre-existing in untouched legacy fixture dirs (`validation/m21/*`, `scripts/m36-acceptance/cpu-inference.ts`) and this session's gitignored `sandbox-runs/` output — zero in M42 code |
+| Secret sweep over the entire branch diff (added lines) | clean — no key/token/credential patterns |
+| Runtime-artifact boundary | 0 `.env`/`*.db`/`storage/`/`sandbox-runs/` paths in the diff |
+| UI preservation | 0 files under `app/` or `components/` touched by the whole branch |
+
+### 2.1 Per-suite evidence (each milestone window)
+
 | Suite | Result |
 |---|---|
 | `tests/unit/research-agent-evidence.test.ts` (contract: budgets incl. mission clamp, triggers incl. fiction exclusion, honest-null normalization, privacy redaction, framing bounds, receipt safety, academic + security/community lane merge, runtime host guards) | 17 pass / 0 fail |
