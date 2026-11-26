@@ -180,3 +180,52 @@ describe('M42.1 evidence framing (untrusted reference data)', () => {
     expect(summary[0]).toEqual({ sourceId: '[S1]', host: 'example.org', title: 'Official A', url: 'https://example.org/a' })
   })
 })
+
+describe('M42.3 academic lane dispatch (pure)', () => {
+  test('plain non-scholarly queries attempt zero adapters', async () => {
+    const { runAcademicLane } = await import('../../src/lib/research/academic')
+    const plain = await runAcademicLane('summarize my last trip notes', { userId: null, budgetMs: 400 })
+    expect(plain.adaptersUsed).toEqual([])
+    expect(plain.results).toEqual([])
+  })
+
+  test('the host allowlist is the exact official-API set (structural SSRF bound)', async () => {
+    const { ACADEMIC_ALLOWED_HOSTS } = await import('../../src/lib/research/academic')
+    for (const h of ['api.crossref.org', 'api.openalex.org', 'export.arxiv.org', 'doaj.org', 'registry.npmjs.org', 'pypi.org']) {
+      expect(ACADEMIC_ALLOWED_HOSTS.has(h)).toBe(true)
+    }
+    for (const h of ['localhost', '127.0.0.1', '169.254.169.254', 'evil.example.com', 'internal.svc']) {
+      expect(ACADEMIC_ALLOWED_HOSTS.has(h)).toBe(false)
+    }
+  })
+
+  test('the RUNTIME guard every adapter call passes through accepts exactly the allowlisted https hosts (regression: a broken guard reference shipped once — 0/7 real adapters passed while pure set tests stayed green)', async () => {
+    const { assertAcademicHostAllowed } = await import('../../src/lib/research/academic')
+    for (const h of ['api.crossref.org', 'api.openalex.org', 'export.arxiv.org', 'doaj.org', 'registry.npmjs.org', 'pypi.org']) {
+      const guarded = await assertAcademicHostAllowed(`https://${h}/works?x=1`)
+      expect(guarded.startsWith(`https://${h}/`)).toBe(true)
+    }
+  })
+
+  test('the runtime guard rejects loopback/metadata/foreign/non-https targets with the typed direct_fetch error (never a bare ReferenceError)', async () => {
+    const { assertAcademicHostAllowed } = await import('../../src/lib/research/academic')
+    for (const bad of [
+      'http://api.crossref.org/works',            // right host, wrong scheme
+      'https://localhost/works',                  // loopback
+      'https://127.0.0.1/works',                  // loopback IP
+      'https://169.254.169.254/latest/meta-data', // cloud metadata
+      'https://evil.example.com/works',           // not allowlisted
+      'not a url at all',                         // unparseable
+    ]) {
+      let threw: unknown = null
+      try {
+        await assertAcademicHostAllowed(bad)
+      } catch (e) {
+        threw = e
+      }
+      expect(threw).not.toBeNull()
+      expect((threw as Error).name).toBe('ResearchToolError')
+      expect((threw as Error).message).not.toContain('not defined')
+    }
+  })
+})

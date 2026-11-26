@@ -219,15 +219,49 @@ export async function getResearchGatewayStatus(): Promise<ResearchGatewayStatus>
   const directAvailable = true // the lane is in-process fetch code — present on every host
   sources.push({
     id: 'direct-official',
-    label: 'Direct official & Wikimedia sources',
+    label: 'Direct official, Wikimedia & package-registry sources',
     kind: 'direct',
     level: 'default',
     loginRequired: false,
     state: directAvailable ? 'available' : 'unavailable',
     note: null,
-    actions: ['officialPage', 'wikipediaApi', 'nodeReleaseIndex', 'crossref', 'arxiv', 'openalex', 'doaj'],
+    actions: ['officialPage', 'wikipediaApi', 'nodeReleaseIndex', 'crossref', 'arxiv', 'openalex', 'doaj', 'npm', 'pypi'],
     products: [...ALL_SPECIALISTS],
     family: 'general-web',
+    checkedAt,
+  })
+
+  // M42.3b: the security-advisory direct lane (OSV.dev — official public
+  // API, no credentials). State reflects the in-process adapter; the live
+  // probe evidence lives in scripts/m42-acceptance/ (never assumed).
+  sources.push({
+    id: 'security-advisories',
+    label: 'Security advisories (OSV.dev)',
+    kind: 'direct',
+    level: 'default',
+    loginRequired: false,
+    state: 'available',
+    note: 'official public advisory API (CVE/GHSA lookup + package-scoped advisories); no credentials',
+    actions: ['osvVulnById', 'osvPackageQuery'],
+    products: [...ALL_SPECIALISTS],
+    family: 'developer',
+    checkedAt,
+  })
+
+  // M42.3b: the community direct lane. Content is USER-GENERATED and is
+  // labeled as such in every record; it corroborates and surfaces practical
+  // experience — it is never sole authority for an important claim.
+  sources.push({
+    id: 'community-apis',
+    label: 'Community APIs (Stack Exchange, Hacker News)',
+    kind: 'direct',
+    level: 'default',
+    loginRequired: false,
+    state: 'available',
+    note: 'official public APIs; every record labeled user-generated — corroborate important claims with official sources',
+    actions: ['stackExchangeSearch', 'hackerNewsSearch'],
+    products: [...ALL_SPECIALISTS],
+    family: 'community',
     checkedAt,
   })
 
@@ -235,8 +269,8 @@ export async function getResearchGatewayStatus(): Promise<ResearchGatewayStatus>
   // (M42 §10: state must reflect measured reality; a name in the catalogue is
   // not an adapter).
   const notIntegrated: Array<{ id: string; label: string; family: string; note: string }> = [
-    { id: 'family-scholarly', label: 'Scholarly APIs (Crossref/OpenAlex/arXiv/DOAJ adapters)', family: 'scholarly', note: 'direct adapters implemented in the pipeline academic lane where listed under direct-official actions; remaining APIs not integrated yet' },
-    { id: 'family-packages', label: 'Package registries (npm/PyPI/…) via dedicated adapter', family: 'developer', note: 'reachable today through general web search + GitHub; dedicated registry adapters not integrated yet' },
+    { id: 'family-scholarly', label: 'Scholarly APIs beyond the integrated set (PubMed/Europe PMC)', family: 'scholarly', note: 'Crossref/OpenAlex/arXiv/DOAJ adapters are live in the pipeline academic lane; PubMed/Europe PMC adapters not integrated yet' },
+    { id: 'family-gitlab', label: 'GitLab (public repositories/releases/issues)', family: 'developer', note: 'no dedicated adapter yet; reachable today through general web search and the GitHub channel for github.com-hosted mirrors; official API evaluation pending' },
     { id: 'family-standards', label: 'Standards bodies (W3C/WHATWG/IETF/ISO public catalogue)', family: 'standards', note: 'reachable through general web search; dedicated adapters not integrated yet' },
     { id: 'family-images', label: 'Licensed image libraries (Wikimedia Commons metadata/Unsplash/Openverse)', family: 'images', note: 'not integrated; Wikimedia API text lanes exist, per-file image license metadata adapters not integrated yet' },
     { id: 'family-geo', label: 'Map/geospatial official APIs', family: 'geo', note: 'not integrated (existing geo context heuristic is query-side only)' },

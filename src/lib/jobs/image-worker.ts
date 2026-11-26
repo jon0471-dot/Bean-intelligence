@@ -298,7 +298,16 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
     size?: string
     width?: number
     height?: number
+    /** M42 ADDITIVE (mission preflight): bounded, provenance-preserving web
+     *  references handed to the specialist by the mission executor — framed
+     *  as UNTRUSTED REFERENCE DATA; the user's prompt stays verbatim and
+     *  first. Absent on product-submitted jobs (customer UI unchanged). */
+    researchContext?: string
   }
+  const researchContext =
+    typeof params.researchContext === 'string' && params.researchContext.trim().length > 0
+      ? params.researchContext.trim().slice(0, 2600)
+      : null
   const backend = getBackend('bean-image-hosted-primary')!
   const startedAt = new Date()
   // Persisted throttle budget (survives restarts — parked jobs re-claim with
@@ -608,6 +617,13 @@ export async function processImageJob(job: ImageJobRow): Promise<void> {
   } catch (e) {
     // Absolute guard: intelligence must never fail a generation.
     logger.warn('laxii.intel_failed', { jobId: job.id, message: e instanceof Error ? e.message : String(e) })
+  }
+  // M42: mission-supplied references are ADDITIVE after the intel layer —
+  // real-world subject/material references from the mission's research,
+  // provenance-preserving, still strictly data-not-instructions.
+  if (researchContext) {
+    conditionedPrompt = `${conditionedPrompt}\n\n${researchContext}`
+    logger.info('laxii.mission_references_applied', { jobId: job.id, chars: researchContext.length })
   }
 
   try {

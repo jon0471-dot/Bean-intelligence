@@ -330,6 +330,26 @@ mock.module('@/lib/ai-engine/events', () => ({
 }))
 
 const { runMissionJob, settleOrphanedRunningMissions } = await import('../../src/lib/riishe/mission/executor')
+// M42 seam: the specialist research contract's runner is swapped for a
+// canned pack (no network) and restored after the suite.
+const agentEvidence = await import('../../src/lib/research/agent-evidence')
+agentEvidence._setSpecialistResearchRunnerForTests(async () => ({
+  // PIPELINE EvidencePack shape (the seam sits BELOW normalizePack).
+  sources: [
+    { id: 1, url: 'https://example.org/alpine', title: 'Alpine wildlife reference', snippet: 'ibex behavior in winter', hostName: 'example.org', date: '2026-01-01', freshness: 0.5, year: 2026, authority: 0.8, official: true, social: false, sourceType: 'official', score: 0.9, pageRead: false, excerpt: null },
+  ],
+  queries: ['alpine wildlife documentary reference'],
+  degraded: [],
+  staleness: null,
+  geoWarning: null,
+  durationMs: 10,
+  searchMs: 8,
+  pageReadMs: 0,
+  searchCalls: 1,
+  pageReadCalls: 0,
+  cacheHits: 0,
+  fetchedAt: '2026-11-26T00:00:00.000Z',
+}))
 const { createMissionFromPlan, requestMissionCancel, getMissionById, toProgressView } = await import('../../src/lib/riishe/mission/store')
 import { planMission } from '../../src/lib/riishe/mission/planner'
 import type { ClaimedJob } from '../../src/lib/ai-engine/types'
@@ -770,5 +790,29 @@ describe('mission executor', () => {
     const before = (await getMissionById(sub2.missionId))!
     await settleOrphanedRunningMissions()
     expect((await getMissionById(sub2.missionId))!.status).toBe(before.status)
+  })
+
+  test40('M42: media missions carry verified reference blocks from the shared research contract', async () => {
+    const objective = 'Create a documentary video about real alpine wildlife with narration saying: "The trail opens at dawn."'
+    const plan = planMission(objective)
+    if (!plan.ok) throw new Error('plan failed')
+    const sub = await createMissionFromPlan('user-1', objective, plan)
+    await driveToSettlement(sub.missionId, (task, j) => {
+      if (task.kind === 'image-asset') completeSpecialistJob(j.id, { imageUrl: '/api/laxii/images/i1', width: 1024, height: 1024, format: 'png', bytes: 500000 })
+      if (task.kind === 'audio-asset') completeSpecialistJob(j.id, { artifactUrl: '/api/gangzii/audio/a1', format: 'wav', bytes: 100000 })
+      if (task.kind === 'video-asset') completeSpecialistJob(j.id, { videoUrl: '/api/jazmii/video/v1', stream: { codec: 'h264', width: 1280, height: 720, durationSec: 4.0 } })
+    })
+    const mission = (await getMissionById(sub.missionId))!
+    expect(mission.status).toBe('completed')
+    const videoDelegation = delegated.find((d) => d.kind === 'jazmii')
+    expect(videoDelegation).toBeDefined()
+    const params = JSON.stringify(videoDelegation!.params)
+    // the verified reference block rode with the specialist job (framed as data)
+    expect(params).toContain('researchContext')
+    expect(params).toContain('UNTRUSTED REFERENCE DATA')
+    expect(params).toContain('example.org/alpine')
+    // the narration text is untouched by references
+    const audioDelegation = delegated.find((d) => d.kind === 'gangzii')
+    expect(JSON.stringify(audioDelegation!.params)).toContain('The trail opens at dawn')
   })
 })

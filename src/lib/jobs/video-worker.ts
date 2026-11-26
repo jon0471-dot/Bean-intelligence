@@ -59,6 +59,10 @@ const DOWNLOAD_RETRY_BASE_MS = Number(process.env.JAZMII_VIDEO_DOWNLOAD_RETRY_MS
 
 export interface VideoJobParams {
   prompt: string
+  /** M42 ADDITIVE (mission preflight): bounded provenance-preserving web
+   *  references from the mission executor (UNTRUSTED REFERENCE DATA); the
+   *  user's prompt stays verbatim and first. Absent on product jobs. */
+  researchContext?: string
   imageUrl?: string
   quality?: 'speed' | 'quality'
   withAudio?: boolean
@@ -384,6 +388,12 @@ export async function processVideoJob(job: JobRow): Promise<void> {
           }
           const intel = await prepareVideoIntelligence(params.prompt, { referenceContinuity })
           conditionedPrompt = intel.conditionedPrompt
+          // M42: mission-supplied references are ADDITIVE after the intel
+          // layer — still strictly data-not-instructions.
+          if (typeof params.researchContext === 'string' && params.researchContext.trim().length > 0) {
+            conditionedPrompt = `${conditionedPrompt}\n\n${params.researchContext.trim().slice(0, 2600)}`
+            logger.info('jazmii.mission_references_applied', { jobId: job.id })
+          }
           intelMeta = {
             layer: 'bean-intel/1',
             mode: intel.mode,

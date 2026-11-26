@@ -24,6 +24,8 @@
  */
 
 import { runResearch, type EvidencePack, type EvidenceSource } from './pipeline'
+import { runAcademicLane } from './academic'
+import { runSecurityCommunityLane } from './security-community'
 import type { FreshnessRisk, SearchDecision } from './policy'
 import { sanitizeEvidenceText } from '@/lib/riishe/mission/safety'
 
@@ -314,6 +316,61 @@ export async function runSpecialistResearch(req: SpecialistResearchRequest): Pro
       userId: req.userId,
     })
     const normalized = normalizePack(pack, req, budget)
+    // M42.3: the academic/registry DIRECT lane — official public APIs
+    // (Crossref/OpenAlex/arXiv/DOAJ/npm/PyPI) for scholarly- or
+    // package-shaped queries; provenance engine 'direct', authors/dates as
+    // supplied, preprints labeled. Failures degrade into the notes.
+    try {
+      const academic = await runAcademicLane(grounding, { userId: req.userId })
+      for (const note of academic.notes) normalized.degraded.push(note.slice(0, 160))
+      const before = normalized.evidence.length
+      const merged = academic.results.slice(0, Math.max(budget.maxSources - before, 0)).map((r, i) => ({
+        sourceId: `[S${before + i + 1}]`,
+        title: r.title,
+        url: r.url,
+        host: r.hostName,
+        sourceType: r.sourceType,
+        author: r.author ?? null,
+        publishedAt: r.date ?? null,
+        retrievedAt: new Date().toISOString(),
+        excerpt: null,
+        pageRead: false,
+        provenance: { channel: null, engine: 'direct' as const },
+        official: true,
+      }))
+      normalized.evidence.push(...merged)
+      if (academic.adaptersUsed.length > 0) normalized.degraded.push(`academic lane adapters used: ${academic.adaptersUsed.join(', ')}`)
+    } catch {
+      normalized.degraded.push('academic lane unavailable')
+    }
+    // M42.3b: the security/community DIRECT lane — official advisory APIs
+    // (OSV.dev) and LABELED user-generated community APIs (Stack Exchange,
+    // Hacker News) for security- and community-shaped queries. Community
+    // records stay flagged user-generated and never outrank official
+    // sources; failures degrade into the notes.
+    try {
+      const sc = await runSecurityCommunityLane(grounding, { userId: req.userId })
+      for (const note of sc.notes) normalized.degraded.push(note.slice(0, 160))
+      const beforeSc = normalized.evidence.length
+      const mergedSc = sc.results.slice(0, Math.max(budget.maxSources - beforeSc, 0)).map((r, i) => ({
+        sourceId: `[S${beforeSc + i + 1}]`,
+        title: r.title,
+        url: r.url,
+        host: r.hostName,
+        sourceType: r.sourceType,
+        author: r.author ?? null,
+        publishedAt: r.date ?? null,
+        retrievedAt: new Date().toISOString(),
+        excerpt: null,
+        pageRead: false,
+        provenance: { channel: null, engine: 'direct' as const },
+        official: r.official,
+      }))
+      normalized.evidence.push(...mergedSc)
+      if (sc.adaptersUsed.length > 0) normalized.degraded.push(`security/community lane adapters used: ${sc.adaptersUsed.join(', ')}`)
+    } catch {
+      normalized.degraded.push('security/community lane unavailable')
+    }
     if (explicit.length > 0) normalized.queries = [...new Set([...explicit, ...normalized.queries])].slice(0, budget.maxQueries + 2)
     return normalized
   } catch (e) {

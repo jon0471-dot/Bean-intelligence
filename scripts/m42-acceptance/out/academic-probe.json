@@ -1,0 +1,79 @@
+{
+  "at": "2026-11-26T16:21:39.500Z",
+  "rows": [
+    {
+      "adapter": "crossref",
+      "ok": true,
+      "url": "https://doi.org/10.1039/d4ta08556f/v2/review1",
+      "title": "Review for \"Design and Characterization of an Adaptive Polymer Electrolyte for Lithium Met",
+      "date": null,
+      "author": null,
+      "ms": 734,
+      "error": null
+    },
+    {
+      "adapter": "openalex",
+      "ok": false,
+      "url": null,
+      "title": null,
+      "date": null,
+      "author": null,
+      "ms": 118,
+      "error": "direct fetch of api.openalex.org returned HTTP 429"
+    },
+    {
+      "adapter": "arxiv",
+      "ok": false,
+      "url": null,
+      "title": null,
+      "date": null,
+      "author": null,
+      "ms": 851,
+      "error": "no result returned"
+    },
+    {
+      "adapter": "doaj",
+      "ok": true,
+      "url": "https://doi.org/10.22146/ijc.21191",
+      "title": "Microstructure Analysis of Synthesized LiBOB",
+      "date": "2015",
+      "author": "Etty Marti Wigayati, Christin Rina Ratri, Ibrahim Purawiardi",
+      "ms": 303,
+      "error": null
+    },
+    {
+      "adapter": "npm",
+      "ok": true,
+      "url": "https://zod.dev",
+      "title": "zod@4.6.7 (npm)",
+      "date": null,
+      "author": null,
+      "ms": 223,
+      "error": null
+    },
+    {
+      "adapter": "pypi",
+      "ok": true,
+      "url": "https://pypi.org/project/requests/",
+      "title": "requests 2.34.2 (PyPI)",
+      "date": null,
+      "author": null,
+      "ms": 21,
+      "error": null
+    },
+    {
+      "adapter": "dispatch-scholarly",
+      "ok": true,
+      "url": "https://doi.org/10.1021/acsami.4c17586.s001",
+      "title": "Commercial Cellulosic Paper-Based Solid Electrolyte for High-Temperature LithiumSulfur Bat",
+      "date": null,
+      "author": null,
+      "ms": 1494,
+      "error": null
+    }
+  ],
+  "summary": {
+    "pass": 5,
+    "total": 7
+  }
+}

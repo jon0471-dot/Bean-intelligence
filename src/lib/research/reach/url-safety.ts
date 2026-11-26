@@ -266,7 +266,7 @@ const MAX_REDIRECT_HOPS = 3
  */
 export async function guardedFetch(
   rawUrl: string,
-  init: { timeoutMs: number; headers?: Record<string, string>; method?: 'GET' },
+  init: { timeoutMs: number; headers?: Record<string, string>; method?: 'GET' | 'POST'; body?: string },
 ): Promise<GuardedFetchResult> {
   let current = await assertPublicHttpUrl(rawUrl)
   if (!current.ok) throw new Error(current.reason)
@@ -277,6 +277,11 @@ export async function guardedFetch(
       res = await fetch(current.url, {
         method: init.method ?? 'GET',
         headers: init.headers,
+        // The bounded body is sent ONLY on the initial request — a POST that
+        // comes back as a redirect degrades to a body-less next hop (every
+        // hop is still guard-revalidated; no credential-shaped payload ever
+        // follows a redirect to a different host).
+        body: hops === 0 ? init.body : undefined,
         redirect: 'manual',
         signal: AbortSignal.timeout(init.timeoutMs),
       })
