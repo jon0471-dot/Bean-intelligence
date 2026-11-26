@@ -247,6 +247,17 @@ export interface AuditFile {
   content: string
 }
 
+/** Deterministic facts already established mechanically about the extracted
+ *  deliverable (the worker computes these with the same pure checks the
+ *  executor's verifier will run). Naming them in the audit request stops the
+ *  hosted verifier from re-litigating objectively-settled evidence and
+ *  fabricating presence/completeness claims (live-measured M41.7: the audit
+ *  invented a "missing styles.css" and a "truncated stylesheet" whose named
+ *  selectors were all demonstrably present). */
+export interface DeterministicPrecheck {
+  factLines: string[]
+}
+
 /**
  * Build the hosted verifier's audit input from the EXTRACTED deliverable
  * files. The wrapper (prose + fences) is never shown as the deliverable:
@@ -260,6 +271,16 @@ export function buildDeliverableAuditInput(
   files: ReadonlyArray<AuditFile>,
   ctx: MissionVerificationContext,
 ): { text: string; deliveredFiles: string[] } {
+  // Ordering: the required/entry files first, then the rest by path — the
+  // most contract-relevant content survives any budget pressure.
+  const ordered = [...files].sort((a, b) => {
+    const rank = (p: string): number => {
+      if (ctx.deliverablePath && p === ctx.deliverablePath) return 0
+      if (ctx.requiredPaths.includes(p)) return 1
+      return 2
+    }
+    return rank(a.path) - rank(b.path) || a.path.localeCompare(b.path)
+  })
   const header: string[] = [
     '[MISSION DELIVERABLE AUDIT — system framing, not part of any user request]',
     `The specialist's reply text is a DELIVERY WRAPPER: prose around fenced code blocks (\`\`\`lang path=…\`\`\`).`,
@@ -275,20 +296,19 @@ export function buildDeliverableAuditInput(
   if (ctx.requiredSections.length > 0) {
     header.push(`Required section headings: ${ctx.requiredSections.join(', ')}.`)
   }
+  // Explicit inventory anchor: the verifier previously claimed a file was
+  // missing from an audit input that contained it (live-measured M41.7
+  // website diagnostic — every file IS in the text; naming the inventory
+  // up front removes the failure mode).
+  header.push(
+    files.length > 0
+      ? `File inventory — ALL ${files.length} delivered file(s) are included below (excerpted only when over budget): ${ordered.map((f) => `${f.path} (${f.content.length} chars)`).join(', ')}.`
+      : 'File inventory — NO file was delivered.',
+  )
   header.push('[EXTRACTED DELIVERABLE CONTENT — begins]')
 
   const deliveredFiles = files.map((f) => f.path)
   const parts: string[] = []
-  // Ordering: the required/entry files first, then the rest by path — the
-  // most contract-relevant content survives any budget pressure.
-  const ordered = [...files].sort((a, b) => {
-    const rank = (p: string): number => {
-      if (ctx.deliverablePath && p === ctx.deliverablePath) return 0
-      if (ctx.requiredPaths.includes(p)) return 1
-      return 2
-    }
-    return rank(a.path) - rank(b.path) || a.path.localeCompare(b.path)
-  })
   let budget = VERIFY_CONTEXT_LIMITS.auditContentChars
   let filesShown = 0
   for (const f of ordered) {
@@ -315,7 +335,11 @@ export function buildDeliverableAuditInput(
  * deterministic audit contract. The verifier still receives the request and
  * draft through the SAME buildVerifierUserTurn — only the text changes.
  */
-export function buildMissionAuditRequest(objective: string, ctx: MissionVerificationContext): string {
+export function buildMissionAuditRequest(
+  objective: string,
+  ctx: MissionVerificationContext,
+  precheck?: DeterministicPrecheck,
+): string {
   const lines = [
     clip(objective, 6000),
     '',
@@ -334,5 +358,13 @@ export function buildMissionAuditRequest(objective: string, ctx: MissionVerifica
       : []),
     '- A truncated or incomplete deliverable cannot pass. Judge completeness from the extracted content itself.',
   ]
+  if (precheck && precheck.factLines.length > 0) {
+    lines.push(
+      '',
+      '[DETERMINISTIC PRE-CHECKS — already established mechanically over these exact files; treat as settled facts, do NOT re-litigate or invent contradicting claims]',
+      ...precheck.factLines.map((f) => `- ${f}`),
+      '- File presence, reference resolution and structural facts are SETTLED. Your judgment adds content quality, contract fit and correctness on top — a claim that contradicts a settled fact is wrong (check the text again before reporting it).',
+    )
+  }
   return lines.join('\n')
 }
