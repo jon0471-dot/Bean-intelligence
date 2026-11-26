@@ -180,3 +180,22 @@ describe('M42.1 evidence framing (untrusted reference data)', () => {
     expect(summary[0]).toEqual({ sourceId: '[S1]', host: 'example.org', title: 'Official A', url: 'https://example.org/a' })
   })
 })
+
+describe('M42.3 academic lane dispatch (pure)', () => {
+  test('plain non-scholarly queries attempt zero adapters', async () => {
+    const { runAcademicLane } = await import('../../src/lib/research/academic')
+    const plain = await runAcademicLane('summarize my last trip notes', { userId: null, budgetMs: 400 })
+    expect(plain.adaptersUsed).toEqual([])
+    expect(plain.results).toEqual([])
+  })
+
+  test('the host allowlist is the exact official-API set (structural SSRF bound)', async () => {
+    const { ACADEMIC_ALLOWED_HOSTS } = await import('../../src/lib/research/academic')
+    for (const h of ['api.crossref.org', 'api.openalex.org', 'export.arxiv.org', 'doaj.org', 'registry.npmjs.org', 'pypi.org']) {
+      expect(ACADEMIC_ALLOWED_HOSTS.has(h)).toBe(true)
+    }
+    for (const h of ['localhost', '127.0.0.1', '169.254.169.254', 'evil.example.com', 'internal.svc']) {
+      expect(ACADEMIC_ALLOWED_HOSTS.has(h)).toBe(false)
+    }
+  })
+})

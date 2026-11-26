@@ -1,0 +1,79 @@
+{
+  "at": "2026-11-26T07:41:06.714Z",
+  "rows": [
+    {
+      "adapter": "crossref",
+      "ok": true,
+      "url": "https://doi.org/10.1039/d5nr00872g/v2/review1",
+      "title": "Review for \"70%wt SiO2 loaded flexible PVDF quasi-solid-state electrolyte membrane for lit",
+      "date": null,
+      "author": null,
+      "ms": 1239,
+      "error": null
+    },
+    {
+      "adapter": "openalex",
+      "ok": false,
+      "url": null,
+      "title": null,
+      "date": null,
+      "author": null,
+      "ms": 96,
+      "error": "direct fetch of api.openalex.org returned HTTP 429"
+    },
+    {
+      "adapter": "arxiv",
+      "ok": false,
+      "url": null,
+      "title": null,
+      "date": null,
+      "author": null,
+      "ms": 312,
+      "error": "direct fetch of export.arxiv.org returned HTTP 429"
+    },
+    {
+      "adapter": "doaj",
+      "ok": true,
+      "url": "https://doi.org/10.22146/ijc.21191",
+      "title": "Microstructure Analysis of Synthesized LiBOB",
+      "date": "2015",
+      "author": "Etty Marti Wigayati, Christin Rina Ratri, Ibrahim Purawiardi",
+      "ms": 409,
+      "error": null
+    },
+    {
+      "adapter": "npm",
+      "ok": true,
+      "url": "https://zod.dev",
+      "title": "zod@4.6.7 (npm)",
+      "date": null,
+      "author": null,
+      "ms": 240,
+      "error": null
+    },
+    {
+      "adapter": "pypi",
+      "ok": true,
+      "url": "https://pypi.org/project/requests/",
+      "title": "requests 2.34.2 (PyPI)",
+      "date": null,
+      "author": null,
+      "ms": 26,
+      "error": null
+    },
+    {
+      "adapter": "dispatch-scholarly",
+      "ok": true,
+      "url": "https://doi.org/10.1021/acsami.4c17586.s001",
+      "title": "Commercial Cellulosic Paper-Based Solid Electrolyte for High-Temperature LithiumSulfur Bat",
+      "date": null,
+      "author": null,
+      "ms": 9223,
+      "error": null
+    }
+  ],
+  "summary": {
+    "pass": 5,
+    "total": 7
+  }
+}
