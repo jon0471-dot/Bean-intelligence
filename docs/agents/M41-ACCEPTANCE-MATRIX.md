@@ -42,3 +42,16 @@
 - No claim that the document/website workflows are reliably complete end-to-end until the verifier-focus follow-up lands — the current window's evidence says otherwise, and that is what this page records.
 - No claim of universal model availability; provider state is window-bound and classified honestly per run.
 - No claim of a live server-restart resume drill (owner-operations exercise; the machinery itself is unit-pinned).
+
+## 4. M41.7 post-fix reconciliation (2026-11-26)
+
+The three file-fenced verification FAIL rows (18-research-doc / 3-ordering-live / 5-handoff) were ONE root cause observed three ways — the wrapper-auditing hosted verifier blocking the document task of the single research→document mission. The fourth FAIL (20-integrity) was the AGGREGATE count across delivered missions (downstream bookkeeping of that same root cause + the legacy pre-honesty-fix ledger row named in §2), not an independent verification failure.
+
+M41.7 repaired the root cause in the existing architecture. Post-fix evidence (`mission-evidence-m41.json`, original preserved as `mission-evidence-m41-PREFIX.json`): **20 PASS / 4 honest-unavailable / 0 FAIL over 24 rows**:
+
+- 18-research-doc / 3-ordering-live / 5-handoff → **PASS**: the mission completed end-to-end with every task verified (document audited from its persisted content; mission `cmwx15uuq…`).
+- 20-integrity → **PASS**: ledger-measured 2/2 delivered missions carry verified gates (research-document + website-build `cmwx2hc1p…`).
+- 16-website / 19-giftz-execution: the window rows remain honest-unavailable (provider output-limit truncation, 3 of 4 attempts — environmental, verbatim); the workflow's completion is separately evidenced by measured-PASS rows (mission `cmwx2hc1p…` completed, build verified from the persisted 11-file project).
+- New 21-verify-contract: 13 contract cases exactly as classified.
+
+The section-3 "does NOT claim" list's first bullet is superseded by this addendum: the document and website workflows now have live completed-and-verified missions; the honest-unavailable rows name the remaining environmental variance (provider truncation windows) exactly as recorded. Full reconciliation: `docs/agents/M41.7-ACCEPTANCE-RESULTS.md`.
