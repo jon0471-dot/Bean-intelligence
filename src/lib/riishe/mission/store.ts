@@ -33,6 +33,13 @@ import { sanitizeEvidenceText } from './safety'
 /** Mission-layer state errors (distinct name so callers can branch). */
 export class TrustStateMissionError extends Error {}
 
+/** An identical ACTIVE mission already exists for this owner. */
+export class MissionDuplicateError extends Error {
+  constructor(public readonly existingMissionId: string) {
+    super('An identical mission is already planned or running — wait for it to finish before resubmitting.')
+  }
+}
+
 // ⚠️ IMPORT-CYCLE GUARD (same pattern as specialists.ts/code-delegation.ts):
 // `@/lib/jobs/queue` must stay a DYNAMIC import here. A static chain would be
 // store → jobs/queue → ai-engine/handlers → mission executor → store.
@@ -68,6 +75,17 @@ export async function createMissionFromPlan(
   plan: MissionPlan,
 ): Promise<SubmittedMission> {
   const boundedObjective = bounded(objective.trim(), MISSION_LIMITS.objectiveChars, 'objective')
+  // Duplicate-work prevention at the MISSION level: an identical ACTIVE
+  // mission (same owner, same objective) is refused — double submissions
+  // would double every specialist job underneath. Finished missions never
+  // block a genuine re-run.
+  const activeDuplicate = await db.agentMission.findFirst({
+    where: { userId, objective: boundedObjective, status: { in: ['planned', 'running'] } },
+    select: { id: true },
+  })
+  if (activeDuplicate) {
+    throw new MissionDuplicateError(activeDuplicate.id)
+  }
   const trust = await createTrustTask({
     userId,
     product: 'riishe',

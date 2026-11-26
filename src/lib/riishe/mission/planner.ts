@@ -177,7 +177,10 @@ function documentDraftTask(objective: string, docPath: string, deps: string[]): 
       requireSourceCitation: deps.length > 0,
       deliverablePath: docPath,
     },
-    limits: { executionTimeoutMs: 15 * 60_000, maxAttempts: 1, maxCorrections: 1 },
+    // Two bounded attempts: every attempt still passes the REAL hosted
+    // verifier; the budget only buys generation variance (measured live
+    // during M41 acceptance — strict audits block single-attempt documents).
+    limits: { executionTimeoutMs: 15 * 60_000, maxAttempts: 2, maxCorrections: 1 },
   })
 }
 
@@ -224,15 +227,20 @@ function audioAssetTask(text: string, deps: string[] = []): MissionTaskSpec {
 }
 
 function researchTask(topic: string, deps: string[] = []): MissionTaskSpec {
+  // The objective promises EXACTLY what the real retrieval lanes capture
+  // (title + URL per source) — never more. An objective that over-promises
+  // (e.g. supporting excerpts the lanes do not carry) would make the
+  // document verifier audit against undeliverable requirements and block
+  // honest work (measured live during the M41 acceptance window).
   return buildTaskSpec({
     id: 'research',
     kind: 'research',
     title: 'Gather cited evidence',
     objective:
       `Research the topic with live retrieval and collect real, attributable sources. Topic: ${clip(topic, 300)}. ` +
-      `Collect at least three independent sources; for each capture title, URL and the passage that supports the claim.`,
+      `Collect at least three independent sources; for each capture the title and the URL.`,
     params: { topic: clip(topic, 300) },
-    expectedOutput: 'A research pack of at least three real sources (title + URL + supporting excerpt).',
+    expectedOutput: 'A research pack of at least three real sources (title + URL each).',
     dependsOn: deps,
     verification: { minSources: 3 },
     limits: { executionTimeoutMs: 5 * 60_000, maxAttempts: 1, maxCorrections: 1 },

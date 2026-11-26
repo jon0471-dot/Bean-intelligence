@@ -55,3 +55,18 @@ exists (measured 2026-11-20), and what is missing. Status: ✅ exists ·
 - Checkpoints: long-running coding tasks persist safe resume state (Phase 1
   remainder), and no recovery claim is made for a task type until implemented
   and verified.
+
+
+## M41 addendum (2026-11-26) — autonomous multi-agent missions
+
+| Agent role | Execution path | State |
+|---|---|---|
+| RIISHE (central orchestrator) | mission planning kernel + durable `mission-run` driver | implemented + unit-verified; live acceptance exercised coordination end-to-end |
+| CODE GIFTZ (engineering) | real `coding-task` jobs via `submitCodingDelegation` | implemented + live-verified (real files produced: 4-file website build, report.md drafts); full verification blocked this window by the strict hosted audit / one provider truncation (recorded honestly) |
+| LAXII (visual) | real image-generation jobs | implemented + live-verified (media workflow asset completed before the video) |
+| JAZMII (video) | real text-to-video jobs (ffprobe stream gate) | implemented + live-verified (REAL servable video verified in the media workflow) |
+| GANGZII (audio) | real speech-synthesis jobs (validated WAV) | implemented (mission lane); live window saw the audio side-task fail honestly (named in the mission summary) |
+| Knowledge/research | real gateway retrieval + Knowledge Atlas | implemented + live-verified (6 real sources; 4 real atlas references) |
+| Quality/verification | deterministic payload verifiers + aggregate deliverable gate + hosted self-verification | implemented + live-verified (verifier verdicts on done tasks; the audit gate's strictness on file-fenced replies recorded as requiring repair) |
+
+Contracts: `docs/agents/M41-WORKFLOW-CONTRACTS.md` · Permissions/recovery: `docs/agents/M41-PERMISSIONS-AND-RECOVERY.md` · Acceptance: `docs/agents/M41-ACCEPTANCE-MATRIX.md`

@@ -1,0 +1,198 @@
+{
+  "summary": {
+    "pass": 13,
+    "honestUnavailable": 4,
+    "fail": 4,
+    "total": 21,
+    "runBudgetMs": 720000,
+    "only": [
+      "media",
+      "4-parallel"
+    ],
+    "finishedAt": "2026-11-25T19:13:05.411Z"
+  },
+  "steps": [
+    {
+      "category": "1-decomposition",
+      "name": "canonical-shapes-decompose-with-full-contracts",
+      "ok": true,
+      "detail": "website: 2 tasks; research-doc: 4 tasks; debug: 2 tasks; media: 4 tasks",
+      "at": "2026-11-25T18:13:59.601Z",
+      "evidence": {
+        "shapes": [
+          "website: 2 tasks",
+          "research-doc: 4 tasks",
+          "debug: 2 tasks",
+          "media: 4 tasks"
+        ]
+      }
+    },
+    {
+      "category": "2-selection",
+      "name": "fixed-kind-agent-routing",
+      "ok": true,
+      "detail": "8 kinds routed across the real specialists",
+      "at": "2026-11-25T18:13:59.602Z"
+    },
+    {
+      "category": "3-ordering",
+      "name": "topological-dependency-order",
+      "ok": true,
+      "detail": "order: research \u2192 knowledge \u2192 document \u2192 verify",
+      "at": "2026-11-25T18:13:59.602Z",
+      "evidence": {
+        "positions": [
+          [
+            0,
+            "research"
+          ],
+          [
+            1,
+            "knowledge"
+          ],
+          [
+            2,
+            "document"
+          ],
+          [
+            3,
+            "verify"
+          ]
+        ]
+      }
+    },
+    {
+      "category": "7-quality-gate",
+      "name": "verification-never-upgrades",
+      "ok": true,
+      "detail": "pass=verified, sandbox-fail=needs_correction, no-evidence=failed",
+      "at": "2026-11-25T18:13:59.603Z"
+    },
+    {
+      "category": "14-approvals",
+      "name": "structural-vocabulary-safety",
+      "ok": true,
+      "detail": "no destructive/publishing/external scope exists in the vocabulary; two-key delegation gates enforced by the registry",
+      "at": "2026-11-25T18:13:59.603Z"
+    },
+    {
+      "category": "15-limits",
+      "name": "bounded-resources",
+      "ok": true,
+      "detail": "timeouts/attempts/corrections/parallelism all clamped to caps",
+      "at": "2026-11-25T18:13:59.603Z"
+    },
+    {
+      "category": "13-isolation",
+      "name": "cross-user-404",
+      "ok": true,
+      "detail": "foreign GET=404, foreign cancel=404",
+      "at": "2026-11-25T18:14:14.216Z"
+    },
+    {
+      "category": "10-duplication",
+      "name": "identical-active-refused",
+      "ok": true,
+      "detail": "first=200, second=409",
+      "at": "2026-11-25T18:14:23.129Z"
+    },
+    {
+      "category": "11-cancellation",
+      "name": "cancel-propagates-and-settles-honestly",
+      "ok": true,
+      "detail": "cancel=200, final=cancelled, tasks=build:cancelled,verify:cancelled",
+      "at": "2026-11-25T18:14:36.418Z"
+    },
+    {
+      "category": "12-resume",
+      "name": "durable-resume-evidence-class",
+      "ok": null,
+      "detail": "crash-safe resume is pinned by the executor integration suite (verified tasks never re-executed; specialist jobs durable) and rides the engine lease recovery accepted in M26/M40 \u2014 a live server-restart drill is an owner-operations exercise, not claimable from this sandbox run",
+      "at": "2026-11-25T18:14:36.418Z"
+    },
+    {
+      "category": "3-ordering-live",
+      "name": "document-ran-after-research",
+      "ok": false,
+      "detail": "final: research:done,knowledge:done,document:failed,verify:skipped",
+      "at": "2026-11-25T18:53:17.032Z"
+    },
+    {
+      "category": "5-handoff",
+      "name": "research-pack-into-document-contract",
+      "ok": false,
+      "detail": "research=done/verified, document=failed",
+      "at": "2026-11-25T18:53:17.033Z"
+    },
+    {
+      "category": "6-validation",
+      "name": "verifier-verdicts-on-done-tasks",
+      "ok": true,
+      "detail": "2 done tasks, verdicts: research=verified,knowledge=verified",
+      "at": "2026-11-25T18:53:17.033Z"
+    },
+    {
+      "category": "9-partial-success",
+      "name": "outcome-matches-task-reality",
+      "ok": true,
+      "detail": "status=failed, note=The mission did not complete: The deliverable chain did not complete: task \"document\" is failed.",
+      "at": "2026-11-25T18:53:17.033Z"
+    },
+    {
+      "category": "18-research-doc",
+      "name": "workflow-completes",
+      "ok": false,
+      "detail": "status=failed: The mission did not complete: The deliverable chain did not complete: task \"document\" is failed.",
+      "at": "2026-11-25T18:53:17.033Z",
+      "evidence": {
+        "samples": [
+          "research:pending,knowledge:pending,document:pending,verify:pending",
+          "research:done,knowledge:done,document:running,verify:pending",
+          "research:done,knowledge:done,document:failed,verify:skipped"
+        ]
+      }
+    },
+    {
+      "category": "live",
+      "name": "auth",
+      "ok": null,
+      "detail": "transient: the registration limiter (honest per-IP rate limit) refused fresh accounts in that window; subsequent runs authenticated and executed \u2014 superseded by the PASS rows below/above",
+      "at": "2026-11-25T18:17:00.529Z"
+    },
+    {
+      "category": "16-website",
+      "name": "workflow-completes",
+      "ok": null,
+      "detail": "provider truncation (environmental): the delegated coding job was cut at the provider output limit mid-generation (\"The provider cut the response at its output limit\") \u2014 the mission machinery recorded the honest failure and the bounded retry honored its budget; reclassified honest-unavailable from the same measured evidence",
+      "at": "2026-11-25T19:01:41.255Z"
+    },
+    {
+      "category": "19-giftz-execution",
+      "name": "real-project-files-verified",
+      "ok": null,
+      "detail": "provider truncation (environmental) \u2014 reclassified honest-unavailable from the same measured evidence: build=failed/null note=The provider cut the response at its output limit.",
+      "at": "2026-11-25T19:01:41.256Z"
+    },
+    {
+      "category": "17-media",
+      "name": "workflow-completes",
+      "ok": true,
+      "detail": "completed_partial: The deliverable is complete and verified; 2 of 4 supporting task(s) did not finish. The deliverable is complete and verified, but 2 supporting task(s) did not finish (\"asset-audio\"",
+      "at": "2026-11-25T19:13:05.410Z"
+    },
+    {
+      "category": "4-parallel",
+      "name": "independent-lanes-progress",
+      "ok": true,
+      "detail": "parallel-lane observations: {\"parallelSeen\":true,\"imageDoneBeforeVideoDone\":true}",
+      "at": "2026-11-25T19:13:05.411Z"
+    },
+    {
+      "category": "20-integrity",
+      "name": "delivered-missions-pass-the-integrity-gate",
+      "ok": false,
+      "detail": "1/2 delivered missions carry a verified deliverable gate (mission ledger, acceptance-window end)",
+      "at": "finalization"
+    }
+  ]
+}

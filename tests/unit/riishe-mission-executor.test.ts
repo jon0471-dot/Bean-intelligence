@@ -67,6 +67,14 @@ function fakeDb(): Record<string, unknown> {
       if (!m) return null
       return { ...m, tasks: orderedTasks([...tasks.values()].filter((t) => t.missionId === m.id)) }
     },
+    findFirst: async ({ where }: { where: { userId: string; objective: string; status?: { in?: string[] } } }) => {
+      for (const m of missions.values()) {
+        if (m.userId !== where.userId || m.objective !== where.objective) continue
+        if (where.status?.in && !where.status.in.includes(m.status)) continue
+        return { ...m }
+      }
+      return null
+    },
     update: async ({ where, data }: { where: { id: string }; data: Partial<FakeMission> }) => {
       const m = missions.get(where.id)
       if (!m) throw new Error('mission not found')
@@ -410,6 +418,28 @@ describe('mission store', () => {
     expect(m!.cancelRequested).toBe(false)
     expect(await requestMissionCancel(sub.missionId, 'user-1')).toBe(true)
     expect((await getMissionById(sub.missionId))!.cancelRequested).toBe(true)
+  })
+
+  test40('identical ACTIVE mission is refused; finished missions never block re-runs', async () => {
+    const objective = 'Build a website for the dedupe probe bakery with a menu'
+    const plan = planMission(objective)
+    if (!plan.ok) throw new Error('plan failed')
+    const first = await createMissionFromPlan('user-1', objective, plan)
+    expect(first.status).toBe('planned')
+    let duplicateMessage = ''
+    try {
+      await createMissionFromPlan('user-1', objective, plan)
+    } catch (e) {
+      duplicateMessage = e instanceof Error ? e.message : String(e)
+    }
+    expect(duplicateMessage).toContain('identical mission')
+    const other = await createMissionFromPlan('user-2', objective, plan)
+    expect(other.status).toBe('planned')
+    const stored = missions.get(first.missionId)
+    if (!stored) throw new Error('first mission missing from the fake store')
+    stored.status = 'cancelled'
+    const again = await createMissionFromPlan('user-1', objective, plan)
+    expect(again.status).toBe('planned')
   })
 
   test40('progress view is customer-safe (no payload or job-id leaks)', async () => {

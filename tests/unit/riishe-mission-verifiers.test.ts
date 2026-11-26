@@ -79,6 +79,21 @@ describe('document-draft verifier', () => {
     expect(v.status).toBe('verified')
   })
 
+  test('unproven base verdict is NEVER wrapped as verified (live-acceptance regression)', () => {
+    // verification null (self-verification disabled/skipped) + deliverable
+    // path present: the honest verdict is needs_correction, not verified.
+    const payload: CodingJobPayload = {
+      projectId: 'p',
+      changes: [{ path: 'report.md', change: 'created' }],
+      contentChars: 5200,
+      verification: null,
+    }
+    const v = verifyDocumentDraft(payload, { requireSelfVerification: true, deliverablePath: 'report.md', requireSourceCitation: true }, 3)
+    expect(v.status).toBe('needs_correction')
+    expect(v.reasons.join(' ')).toContain('self-verification')
+    expect(v.status === 'verified' && v.reasons.join(' ').toLowerCase().includes('unproven')).toBe(false)
+  })
+
   test('missing deliverable path is caught deterministically', () => {
     const v = verifyDocumentDraft(PASSING_CODE, criteria, 3)
     expect(v.status).toBe('needs_correction')
