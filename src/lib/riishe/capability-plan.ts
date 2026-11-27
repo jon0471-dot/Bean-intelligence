@@ -56,6 +56,14 @@ export interface CapabilityPlan {
    * every delegation).
    */
   missionDelegation: boolean
+  /**
+   * M45 — governed execution requested this turn: the message carries a
+   * decision/plan/approval/execution/result shape (deterministic detection
+   * in conversation-intent.ts). Two-key gated like every delegation; the
+   * tool itself stays intent-guarded, and protected actions still require
+   * the owner's approval through the existing authorization contract.
+   */
+  executionGovernance: boolean
   /** Human-readable reasons (logged; safe for support). */
   reasons: string[]
 }
@@ -105,6 +113,7 @@ const DOC_ONLY_RE =
   /\b(based\s+(only|solely|exclusively|just)\s+on\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|only\s+from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|attachments?|reports?|pdfs?)|from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?)\s+alone|(only|strictly)\s+(according\s+to|using|from)\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|using\s+only\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|answer\s+(only|solely)\s+from\s+(the\s+|my\s+)?(attached\s+)?(documents?|files?|reports?|pdfs?)|(stick|limit)\s+(to|it)\s+(strictly\s+)?to\s+(the\s+)?(attached\s+)?(documents?|files?|reports?))\b/i
 
 import { planMission } from './mission/planner'
+import { executionGovernanceRequested } from './mission/conversation-intent'
 
 export function planCapabilities(
   message: string,
@@ -189,6 +198,16 @@ export function planCapabilities(
     missionDelegation = false
   }
 
+  // M45 — governed-execution planning (deterministic, plan-narrowed). The
+  // decision/plan/approval/execution/result vocabulary opens the
+  // execution_decision tool universe for the turn; the tool's own intent
+  // gate still separates advice from execution, and protected actions still
+  // need the owner's grant through the existing authorization contract.
+  const executionGovernance = executionGovernanceRequested(text, hasDocuments)
+  if (executionGovernance) {
+    reasons.push('governed execution vocabulary detected: execution_decision available for this turn')
+  }
+
   return {
     codeExecution,
     imageAnalysis: hasImage,
@@ -198,6 +217,7 @@ export function planCapabilities(
     codingDelegation,
     docOnlyGrounding,
     missionDelegation,
+    executionGovernance,
     reasons,
   }
 }

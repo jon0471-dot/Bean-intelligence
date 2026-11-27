@@ -204,14 +204,19 @@ describe('m44 runner: approvals and honest unavailability', () => {
   })
 
   test('an approval-gated action with a valid granted approval STILL refuses honestly when no real path exists', async () => {
+    // M45 note: repo-push gained a REAL execution path through the M45
+    // repository adapter, so the honest-refusal property is now pinned on
+    // 'external-communicate' — a type that remains classified + approval-
+    // gated with NO execution path in BEAN. The invariant is unchanged:
+    // a granted approval never conjures a simulated success.
     const contract = buildActionContract({
-      id: 'push-branch',
-      actionType: 'repo-push',
-      title: 'Push the reviewed branch',
-      description: 'Publish the reviewed migration branch to the remote',
-      params: { sha: 'abc123def456' },
+      id: 'external-announce',
+      actionType: 'external-communicate',
+      title: 'Publish the release announcement',
+      description: 'Announce the migration to the external channel',
+      params: { channel: 'release-notes' },
       authScope: 'project-write',
-      idempotencyKey: 'push:feat-x:v1',
+      idempotencyKey: 'announce:v1',
     })
     const plan = buildActionPlan('Publish the migration', [contract])
     const payload = {

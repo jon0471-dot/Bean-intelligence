@@ -993,3 +993,29 @@ model AgentMissionTask {
   @@index([missionId, status])
   @@index([specialistJobId])
 }
+
+// M45 — per-turn conversational execution decisions. One row per decision
+// created from a RIISHE conversation turn; the decision JSON carries the
+// full M44 outcome (rationale, confidence trail, alternative matrix) and the
+// plan JSON the digest-bound approval belongs to. Owner-scoped reads only.
+model ExecutionDecision {
+  id                String   @id @default(cuid())
+  userId            String
+  conversationId    String
+  turnId            String // the turn that created the decision
+  objective         String // bounded conversational objective
+  status            String   @default("created") // created | planned | awaiting-approval | executing | succeeded | partially-succeeded | failed | blocked | cancelled | recovery-required
+  decisionKind      String // decided | insufficient-evidence | escalated
+  decisionJson      String // bounded full M44 DecisionOutcome
+  planDigest        String? // the ActionPlan digest when a plan exists
+  planJson          String? // bounded ActionPlan (contracts + digest)
+  recordsJson       String? // bounded execution records after a run
+  trustTaskId       String? // the Trust ledger task for this decision
+  bindingDigest     String // canonical digest over (user, conversation, turn, mission)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId, conversationId])
+  @@index([userId, status])
+  @@index([trustTaskId])
+}

@@ -81,6 +81,8 @@ export interface ObservationSet {
   http?: Record<string, HttpObservation>
   research?: ResearchObservation
   idempotency?: Record<string, IdempotencyObservation>
+  /** M45 — the state an INDEPENDENT pull-request lookup observed. */
+  pullRequestState?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -226,9 +228,23 @@ function fallbackPostconditions(contract: ActionContract): PostconditionSpec[] {
     case 'media-produce':
       return [{ kind: 'artifact-exists', params: { ref: contract.id }, description: 'the produced media artifact exists', requireIndependentMethod: true }]
     case 'repo-commit':
-      return [{ kind: 'commit-present', params: { sha: contract.params.sha ?? '', branch: contract.params.branch ?? '' }, description: 'the commit exists on the branch', requireIndependentMethod: true }]
+      // The commit SHA comes into existence at execution time; the runtime
+      // resolves the placeholder into the executed sha before evaluation.
+      return [{ kind: 'commit-present', params: { sha: contract.params.sha ?? '', branch: contract.params.branch ?? '' }, description: 'the executed commit exists on the branch', requireIndependentMethod: true }]
     case 'repo-push':
       return [{ kind: 'remote-ref-equals', params: { sha: contract.params.sha ?? '', remote: contract.params.remote ?? 'origin' }, description: 'the remote ref matches the pushed commit', requireIndependentMethod: true }]
+    case 'repo-inspect':
+      return contract.idempotencyKey
+        ? [{ kind: 'no-duplicate-effect', params: { key: contract.idempotencyKey, maxRuns: String(contract.retry.maxAttempts) }, description: 'the inspection ran within its attempt budget', requireIndependentMethod: true }]
+        : []
+    case 'deployment-inspect':
+      return contract.idempotencyKey
+        ? [{ kind: 'no-duplicate-effect', params: { key: contract.idempotencyKey, maxRuns: String(contract.retry.maxAttempts) }, description: 'the deployment inspection ran within its attempt budget', requireIndependentMethod: true }]
+        : []
+    case 'repo-pull-request':
+      // The PR number comes into existence at execution time; the runtime
+      // resolves it (state=open observed by an independent GET).
+      return [{ kind: 'value-equals', params: { observed: 'pullRequestState', expected: 'open' }, description: 'the created pull request is observed open by an independent lookup', requireIndependentMethod: true }]
     case 'website-publish-verify':
       return [{ kind: 'url-status', params: { url: contract.params.url ?? '', status: '200' }, description: 'the served page responds 200', requireIndependentMethod: true }]
     case 'deployment-release':
@@ -241,6 +257,35 @@ function fallbackPostconditions(contract: ActionContract): PostconditionSpec[] {
     default:
       return []
   }
+}
+
+// ---------------------------------------------------------------------------
+// M45 — runtime verification contract.
+//
+// Commit SHAs and pull-request states come into existence DURING execution;
+// the verification contract is stamped with the values from the adapter's
+// INDEPENDENT evidence before evaluation. The substitution NEVER invents a
+// passing value: an unverified execution keeps its placeholder (which then
+// fails or stays inconclusive honestly).
+// ---------------------------------------------------------------------------
+
+export function runtimeVerificationContract(
+  contract: ActionContract,
+  evidence: Array<{ kind: string; ref: string; note: string }>,
+): ActionContract {
+  const executedSha = evidence.find((e) => e.kind === 'commit' && /^[0-9a-f]{40}$/.test(e.ref))?.ref ?? null
+  const prVerified = evidence.some((e) => e.kind === 'pull-request' && /verified/i.test(e.note) && !/UNVERIFIED|NOT/i.test(e.note))
+  const base = contract.postconditions.length > 0 ? contract.postconditions : fallbackPostconditions(contract)
+  const postconditions = base.map((p) => {
+    if ((p.kind === 'commit-present' || p.kind === 'remote-ref-equals') && !p.params.sha && executedSha) {
+      return { ...p, params: { ...p.params, sha: executedSha } }
+    }
+    if (p.kind === 'value-equals' && p.params.observed === 'pullRequestState' && prVerified) {
+      return { ...p, params: { ...p.params, expected: 'open' } }
+    }
+    return p
+  })
+  return { ...contract, postconditions }
 }
 
 // ---------------------------------------------------------------------------
@@ -259,9 +304,15 @@ export function verificationMethodFor(contract: ActionContract): string {
     case 'research-fetch':
       return 'independent provenance re-derivation over the retrieved sources'
     case 'repo-commit':
-      return 'independent git object query'
+      return 'independent git object query of the executed commit'
     case 'repo-push':
-      return 'independent remote ref fetch comparison'
+      return 'independent remote ref fetch comparison (ls-remote / ref GET)'
+    case 'repo-inspect':
+      return 'bounded idempotency ledger observation of the inspection run'
+    case 'deployment-inspect':
+      return 'independent HTTP health probe + git revision re-query of the running deployment'
+    case 'repo-pull-request':
+      return 'independent pull-request GET (identity + state + head sha)'
     case 'website-publish-verify':
       return 'independent HTTP fetch of the served page'
     case 'deployment-release':
