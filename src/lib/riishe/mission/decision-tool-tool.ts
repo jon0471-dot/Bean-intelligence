@@ -19,6 +19,7 @@
 
 import { classifyTurnIntent } from './conversation-intent'
 import { buildConversationBinding } from './conversation-binding'
+import { formatRecordForChat, decisionStatusLabel } from './action-status-view'
 import {
   createConversationDecision,
   executeConversationPlan,
@@ -209,12 +210,16 @@ export const executionDecisionTool: ToolDescriptor<ExecutionDecisionInput> = {
             output:
               `Execution finished for decision ${r.decisionId}: ${r.summary}\n` +
               r.records
-                .map(
-                  (rec) =>
-                    `- ${rec.actionId}: ${rec.state}${rec.verdict ? ` (verdict ${rec.verdict})` : ''}${rec.resultSummary ? ` — ${rec.resultSummary.slice(0, 200)}` : ''}${rec.note ? ` — ${rec.note.slice(0, 160)}` : ''}`,
+                .map((rec) =>
+                  formatRecordForChat({
+                    actionId: rec.actionId,
+                    state: rec.state as never,
+                    resultSummary: rec.resultSummary,
+                    verificationVerdict: rec.verdict,
+                  }),
                 )
                 .join('\n') +
-              '\nRelay the verified outcomes exactly; states other than SUCCEEDED are not successes.',
+              '\nRelay the verified outcomes exactly; only "Succeeded" means the result was independently verified.',
           }
         }
         case 'action_status': {
@@ -222,9 +227,9 @@ export const executionDecisionTool: ToolDescriptor<ExecutionDecisionInput> = {
           return {
             ok: true,
             output:
-              `Decision ${r.decisionId} is ${r.status}.` +
+              `Decision ${r.decisionId} is ${decisionStatusLabel(r.status)}.` +
               (r.actions.length
-                ? `\n` + r.actions.map((a) => `- ${a.actionId}: ${a.state}${a.verificationVerdict ? ` (verdict ${a.verificationVerdict}, attempts ${a.attempts})` : ''}`).join('\n')
+                ? `\n` + r.actions.map((a) => formatRecordForChat({ actionId: a.actionId, state: a.state as never, resultSummary: null, verificationVerdict: a.verificationVerdict })).join('\n')
                 : '\nNo action has run yet.') +
               '\nRelay exactly this state.',
           }
