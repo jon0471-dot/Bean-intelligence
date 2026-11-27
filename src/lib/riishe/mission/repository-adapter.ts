@@ -59,6 +59,30 @@ export function repositoryAllowlist(): string[] {
   return ['jon0471-dot/Bean-intelligence']
 }
 
+/**
+ * M46.3 — the DEDICATED integration-test repository for real write-lane
+ * acceptance. Explicit configuration ONLY: nothing is created, published or
+ * defaulted here, and the owner's production repository is never assumed to
+ * be disposable. When unset (or malformed) the write lane reports honest
+ * unavailability instead of guessing a target.
+ */
+export function integrationRepository(): RepoRef | null {
+  const raw = process.env.BEAN_TEST_REPOSITORY?.trim() || ''
+  if (!raw) return null
+  const m = raw.match(/^([a-zA-Z0-9][a-zA-Z0-9_.-]*)\/([a-zA-Z0-9][a-zA-Z0-9_.-]*)$/)
+  if (!m) return null
+  return { owner: m[1], repo: m[2] }
+}
+
+/** Honest one-liner about the write-lane readiness of THIS deployment. */
+export function writeLaneAvailability(): { available: boolean; reason: string } {
+  const token = tokenForRequests()
+  if (!token) return { available: false, reason: 'No GitHub credential is configured (GITHUB_TOKEN absent) — real writes are unavailable and are never simulated.' }
+  const integration = integrationRepository()
+  if (!integration) return { available: false, reason: 'No dedicated integration-test repository is configured (BEAN_TEST_REPOSITORY unset) — write acceptance targets the owner production repository by default and is therefore refused. Configure a disposable repository to enable the live write lane.' }
+  return { available: true, reason: `Write lane ready against the configured integration repository ${integration.owner}/${integration.repo} (fast-forward feature branches only; never merged, never cleaned automatically).` }
+}
+
 export interface RepoRef {
   owner: string
   repo: string
@@ -181,6 +205,11 @@ export type RepoOutcome<T> =
   | { kind: 'executed'; data: T; evidence: Array<{ kind: string; ref: string; note: string }> }
   | { kind: 'failed'; reason: string }
   | { kind: 'honest-unavailable'; reason: string }
+  /** M46.3 — a WRITE-class request failed in transport AFTER it may have
+   *  reached the server (timeout, aborted connection). The remote state is
+   *  UNKNOWN: the outcome must never be SUCCEEDED and must never be
+   *  blind-retried — reconciliation (an independent remote read) decides. */
+  | { kind: 'reconciliation-required'; reason: string }
 
 function rateLimitNote(status: number, json: unknown): string | null {
   if (status !== 403 && status !== 429) return null
@@ -199,6 +228,14 @@ async function gh(path: string, init?: { method?: string; body?: unknown; accept
     return { kind: 'executed', data: res, evidence: [] }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    // M46.3 — write-class requests (everything but GET) carry UNCERTAIN
+    // remote state when the transport dies: the server may have applied the
+    // change before the connection dropped. Read-class failures stay plain
+    // failures (a read can be retried safely).
+    const method = (init?.method ?? 'GET').toUpperCase()
+    if (method !== 'GET') {
+      return { kind: 'reconciliation-required', reason: `The ${method} request did not complete in transport (${msg.slice(0, 160)}); the remote may or may not have applied it. Inspect remote state before any retry — never re-send blind.` }
+    }
     return { kind: 'failed', reason: `GitHub request failed: ${msg.slice(0, 200)}` }
   }
 }
@@ -248,6 +285,33 @@ export async function listCommits(ref: RepoRef, branch: string): Promise<RepoOut
     kind: 'executed',
     data: rows.slice(0, REPOSITORY_ADAPTER_LIMITS.listBound).map((c) => ({ sha: c.sha, message: (c.commit?.message ?? '').slice(0, 200) })),
     evidence: rows.slice(0, 4).map((c) => ({ kind: 'commit', ref: c.sha.slice(0, 12), note: (c.commit?.message ?? '').slice(0, 120) })),
+  }
+}
+
+/**
+ * M46.3 — read ONE file's content from a branch (the write lane's content
+ * verification step: "read the committed artifact and verify its contents").
+ * Read-only, policy-checked, bounded.
+ */
+export async function readBranchFile(ref: RepoRef, branch: string, path: string): Promise<RepoOutcome<{ path: string; content: string; sha: string | null }>> {
+  const policy = checkRepoPolicy(ref)
+  if (!policy.ok) return { kind: 'failed', reason: `Repository refused by policy (${policy.reason}).` }
+  const p = String(path ?? '').trim()
+  if (!p || p.length > 400 || p.includes('..') || p.startsWith('/')) return { kind: 'failed', reason: 'Invalid file path.' }
+  const b = String(branch ?? '').trim()
+  if (!b) return { kind: 'failed', reason: 'A branch name is required.' }
+  const res = await gh(`/repos/${ref.owner}/${ref.repo}/contents/${encodePath(p)}?ref=${encodeURIComponent(b)}`)
+  if (res.kind !== 'executed') return res
+  if (res.data.status === 404) return { kind: 'failed', reason: 'File or branch not found (404).' }
+  if (res.data.status !== 200) return { kind: 'failed', reason: `File read returned HTTP ${res.data.status}.` }
+  const j = res.data.json as { content?: string; encoding?: string; sha?: string; path?: string }
+  if (j.encoding !== 'base64' || typeof j.content !== 'string') return { kind: 'failed', reason: 'The contents API returned an unsupported encoding for this file.' }
+  const content = Buffer.from(j.content, 'base64').toString('utf8')
+  if (content.length > REPOSITORY_ADAPTER_LIMITS.contentChars) return { kind: 'failed', reason: 'The file exceeds the adapter content bound.' }
+  return {
+    kind: 'executed',
+    data: { path: j.path ?? p, content, sha: j.sha ?? null },
+    evidence: [{ kind: 'file', ref: `${b}:${p}`, note: `${content.length} chars read back from the remote branch` }],
   }
 }
 
