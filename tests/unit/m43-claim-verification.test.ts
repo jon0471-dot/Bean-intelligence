@@ -35,7 +35,6 @@ function srcEv(overrides: Partial<SpecialistEvidence> & { url: string; title?: s
   return {
     sourceId: '[S1]',
     title: overrides.title ?? 'Source',
-    url: overrides.url,
     host: new URL(overrides.url).host,
     sourceType: 'other',
     author: null,

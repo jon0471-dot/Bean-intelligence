@@ -32,7 +32,7 @@ import { isCancelRequested } from './queue'
 import { appendJobEventSafe } from './events'
 import { transitionJob } from './queue'
 import { classifyJobFailure } from './classify'
-import { buildTechDocsWithReach } from '@/lib/intel/techdocs-reach'
+import { buildTechDocsWithReach, enrichWithSecurityAdvisories } from '@/lib/intel/techdocs-reach'
 import type { ClaimedJob, HandlerOutcome } from './types'
 
 const MAX_HISTORY = 12
@@ -106,7 +106,10 @@ export async function handleGiftzCodingJob(
   // BEAN Intelligence: live official-docs retrieval (identical to the live
   // route's behavior). Bounded; failure degrades honestly to model knowledge
   // with no source claimed. Reference data only — never executed.
-  const { techDocs, research } = await buildTechDocsWithReach(params.message, job.userId)
+  const baseDocs = await buildTechDocsWithReach(params.message, job.userId)
+  // M43 §7: official security advisories (OSV.dev) for dependency/security-
+  // shaped requests — deterministic dispatch, additive block, honest degrade.
+  const { techDocs, research } = await enrichWithSecurityAdvisories(params.message, baseDocs, job.userId)
   if (techDocs?.degraded.length) {
     logger.warn('engine.giftz_techdocs_degraded', { jobId: job.id, degraded: techDocs.degraded })
   }

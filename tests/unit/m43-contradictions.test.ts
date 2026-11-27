@@ -28,7 +28,7 @@ import type { SpecialistEvidence, SpecialistEvidencePack } from '../../src/lib/r
 
 function srcEv(overrides: Partial<SpecialistEvidence> & { url: string }): SpecialistEvidence {
   return {
-    sourceId: '[S1]', title: overrides.title ?? 'Source', url: overrides.url, host: new URL(overrides.url).host,
+    sourceId: '[S1]', title: overrides.title ?? 'Source', host: new URL(overrides.url).host,
     sourceType: 'other', author: null, publishedAt: null, retrievedAt: '2026-11-20T08:00:00.000Z',
     excerpt: null, pageRead: false, provenance: { channel: null, engine: 'gateway' }, official: false, ...overrides,
   }

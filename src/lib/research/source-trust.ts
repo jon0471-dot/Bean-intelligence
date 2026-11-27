@@ -175,11 +175,11 @@ export function assessSourceAuthority(src: SourceTrustInput, claimKind: ClaimKin
 
 /** Convenience adapter from the M42 evidence shape. */
 export function assessEvidenceAuthority(
-  s: { host: string; sourceType: string; official: boolean; provenance: { engine: string } },
+  s: { host: string; sourceType: string; official: boolean; social?: boolean; provenance: { engine: string } },
   claimKind: ClaimKind,
 ): SourceTrustAssessment {
   return assessSourceAuthority(
-    { host: s.host, sourceType: s.sourceType, official: s.official, social: s.sourceType === 'social', engine: s.provenance?.engine ?? null },
+    { host: s.host, sourceType: s.sourceType, official: s.official, social: s.social ?? s.sourceType === 'social', engine: s.provenance?.engine ?? null },
     claimKind,
   )
 }

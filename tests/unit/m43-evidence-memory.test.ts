@@ -92,7 +92,7 @@ function fakeDelegate(seed: EvidenceKnowledgeRow[] = []): EvidenceKnowledgeDeleg
 
 function srcEv(overrides: Partial<SpecialistEvidence> & { url: string }): SpecialistEvidence {
   return {
-    sourceId: '[S1]', title: overrides.title ?? 'Source', url: overrides.url, host: new URL(overrides.url).host,
+    sourceId: '[S1]', title: overrides.title ?? 'Source', host: new URL(overrides.url).host,
     sourceType: 'other', author: null, publishedAt: '2026-10-01', retrievedAt: '2026-11-20T08:00:00.000Z',
     excerpt: 'supporting passage', pageRead: false, provenance: { channel: null, engine: 'gateway' }, official: true, ...overrides,
   }
@@ -180,8 +180,8 @@ describe('M43 dedupe and supersession', () => {
   })
 
   test('sources overlap detection uses canonical urls', () => {
-    const a = [{ sourceId: '[S1]', url: 'https://www.meity.gov.in/directive?utm_source=x', title: 'Directive', publisher: null, author: null, publishedAt: null, retrievedAt: '', independenceGroup: '', authorityClass: 'authoritative' as const }]
-    const b = [{ sourceId: '[S1]', url: 'https://meity.gov.in/directive', title: 'Directive', publisher: null, author: null, publishedAt: null, retrievedAt: '', independenceGroup: '', authorityClass: 'authoritative' as const }]
+    const a = [{ evidenceId: '[E1]', sourceId: '[S1]', url: 'https://www.meity.gov.in/directive?utm_source=x', title: 'Directive', publisher: null, author: null, publishedAt: null, retrievedAt: '', independenceGroup: '', authorityClass: 'authoritative' as const }]
+    const b = [{ evidenceId: '[E2]', sourceId: '[S1]', url: 'https://meity.gov.in/directive', title: 'Directive', publisher: null, author: null, publishedAt: null, retrievedAt: '', independenceGroup: '', authorityClass: 'authoritative' as const }]
     expect(sourcesOverlap(a, b)).toBe(true)
   })
 

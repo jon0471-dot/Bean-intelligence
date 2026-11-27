@@ -40,7 +40,6 @@ function ev(overrides: Partial<SpecialistEvidence> & { url: string }): Specialis
   return {
     sourceId: '[S1]',
     title: 'A title',
-    url: overrides.url,
     host: new URL(overrides.url).host,
     sourceType: 'other',
     author: null,

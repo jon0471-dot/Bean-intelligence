@@ -164,7 +164,6 @@ function detectRegionalConflicts(claim: string, records: RoleTaggedEvidenceRecor
     const reg = regs[0]
     if (!byRegion.has(reg)) byRegion.set(reg, r)
   }
-  const claimRegionSet = new Set(claimRegions)
   // Explicit claim regions conflicting with evidence for other regions:
   const pairs: Array<[string, string]> = []
   for (const claimRegion of claimRegions) {
