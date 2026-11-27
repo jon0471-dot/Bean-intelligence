@@ -31,9 +31,9 @@ export type TurnIntent =
 // -- Advice: the user asks WHAT should be done. Highest priority: a question
 //    opener keeps the turn advisory even when it mentions execution nouns.
 const ADVICE_RE =
-  /^\s*(what\s+(should|would|could|can|is|are|do)|how\s+(should|do|can|does|would)|should\s+(we|i|the)|which\s+(option|approach|one|way)|do\s+you\s+(recommend|suggest|think)|any\s+(recommendation|suggestion|advice)|recommend|suggest|advice|opinion|thoughts)\b/i
+  /^\s*(what\s+(should|would|could|can|is|are|do)|how\s+(should|do|can|does|would)|should\s+(we|i|the)|which\s+(option|approach|one|way|strategy)|do\s+you\s+(recommend|suggest|think)|any\s+(recommendations?|suggestions?|advice|thoughts)|recommendations?|suggest|advice|opinion|thoughts)\b/i
 const ADVICE_BODY_RE =
-  /\b(what\s+do\s+you\s+(recommend|suggest)|which\s+(should|would)|should\s+we|can\s+you\s+(recommend|advise|suggest)|worth\s+doing|is\s+it\s+(a\s+)?good\s+idea|risk(s|y)?\s+of)\b/i
+  /\b(what\s+do\s+you\s+(recommend|suggest)|which\s+(should|would)|should\s+we|can\s+you\s+(recommend|advise|suggest)|worth\s+doing|is\s+it\s+(a\s+)?good\s+idea|risk(s|y)?\s+of|is\s+(appropriate|best|better|suitable|recommended|right|preferred)|what\s+(deployment|release|rollout|migration|backup|security|branching|versioning)\s+(strategy|plan|approach|policy|options?))\b/i
 
 // -- Result: the user asks about an EARLIER action's outcome.
 const RESULT_RE =
@@ -85,7 +85,7 @@ export function classifyTurnIntent(message: string): TurnIntent {
  * contract, not in tool availability).
  */
 const GOVERNANCE_RE =
-  /\b(decide|decision|which\s+option|trade[-\s]?offs?|execution\s+plan|action\s+plan|propose|authorize|approval|approve|execute|action\s+status|action\s+result|verified\s+result|blocked|rejected|roll\s?out|migration|deploy)\b/i
+  /\b(decide|decision|which\s+option|trade[-\s]?offs?|execution\s+plan|action\s+plan|propose|authorize|approval|approve|execute|action\s+status|action\s+result|verified\s+result|blocked|rejected|roll\s?out|migration|deploy|deployed|deployment|inspect|inspection|investigate|revision|current\s+revision|repository|repo\s+status|branch)\b/i
 const GOVERNANCE_QUESTION_BLOCK_RE =
   /^\s*(how\s+(does|do|did)\s+(the\s+)?(approval|authorization|two[-\s]key|permission)|explain\s+(the\s+)?(approval|authorization|two[-\s]key)|what\s+is\s+(the\s+)?(two[-\s]key|approval\s+flow))\b/i
 
