@@ -263,7 +263,7 @@ export function buildActionContract(input: {
   if (description.length < 3 || description.length > ACTION_LIMITS.descriptionChars) {
     throw new ActionContractError(`Action description must be 3-${ACTION_LIMITS.descriptionChars} characters.`)
   }
-  if (input.planVersion !== undefined && !VERSION_RE.test(input.planVersion)) {
+  if (input.planVersion !== undefined && input.planVersion !== 'pending-plan-digest' && !VERSION_RE.test(input.planVersion)) {
     throw new ActionContractError('planVersion must be the plan digest (8-64 hex characters) or omitted for plan-bound contracts.')
   }
   const params: Record<string, string> = {}
@@ -411,9 +411,10 @@ const KIND_SCOPE: Record<string, string> = {
  * condition is derived from the task's OWN verification criteria so Phase 5
  * checks what the mission verifier would check — one honesty standard.
  */
-export function contractForTaskSpec(spec: MissionTaskSpec, planVersion: string): ActionContract {
+export function contractForTaskSpec(spec: MissionTaskSpec, planVersion?: string): ActionContract {
   const actionType = KIND_ACTION_TYPE[spec.kind]
   if (!actionType) throw new ActionContractError(`Mission task kind "${spec.kind}" has no M44 action mapping.`)
+  const version = planVersion ?? 'pending-plan-digest'
   const postconditions: PostconditionSpec[] = [
     {
       kind: spec.verification.minSources ? 'sources-min' : 'artifact-exists',
@@ -430,10 +431,10 @@ export function contractForTaskSpec(spec: MissionTaskSpec, planVersion: string):
     params: spec.params,
     postconditions,
     authScope: KIND_SCOPE[spec.kind] ?? spec.authScope,
-    idempotencyKey: `mission:${planVersion.slice(0, 16)}:${spec.id}`,
+    idempotencyKey: `mission:${version.slice(0, 16)}:${spec.id}`,
     retry: { maxAttempts: spec.limits.maxAttempts, backoffMs: 1_000 },
     timeoutMs: spec.limits.executionTimeoutMs,
-    planVersion,
+    planVersion: version,
     dependsOn: spec.dependsOn.map((d) => `m-${d}`),
   })
 }

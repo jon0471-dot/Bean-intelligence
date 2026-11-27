@@ -213,6 +213,15 @@ async function trustStep(task: TaskRow, status: 'running' | 'done' | 'failed' | 
   } catch {
     /* ledger bounds are not execution failures */
   }
+  // M44 bridge: the honest action-contract stamp + verdict note rides the
+  // SAME transition events into the Trust ledger (additive, never gating,
+  // never throwing — the M41 flow is untouched).
+  try {
+    const { recordM44TaskEvidence } = await import('./mission-bridge')
+    await recordM44TaskEvidence(mission, task, specOf(task), status === 'running' ? 'executing' : status === 'done' ? 'verified' : status, note ?? null)
+  } catch {
+    /* the bridge is additive provenance only */
+  }
 }
 
 async function trustEvidenceArtifact(mission: MissionRow, artifact: MissionArtifact): Promise<void> {
