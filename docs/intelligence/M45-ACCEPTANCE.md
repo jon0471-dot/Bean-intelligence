@@ -45,3 +45,24 @@ Tampered binding digest refused before any other check; one-shot turn ledger blo
 ## No fabricated evidence
 
 Every LIVE/LOCAL-LIVE row records what actually ran in this window. Absent infrastructure (staging, provider history, live PR creation) is asserted as HONEST UNAVAILABILITY or MOCKED — never silently counted as PASS.
+
+---
+
+## APPENDED M46 RECONCILIATION (2026-11-28 — appended, nothing above rewritten)
+
+During the M46.0 readiness audit a counting discrepancy was found: `docs/M45_IMPLEMENTATION_REPORT.md` §"Classification split" reported **1 LIVE + 4 LOCAL-LIVE + 15 LOCAL-INT + 5 MOCKED + 2 MANUAL = 27**, while the suite contains **24 scenarios**. The original text above is preserved unchanged; this section is the documented correction.
+
+**Census of the actual test file** (`tests/integration/m45-acceptance.test.ts`, 24 `test()` cases, each label carries its own class tag):
+
+| Classification | Identities |
+| --- | --- |
+| LIVE | 1 (S10) |
+| LOCAL-LIVE | 3 (S15, S17, S18) |
+| LOCAL-INT | 13 (S1–S6, S8, S9, S11, S16, S19, S20, S21, S-UX) |
+| MOCKED | 5 (S7, S12, S13, S14, S22) |
+| MANUAL | 2 (S23-note, S24-note) |
+| **Total** | **24 unique scenarios = 24 suite cases** ✔ |
+
+**Root cause:** a reporting mistake in the implementation report — its LOCAL-LIVE count was 4 (one more than the 3 real LOCAL-LIVE cases) and its LOCAL-INT count was 15 (two more than the 13 real identities, one of which hides in the combined "19/20" doc-table row). The categories themselves never overlapped; 27 was an arithmetic artifact of over-counted rows, never a claim about 27 executed scenarios.
+
+**Canonical accounting from M46 onward:** 1 LIVE + 3 LOCAL-LIVE + 13 LOCAL-INT + 5 MOCKED + 2 MANUAL = 24. Every unique scenario carries exactly one unambiguous identity (S19 and S20 are distinct scenarios that shared one test case — a form M46's acceptance matrix no longer uses). No historical result was altered; the original matrix above remains the record of what actually ran in M45.
