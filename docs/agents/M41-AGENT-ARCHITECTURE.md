@@ -58,3 +58,17 @@ Deterministic decompositions for the four canonical multi-agent workflows (A web
 - **Implemented + live-verified (M41 acceptance window)**: mission REST surfaces, cross-user isolation, duplicate refusal, cancellation propagation, media-production workflow (`completed_partial` with a REAL verified hosted video + live parallel-lane observations), research retrieval lane (6 real gateway sources), Knowledge Atlas lane (4 real references), verifier verdicts on done tasks.
 - **Blocked in the acceptance window (honest)**: the document/website build tasks were blocked by the hosted self-verifier's strict audit (2 FAIL rows, root cause: the audit runs over the file-fenced coding reply and flagged content requirements; needs a mission-aware verifier focus — follow-up, NOT claimed) and one build was provider-truncated (honest-unavailable). The mission machinery recorded these honestly — no false completions.
 - **Owner-hardware / operations territory**: live server-restart resume drill (the resume machinery is unit-pinned and rides the engine lease recovery accepted in M26/M40).
+
+## 7. M42 addendum — universal web research access (capability matrix update)
+
+> Branch `feat/m42-universal-web-research-access`. The M42 documentation set lives in `docs/ai/M42-*.md` + `docs/M42-IMPLEMENTATION-REPORT.md`; this section only updates the capability matrix.
+
+| Capability | State (honest) |
+|---|---|
+| Shared specialist research contract (`runSpecialistResearch`) for ALL seven roles | implemented + live-verified (7/7 consumers returned real evidence through the real pipeline; acceptance JSON committed) |
+| Mission preflight references for media tasks (laxii/jazmii/gangzii) | implemented + integration-verified (reference block rides the persisted job row; user prompt verbatim and first; GANGZII synthesis text never altered — receipt-only) |
+| Scholarly + package-registry adapters (Crossref/OpenAlex/arXiv/DOAJ/npm/PyPI) | implemented + live-probed (5/7 PASS in the recorded window; OpenAlex/arXiv 429 honest-unavailable) |
+| Security-advisory + community adapters (OSV.dev, Stack Exchange, Hacker News) | implemented + live-probed (6/7 PASS; Stack Exchange 429 honest; UGC records low-authority by contract) |
+| Deterministic retrieval triggers incl. fiction exclusion | implemented + live-verified (fiction/transform refused at 0–1 ms, zero network calls) |
+| Honest registry states (Tier A–G, per-action) | implemented (registry is the source of truth; disabled/not_integrated rows reported verbatim) |
+| Product-level five-product dev-server e2e in the M42 window | NOT re-run this window — contract + mission-path suites cover the real execution paths in-process (recorded as the window's honest limitation) |

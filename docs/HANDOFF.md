@@ -1,9 +1,16 @@
 # BEAN Intelligence — Project Handoff (Session Continuity Document)
 
-> Maintained for future Z.ai development sessions. Last updated: 2026-11-12 (UTC+8).
+> Maintained for future Z.ai development sessions. Last updated: 2026-11-27 (UTC+8).
 > This document contains environment variable NAMES only — never secret values.
 
-## 0. Permanent GitHub Sync & Update Policy (standing, every session)
+## 0. CURRENT STATE (2026-11-27 — supersedes the snapshot in §1 for sync purposes)
+
+- **origin/main** = `cc21b80` → **`5cad5a0`** (PR #31, M41.7 complete; then **PR #32 — merged by the OWNER on GitHub 2026-11-26 22:13 IST while the M42 session was running** — brought `feat/m42-universal-web-research-access` through `6409257` into main: M42.1 contract, M42.2 mission integration, M42.3 adapters + runtime-guard fix, M42.3b security/community adapters). M41 phases are all merged (PRs #24/#26/#27/#28/#29/#30/#31).
+- **Open working branch:** `feat/m42-universal-web-research-access` (tip `e02b551`, 3 commits ahead of main). Beyond the owner-merged set it carries: M42.5 (`a75b62b` — race-loser rejection sinks at all four research-path timeout races + the live 7-consumer specialist-contract acceptance, 9/9 PASS), the M42 documentation set (`ace7023` — operating manual, source-platform coverage with 9 adapter decision records, agent reference contract, security/copyright/privacy, implementation report, worklog/HANDOFF/capability updates) and the final verification sweep record (`e02b551` — full suite 2990/0/10, production build exit 0, secret sweep clean, 0 UI files touched). Every pushed SHA was fetched back and independently verified. **The M42-session itself performed NO merge — the observed PR #32 merge was the owner's own GitHub action; the 3 remaining commits await owner authorization.**
+- Standing M42 rules: one shared research gateway + one evidence contract (`src/lib/research/agent-evidence.ts`); no per-product scrapers; honest registry states (`available / requires_configuration / requires_login / experimental / unavailable / disabled / not_integrated`); "supports all websites" is never claimed; do not enable paid/restricted platforms without owner approval.
+- Worklog entry `0-M42` (worklog.md) carries the full milestone trail with live-evidence summaries.
+
+## 0.1 Permanent GitHub Sync & Update Policy (standing, every session)
 
 **Official repository (confirmed by owner 2026-11-12):** `https://github.com/jon0471-dot/Bean-intelligence.git` — owner `jon0471-dot`, name `Bean-intelligence`, branch `main`. Never switch repositories, never push to similarly-named repos, never create replacements without explicit owner approval.
 

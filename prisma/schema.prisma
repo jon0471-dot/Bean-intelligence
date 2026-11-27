@@ -39,6 +39,7 @@ model User {
   narrationProjects   NarrationProject[]
   gangziiAudioAssets  GangziiAudioAsset[]
   missions            AgentMission[]
+  evidenceKnowledge   EvidenceKnowledge[]
 }
 
 model Session {
@@ -366,6 +367,41 @@ model RiisheMemory {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+// M43 evidence-linked knowledge (Phase 6): claim-level knowledge with full
+// provenance, temporal validity, version chains and per-user isolation.
+// Stored ONLY with its sources and verification status — an unverified
+// research note can never be stored under a trusted class (enforced in
+// src/lib/riishe/evidence-memory.ts). No duplicate vector store: retrieval
+// is deterministic over the bounded rows; embeddings stay optional on the
+// existing MiniLM lane.
+model EvidenceKnowledge {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId           String?   // set when the knowledge is project-scoped
+  domain              String    // M43 KnowledgeDomain
+  knowledgeClass      String    // permanent-foundational | version-sensitive | time-sensitive | project-specific | user-authorized | unverified-research-note
+  claim               String    // the knowledge statement, bounded at write time
+  verificationOutcome String?   // M43 ClaimOutcome when verified; null for unverified notes
+  confidence          String    // high | medium | low
+  sourcesJson         String    // EvidenceAttributionView[] (bounded attribution, preserved through handoffs)
+  independenceGroups  Int       // distinct corroborating source groups at write time (copies never inflate)
+  freshnessStatus     String    // fresh | aging | expired | unknown (at write time)
+  claimKey            String    // canonical claim key for dedupe (normalized)
+  validFrom           DateTime? // temporal validity start (claim-effective date when known)
+  validUntil          DateTime? // temporal validity end (freshness expiry)
+  supersedesId        String?   // version chain: the record this one supersedes (history preserved)
+  retractedAt         DateTime? // retraction/correction: the row is retained, never silently deleted
+  retractionNote      String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([userId, domain, knowledgeClass])
+  @@index([userId, createdAt])
+  @@index([claimKey])
+  @@index([supersedesId])
 }
 
 // ---- Unified AI gateway (2026-11-04 work order) -----------------------------

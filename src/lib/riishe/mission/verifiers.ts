@@ -78,6 +78,28 @@ export interface ResearchPayload {
   sources: Array<{ url: string; title: string; snippet: string; pageRead?: boolean; ref?: string }>
   queries: string[]
   degraded?: string[]
+  /**
+   * M43 — claim-level verification over the retrieved sources (additive;
+   * older consumers ignore it). Outcomes are honest — never forced PASS.
+   */
+  claims?: Array<{ claim: string; outcome: string; note: string }>
+  /** M43 — stated disagreement/uncertainty when the sources conflict. */
+  uncertainty?: string | null
+  /** M43 — bounded source attribution (identity + authority class). */
+  evidenceAttribution?: Array<{
+    evidenceId: string
+    sourceId: string
+    title: string
+    url: string
+    publisher: string | null
+    author: string | null
+    publishedAt: string | null
+    retrievedAt: string
+    independenceGroup: string
+    authorityClass: string
+  }>
+  /** M43 — freshness verdict for the set (stated, never guessed). */
+  freshness?: { status: string; reason: string; domain: string }
 }
 
 // ---------------------------------------------------------------------------
@@ -476,7 +498,18 @@ export function verifyResearch(payload: ResearchPayload | null, criteria: Verifi
     const degraded = payload.degraded?.length ? ` Retrieval reported: ${payload.degraded[0].slice(0, 160)}` : ''
     return outcome('needs_correction', [`Only ${real.length} real source(s) were gathered; the contract requires at least ${min}.${degraded}`], artifacts)
   }
-  return outcome('verified', [`Verified: ${real.length} real sources gathered (${payload.queries.length} live query run(s)).`], artifacts)
+  // M43 — additive claim audit: the pass rule is UNCHANGED (source counts);
+  // the honest claim outcomes ride in the reasons as audit information for
+  // the quality trail. Contradicted claims are stated, never silently used.
+  const claimNotes: string[] = []
+  if (payload.claims?.length) {
+    const contradicted = payload.claims.filter((c) => c.outcome === 'contradicted')
+    const weak = payload.claims.filter((c) => c.outcome === 'insufficient-evidence' || c.outcome === 'unverifiable' || c.outcome === 'outdated')
+    if (contradicted.length > 0) claimNotes.push(`claim audit: ${contradicted.length} statement(s) are contradicted by stronger evidence — they must not be presented as established fact`)
+    if (weak.length > 0) claimNotes.push(`claim audit: ${weak.length} statement(s) lack adequate evidence (${weak.slice(0, 3).map((c) => c.outcome).join(', ')})`)
+  }
+  if (payload.uncertainty) claimNotes.push(`uncertainty: ${payload.uncertainty.slice(0, 240)}`)
+  return outcome('verified', [`Verified: ${real.length} real sources gathered (${payload.queries.length} live query run(s)).`, ...claimNotes], artifacts)
 }
 
 export function verifyKnowledge(payload: ResearchPayload | null, criteria: VerificationCriteria): TaskVerificationOutcome {

@@ -168,8 +168,7 @@ export async function generateQueries(message: string, risk: SearchDecision): Pr
     // The guarded wrapper fail-fasts while the breaker is open (the catch
     // below then falls back to the raw-question search — the SAME honest
     // degrade as a timeout) and records observed 429s into the breaker.
-    const completion = (await Promise.race([
-      guardedChatCompletion({
+    const queryGen = guardedChatCompletion({
         messages: [
           { role: 'assistant', content: QUERY_SYSTEM },
           {
@@ -182,7 +181,13 @@ export async function generateQueries(message: string, risk: SearchDecision): Pr
           },
         ],
         thinking: { type: 'disabled' },
-      }),
+      })
+    // Race-loser sink: when the 6s timer wins, a late completion rejection
+    // (breaker open, gateway 5xx) must never surface as an unhandled
+    // rejection and crash the process after results were recorded.
+    void queryGen.catch(() => {})
+    const completion = (await Promise.race([
+      queryGen,
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('query-gen timeout')), 6_000)),
     ])) as QueryGenCompletion
     const content = completion.choices?.[0]?.message?.content ?? ''

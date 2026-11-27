@@ -33,6 +33,7 @@ import { webSearchTool, readUrlTool } from '@/lib/riishe/tools/builtin'
 import { buildVerificationContext, handoffSourceRefs, type MissionVerificationContext, type MissionSourceRef } from './verify-context'
 import { runSpecialistResearch, renderEvidenceBlock, shouldPreflightResearch, type SpecialistConsumer } from '@/lib/research/agent-evidence'
 import type { PersistedDeliverableEvidence } from './verifiers'
+import { buildResearchEvidenceSummary } from './evidence-summary'
 import { searchAtlasTool } from '@/lib/riishe/tools/atlas'
 import type { ToolContext, ToolSource } from '@/lib/riishe/tools/types'
 import { addTrustEvidence, cancelTrustTask, failTrustTask, finalizeTrustTask, planTrustSteps, updateTrustStepStatus } from '@/lib/trust/tasks'
@@ -254,14 +255,14 @@ function missionToolContext(mission: MissionRow): ToolContext {
 async function runResearchTask(mission: MissionRow, spec: MissionTaskSpec): Promise<{ payload: ResearchPayload | null; honestError: string | null }> {
   const topic = spec.params.topic ?? spec.objective
   const queries: string[] = []
-  const sources: ResearchPayload['sources'] = []
+  const toolSources: ToolSource[] = []
   const degraded: string[] = []
   try {
     const executed = await webSearchTool.execute({ query: clip(topic, 300) }, missionToolContext(mission))
     queries.push(topic)
     if (executed.ok && executed.sources) {
       for (const s of executed.sources as ToolSource[]) {
-        sources.push({ url: s.url, title: s.title || s.hostName, snippet: '', pageRead: s.pageRead })
+        toolSources.push(s)
       }
     } else if (!executed.ok) {
       degraded.push(executed.output.slice(0, 200))
@@ -269,7 +270,21 @@ async function runResearchTask(mission: MissionRow, spec: MissionTaskSpec): Prom
   } catch (e) {
     degraded.push(e instanceof Error ? e.message.slice(0, 200) : 'search failed')
   }
+  const sources: ResearchPayload['sources'] = toolSources.map((s) => ({ url: s.url, title: s.title || s.hostName, snippet: '', pageRead: s.pageRead }))
   const payload: ResearchPayload = { sources, queries, degraded: degraded.length ? degraded : undefined }
+  // M43 §7 — additive claim-level evidence summary over the sources this run
+  // actually retrieved (pure; no extra network; never blocks, never upgrades).
+  try {
+    const summary = buildResearchEvidenceSummary(topic, toolSources.map((s) => ({ url: s.url, title: s.title, hostName: s.hostName, date: s.date, pageRead: s.pageRead })))
+    if (summary) {
+      payload.claims = summary.claims
+      payload.uncertainty = summary.uncertainty
+      payload.evidenceAttribution = summary.evidenceAttribution
+      payload.freshness = { status: summary.freshnessStatus, reason: summary.freshnessReason, domain: summary.domain }
+    }
+  } catch {
+    // The summary is additive: a failure changes nothing about the payload.
+  }
   return { payload, honestError: degraded.length > 0 && sources.length === 0 ? degraded[0] : null }
 }
 

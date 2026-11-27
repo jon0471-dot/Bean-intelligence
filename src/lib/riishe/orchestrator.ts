@@ -37,6 +37,7 @@ import { classifyTask, assertCapability, CHAT_BACKEND_CAPABILITIES, type TaskPro
 import { classifyTaskDetailed } from './classify'
 import { planCapabilities } from './capability-plan'
 import { detectSourceContradictions, describeContradiction } from './contradictions'
+import { detectClaimExceedsEvidence, uncertaintyStatement, type ClaimContradiction } from '@/lib/research/contradiction-reasoning'
 import { detectWorkflow } from './workflow'
 import { mapRiisheStatesToOutcome } from '@/lib/trust/types'
 import { buildMemoryBlock, composeMemoryContextView } from './memory'
@@ -990,6 +991,8 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     staleCurrency: string | null
     /** "As of <date>" sentences whose cited sources carry no verifiable date. */
     undatedAsOf: string[]
+    /** M43: findings where the answer's strength exceeds the evidence. */
+    claimExceeds: ClaimContradiction[]
     notes: string[]
   }
   // Searchable text of ALL retrieved sources (cited or not): powers the
@@ -1066,6 +1069,15 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
           citedNewestAgeDays: newestAgeDaysOf(buildRenderableSources(content, auditUniverse)),
           evidenceNewestAgeDays: newestAgeDaysOf(auditUniverse),
         })
+    // M43 §4 — claims that EXCEED the cited evidence (universal-quantifier /
+    // causal-certainty / precision escalation). Additive to the M37 numeric
+    // contradiction layer; a warning, never a silent rewrite, never a PASS.
+    const claimExceedsFindings: ClaimContradiction[] = injectionBlocked || auditUniverse.length === 0
+      ? []
+      : detectClaimExceedsEvidence(
+          content,
+          auditUniverse.map((s) => `${s.snippet} ${s.excerpt ?? ''}`),
+        ).slice(0, 2)
     // "As of <date>" claims grounded only on undated sources: the date is
     // presented but nothing retrieved verifies it (work-order rule: never
     // present an undated report as the latest confirmed development).
@@ -1075,7 +1087,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
           content,
           new Map(auditUniverse.map((s) => [s.id, s.date as string | null])),
         )
-    return { content, citationsValid, invalidMarkerCount, uncitedEvidence, support, dateConflicts: conflicts, staleCurrency, undatedAsOf, notes }
+    return { content, citationsValid, invalidMarkerCount, uncitedEvidence, support, dateConflicts: conflicts, staleCurrency, undatedAsOf, claimExceeds: claimExceedsFindings, notes }
   }
 
   const pp = postProcessAnswer(finalContent)
@@ -1087,6 +1099,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   let dateConflicts = pp.dateConflicts
   let staleCurrency = pp.staleCurrency
   let undatedAsOf = pp.undatedAsOf
+  let claimExceeds = pp.claimExceeds
   degraded.push(...pp.notes)
 
   // 8. Bounded claim-repair pass — correct unsupported material claims AT THE
@@ -1127,6 +1140,12 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       .map((s) => `[${s.id}] ${s.title} — ${s.hostName}${s.date ? ` (dated ${s.date})` : ''}`)
       .join('\n')
     const repairItems: string[] = []
+    if (claimExceeds.length > 0) {
+      repairItems.push(
+        'statements whose certainty/strength goes BEYOND what the cited evidence supports (state each at the strength the evidence actually supports, preserving its citation):\n' +
+          claimExceeds.map((f) => `- ${f.note}`).join('\n'),
+      )
+    }
     if (sourceContradictions.length > 0) {
       repairItems.push(
         'the retrieved sources themselves DISAGREE on the following points — state each disagreement explicitly, attribute every version to its source [n], and never silently pick one:\n' +
@@ -1238,6 +1257,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     }
     const repaired = stripToolCallSyntax(await runSolveOnce(repairMessages, true))
     const pp2 = postProcessAnswer(repaired)
+    claimExceeds = pp2.claimExceeds
     // Adoption rule: the repair must IMPROVE the audit without regressing
     // anything else — full clearing of every flag, a coverage gain with no
     // new flags, or a specific flag cleared at non-regressing coverage.
@@ -1442,6 +1462,15 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       detail: `the retrieved sources disagree: ${sourceContradictions.map(describeContradiction).join('; ')}`.slice(0, 580),
     })
   }
+  if (claimExceeds.length > 0 && researchRan) {
+    // M43 §4 — the answer states MORE than the evidence shows (escalated
+    // quantifiers/causality/precision). Honest uncertainty, never silence.
+    verification.push({
+      check: 'claim-evidence strength',
+      status: 'warning',
+      detail: claimExceeds.map((f) => f.note).join('; ').slice(0, 580),
+    })
+  }
   if (undatedAsOf.length > 0 && researchRan) {
     verification.push({
       check: 'dated status attribution',
@@ -1454,7 +1483,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   // Undated CITED sources are a currency limitation: the answer must not
   // imply the latest status when a cited source carries no verifiable date.
   const contradictionNote = sourceContradictions.length > 0
-    ? `the retrieved sources disagree on ${sourceContradictions.length} point${sourceContradictions.length === 1 ? '' : 's'} (${sourceContradictions.map(describeContradiction).join('; ')})`
+    ? `the retrieved sources disagree on ${sourceContradictions.length} point${sourceContradictions.length === 1 ? '' : 's'} (${sourceContradictions.map(describeContradiction).join('; ')}) — ${uncertaintyStatement({ findings: [], measureFindings: sourceContradictions.length, unresolvedCount: sourceContradictions.length, resolvableCount: 0 }).slice(0, 300)}`
     : null
   const verificationNote = buildVerificationNote({
     researchRan,

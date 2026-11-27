@@ -1,0 +1,370 @@
+{
+  "recordedAt": "2026-11-27T09:48:30.052Z",
+  "objective": "Which Node.js release line currently holds Active LTS status according to the official schedule? Include the version number and dates.",
+  "totals": {
+    "pass": 20,
+    "honestUnavailable": 0,
+    "fail": 0,
+    "live": 13,
+    "fixture": 7
+  },
+  "lateRejections": [],
+  "rows": [
+    {
+      "area": 1,
+      "name": "multi-source claim verification",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "1 claim(s) checked over 5 real source(s): partially-supported",
+      "evidence": {
+        "claims": [
+          {
+            "claim": "Which Node.js release line currently holds Active LTS status according to the official schedule?",
+            "outcome": "partially-supported",
+            "groups": 5,
+            "decisiveClass": "corroborating"
+          }
+        ],
+        "summary": "claim verification over 1 checkable claim(s): 1 partially-supported; not all statements above were independently verified"
+      }
+    },
+    {
+      "area": 2,
+      "name": "primary-source preference",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "no official source retrieved this window — weight basis: best available support is corroborating across 5 distinct group(s); no primary authority for this claim kind",
+      "evidence": {
+        "weight": {
+          "bestClass": "corroborating",
+          "hasPrimary": false,
+          "independentSupportGroups": 5,
+          "independentContradictingGroups": 0,
+          "decisiveClass": "corroborating",
+          "basis": "best available support is corroborating across 5 distinct group(s); no primary authority for this claim kind"
+        }
+      }
+    },
+    {
+      "area": 3,
+      "name": "source independence detection",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "5 record(s) → 5 distinct independence group(s); corroboration counted over groups, never raw copies",
+      "evidence": {
+        "records": 5,
+        "groups": 5
+      }
+    },
+    {
+      "area": 4,
+      "name": "contradiction detection",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "0 finding(s) (0 measure-based) over the retrieved set; unresolved=0, resolvable=0",
+      "evidence": {
+        "findings": []
+      }
+    },
+    {
+      "area": 5,
+      "name": "outdated source rejection",
+      "mode": "FIXTURE",
+      "classification": "PASS",
+      "detail": "historical claim: strongly-supported; current-status claim over 3-year-old evidence: outdated (every dated supporting source is older than 365 days (newest 1153 days) — the claim may no longer hold)",
+      "evidence": {
+        "historical": "strongly-supported",
+        "current": "outdated",
+        "reason": "every dated supporting source is older than 365 days (newest 1153 days) — the claim may no longer hold"
+      }
+    },
+    {
+      "area": 6,
+      "name": "publication-date validation",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "2 valid / 3 unknown / 0 impossible — no invented dates",
+      "evidence": {
+        "validations": [
+          {
+            "sourceId": "[S1]",
+            "publishedAt": "Mar 10, 2026",
+            "dateValid": true,
+            "retrievedAt": "2026-11-27T09:48:35.054Z"
+          },
+          {
+            "sourceId": "[S2]",
+            "publishedAt": null,
+            "dateValid": null,
+            "retrievedAt": "2026-11-27T09:48:35.054Z"
+          },
+          {
+            "sourceId": "[S3]",
+            "publishedAt": null,
+            "dateValid": null,
+            "retrievedAt": "2026-11-27T09:48:35.054Z"
+          },
+          {
+            "sourceId": "[S4]",
+            "publishedAt": "Apr 18, 2026",
+            "dateValid": true,
+            "retrievedAt": "2026-11-27T09:48:35.054Z"
+          },
+          {
+            "sourceId": "[S5]",
+            "publishedAt": null,
+            "dateValid": null,
+            "retrievedAt": "2026-11-27T09:48:35.054Z"
+          }
+        ]
+      }
+    },
+    {
+      "area": 7,
+      "name": "version-sensitive documentation",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "versionNote=none; outcome=partially-supported",
+      "evidence": {
+        "versionNote": null,
+        "outcome": "partially-supported"
+      }
+    },
+    {
+      "area": 8,
+      "name": "security advisory verification",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "official advisory retrieved: CVE-2020-28500 (aka GHSA-29mw-wpgm-hmr9) (https://osv.dev/vulnerability/CVE-2020-28500)",
+      "evidence": {
+        "advisory": {
+          "title": "CVE-2020-28500 (aka GHSA-29mw-wpgm-hmr9)",
+          "url": "https://osv.dev/vulnerability/CVE-2020-28500",
+          "date": "2026-10-24T10:50:03.753647743Z"
+        },
+        "adapters": [
+          "osv-by-id"
+        ]
+      }
+    },
+    {
+      "area": 9,
+      "name": "citation correctness",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "attribution numbering matches the pack 1:1 for 5 source(s)",
+      "evidence": {
+        "pairs": [
+          {
+            "sourceId": "[S1]",
+            "host": "nodejs.org"
+          },
+          {
+            "sourceId": "[S2]",
+            "host": "nodejs.org"
+          },
+          {
+            "sourceId": "[S3]",
+            "host": "nodejs.org"
+          },
+          {
+            "sourceId": "[S4]",
+            "host": "github.com"
+          }
+        ]
+      }
+    },
+    {
+      "area": 10,
+      "name": "unsupported claim detection",
+      "mode": "FIXTURE",
+      "classification": "PASS",
+      "detail": "3 escalation(s) caught: universal quantifier; causal/certainty escalation; precision escalation",
+      "evidence": {
+        "findings": [
+          "the claim uses universal quantifier (\"all\") while the evidence only supports the weaker form (\"some\")",
+          "the claim uses causal/certainty escalation (\"prove\") while the evidence only supports the weaker form (\"suggest\")",
+          "the claim uses precision escalation (\"exactly\") while the evidence only supports the weaker form (\"approximately\")"
+        ]
+      }
+    },
+    {
+      "area": 11,
+      "name": "source disappearance",
+      "mode": "FIXTURE",
+      "classification": "PASS",
+      "detail": "404→gone (retained), 503→unavailable (not deleted) — provenance survives",
+      "evidence": {
+        "gone": "source [E3] no longer exists (HTTP 404) — the record and its provenance are retained; the claim must",
+        "flaky": "source [E4] could not be retrieved (HTTP 503) — marked unavailable, not deleted; revalidation may re"
+      }
+    },
+    {
+      "area": 12,
+      "name": "rate-limit recovery",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "5 source(s) retrieved despite lane limits",
+      "evidence": {
+        "degraded": [
+          "academic lane openalex: direct fetch of api.openalex.org returned HTTP 429",
+          "academic lane adapters used: crossref, arxiv, doaj"
+        ]
+      }
+    },
+    {
+      "area": 13,
+      "name": "malicious prompt injection",
+      "mode": "FIXTURE",
+      "classification": "PASS",
+      "detail": "injection source stays weak (insufficient-evidence); rendered block framed as untrusted data",
+      "evidence": {
+        "outcome": "insufficient-evidence",
+        "framed": true
+      }
+    },
+    {
+      "area": 14,
+      "name": "duplicate-source detection",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "5 url key(s) → 5 unique; 0 record(s) share groups via syndication collapse",
+      "evidence": {
+        "urlKeys": 5,
+        "unique": 5,
+        "collapsed": 0
+      }
+    },
+    {
+      "area": 15,
+      "name": "memory provenance",
+      "mode": "FIXTURE",
+      "classification": "PASS",
+      "detail": "row stores 5 attributed source URL(s) (class=unverified-research-note, outcome=insufficient-evidence); chain traversable",
+      "evidence": {
+        "class": "unverified-research-note",
+        "outcome": "insufficient-evidence",
+        "sources": [
+          {
+            "evidenceId": "[E1]",
+            "sourceId": "[S1]",
+            "title": "Node.js Releasers",
+            "url": "https://nodejs.org/en/blog/announcements/evolving-the-nodejs-release-schedule",
+            "publisher": "Node.js",
+            "author": null,
+            "publishedAt": "Mar 10, 2026",
+            "retrievedAt": "2026-11-27T09:48:35.054Z",
+            "independenceGroup": "u:nodejs.org/en/blog/announcements/evolving-the-nodejs-release-schedule",
+            "authorityClass": "corroborating"
+          },
+          {
+            "evidenceId": "[E2]",
+            "sourceId": "[S2]",
+            "title": "Node.js Releases",
+            "url": "https://nodejs.org/en/about/previous-releases",
+            "publisher": "Node.js",
+            "author": null,
+            "publishedAt": null,
+            "retrievedAt": "2026-11-27T09:48:35.054Z",
+            "independenceGroup": "u:nodejs.org/en/about/previous-releases",
+            "authorityClass": "corroborating"
+          },
+          {
+            "evidenceId": "[E3]",
+            "sourceId": "[S3]",
+            "title": "End-of-Life (EOL)",
+            "url": "https://nodejs.org/en/about/eol",
+            "publisher": "Node.js",
+            "author": null,
+            "publishedAt": null,
+            "retrievedAt": "2026-11-27T09:48:35.054Z",
+            "independenceGroup": "u:nodejs.org/en/about/eol",
+            "authorityClass": "corroborating"
+          }
+        ]
+      }
+    },
+    {
+      "area": 16,
+      "name": "knowledge expiry and revalidation",
+      "mode": "FIXTURE",
+      "classification": "PASS",
+      "detail": "security policy 30d/scheduled enforced; disappearance 410→gone retained; retrievable row present",
+      "evidence": {
+        "policy": {
+          "maxAgeDays": 30,
+          "agingAfterDays": 7,
+          "revalidation": "scheduled",
+          "rule": "security advisories change frequently — check often; affected-version ranges move as patches land"
+        },
+        "disappearance": "gone"
+      }
+    },
+    {
+      "area": 17,
+      "name": "cross-user isolation",
+      "mode": "FIXTURE",
+      "classification": "PASS",
+      "detail": "other user sees 0 rows; foreign retraction refused",
+      "evidence": {
+        "otherRows": 0,
+        "foreignRetraction": false
+      }
+    },
+    {
+      "area": 18,
+      "name": "all five product integrations",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "preflight triggers fire for all five specialists; fiction/transform refused (riishe:true, code-giftz:true, laxii:true, jazmii:true, gangzii:true)",
+      "evidence": {
+        "results": [
+          {
+            "consumer": "riishe",
+            "triggers": true
+          },
+          {
+            "consumer": "code-giftz",
+            "triggers": true
+          },
+          {
+            "consumer": "laxii",
+            "triggers": true
+          },
+          {
+            "consumer": "jazmii",
+            "triggers": true
+          },
+          {
+            "consumer": "gangzii",
+            "triggers": true
+          }
+        ],
+        "fictionRefused": true
+      }
+    },
+    {
+      "area": 19,
+      "name": "real mission handoffs",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "payload summary: 1 claim(s), 5 attribution row(s), freshness=expired, uncertainty=stated",
+      "evidence": {
+        "claims": [
+          "partially-supported"
+        ],
+        "freshness": "expired"
+      }
+    },
+    {
+      "area": 20,
+      "name": "evidence-backed final deliverables",
+      "mode": "LIVE",
+      "classification": "PASS",
+      "detail": "Evidence-backed statement (from 5 attributed source(s), 5 independent group(s)): claim verification over 1 checkable claim(s): 1 partially-supported; not all statements above were independently verifi",
+      "evidence": {
+        "deliverableLine": "Evidence-backed statement (from 5 attributed source(s), 5 independent group(s)): claim verification over 1 checkable claim(s): 1 partially-supported; not all statements above were independently verified Cite [S#] ids; unverified statements are labeled, never presented as established fact."
+      }
+    }
+  ]
+}
