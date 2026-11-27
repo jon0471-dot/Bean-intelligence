@@ -131,6 +131,9 @@ mock.module('@/lib/verification/config', () => ({
 }))
 mock.module('@/lib/intel/techdocs-reach', () => ({
   buildTechDocsWithReach: async () => ({ techDocs: null, research: undefined }),
+  // M43: the coding handler also imports the advisory enrichment — the mock
+  // passes the built context through unchanged (no network, same semantics).
+  enrichWithSecurityAdvisories: async (_message: string, built: unknown) => built,
 }))
 
 const { handleGiftzCodingJob } = await import('../../src/lib/ai-engine/giftz-coding-handler')
