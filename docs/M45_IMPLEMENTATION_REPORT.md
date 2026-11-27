@@ -62,3 +62,9 @@ Final local HEAD = final remote SHA (verified by `git ls-remote` after the final
 ## 11. Publication status
 
 Every milestone commit was pushed immediately after verification and the remote SHA re-fetched independently; the final HEAD is verified on GitHub on `feat/m45-conversational-governed-execution`. **Nothing was merged into main** — M44's outstanding commits were merged by the OWNER through PR #35 (observed, recorded in the baseline); M45 awaits the owner's merge decision. No force-push was used at any point (normal fast-forward pushes only).
+
+---
+
+## APPENDED CORRECTION (2026-11-28 — M46.0 audit; original text above preserved unchanged)
+
+The §"Classification split" line above ("1 LIVE · 4 LOCAL-LIVE · 15 LOCAL-INT · 5 MOCKED · 2 MANUAL") sums to 27, which over-counts the suite by 3 rows: the actual acceptance suite contains **24 unique scenarios = 1 LIVE + 3 LOCAL-LIVE + 13 LOCAL-INT + 5 MOCKED + 2 MANUAL** (verified case-by-case against `tests/integration/m45-acceptance.test.ts`). The canonical accounting and the full reconciliation are recorded in `docs/intelligence/M45-ACCEPTANCE.md` §"APPENDED M46 RECONCILIATION" and `docs/M46_BASELINE.md` §7. No historical result is altered by this note.
