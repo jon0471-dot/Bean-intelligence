@@ -1,0 +1,24 @@
+M43 Phase 8 UI walk — real app on the M43 tree (next dev -p 3000, worktree .m43work @ the pushed branch tip)
+Date: 2026-11-27 · Viewports: 1440x900 + 390x844
+
+Walk: sign-in (owner@bean.local, existing admin row) -> #dashboard (5 product cards with HONEST availability
+chips: RIISHE Operational / LAXII Degraded (editing+bg-removal Blocked, honest rows) / JAZMII Degraded /
+CODE GIFTZ Operational / GANGZII Operational with Kokoro Unavailable measured row) -> RIISHE workspace ->
+live grounded chat probe ("According to official sources, which Node.js version line is Active LTS right
+now? Cite sources.") -> grounded answer streamed from live sources with Sources (3) disclosure and the
+verification note VISIBLE in the UI ("1 statement restates the retrieved evidence without a citation
+marker") — the M43-augmented audit pipeline rendering through the EXISTING citation/verification surface.
+
+UI preservation check (M43 §11):
+- ZERO new research dashboards, source-settings panels, model controls or configuration UI added.
+- The black-and-gold identity, product cards, availability chips, chat surface and sources disclosure are
+  the existing customer-facing behavior, unchanged.
+- Page errors: 0. Console: dev-mode info only ([HMR] connected lines; no product errors).
+- Screenshots: 01-signin, 02-dashboard, 03-riishe, 04-riishe-grounded-answer, 05-riishe-mobile.
+
+Environment incidents recorded honestly (same recycled-sandbox interference family as M37/M40/M41.7):
+- The sandbox's cleanup driver wiped BOTH gitignored node_modules copies mid-walk (main checkout's and the
+  worktree's; ~4 GB freed); the git-tracked tree was untouched. Recovery: bun install --frozen-lockfile
+  (981 packages, 8.6s) + prisma generate (the fresh install lacks the generated client) + the pinned vocab
+  re-verified in place (07eced…, 231508 bytes). One dev-server OOM/restart cycle during the first probe
+  (the documented 4 GB dev-mode pattern). The walk above was completed on the restored tree.
