@@ -210,3 +210,18 @@ bun run start                  # standalone server on :3000
 2. Never print or transmit secret values; diagnostics use masked hints and length-only reporting.
 3. Never bypass provider rate limits or authentication; never fake capability states; no mock/Ollama substitution.
 4. Preserve verified history; no force-push to shared branches; push only after explicit user approval.
+
+## 11. M46 ADDENDUM (2026-11-28 — production readiness & verified live operations; additive)
+
+Branch `feat/m46-production-readiness-live-operations` (commit trail `3eec7f3`→`593ddd7`→`00bab43`→`e60cda3`→`54239f0`→`e6bdd48`→docs; every SHA pushed + `git ls-remote`-verified). Baseline: origin/main `50e1c76` (PR #37 merge) — see `docs/M46_BASELINE.md`. Full report: `docs/M46_IMPLEMENTATION_REPORT.md`; acceptance matrix (32 scenarios, reconciled totals): `docs/intelligence/M46-ACCEPTANCE.md`.
+
+**New env names (all optional; behavior unchanged when unset):**
+- `BEAN_TEST_REPOSITORY` — the dedicated integration-test repository for the live GitHub write lane (explicit config only; never defaulted; owner production repo never assumed disposable).
+- `BEAN_STAGING_ROOT`, `BEAN_STAGING_BASE_URL` (explicit port; NOT 3000), `BEAN_STAGING_DEPLOY_TOKEN` — the real local staging lane. External staging still honest-unavailable without `BEAN_DEPLOY_PROVIDER`/`BEAN_DEPLOY_TOKEN`.
+- `BEAN_TRUSTED_ORIGINS` — the strict CSRF origin allowlist (no wildcards); add non-3000 walkthrough origins explicitly.
+
+**New operational seams:** `src/lib/riishe/tool-invocation.ts` (tool-protocol honesty + declined-invocation observability — `riishe.tool_invocation.declined`); `credential-diagnostics.ts` (least-privilege GitHub credential report, leak-proof); repository-adapter `reconciliation-required` outcome (uncertain remote writes are NEVER blind-retried — VERIFYING decides; audit `m46.write_reconciliation`); deployment-adapter local staging lane + retained-build rollback; `scripts/m46-migration-preflight.py` + the reviewed additive migration `prisma/migrations/20261128_m46_execution_decision_additive/migration.sql` (purely additive; production apply is an OWNER operation).
+
+**Standing limitations (owner configuration pending):** live GitHub writes need `GITHUB_TOKEN` + `BEAN_TEST_REPOSITORY`; external staging needs a provider; the hosted chat lane declined governed tool calls in all sampled windows (now measured per turn — never faked); dependency audit tooling unavailable in-sandbox (zero dependency changes made).
+
+**Test suite:** 243 files, 0 failures (batched runs — the 4 GB sandbox crashes natively under full-parallel `--isolate` on ONNX-bearing files; reproduced independent of code changes). 67 new M46 cases. tsc delta 0; eslint clean; build exit 0.
