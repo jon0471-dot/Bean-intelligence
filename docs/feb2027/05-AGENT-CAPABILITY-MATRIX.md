@@ -70,3 +70,21 @@ exists (measured 2026-11-20), and what is missing. Status: ✅ exists ·
 | Quality/verification | deterministic payload verifiers + aggregate deliverable gate + hosted self-verification | implemented + live-verified (verifier verdicts on done tasks; the audit gate's strictness on file-fenced replies recorded as requiring repair) |
 
 Contracts: `docs/agents/M41-WORKFLOW-CONTRACTS.md` · Permissions/recovery: `docs/agents/M41-PERMISSIONS-AND-RECOVERY.md` · Acceptance: `docs/agents/M41-ACCEPTANCE-MATRIX.md`
+
+## M41.7 addendum (2026-11-26) — mission-aware deliverable verification
+
+Repairs the M41 addendum's recorded blocker (the hosted audit auditing the
+file-fenced reply instead of the deliverable). Same architecture, honest
+targets — no second verifier.
+
+| Agent role | Change | State |
+|---|---|---|
+| Quality/verification | audits the EXTRACTED DELIVERABLE (hosted pipeline, mission-aware input with deterministic pre-check facts + file-inventory anchor) AND the real persisted CodeFile rows (document: the ten-check contract incl. citation correspondence to the exact handed-off sources; website: static-site audit reusing preview-audit — entry + resolvable references, no package.json demand) | implemented + live-verified (document mission completed with the persisted report verified; website mission completed with the persisted build verified: 11 files, references resolve; hosted probe pass@1.0 on the real project) |
+| CODE GIFTZ (engineering) | mission-delegated coding jobs carry the trusted verification context (server-only third parameter — the model tool structurally cannot alter its own acceptance contract); job results carry honest verificationSkippedReason | implemented + live-verified |
+| RIISHE (central orchestrator) | mission executor loads the persisted workspace snapshot project-scoped and passes it to the pure verifiers; orphaned-mission sweeper settles ledgers whose driver died terminally (harness-exposed gap) | implemented + live-verified |
+
+Post-fix acceptance: 20 PASS / 4 honest-unavailable / 0 FAIL (24 rows; original
+evidence preserved byte-for-byte as `mission-evidence-m41-PREFIX.json`).
+Results: `docs/agents/M41.7-ACCEPTANCE-RESULTS.md` · Contract:
+`docs/agents/M41.7-DELIVERABLE-VERIFICATION-CONTRACT.md` · Report:
+`docs/M41.7-IMPLEMENTATION-REPORT.md`

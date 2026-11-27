@@ -74,3 +74,9 @@ RIISHE coordinates genuine specialist execution (media workflow live-verified wi
 
 - Full suite / lint / tsc / prisma / build / security: recorded in the final commit message block (executed after the docs land).
 - Live preview: the running app was exercised through the real REST + durable engine in this window (the acceptance run IS a live-product exercise); browser-level UI walk recorded under `validation/m41-ui/` in the final commit.
+
+## 10. M41.7 repair addendum (2026-11-26 — supersedes §5/§7's blocked-lane classification)
+
+The document/website audit-gate blocker recorded above was REPAIRED in M41.7 within the existing architecture (no gate weakened; no second verifier): the hosted self-verifier now audits the EXTRACTED DELIVERABLE instead of the file-fenced wrapper, the deterministic verifiers audit the REAL persisted files (the ten document checks incl. citation correspondence; the static-site website contract reusing preview-audit), and a trusted mission verification context is threaded server-only from the mission ledger. Post-fix live acceptance: **20 PASS / 4 honest-unavailable / 0 FAIL** — the research→document workflow completed end-to-end with every task verified (mission `cmwx15uuq…`), a suite-created website mission completed with the persisted build verified (mission `cmwx2hc1p…`, 11 files, references resolve), and the original evidence preserved byte-for-byte alongside the post-fix rows.
+
+Details: `docs/M41.7-IMPLEMENTATION-REPORT.md` · Contract: `docs/agents/M41.7-DELIVERABLE-VERIFICATION-CONTRACT.md` · Results: `docs/agents/M41.7-ACCEPTANCE-RESULTS.md` (the §3 file-fenced failures vs the §3-aggregate integrity failure are reconciled explicitly there). The M41.5/M41.6 commits remain under review in PR #25 (not merged without separate authorization).
