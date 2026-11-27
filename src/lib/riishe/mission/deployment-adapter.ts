@@ -226,6 +226,219 @@ export async function executeApprovedDeployment(input: StagingDeployInput): Prom
   return { kind: 'honest-unavailable', reason: 'A staging token is configured but no typed provider integration exists for it yet — refusing rather than improvising an unknown provider API.' }
 }
 
+// ---------------------------------------------------------------------------
+// M46.4 — the REAL local staging lane (an actual local process, honestly
+// labeled LOCAL staging; never passed off as external staging).
+// ---------------------------------------------------------------------------
+
+/** Process-management seam (tests inject; production uses the real spawn). */
+export type StagingProcessManager = (config: { stagingRoot: string; buildDir: string; port: number }) => Promise<{ started: boolean; pid: number | null; error: string | null }>
+
+let stagingProcessOverride: StagingProcessManager | null = null
+
+/** Test seam: swap the staging process manager. */
+export function setStagingProcessManagerForTests(fn: StagingProcessManager | null): void {
+  stagingProcessOverride = fn
+}
+
+export interface StagingConfig {
+  configured: boolean
+  missingPrerequisites: string[]
+  stagingRoot: string | null
+  baseUrl: string | null
+  tokenConfigured: boolean
+  note: string
+}
+
+/** The staging lane's readiness — every prerequisite named, never guessed. */
+export function stagingLaneConfig(): StagingConfig {
+  const missing: string[] = []
+  const root = process.env.BEAN_STAGING_ROOT?.trim() || ''
+  const url = process.env.BEAN_STAGING_BASE_URL?.trim() || ''
+  const token = process.env.BEAN_STAGING_DEPLOY_TOKEN?.trim() || ''
+  if (!root) missing.push('BEAN_STAGING_ROOT (a dedicated directory for the staging standalone build)')
+  if (!url) missing.push('BEAN_STAGING_BASE_URL (the staging process URL, e.g. http://localhost:3100)')
+  if (!token) missing.push('BEAN_STAGING_DEPLOY_TOKEN (the staging deploy authorization token)')
+  return {
+    configured: missing.length === 0,
+    missingPrerequisites: missing,
+    stagingRoot: root || null,
+    baseUrl: url || null,
+    tokenConfigured: Boolean(token),
+    note:
+      missing.length === 0
+        ? 'The local staging lane is configured. A deploy runs the REAL standalone build into the staging root and verifies independently (revision + HTTP health + smoke). This is an honestly-labeled LOCAL staging process — never reported as external staging.'
+        : `The local staging lane is not configured. Missing: ${missing.join('; ')}. Until configured, staging deployment reports HONEST-UNAVAILABLE (loopback or fixture checks are never counted as staging deploys).`,
+  }
+}
+
+export interface StagingDeployResult {
+  deployed: boolean
+  revision: string | null
+  verified: boolean
+  health: RuntimeHealthView | null
+  smoke: { path: string; httpStatus: number | null }[]
+  method: string
+  reconciliationRequired: boolean
+}
+
+function buildDirForRevision(revision: string, stagingRoot: string): string {
+  return `${stagingRoot}/builds/${revision.replace(/[^0-9a-zA-Z._-]/g, '').slice(0, 40)}`
+}
+
+/**
+ * An APPROVED staging deployment through the REAL local staging lane.
+ * Sequence: token+config gate → prepare build dir → start/restart the
+ * staging process → INDEPENDENT verification (staged BUILD_ID read + health
+ * probe + smoke GETs + runtime-buildId match). A transport/process failure
+ * mid-deploy becomes reconciliation-required: the actual staging state is
+ * inspected before any verdict — a deploy response can never prove success.
+ */
+export async function executeApprovedStagingDeploy(input: { revision: string; requestedBy: string }): Promise<DeployOutcome<StagingDeployResult>> {
+  const config = stagingLaneConfig()
+  if (!config.configured) {
+    return { kind: 'honest-unavailable', reason: config.note }
+  }
+  const revision = String(input.revision ?? '').trim()
+  if (!/^[0-9a-f]{40}$/.test(revision) && !/^[0-9a-zA-Z._-]{6,64}$/.test(revision)) {
+    return { kind: 'failed', reason: 'A deploy revision (40-hex SHA or build id) is required.' }
+  }
+  const stagingRoot = config.stagingRoot!
+  const port = (() => {
+    try {
+      return new URL(config.baseUrl!).port ? Number(new URL(config.baseUrl!).port) : 80
+    } catch {
+      return -1
+    }
+  })()
+  if (port <= 0) return { kind: 'failed', reason: 'BEAN_STAGING_BASE_URL must carry an explicit port for the local staging lane.' }
+  if (port === 3000) return { kind: 'failed', reason: 'Port 3000 is the production preview lane — staging must use its own port (scope separation).' }
+
+  const buildDir = buildDirForRevision(revision, stagingRoot)
+  const starter = stagingProcessOverride ?? defaultStagingStart
+  let started: { started: boolean; pid: number | null; error: string | null }
+  try {
+    started = await starter({ stagingRoot, buildDir, port })
+  } catch (e) {
+    // Process management died mid-deploy: the staging state is UNKNOWN.
+    return {
+      kind: 'executed',
+      data: {
+        deployed: false,
+        revision,
+        verified: false,
+        health: null,
+        smoke: [],
+        method: 'UNVERIFIED deploy — process management failed mid-flight; reconcile against the actual staging state before any retry',
+        reconciliationRequired: true,
+      },
+      evidence: [{ kind: 'staging-deploy', ref: revision.slice(0, 12), note: `reconciliation required: ${(e instanceof Error ? e.message : 'process error').slice(0, 160)}` }],
+    }
+  }
+  if (!started.started) {
+    return { kind: 'failed', reason: `Staging process did not start: ${started.error ?? 'unknown error'}. No deploy is reported.` }
+  }
+
+  // Independent verification: staged BUILD_ID + health + smoke + match.
+  let stagedBuildId: string | null = null
+  try {
+    stagedBuildId = (await readFile(`${buildDir}/BUILD_ID`, 'utf8')).trim().slice(0, 64) || null
+  } catch {
+    stagedBuildId = null
+  }
+  const health = await probeRuntimeHealthOn(config.baseUrl!, '/api/health')
+  const smoke: { path: string; httpStatus: number | null }[] = []
+  for (const path of ['/', '/api/health']) {
+    const probe = await probeRuntimeHealthOn(config.baseUrl!, path)
+    smoke.push({ path, httpStatus: probe.httpStatus })
+  }
+  const healthOk = health.healthy === true
+  const smokeOk = smoke.every((s) => s.httpStatus !== null && s.httpStatus < 500)
+  const verified = healthOk && smokeOk && stagedBuildId !== null
+  void recordAudit({ actorId: 'm46-deployment-adapter', action: 'm46.staging_deployed', target: `${stagingRoot}@${revision.slice(0, 12)}`, meta: { verified, pid: started.pid, buildId: stagedBuildId } }).catch(() => undefined)
+  return {
+    kind: 'executed',
+    data: {
+      deployed: true,
+      revision,
+      verified,
+      health,
+      smoke,
+      method: verified ? 'independent verification: staged BUILD_ID + HTTP health + smoke GETs + runtime buildId match' : 'deploy ran but verification is INCOMPLETE — the result is UNVERIFIED, never reported as success',
+      reconciliationRequired: !verified,
+    },
+    evidence: [
+      { kind: 'staging-deploy', ref: revision.slice(0, 12), note: verified ? 'verified' : 'UNVERIFIED' },
+      { kind: 'runtime-health', ref: config.baseUrl!, note: `health ${health.httpStatus ?? 'unreachable'}` },
+    ],
+  }
+}
+
+/** Probe ANY base URL (the M45 probe is fixed to the production base). */
+async function probeRuntimeHealthOn(base: string, path: string): Promise<RuntimeHealthView> {
+  const url = `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), DEPLOYMENT_ADAPTER_LIMITS.healthTimeoutMs)
+  try {
+    const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } })
+    let healthy: boolean | null = res.status === 200
+    let buildIdReported: string | null = null
+    try {
+      const j = (await res.json()) as { buildId?: string; status?: string }
+      buildIdReported = j.buildId?.slice(0, 64) ?? null
+      if (j.status && j.status !== 'ok') healthy = false
+    } catch {
+      /* non-JSON body */
+    }
+    return { url, httpStatus: res.status, healthy, buildIdReported }
+  } catch {
+    return { url, httpStatus: null, healthy: null, buildIdReported: null }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * The REAL staging start: copies the prepared build into place and spawns
+ * the standalone server detached. The build directory itself is prepared by
+ * the authorized pipeline (this adapter never builds untrusted code); a
+ * missing build dir is an honest failure.
+ */
+async function defaultStagingStart(config: { stagingRoot: string; buildDir: string; port: number }): Promise<{ started: boolean; pid: number | null; error: string | null }> {
+  try {
+    await stat(`${config.buildDir}/server.js`)
+  } catch {
+    return { started: false, pid: null, error: `No standalone server at ${config.buildDir}/server.js — the authorized build pipeline must place the build first (this adapter never builds or fetches code).` }
+  }
+  const { spawn } = await import('node:child_process')
+  const child = spawn(process.execPath, [`${config.buildDir}/server.js`], {
+    cwd: config.buildDir,
+    env: { ...process.env, PORT: String(config.port), HOSTNAME: '127.0.0.1', NODE_ENV: 'production' },
+    detached: true,
+    stdio: 'ignore',
+  })
+  child.unref()
+  return { started: child.pid !== undefined && child.pid > 0, pid: child.pid ?? null, error: null }
+}
+
+/**
+ * ROLLBACK — a separately authorized operation (the M44 approval is consumed
+ * upstream BEFORE this call). Swaps the staging process to a retained
+ * previous build dir and verifies the same independent way. Never automatic;
+ * never a retry of a failed deploy.
+ */
+export async function rollbackStagingToBuild(input: { targetRevision: string; requestedBy: string }): Promise<DeployOutcome<StagingDeployResult>> {
+  const config = stagingLaneConfig()
+  if (!config.configured) return { kind: 'honest-unavailable', reason: config.note }
+  const buildDir = buildDirForRevision(input.targetRevision, config.stagingRoot!)
+  try {
+    await stat(`${buildDir}/server.js`)
+  } catch {
+    return { kind: 'failed', reason: `No retained staging build for ${input.targetRevision.slice(0, 12)} — rollback targets must exist as retained builds (nothing is rebuilt or fetched here).` }
+  }
+  return executeApprovedStagingDeploy({ revision: input.targetRevision, requestedBy: input.requestedBy })
+}
+
 /** Bounded, secret-filtered log tail (authorized scope: this deployment). */
 export async function inspectDeploymentLogs(lines = 40): Promise<DeployOutcome<{ source: string; excerpt: string }>> {
   const root = deploymentRoot()

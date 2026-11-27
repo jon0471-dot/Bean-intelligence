@@ -77,6 +77,11 @@ export type ActionDispatchOutcome =
   | { kind: 'executed'; resultSummary: string; evidence: Array<{ kind: string; ref: string; note: string }> }
   | { kind: 'failed'; resultSummary: string }
   | { kind: 'honest-unavailable'; reason: string }
+  /** M46.3 — a remote write's transport died mid-flight: remote state
+   *  UNKNOWN. Flows through VERIFYING with a reconciliation read; only a
+   *  CONFIRMED independent observation can produce SUCCEEDED, and an
+   *  unresolved state becomes RECOVERY_REQUIRED — never a blind re-send. */
+  | { kind: 'reconciliation-required'; reason: string }
 
 export interface ProjectFileRow {
   path: string
@@ -241,12 +246,13 @@ function parseRepoParams(params: Record<string, string>): { owner: string; repo:
 }
 
 function mapRepoOutcome(
-  outcome: { kind: 'executed'; data: { summary: string; evidence: Array<{ kind: string; ref: string; note: string }> } } | { kind: 'honest-unavailable'; reason: string } | { kind: 'failed'; reason: string },
+  outcome: { kind: 'executed'; data: { summary: string; evidence: Array<{ kind: string; ref: string; note: string }> } } | { kind: 'honest-unavailable'; reason: string } | { kind: 'failed'; reason: string } | { kind: 'reconciliation-required'; reason: string },
 ): ActionDispatchOutcome {
   if (outcome.kind === 'executed') {
     return { kind: 'executed', resultSummary: outcome.data.summary, evidence: outcome.data.evidence }
   }
   if (outcome.kind === 'honest-unavailable') return { kind: 'honest-unavailable', reason: outcome.reason }
+  if (outcome.kind === 'reconciliation-required') return { kind: 'reconciliation-required', reason: outcome.reason }
   return { kind: 'failed', resultSummary: outcome.reason }
 }
 
@@ -335,7 +341,12 @@ export async function dispatchRepositoryAction(action: {
           ],
         }
       }
-      return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+      // M46.3 — reconciliation-required flows through (never folded into failed).
+      return out.kind === 'honest-unavailable'
+        ? { kind: 'honest-unavailable', reason: out.reason }
+        : out.kind === 'reconciliation-required'
+          ? { kind: 'reconciliation-required', reason: out.reason }
+          : { kind: 'failed', resultSummary: out.reason }
     }
     case 'repo-push': {
       const out = await fastForwardBranch({ ref, branch: String(action.params.branch ?? ''), toSha: String(action.params.sha ?? '') })
@@ -349,7 +360,11 @@ export async function dispatchRepositoryAction(action: {
           ],
         }
       }
-      return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+      return out.kind === 'honest-unavailable'
+        ? { kind: 'honest-unavailable', reason: out.reason }
+        : out.kind === 'reconciliation-required'
+          ? { kind: 'reconciliation-required', reason: out.reason }
+          : { kind: 'failed', resultSummary: out.reason }
     }
     case 'repo-pull-request': {
       const out = await createPullRequest({
@@ -369,7 +384,11 @@ export async function dispatchRepositoryAction(action: {
           ],
         }
       }
-      return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+      return out.kind === 'honest-unavailable'
+        ? { kind: 'honest-unavailable', reason: out.reason }
+        : out.kind === 'reconciliation-required'
+          ? { kind: 'reconciliation-required', reason: out.reason }
+          : { kind: 'failed', resultSummary: out.reason }
     }
     default:
       return { kind: 'failed', resultSummary: `Unknown repository action "${action.actionType}".` }
@@ -646,6 +665,38 @@ export async function runActionPlan(input: RunActionPlanInput): Promise<ActionRu
       await input.onRecord?.(record)
       if (status === 'completed') status = 'failed'
       notes.push(`"${id}" failed in execution`)
+      continue
+    }
+    // M46.3 — UNCERTAIN remote write: the transport died after the request
+    // may have reached the server. The lifecycle's only honest route is
+    // through VERIFYING: the postcondition machinery (which reads methods
+    // INDEPENDENT of the write) decides. Confirmed → SUCCEEDED; anything
+    // unresolved → RECOVERY_REQUIRED. The action is never blind-retried
+    // and never reported as SUCCEEDED without independent confirmation.
+    if (outcome.kind === 'reconciliation-required') {
+      record = applyActionTransition(record, {
+        state: 'VERIFYING',
+        resultSummary: outcome.reason.slice(0, 400),
+        note: 'Write transport uncertain — reconciling against actual remote state before any verdict.',
+      })
+      const observation = await gatherObservation(contract, store, input.projectId, {
+        kind: 'executed',
+        resultSummary: outcome.reason.slice(0, 200),
+        evidence: [{ kind: 'reconciliation', ref: contract.id, note: `UNVERIFIED write — ${outcome.reason.slice(0, 120)}` }],
+      })
+      const method = verificationMethodFor(contract)
+      const verdict: VerificationVerdict = verifyPostconditions(runtimeVerificationContract(contract, []), observation).verdict
+      record = applyActionTransition(record, { ...verificationOutcomePatch(verdict, method), note: `Remote-state reconciliation: postconditions ${verdict}.` })
+      records.push(record)
+      await input.onRecord?.(record)
+      if (status === 'completed') status = 'failed'
+      notes.push(`"${id}" reconciliation ${verdict}`)
+      await recordAudit({
+        actorId: input.identity.identity,
+        action: 'm46.write_reconciliation',
+        target: contract.id,
+        meta: { actionType: contract.actionType, verdict },
+      }).catch(() => undefined)
       continue
     }
 

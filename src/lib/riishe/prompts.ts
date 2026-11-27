@@ -221,8 +221,27 @@ ${'{TOOLS}'}
 - If a tool fails or is denied, say what you could not verify and continue with what you have.`
 
 function buildToolSection(toolNames: readonly string[], catalog: string): string {
-  return TOOL_PROTOCOL.replace('{TOOLS}', catalog || toolNames.map((n) => `- ${n}`).join('\n'))
+  const base = TOOL_PROTOCOL.replace('{TOOLS}', catalog || toolNames.map((n) => `- ${n}`).join('\n'))
+  // M46.1 — governed-execution protocol precision: when the decision tool is
+  // in this turn's universe, the model gets the exact call shapes. This is
+  // RELIABILITY guidance only — every operation stays gated server-side by
+  // the server-derived intent (an advice turn cannot execute no matter what
+  // the model emits), by the two-key authorization, and by the owner-only
+  // approval flow. Guidance can never widen what a tool call may do.
+  if (toolNames.includes('execution_decision')) {
+    return base + GOVERNANCE_TOOL_GUIDE
+  }
+  return base
 }
+
+const GOVERNANCE_TOOL_GUIDE = `
+
+Governed execution calls (execution_decision) — use the tool INSTEAD of only describing the step:
+- The user asks what to do between options, or asks you to weigh a repository/deployment/rollout choice with evidence → call execution_decision ONCE with {"operation":"create_decision","objective":"<the user's objective, stated fully>","alternatives":[{"label":"...","description":"..."}],"useEvidence":true}. Do not answer purely from memory when the tool is available.
+- The user asks for a concrete plan → after a decision exists, call execution_decision with {"operation":"propose_plan","decisionId":"<id>","actions":[{"actionType":"repo-inspect|deployment-inspect|repo-commit|repo-push|repo-pull-request|deployment-release","title":"...","description":"..."}]}.
+- The user asks to check status/results of an earlier governed action → use operation "action_status" / "action_result" / "explain_outcome" with the decisionId.
+- NEVER call "request_approval" or "execute_plan" unless the user's message explicitly asks for that exact step. A conversational "yes/approved/go ahead" is intent, NOT a grant — the owner grants through the approval flow; say so instead of treating it as authorization.
+- Never invent decisionIds, plan digests, approval ids or verification verdicts. Relay tool output exactly; "Succeeded" only ever means independently verified.`
 
 export function buildSystemPrompt(ctx: PromptContext, toolCatalog?: string): string {
   let prompt = BASE_PROTOCOL

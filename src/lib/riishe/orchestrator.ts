@@ -26,6 +26,8 @@
  */
 import type { TaskAdapter, ChatTurn } from '@/lib/adapters/types'
 import { withTimeout, UpstreamTruncatedError } from '@/lib/adapters/hosted-llm'
+import { resolveToolInvocationPolicy, classifyInvocationOutcome, declinedGovernanceNote, globalInvocationLedger } from './tool-invocation'
+import { logger } from '@/lib/observability/logger'
 import { streamConfig } from './stream-config'
 import { solveWithContinuation } from './continuation'
 import { shouldSearch, isDocumentLike, isNewsEventQuery, type SearchDecision } from '@/lib/research/policy'
@@ -106,6 +108,9 @@ export interface OrchestrationInput {
   history: ChatTurn[]
   caps: { maxPromptChars: number; maxHistoryMessages: number }
   adapter: TaskAdapter
+  /** M46.1 — the backend id serving this turn (tool-protocol capability
+   *  honesty). Optional: absent ids keep the historical default behavior. */
+  backendId?: string | null
   /** Streams deltas and stage events when the caller wants SSE. */
   onEvent?: (e: OrchestrationEvent) => void
   /** Capability list of the selected backend; the classified task must be
@@ -626,7 +631,21 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     allowMissionDelegation,
     allowExecutionGovernance,
   })
-  const finalToolsActive = finalToolNames.length > 0 && input.toolContext != null
+  // M46.1 — capability honesty: a lane whose backend declares no tool
+  // protocol must not be offered a tool universe at all (the existing safe
+  // fallback = plain chat, honestly degraded). This is a CAPABILITY check,
+  // never an authorization shortcut: permissions, capability planning and
+  // the server-side intent gates still run on every path below.
+  const invocationPolicy = resolveToolInvocationPolicy({ backendId: input.backendId, toolNames: finalToolNames })
+  let effectiveToolNames = finalToolNames
+  if (invocationPolicy.mode === 'plain-fallback') {
+    effectiveToolNames = []
+    degraded.push(invocationPolicy.degradedNote!)
+  }
+  const finalToolsActive = effectiveToolNames.length > 0 && input.toolContext != null
+  // M46.1 — observe whether the governance universe actually opened this turn
+  // (measured once the loop closes below; invocation behavior ≠ completion).
+  const governanceUniverseOffered = allowExecutionGovernance && finalToolsActive && effectiveToolNames.includes('execution_decision')
   // Recompute buffering now that the tool plan is known: without an echo
   // directive and without tools the turn streams LIVE (first token latency).
   const liveBufferNeeded = echo !== null || finalToolsActive || input.nonStreaming
@@ -764,9 +783,11 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     // Monotonic citation-id allocator: with SEVERAL tool search rounds a
     // static offset would assign the SAME ids twice (ambiguous citations).
     let sourceCursor = pack?.sources.length ?? 0
+    // M46.1 — the server-derived intent rides with the observation record.
+    const toolCtxIntent = input.toolContext?.turnIntent ?? classifyTurnIntent(userMessage)
     const loop = await runToolLoop({
       baseMessages,
-      toolNames: finalToolNames,
+      toolNames: effectiveToolNames,
       toolCtx: {
         ...input.toolContext!,
         sourceIdOffset: pack?.sources.length ?? 0,
@@ -778,7 +799,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         // turn id, the classified intent of the REAL user message and the
         // message text itself. The model cannot forge these fields.
         turnId: input.toolContext?.turnId ?? randomTurnId(),
-        turnIntent: input.toolContext?.turnIntent ?? classifyTurnIntent(userMessage),
+        turnIntent: toolCtxIntent,
         userMessageText: input.toolContext?.userMessageText ?? userMessage,
         missionTrustTaskId: input.toolContext?.missionTrustTaskId ?? null,
       },
@@ -796,6 +817,19 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     stages.push({ stage: 'tools', durationMs: Date.now() - tTools })
     toolExecutions = loop.executions
     degraded.push(...loop.degraded)
+    // M46.1 — invocation-behavior observability: when the governed-execution
+    // universe was offered and the model closed the loop WITHOUT a single
+    // tool call, the record says so (the M45 walkthrough gap, now measured).
+    // This is observational only — it never changes authorization, and the
+    // note keeps "no governed action happened" true in the audit trail.
+    if (governanceUniverseOffered) {
+      const outcome = classifyInvocationOutcome({ toolsOffered: true, executionCount: loop.executions.length })
+      globalInvocationLedger.record({ outcome, intent: toolCtxIntent, backendId: input.backendId ?? '', at: Date.now() })
+      if (outcome === 'model-declined-tool-call') {
+        logger.info('riishe.tool_invocation.declined', { backendId: input.backendId ?? '', intent: toolCtxIntent })
+        degraded.push(declinedGovernanceNote())
+      }
+    }
     // M37 §5 — a delegated job that is WAITING FOR APPROVAL is a real
     // operational state, parsed from the status probe's ACTUAL output.
     const waitingApproval = toolExecutions.some(

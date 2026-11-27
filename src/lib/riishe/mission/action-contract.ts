@@ -287,8 +287,18 @@ export function buildActionContract(input: {
     }
     params[k] = v
   }
+  // M46.1 — the action-type vocabulary is CLOSED (Phase 2 requirement 9:
+  // model-generated parameters must never expand authorized scope). Before
+  // this fix an unknown type produced a contract with riskClass/reversibility
+  // UNDEFINED and leaked an arbitrary string into the digest-bound plan.
+  // Every genuine type is in TYPE_RISK; anything else is refused outright.
   const riskClass = TYPE_RISK[input.actionType]
   const reversibility = TYPE_REVERSIBILITY[input.actionType]
+  if (!riskClass || !reversibility) {
+    throw new ActionContractError(
+      `Unknown action type "${String(input.actionType).slice(0, 40)}" — action types are a fixed vocabulary and cannot be invented by a plan.`,
+    )
+  }
   const key = (input.idempotencyKey ?? '').trim()
   if (riskClass !== 'read-only' && key.length === 0) {
     throw new ActionContractError(`A "${riskClass}" action requires an idempotencyKey — duplicate side effects must be detectable.`)
