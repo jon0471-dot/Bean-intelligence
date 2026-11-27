@@ -53,6 +53,8 @@ export const ACTION_TYPES = [
   'repo-push',
   /** M45 — read-only repository inspection (metadata/branches/history/PRs). */
   'repo-inspect',
+  /** M45 — read-only deployment inspection (config/revision/build/health). */
+  'deployment-inspect',
   /** M45 — pull-request creation/update on an allowlisted repository
    *  (approval-gated publication of branch content). */
   'repo-pull-request',
@@ -76,6 +78,7 @@ export const TYPE_RISK: Record<ActionType, DecisionRiskClass> = {
   'repo-commit': 'reversible',
   'repo-push': 'irreversible',
   'repo-inspect': 'read-only',
+  'deployment-inspect': 'read-only',
   'repo-pull-request': 'irreversible',
   'website-publish-verify': 'reversible',
   'deployment-release': 'irreversible',
@@ -92,6 +95,7 @@ export const TYPE_REVERSIBILITY: Record<ActionType, Reversibility> = {
   'repo-commit': 'compensable', // a commit can be reverted by a compensating commit
   'repo-push': 'irreversible', // publication cannot be reliably undone
   'repo-inspect': 'reversible',
+  'deployment-inspect': 'reversible',
   'repo-pull-request': 'compensable', // a PR can be closed; its MERGE is a separate gated act
   'website-publish-verify': 'compensable',
   'deployment-release': 'irreversible',

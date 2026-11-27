@@ -237,6 +237,10 @@ function fallbackPostconditions(contract: ActionContract): PostconditionSpec[] {
       return contract.idempotencyKey
         ? [{ kind: 'no-duplicate-effect', params: { key: contract.idempotencyKey, maxRuns: String(contract.retry.maxAttempts) }, description: 'the inspection ran within its attempt budget', requireIndependentMethod: true }]
         : []
+    case 'deployment-inspect':
+      return contract.idempotencyKey
+        ? [{ kind: 'no-duplicate-effect', params: { key: contract.idempotencyKey, maxRuns: String(contract.retry.maxAttempts) }, description: 'the deployment inspection ran within its attempt budget', requireIndependentMethod: true }]
+        : []
     case 'repo-pull-request':
       // The PR number comes into existence at execution time; the runtime
       // resolves it (state=open observed by an independent GET).
@@ -305,6 +309,8 @@ export function verificationMethodFor(contract: ActionContract): string {
       return 'independent remote ref fetch comparison (ls-remote / ref GET)'
     case 'repo-inspect':
       return 'bounded idempotency ledger observation of the inspection run'
+    case 'deployment-inspect':
+      return 'independent HTTP health probe + git revision re-query of the running deployment'
     case 'repo-pull-request':
       return 'independent pull-request GET (identity + state + head sha)'
     case 'website-publish-verify':

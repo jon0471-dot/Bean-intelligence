@@ -58,6 +58,15 @@ import {
   listPullRequests,
   remoteDivergence,
 } from './repository-adapter'
+import {
+  inspectDeploymentConfig,
+  inspectDeployedRevision,
+  inspectDeploymentHistory,
+  probeRuntimeHealth,
+  inspectDeploymentLogs,
+  executeApprovedDeployment,
+  auditDeploymentInspection,
+} from './deployment-adapter'
 export type { ObservationSet } from './outcome-verification'
 
 // ---------------------------------------------------------------------------
@@ -191,8 +200,15 @@ export async function dispatchAction(
       // credentials the adapter honestly reports unavailability (never
       // simulated).
       return dispatchRepositoryAction(action)
-    case 'website-publish-verify':
+    case 'deployment-inspect':
+      return dispatchDeploymentInspection(action)
     case 'deployment-release':
+      // M45 — an APPROVED deployment execution through the deployment
+      // adapter. Without configured infrastructure it honestly reports
+      // unavailability; production is refused outright unless explicitly
+      // enabled AND the owner approval has ALREADY been consumed upstream.
+      return dispatchDeploymentRelease(action)
+    case 'website-publish-verify':
     case 'external-communicate':
       // The authorization model CLASSIFIES these, but BEAN has no real
       // execution path for them today. Even with a granted approval there is
@@ -358,6 +374,79 @@ export async function dispatchRepositoryAction(action: {
     default:
       return { kind: 'failed', resultSummary: `Unknown repository action "${action.actionType}".` }
   }
+}
+
+/** M45 deployment-inspect dispatch — typed, bounded, honest. */
+export async function dispatchDeploymentInspection(action: {
+  actionType: string
+  params: Record<string, string>
+  id: string
+  description: string
+}): Promise<ActionDispatchOutcome> {
+  const operation = String(action.params.operation ?? 'revision').trim()
+  switch (operation) {
+    case 'config': {
+      const out = await inspectDeploymentConfig()
+      if (out.kind !== 'executed') return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+      return {
+        kind: 'executed',
+        resultSummary: `Deployment config: ${out.data.caddySummary ?? 'no Caddyfile'}; build ${out.data.buildId ?? 'none'}; standalone ${out.data.standalonePresent ? 'present' : 'absent'}; scope ${out.data.scope}.`,
+        evidence: out.evidence,
+      }
+    }
+    case 'history': {
+      const out = await inspectDeploymentHistory()
+      if (out.kind !== 'executed') return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+      return { kind: 'executed', resultSummary: `Deployment history: ${out.data.length} entries.`, evidence: out.evidence }
+    }
+    case 'health': {
+      const out = await probeRuntimeHealth(action.params.healthPath ?? '/api/health')
+      if (out.kind !== 'executed') return { kind: 'failed', resultSummary: out.reason }
+      return {
+        kind: 'executed',
+        resultSummary: `Runtime health at ${out.data.url}: HTTP ${out.data.httpStatus ?? 'unreachable'} — ${out.data.healthy === true ? 'healthy' : out.data.healthy === false ? 'UNHEALTHY' : 'status unknown (unreachable)'}.`,
+        evidence: out.evidence,
+      }
+    }
+    case 'logs': {
+      const out = await inspectDeploymentLogs(Number(action.params.lines ?? 40) || 40)
+      if (out.kind !== 'executed') return { kind: 'failed', resultSummary: out.reason }
+      return { kind: 'executed', resultSummary: `Deployment log tail from ${out.data.source} (secret-filtered): ${out.data.excerpt.slice(0, 200)}`, evidence: out.evidence }
+    }
+    default: {
+      const out = await inspectDeployedRevision()
+      if (out.kind !== 'executed') return { kind: 'failed', resultSummary: out.reason }
+      await auditDeploymentInspection('revision', { buildId: out.data.buildId }).catch(() => undefined)
+      return {
+        kind: 'executed',
+        resultSummary: `Deployed revision: build ${out.data.buildId ?? 'unknown'}, commit ${out.data.servingCommitSha?.slice(0, 12) ?? 'unknown'} (via ${out.data.method}).`,
+        evidence: out.evidence,
+      }
+    }
+  }
+}
+
+/** M45 approved deployment-release dispatch (staging scope; owner-gated). */
+export async function dispatchDeploymentRelease(action: {
+  actionType: string
+  params: Record<string, string>
+  id: string
+  description: string
+}): Promise<ActionDispatchOutcome> {
+  const scope = String(action.params.scope ?? 'staging').trim() === 'production' ? 'production' : 'staging'
+  const out = await executeApprovedDeployment({
+    revision: String(action.params.revision ?? action.params.sha ?? ''),
+    scope,
+    requestedBy: String(action.params.requestedBy ?? 'governed-plan'),
+  })
+  if (out.kind === 'executed') {
+    return {
+      kind: 'executed',
+      resultSummary: `${scope} deployment of ${out.data.revision.slice(0, 12)}${out.data.verified ? ` — verified via ${out.data.method}.` : ' — NOT independently verified.'}`,
+      evidence: out.evidence,
+    }
+  }
+  return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
 }
 
 /**
