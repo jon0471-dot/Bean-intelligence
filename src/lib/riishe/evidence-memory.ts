@@ -32,6 +32,7 @@
 import { attributionView, canonicalSourceKey, type EvidenceAttributionView, type RoleTaggedEvidenceRecord } from '../research/evidence'
 import type { KnowledgeDomain } from '../research/freshness'
 import type { ClaimOutcome } from '../research/claim-verification'
+import { sanitizeEvidenceText } from './mission/safety'
 import { db } from '@/lib/db'
 
 // ---------------------------------------------------------------------------
@@ -208,7 +209,10 @@ export async function saveEvidenceKnowledge(
   delegate: EvidenceKnowledgeDelegate | null,
 ): Promise<SaveEvidenceKnowledgeResult> {
   if (!delegate) throw new Error('the evidence-knowledge store is initializing — nothing was stored (try again shortly)')
-  const claim = input.claim.trim().slice(0, KNOWLEDGE_LIMITS.maxClaimChars)
+  // Privacy: credential-shaped strings NEVER enter the knowledge store (the
+  // mission safety module's shared redaction — one implementation, no
+  // duplicate secret scanner).
+  const claim = sanitizeEvidenceText(input.claim.trim()).slice(0, KNOWLEDGE_LIMITS.maxClaimChars)
   if (claim.length < 12) throw new Error('refused: a knowledge record needs a substantive claim (>= 12 chars)')
 
   // THE GUARD — an unverified research note can never become trusted knowledge.
