@@ -44,10 +44,20 @@ import {
   type ActionExecutionRecord,
   type VerificationVerdict,
 } from './action-lifecycle'
-import { verificationMethodFor, verifyPostconditions } from './outcome-verification'
+import { verificationMethodFor, verifyPostconditions, runtimeVerificationContract } from './outcome-verification'
 import { observationFromFiles, observationFromResearch } from './observations'
 import type { ObservationSet } from './outcome-verification'
 import { assertNoPolicySelfModification } from './recovery'
+import {
+  commitToBranch,
+  createPullRequest,
+  fastForwardBranch,
+  inspectRepository,
+  listBranches,
+  listCommits,
+  listPullRequests,
+  remoteDivergence,
+} from './repository-adapter'
 export type { ObservationSet } from './outcome-verification'
 
 // ---------------------------------------------------------------------------
@@ -172,8 +182,15 @@ export async function dispatchAction(
           `${action.actionType} executes through the durable specialist job engine in a mission context; ` +
           `this runner has no durable job to run it in. Delegate it as a mission task — it will not be simulated here.`,
       }
+    case 'repo-inspect':
     case 'repo-commit':
     case 'repo-push':
+    case 'repo-pull-request':
+      // M45 — the REAL repository path: the narrowly scoped adapter with its
+      // allowlist, branch policy and independent verification. Without
+      // credentials the adapter honestly reports unavailability (never
+      // simulated).
+      return dispatchRepositoryAction(action)
     case 'website-publish-verify':
     case 'deployment-release':
     case 'external-communicate':
@@ -187,6 +204,172 @@ export async function dispatchAction(
     default:
       return { kind: 'failed', resultSummary: `Unknown action type "${action.actionType}".` }
   }
+}
+
+// ---------------------------------------------------------------------------
+// M45 repository dispatch — the adapter carries the policy; the runner
+// carries the lifecycle. Evidence records carry the FULL sha / PR state so
+// the runtime can resolve execution-time postcondition placeholders.
+// ---------------------------------------------------------------------------
+
+function parseRepoParams(params: Record<string, string>): { owner: string; repo: string } | null {
+  const owner = String(params.owner ?? '').trim()
+  const repo = String(params.repo ?? '').trim()
+  const full = String(params.repository ?? '').trim()
+  if (owner && repo) return { owner, repo }
+  if (full && full.includes('/')) {
+    const [o, r] = full.split('/', 2)
+    if (o && r) return { owner: o, repo: r }
+  }
+  return null
+}
+
+function mapRepoOutcome(
+  outcome: { kind: 'executed'; data: { summary: string; evidence: Array<{ kind: string; ref: string; note: string }> } } | { kind: 'honest-unavailable'; reason: string } | { kind: 'failed'; reason: string },
+): ActionDispatchOutcome {
+  if (outcome.kind === 'executed') {
+    return { kind: 'executed', resultSummary: outcome.data.summary, evidence: outcome.data.evidence }
+  }
+  if (outcome.kind === 'honest-unavailable') return { kind: 'honest-unavailable', reason: outcome.reason }
+  return { kind: 'failed', resultSummary: outcome.reason }
+}
+
+/** Dispatch ONE repository action through the narrowly scoped adapter. */
+export async function dispatchRepositoryAction(action: {
+  actionType: string
+  params: Record<string, string>
+  id: string
+  description: string
+}): Promise<ActionDispatchOutcome> {
+  const parsed = parseRepoParams(action.params)
+  if (!parsed) return { kind: 'failed', resultSummary: 'The action needs a repository (owner+repo or "owner/repo").' }
+  const ref = parsed
+  switch (action.actionType) {
+    case 'repo-inspect': {
+      const operation = String(action.params.operation ?? 'repository').trim()
+      if (operation === 'branches') {
+        const out = await listBranches(ref)
+        if (out.kind !== 'executed') {
+          return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+        }
+        return {
+          kind: 'executed',
+          resultSummary: `Observed ${out.data.length} remote branch(es) on ${ref.owner}/${ref.repo}.`,
+          evidence: out.evidence,
+        }
+      }
+      if (operation === 'commits') {
+        const out = await listCommits(ref, String(action.params.branch ?? 'main'))
+        if (out.kind !== 'executed') {
+          return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+        }
+        return {
+          kind: 'executed',
+          resultSummary: `Observed ${out.data.length} recent commit(s) on ${action.params.branch ?? 'main'}.`,
+          evidence: out.evidence,
+        }
+      }
+      if (operation === 'pull-requests') {
+        const out = await listPullRequests(ref, 'open')
+        if (out.kind !== 'executed') {
+          return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+        }
+        return {
+          kind: 'executed',
+          resultSummary: `Observed ${out.data.length} open pull request(s) on ${ref.owner}/${ref.repo}.`,
+          evidence: out.evidence,
+        }
+      }
+      if (operation === 'divergence') {
+        const out = await remoteDivergence(ref, String(action.params.branch ?? ''), action.params.localSha ?? null)
+        if (out.kind !== 'executed') {
+          return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+        }
+        return {
+          kind: 'executed',
+          resultSummary: `Remote ${out.data.remoteSha?.slice(0, 12) ?? 'unset'} vs local ${action.params.localSha?.slice(0, 12) ?? 'unset'} — ${out.data.inSync ? 'in sync' : 'diverged'} (via ${out.data.method}).`,
+          evidence: out.evidence,
+        }
+      }
+      const out = await inspectRepository(ref)
+      if (out.kind !== 'executed') {
+        return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+      }
+      return {
+        kind: 'executed',
+        resultSummary: `Repository ${out.data.fullName} inspected (default branch ${out.data.defaultBranch ?? 'unknown'}).`,
+        evidence: out.evidence,
+      }
+    }
+    case 'repo-commit': {
+      const out = await commitToBranch({
+        ref,
+        branch: String(action.params.branch ?? ''),
+        path: String(action.params.path ?? ''),
+        content: String(action.params.content ?? ''),
+        message: String(action.params.message ?? action.description ?? 'M45 governed commit').slice(0, 4000),
+      })
+      if (out.kind === 'executed') {
+        return {
+          kind: 'executed',
+          resultSummary: `Commit ${out.data.sha?.slice(0, 12) ?? 'unknown'} on ${out.data.branch} for ${out.data.path}${out.data.verified ? ' — verified by an independent commit GET.' : ' — the independent verification did NOT confirm it.'}`,
+          evidence: [
+            { kind: 'commit', ref: out.data.sha ?? 'unknown', note: out.data.verified ? 'verified commit object' : 'commit NOT independently verified' },
+            { kind: 'branch', ref: out.data.branch, note: `path ${out.data.path}` },
+          ],
+        }
+      }
+      return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+    }
+    case 'repo-push': {
+      const out = await fastForwardBranch({ ref, branch: String(action.params.branch ?? ''), toSha: String(action.params.sha ?? '') })
+      if (out.kind === 'executed') {
+        return {
+          kind: 'executed',
+          resultSummary: `Fast-forwarded ${out.data.branch} to ${out.data.sha.slice(0, 12)}${out.data.verified ? ` — verified via ${out.data.method}.` : ' — the independent verification did NOT confirm it.'}`,
+          evidence: [
+            { kind: 'remote-ref', ref: out.data.branch, note: `${out.data.verified ? 'verified' : 'UNVERIFIED'} at ${out.data.sha.slice(0, 12)}` },
+            { kind: 'commit', ref: out.data.sha, note: 'target commit of the fast-forward' },
+          ],
+        }
+      }
+      return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+    }
+    case 'repo-pull-request': {
+      const out = await createPullRequest({
+        ref,
+        head: String(action.params.head ?? action.params.branch ?? ''),
+        base: String(action.params.base ?? 'main'),
+        title: String(action.params.title ?? 'Governed change'),
+        body: String(action.params.body ?? action.description ?? '').slice(0, 20000),
+      })
+      if (out.kind === 'executed') {
+        return {
+          kind: 'executed',
+          resultSummary: `Pull request #${out.data.number ?? '?'} (${out.data.headSha?.slice(0, 12) ?? 'no head'}) opened${out.data.verified ? ' — verified by an independent PR GET (open + head present).' : ' — the independent verification did NOT confirm it.'}`,
+          evidence: [
+            { kind: 'pull-request', ref: `#${out.data.number ?? '?'}`, note: out.data.verified ? 'verified open with head sha' : 'NOT independently verified' },
+            ...(out.data.headSha ? [{ kind: 'commit', ref: out.data.headSha, note: 'PR head commit' }] : []),
+          ],
+        }
+      }
+      return out.kind === 'honest-unavailable' ? { kind: 'honest-unavailable', reason: out.reason } : { kind: 'failed', resultSummary: out.reason }
+    }
+    default:
+      return { kind: 'failed', resultSummary: `Unknown repository action "${action.actionType}".` }
+  }
+}
+
+/**
+ * Resolve execution-time placeholders — implemented in outcome-verification
+ * (runtimeVerificationContract) so the substitution rules live with the
+ * evaluators. Kept here as a thin alias for direct dispatch testing.
+ */
+export function resolveRuntimePostconditions(
+  contract: Parameters<typeof runtimeVerificationContract>[0],
+  evidence: Array<{ kind: string; ref: string; note: string }>,
+): Array<{ kind: string; params: Record<string, string>; description: string; requireIndependentMethod: boolean }> {
+  return runtimeVerificationContract(contract, evidence).postconditions
 }
 
 // ---------------------------------------------------------------------------
@@ -385,7 +568,7 @@ export async function runActionPlan(input: RunActionPlanInput): Promise<ActionRu
     })
     const observation = await gatherObservation(contract, store, input.projectId, outcome)
     const method = verificationMethodFor(contract)
-    const verdict: VerificationVerdict = verifyPostconditions(contract, observation).verdict
+    const verdict: VerificationVerdict = verifyPostconditions(runtimeVerificationContract(contract, outcome.evidence), observation).verdict
     record = applyActionTransition(record, { ...verificationOutcomePatch(verdict, method), note: verdict === 'confirmed' ? null : `Postconditions ${verdict}.` })
     records.push(record)
     await input.onRecord?.(record)
@@ -439,6 +622,17 @@ async function gatherObservation(
     observation.research = observationFromResearch(
       outcome.evidence.filter((e) => e.kind === 'source').map((e) => ({ url: e.ref, title: e.note })),
     )
+  }
+  // M45 — repository observations gathered by methods INDEPENDENT of the
+  // write: the pull-request state comes from the adapter's independent GET
+  // (recorded in the evidence note), inspections observe their own bounded
+  // run through the idempotency ledger.
+  if (contract.actionType === 'repo-pull-request') {
+    const verified = outcome.evidence.some((e) => e.kind === 'pull-request' && /verified/i.test(e.note) && !/UNVERIFIED|NOT/i.test(e.note))
+    observation.pullRequestState = verified ? 'open' : 'unconfirmed'
+  }
+  if (contract.actionType === 'repo-inspect' && contract.idempotencyKey) {
+    observation.idempotency = { [contract.idempotencyKey]: { runCount: 1 } }
   }
   return observation
 }

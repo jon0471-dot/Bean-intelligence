@@ -51,6 +51,11 @@ export const ACTION_TYPES = [
   'repo-commit',
   /** A push of an existing user-owned branch to its remote (never force). */
   'repo-push',
+  /** M45 — read-only repository inspection (metadata/branches/history/PRs). */
+  'repo-inspect',
+  /** M45 — pull-request creation/update on an allowlisted repository
+   *  (approval-gated publication of branch content). */
+  'repo-pull-request',
   /** Serving/verifying a generated website artifact. */
   'website-publish-verify',
   /** A deployment-style release of the user's own project (approval-gated). */
@@ -70,6 +75,8 @@ export const TYPE_RISK: Record<ActionType, DecisionRiskClass> = {
   'research-fetch': 'read-only',
   'repo-commit': 'reversible',
   'repo-push': 'irreversible',
+  'repo-inspect': 'read-only',
+  'repo-pull-request': 'irreversible',
   'website-publish-verify': 'reversible',
   'deployment-release': 'irreversible',
   'external-communicate': 'external-communication',
@@ -84,6 +91,8 @@ export const TYPE_REVERSIBILITY: Record<ActionType, Reversibility> = {
   'research-fetch': 'reversible',
   'repo-commit': 'compensable', // a commit can be reverted by a compensating commit
   'repo-push': 'irreversible', // publication cannot be reliably undone
+  'repo-inspect': 'reversible',
+  'repo-pull-request': 'compensable', // a PR can be closed; its MERGE is a separate gated act
   'website-publish-verify': 'compensable',
   'deployment-release': 'irreversible',
   'external-communicate': 'irreversible',
