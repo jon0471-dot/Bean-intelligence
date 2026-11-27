@@ -86,7 +86,7 @@ async function main() {
 
   // Late gateway losers must never crash the suite (the M42.5 discipline).
   const lateRejections: string[] = []
-  process.on('unhandledRejection', (reason) => {
+  ;(process as unknown as { on: (event: string, cb: (reason: unknown) => void) => unknown }).on('unhandledRejection', (reason) => {
     lateRejections.push(String(reason).slice(0, 200))
   })
 
@@ -118,7 +118,8 @@ async function main() {
           alternatives,
           evidence: summary,
         })
-        evidence.claims = summary.claims.map((c) => ({ claim: c.claim.slice(0, 90), outcome: c.outcome }))
+        const claims = summary.claims.map((c) => ({ claim: c.claim.slice(0, 90), outcome: c.outcome }))
+        evidence.claims = claims
         evidence.decisionKind = decision.kind
         evidence.selected = decision.selectedAlternativeId
         evidence.confidence = decision.confidence
@@ -133,8 +134,8 @@ async function main() {
         detail = grounded
           ? decision.ok
             ? `Live decision grounded in ${pack.evidence.length} real sources: "${decision.selectedAlternativeId}" selected at confidence ${decision.confidence} with a ${decision.rationale.length}-step rationale.`
-            : `The live world returned insufficient verifiable support (${pack.evidence.length} sources, ${evidence.claims.length} extracted claim(s)) — the honest below-boundary refusal at confidence ${decision.confidence} is a correct outcome, recorded verbatim; nothing was decided without evidence.`
-          : `The live decision did not ground or honestly refuse (kind=${decision.kind}, selected=${decision.selectedAlternativeId}, claims=${evidence.claims.length}).`
+            : `The live world returned insufficient verifiable support (${pack.evidence.length} sources, ${claims.length} extracted claim(s)) — the honest below-boundary refusal at confidence ${decision.confidence} is a correct outcome, recorded verbatim; nothing was decided without evidence.`
+          : `The live decision did not ground or honestly refuse (kind=${decision.kind}, selected=${decision.selectedAlternativeId}, claims=${claims.length}).`
       }
     } catch (e) {
       classification = 'HONEST-UNAVAILABLE'
@@ -461,12 +462,12 @@ async function main() {
       contract: plan.contracts[0], plan, identity: { identity: 'sub-agent', scopes: ['project-write'], delegatedFrom: 'owner-1' },
       grantor: { identity: 'owner-1', scopes: ['project-write'] }, approval: null, cancelRequested: false,
     })
-    const refused = !escalation.ok && escalation.reason === 'scope-escalation' && !decision.ok && gate.action === 'awaiting-approval'
+    const refused = escalation.ok === false && escalation.reason === 'scope-escalation' && decision.ok === false && gate.action === 'awaiting-approval'
     rows.push({
       area: 13, name: 'delegated agent unauthorized access refused', mode: 'FIXTURE',
       classification: classify(refused, null),
       detail: refused ? 'Scope escalation refused (asset-create not held by the grantor); the delegated agent cannot decide approvals; the human-class push stays held.' : 'A delegated agent escalation was not refused.',
-      evidence: { escalation: escalation.reason, decision: decision.reason, gate: gate.action },
+      evidence: { escalation: escalation.ok === false ? escalation.reason : 'none', decision: decision.ok === false ? decision.reason : 'none', gate: gate.action },
     })
   }
 
@@ -557,7 +558,7 @@ async function main() {
     let refusalCaught: string | null = null
     try {
       await saveEvidenceKnowledge({
-        userId: 'user-A', claim: lesson.claim, domain: 'general', knowledgeClass: 'project-specific',
+        userId: 'user-A', claim: lesson.claim, domain: 'software-docs', knowledgeClass: 'project-specific',
         verificationOutcome: null, confidence: 'low', supporting: [], independenceGroups: 0, freshnessStatus: 'unknown',
       }, delegate as never)
     } catch (e) {
