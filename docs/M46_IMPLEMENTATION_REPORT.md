@@ -52,3 +52,7 @@ See `M46-ACCEPTANCE.md` §"Real-application walkthrough" — desktop + mobile, r
 ## 8. Publication state
 
 Branch `feat/m46-production-readiness-live-operations` — every milestone commit pushed and remote-verified; normal fast-forward pushes only. **Nothing merged into main; M46 awaits the owner's merge decision.**
+
+## 9. APPENDED FINAL STATE (2026-11-28, recorded at session end)
+
+During this M46 session the OWNER merged **PR #38** themselves: merge commit `4b1fadcb4dc81ab70a56b1e27833d674e518c8e2` (parents `50e1c76` + `3eec7f3`) — i.e. main now contains the M46.0 baseline through the owner's own merge, exactly the early-baseline pattern they used in M45 (PR #36). BEAN performed NO merge into main (the owner rule is respected; the owner acted on their own repository). The implementation commits `593ddd7` → `2b6c6c3` remain on `feat/m46-production-readiness-live-operations` (remote-verified tip `2b6c6c3`, clean tree) awaiting the owner's review/merge. Because main's new content is exactly this branch's own `3eec7f3` tree, the remaining commits merge with zero content divergence.
