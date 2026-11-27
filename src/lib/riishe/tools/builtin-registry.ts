@@ -21,6 +21,9 @@ import { generateImageTool, createVideoTool, synthesizeSpeechTool } from '../spe
 // M41 — autonomous mission delegation (plan → durable execution → verified
 // delivery across the specialists; same two-key permission discipline).
 import { delegateMissionTool, checkMissionTool, cancelMissionTool } from '../mission/tools'
+// M45 — conversational governed execution (per-turn decision tool; same
+// two-key discipline + server-derived intent gating).
+import { executionDecisionTool } from '../mission/decision-tool-tool'
 
 let registered = false
 
@@ -55,5 +58,9 @@ export function registerBuiltins(): void {
   registerTool(delegateMissionTool)
   registerTool(checkMissionTool)
   registerTool(cancelMissionTool)
+  // M45 — conversational governed execution (explicit permission, plan-
+  // narrowed; every operation intent-gated server-side; approvals stay in
+  // the existing Trust Engine authorization contract).
+  registerTool(executionDecisionTool)
   registered = true
 }

@@ -271,11 +271,13 @@ export async function POST(request: Request) {
       // the registry's permission gate. Code execution additionally runs the
       // restricted sandbox; specialist delegation submits durable jobs through
       // the SAME preflight gates as the product routes.
-      permissions: new Set(['allowCodeExecution', 'allowImageGeneration', 'allowVideoCreation', 'allowSpeechSynthesis', 'allowCodingDelegation', 'allowMissionDelegation']),
+      permissions: new Set(['allowCodeExecution', 'allowImageGeneration', 'allowVideoCreation', 'allowSpeechSynthesis', 'allowCodingDelegation', 'allowMissionDelegation', 'allowExecutionGovernance']),
       // M36-C: specialist delegation submits jobs under THIS user only.
       userId: user.id,
       // M40: conversation-scoped cache key for the retrieval lanes.
       conversationKey: conversationId,
+      // M45: conversational governance binding context (server-derived).
+      conversationId,
       documents: new Map(
         documents.map((d) => [d.id, { name: d.name, text: d.text, truncated: d.truncated, kind: d.kind, storagePath: d.storagePath }]),
       ),

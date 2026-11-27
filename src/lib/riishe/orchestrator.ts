@@ -59,7 +59,13 @@ import { runToolLoop, stripToolCallSyntax } from './toolloop'
 import { describeTools } from './tools/registry'
 import { registerBuiltins } from './tools/builtin-registry'
 import type { ToolContext } from './tools/types'
+import { classifyTurnIntent } from './mission/conversation-intent'
 import type { MessageMetadata, ResponseState, TaskStage, TurnTimings, VerificationCheckView } from './states'
+
+/** Fresh per-turn id for conversational governance binding (M45). */
+function randomTurnId(): string {
+  return `turn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
 
 // Tools register once per process; duplicate registration is a startup error.
 registerBuiltins()
@@ -215,6 +221,10 @@ export function selectTools(args: {
   /** M41 — autonomous mission delegation grants (same two-key pattern).
    *  Grants the mission submit, progress probe and owner cancel. */
   allowMissionDelegation?: boolean
+  /** M45 — governed execution grants (same two-key pattern). Grants the
+   *  per-turn conversational decision tool (advice/plan/approve/execute/
+   *  result operations; each operation stays intent-gated server-side). */
+  allowExecutionGovernance?: boolean
 }): string[] {
   const tools = new Set<string>()
   const { searchNeeded, task, hasDocuments, allowCodeExecution, researchFailed, hasImageDocuments, deepResearch } = args
@@ -259,6 +269,12 @@ export function selectTools(args: {
     tools.add('delegate_mission')
     tools.add('check_mission')
     tools.add('cancel_mission')
+  }
+  // M45 — governed execution enters the model's universe only when the
+  // message carries decision/plan/approval/execution/result vocabulary
+  // (plan) AND the route authority agrees. Operations stay intent-gated.
+  if (args.allowExecutionGovernance) {
+    tools.add('execution_decision')
   }
   return [...tools]
 }
@@ -532,6 +548,11 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   // M41 — mission delegation gating (same two-key pattern as M36/M37).
   const allowMissionDelegation =
     input.toolContext?.permissions.has('allowMissionDelegation') === true && capabilityPlan.missionDelegation
+  // M45 — governed execution gating (same two-key pattern as M36/M37/M41).
+  // The route's permission key is the route authority; the per-turn
+  // capability plan narrows it to turns with a genuine governance shape.
+  const allowExecutionGovernance =
+    input.toolContext?.permissions.has('allowExecutionGovernance') === true && capabilityPlan.executionGovernance
   // M37 §2 — STRICT document grounding: when the user asked for answers based
   // ONLY on the attached documents, web retrieval is suppressed for the turn
   // so general knowledge can never silently substitute the documents.
@@ -603,6 +624,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     allowSpeechSynthesis,
     allowCodingDelegation,
     allowMissionDelegation,
+    allowExecutionGovernance,
   })
   const finalToolsActive = finalToolNames.length > 0 && input.toolContext != null
   // Recompute buffering now that the tool plan is known: without an echo
@@ -752,6 +774,13 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
           sourceCursor += 1
           return sourceCursor
         },
+        // M45 — server-derived conversational governance context: fresh
+        // turn id, the classified intent of the REAL user message and the
+        // message text itself. The model cannot forge these fields.
+        turnId: input.toolContext?.turnId ?? randomTurnId(),
+        turnIntent: input.toolContext?.turnIntent ?? classifyTurnIntent(userMessage),
+        userMessageText: input.toolContext?.userMessageText ?? userMessage,
+        missionTrustTaskId: input.toolContext?.missionTrustTaskId ?? null,
       },
       solve: (messages) => runSolveOnce(messages),
       onToolEvent: (e) => {

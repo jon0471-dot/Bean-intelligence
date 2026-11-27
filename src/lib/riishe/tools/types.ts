@@ -45,6 +45,20 @@ export interface ToolContext {
    *  the SAME ids twice (the model would then cite ambiguous numbers).
    *  When absent, tools fall back to offset-based numbering. */
   allocateSourceId?: () => number
+  /** M45 — server-derived conversational governance context. ALL of these
+   *  are stamped by the server (route/orchestrator) from the REAL request;
+   *  the model can neither supply nor forge them. The decision tool's
+   *  intent gate reads turnIntent — classified from the real user message —
+   *  so an advice-shaped turn can never drive a state-consuming operation. */
+  conversationId?: string
+  /** Fresh per-turn id (new UUID per orchestrator invocation). */
+  turnId?: string
+  /** The classified intent of THIS user message ('advice' | 'plan' | ...). */
+  turnIntent?: 'advice' | 'plan' | 'authorize' | 'execute' | 'result' | 'unknown'
+  /** The real user message text (intent derivation source of truth). */
+  userMessageText?: string
+  /** Mission Trust task when the turn rides a mission (binding extension). */
+  missionTrustTaskId?: string | null
 }
 
 export interface ToolSource {
