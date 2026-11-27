@@ -88,3 +88,14 @@ evidence preserved byte-for-byte as `mission-evidence-m41-PREFIX.json`).
 Results: `docs/agents/M41.7-ACCEPTANCE-RESULTS.md` · Contract:
 `docs/agents/M41.7-DELIVERABLE-VERIFICATION-CONTRACT.md` · Report:
 `docs/M41.7-IMPLEMENTATION-REPORT.md`
+
+## M43 addendum (2026-11-27) — real-world intelligence & evidence reasoning
+
+Every specialist now consumes VERIFIED EVIDENCE, not raw references, through the same M42 contract:
+
+- **Shared evidence layer** (`src/lib/research/evidence.ts` + `source-trust.ts` + `claim-verification.ts` + `contradiction-reasoning.ts` + `freshness.ts`): claim-scoped records with identity/provenance/independence; claim verification with the honest 8-outcome ladder (verified | strongly-supported | partially-supported | contradicted | outdated | insufficient-evidence | unverifiable | source-unavailable — never a forced PASS); authority = host class × claim kind (frequency/population-proof by construction).
+- **RIISHE**: claim-evidence-strength audit + uncertainty statements in the existing verification note (repair prompt weakened overreaching statements to evidence-backed strength).
+- **CODE GIFTZ**: official OSV.dev advisories appended to the tech-docs block (deterministic dispatch; UGC never enters the engineering prompt; version-range check instruction).
+- **Mission payloads**: additive claims/uncertainty/attribution/freshness fields over what was actually retrieved; quality gate pass rules UNCHANGED (audit notes ride in reasons).
+- **Knowledge memory**: `EvidenceKnowledge` records with THE GUARD (unverified notes can never become trusted knowledge), dedupe→supersession chains, per-user isolation, owner-scoped retraction.
+- Evidence: docs/intelligence/M43-ACCEPTANCE-MATRIX.md — live acceptance 20 PASS / 0 unavailable / 0 FAIL; unit suites 109; full tree 3099/0/10; UI unchanged.
