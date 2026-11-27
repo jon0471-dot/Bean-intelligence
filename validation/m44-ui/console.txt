@@ -1,0 +1,26 @@
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[log] [HMR] connected
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 179ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 883ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 2244ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 194ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 685ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 182ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 270ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 204ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 220ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 191ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 196ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 244ms
