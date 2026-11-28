@@ -14,6 +14,7 @@ import { Laxii } from '@/components/bean/laxii'
 import { Jazmii } from '@/components/bean/jazmii'
 import { CodeGiftz } from '@/components/bean/code-giftz'
 import { Gangzii } from '@/components/bean/gangzii'
+import { Autobots } from '@/components/bean/autobots'
 import { AiDeviceSettings } from '@/components/bean/ai-device-settings'
 import { Portal } from '@/components/bean/portal'
 import { Usage } from '@/components/bean/usage'
@@ -104,7 +105,9 @@ export default function Home() {
           navigation or the view switch). This mount fixes the orphaned
           surface without changing any other screen. */}
       {view === 'gangzii' && <Gangzii />}
-      {view === 'gangzii' && <Gangzii />}
+      {/* M49.1 — BEAN AUTOBOTS: the user-facing AI workforce. One mount for
+          the product view (catalogue, my agents, create, workspace, details). */}
+      {view === 'autobots' && <Autobots user={user} />}
       {view === 'ai-device' && <AiDeviceSettings />}
       {view === 'portal' && <Portal />}
       {view === 'usage' && <Usage />}

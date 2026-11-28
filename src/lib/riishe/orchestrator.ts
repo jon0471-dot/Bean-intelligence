@@ -44,7 +44,7 @@ import { detectWorkflow } from './workflow'
 import { customerTerminalStage } from '@/lib/riishe/completion-policy'
 import { buildMemoryBlock, composeMemoryContextView } from './memory'
 import { BeanApiError } from '@/lib/api/errors'
-import { buildSystemPrompt, buildUserTurn } from './prompts'
+import { buildSystemPrompt, buildUserTurn, buildAgentPersonaTrailingGuard } from './prompts'
 import { parseSelfCheck, verifyComputations, type ComputationCheck } from '@/lib/verify/exprcheck'
 import { auditCitations, stripFabricatedUrls, buildRenderableSources, dedupeSourcesByUrl, dedupeSourcesWithMap, remapCitationIds, extractCitationIds } from '@/lib/verify/citations'
 import { parseSourceDate } from '@/lib/research/rank'
@@ -147,6 +147,16 @@ export interface OrchestrationInput {
    *  the research pipeline so the Agent Reach lane can run rate-limited and
    *  audited. Optional; absent in tests (lane stays off). */
   userId?: string | null
+  /**
+   * M49.1 BEAN AUTOBOTS (additive, opt-in): a PRE-BUILT, bounded persona
+   * block for a user-configured agent (the exact string produced by
+   * buildAgentPersonaBlock — the orchestrator never composes persona text
+   * itself). Appended verbatim to the system prompt. The block is explicitly
+   * framed as UNTRUSTED user-configured preferences: it shapes tone and
+   * focus only and can never widen tools, permissions or policy. Absent for
+   * every existing caller (RIISHE chat), so behavior is unchanged.
+   */
+  personaBlock?: string | null
   /**
    * Test seam for the research boundary. When `runResearch` is provided it
    * replaces the real pipeline call EXACTLY at the boundary (same signature,
@@ -760,6 +770,11 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
       // lanes keep the TOOL_CALL contract).
       loopProtocol,
     ) + buildMemoryBlock(memoryContents)
+  // M49.1 — the autobots persona block (pre-built, bounded, untrusted-framed)
+  // rides after the standard system prompt; absent for every existing caller.
+  const fullSystemPrompt = input.personaBlock
+    ? systemPrompt + buildAgentPersonaTrailingGuard(input.personaBlock)
+    : systemPrompt
   let userTurn = buildUserTurn(userMessage, {
     evidenceBlock: evidenceBlock ? evidenceBlock : null,
     task: profile.task,
@@ -780,7 +795,7 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   }
 
   const baseMessages: ChatTurn[] = [
-    { role: 'assistant', content: systemPrompt },
+    { role: 'assistant', content: fullSystemPrompt },
     ...history.slice(-caps.maxHistoryMessages),
     { role: 'user', content: userTurn },
   ]
@@ -1842,8 +1857,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   }
 
   // token estimates: solver call(s) — prompt (system+history+turn) and outputs
+  // (M49.1: measured on the FULL system prompt incl. the optional persona block)
   const promptChars =
-    (systemPrompt.length + userTurn.length + history.reduce((n, m) => n + m.content.length, 0)) *
+    (fullSystemPrompt.length + userTurn.length + history.reduce((n, m) => n + m.content.length, 0)) *
     Math.max(1, solvePasses)
   const tokensInEst = Math.ceil(promptChars / 4)
   const tokensOutEst = Math.ceil(finalContent.length / 4)
