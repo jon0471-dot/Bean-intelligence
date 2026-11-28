@@ -22,6 +22,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { beanFetch } from '@/components/bean/shared'
 import type { ConversationListItem } from '@/lib/riishe/conversation-view'
 import { planRegenerate, persistedAnswerMatchesTurn, recoveryDelayForAttempt } from '@/lib/riishe/retry'
+import { isEligibleForLocalFallback, LOCAL_FALLBACK_DISCLOSURE } from '@/lib/riishe/local-fallback'
 import {
   classifyHttpFailure,
   consumeRiisheStream,
@@ -162,6 +163,9 @@ export function useRiisheChat(refs: RiisheChatRefs) {
   // Guards the dead-wire recovery fetches below (one per failed turn; a
   // newer turn cancels an older turn's pending recovery).
   const recoverySeqRef = useRef(0)
+  // P0 R3: guards the consented browser-local fallback (one attempt per
+  // failed turn; never concurrent with another fallback).
+  const localFallbackInFlightRef = useRef(false)
   const { scrollRef, endRef } = refs
 
   // Auto-scroll ONLY while the reader is already at (or near) the bottom.
@@ -365,6 +369,127 @@ export function useRiisheChat(refs: RiisheChatRefs) {
    *  has already started typing. */
   function restoreQuestionForRetry(question: string) {
     setInput((current) => (current.trim().length === 0 ? question : current))
+  }
+
+  /** P0 R3 — CONSENTED BROWSER-LOCAL FALLBACK. Called when a hosted turn
+   *  failed at the inference lane with nothing streamed. Only answers when
+   *  ALL of these hold (checked FRESH at fallback time from the device
+   *  capability manager — never from stale UI state):
+   *  the user consented to on-device inference, a supported local model is
+   *  already installed and loaded, the failure is inference-class, nothing
+   *  streamed, and the turn carries no attachments (documents need the
+   *  server lane). The answer reuses the existing on-device runtime with its
+   *  own controller (Stop still works), is never persisted server-side, and
+   *  carries the honest on-device disclosure. Never a silent download: an
+   *  un-consented or unloaded device simply keeps the retry UX.
+   *  Interplay with dead-wire recovery: recovery stays armed — if the server
+   *  DID persist the real answer, recovery adopts it and replaces this
+   *  fallback (the authoritative server answer wins); if recovery finds
+   *  nothing, the local answer stands. */
+  async function attemptLocalFallback(
+    message: string,
+    asstId: string,
+    failure: { kind: 'aborted' | 'network' | 'timeout' | 'http' | 'protocol'; status: number | null },
+    attachmentCount: number,
+  ): Promise<void> {
+    if (localFallbackInFlightRef.current) return
+    if (streamedRef.current !== '') return
+    const seqAtStart = recoverySeqRef.current
+    let controller: AbortController | null = null
+    try {
+      const { getDeviceCapabilityManager } = await import('@/lib/client-compute/inference/device-capability-manager')
+      const manager = getDeviceCapabilityManager()
+      const status = await manager.getStatus()
+      const cap = status.capabilities.find((c) => c.capability === 'chat.on-device')
+      const laneReady =
+        status.activeHeavyModel === ON_DEVICE_MODEL_ID || status.activeHeavyModel === CHAT_CPU_MODEL_ID
+      if (
+        !isEligibleForLocalFallback({
+          failureKind: failure.kind,
+          failureStatus: failure.status,
+          streamedAny: streamedRef.current !== '',
+          attachmentCount,
+          consentGranted: status.consent?.granted === true,
+          localModelReady: laneReady && (cap?.target === 'client-gpu' || cap?.target === 'client-cpu'),
+        })
+      ) {
+        return
+      }
+      // A newer turn started while we probed the device: this fallback is
+      // stale — abandon it without touching state.
+      if (recoverySeqRef.current !== seqAtStart) return
+      // Dead-wire recovery may have already adopted the persisted server
+      // answer while the device probe ran: never overwrite a settled answer.
+      const settled = messagesRef.current.find((m) => m.id === asstId)
+      if (settled && settled.content.trim().length > 0 && !settled.pending) return
+      localFallbackInFlightRef.current = true
+      setMessages((prev) => {
+        const existing = prev.some((m) => m.id === asstId)
+        return existing
+          ? prev.map((m) => (m.id === asstId ? { ...m, content: '', pending: true, onDevice: true } : m))
+          : [...prev, { id: asstId, role: 'assistant', content: '', pending: true, onDevice: true }]
+      })
+      setStreaming(true)
+      setError(null)
+      controller = new AbortController()
+      abortRef.current = controller
+      streamedRef.current = ''
+      const history = messagesRef.current
+        .filter((m) => !m.pending && m.content.trim().length > 0 && m.id !== asstId)
+        .slice(-12)
+        .map((m) => ({ role: m.role, content: m.content }))
+      const result = await manager.streamOnDeviceChat(
+        [
+          {
+            role: 'system',
+            content:
+              'You are RIISHE running fully on-device in the visitor\u2019s browser (BEAN Intelligence privacy lane). Answer helpfully and concisely. You have no web access, no tools and no saved memory in this mode \u2014 say so honestly if asked. The conversation is not stored on any server.',
+          },
+          ...history,
+        ],
+        {
+          onDelta: (delta: string) => {
+            streamedRef.current += delta
+            setMessages((prev) => prev.map((m) => (m.id === asstId ? { ...m, content: streamedRef.current } : m)))
+          },
+          signal: controller.signal,
+          maxTokens: 1024,
+        },
+      )
+      const text = (result.text || streamedRef.current).trim()
+      if (text.length === 0) throw new Error('The on-device model produced no answer.')
+      // Final settle-time guard: recovery adoption beats the fallback.
+      const settledNow = messagesRef.current.find((m) => m.id === asstId)
+      if (settledNow && settledNow.serverId && settledNow.content.trim().length > 0 && !settledNow.pending) {
+        return // recovery already adopted the server answer — leave it
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === asstId
+            ? {
+                ...m,
+                content: result.text || streamedRef.current,
+                pending: false,
+                partial: result.finishReason === 'length' || undefined,
+                meta: { states: [], sources: [], degraded: [], verificationNote: LOCAL_FALLBACK_DISCLOSURE },
+              }
+            : m,
+        ),
+      )
+      // The question was answered — clear the composer's retry copy unless
+      // the user already started typing something else.
+      setInput((current) => (current.trim() === message ? '' : current))
+    } catch {
+      // The local lane failed too (or the user stopped it): fall back to the
+      // honest failure UX — remove the empty bubble, keep the preserved
+      // partial/retry affordances exactly as they were.
+      setMessages((prev) => prev.filter((m) => !(m.id === asstId && m.content.trim().length === 0)))
+    } finally {
+      localFallbackInFlightRef.current = false
+      if (controller && abortRef.current === controller) abortRef.current = null
+      setStreaming(false)
+      setMessages((prev) => prev.map((m) => (m.id === asstId && m.content.trim().length === 0 ? { ...m, pending: false } : m)))
+    }
   }
 
   /** Regenerate the response to a SPECIFIC user turn (consistent actions on
@@ -635,6 +760,10 @@ export function useRiisheChat(refs: RiisheChatRefs) {
             // is always the last one before close); keep that wording.
             applyServerFailureOutcome()
             void runRecovery(0)
+            // P0 R3: a consented, ready local model may answer the failed
+            // turn while recovery stays armed (recovery adoption wins if the
+            // server persisted the real answer).
+            void attemptLocalFallback(message, asstId, { kind: failure.kind, status: failure.status }, attachable.length)
             return
           }
           setError(failure.message)
@@ -642,6 +771,8 @@ export function useRiisheChat(refs: RiisheChatRefs) {
           // network / timeout / protocol: the server may still have finished
           // and persisted the complete answer — reconcile before giving up.
           void runRecovery(0)
+          // P0 R3: same consented local fallback for transport-class deaths.
+          void attemptLocalFallback(message, asstId, { kind: failure.kind, status: failure.status }, attachable.length)
         },
       })
 
@@ -662,6 +793,12 @@ export function useRiisheChat(refs: RiisheChatRefs) {
         setError(err.message)
         setMessages((prev) => prev.filter((m) => m.id !== asstId || m.content.length > 0))
         restoreQuestionForRetry(message)
+        // P0 R3: pre-stream gateway failures (429/5xx) can also be answered
+        // by the consented, ready local model — same eligibility gate.
+        const beanFailure = err.beanFailure
+        if (beanFailure && beanFailure.kind !== 'aborted') {
+          void attemptLocalFallback(message, asstId, { kind: beanFailure.kind, status: beanFailure.status }, attachable.length)
+        }
       }
     } finally {
       // Release the SYNCHRONOUS send gate (see sendingRef) — React's
