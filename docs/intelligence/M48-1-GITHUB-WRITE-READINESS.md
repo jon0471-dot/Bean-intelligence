@@ -136,7 +136,7 @@ Until then the lane is `HONEST-NOT-READY` and everything not depending on it kee
 | M47 acceptance + native execution + tool-calling registry | green (in census) |
 | M44 approval/execution governance + P0 RIISHE reliability suites | green (in census) |
 | **Full hermetic per-file census** (every file in its own process; batched runs reproduce the documented pre-existing `mock.module` cross-file interference — proven pre-existing on the pristine base in this session) | **248 files → 3,374 pass / 0 fail / 10 skip** (P0 record 3,355/0/10 @247 + exactly the 19 new M48.1 cases — arithmetic exact) |
-| TypeScript (fresh measurement, this environment) | 209 total after the §9 repair; pristine main measured **236** in this same environment before the repair (the repair removes the TS2307 + 26 poisoned downstream errors); **zero TS errors in every M48.1-touched file** |
+| TypeScript (fresh measurement, this environment) | apples-to-apples delta at identical dependency/generated-artifact state: pristine main **236** vs M48.1 tree **209** — the repair removes the TS2307 + 26 poisoned downstream errors (−27); after the production build generates route types the tree measures **189** (further pre-existing errors resolve; `next build` itself exits 0). **Zero TS errors in every M48.1-touched file** (verified on the final tree) |
 | ESLint | 0 problems in all 10 touched files; the pre-existing full-project findings are untouched (no unrelated refactoring) |
 | Production build | **exit 0** (`prisma generate` before `next build` — the documented operator step for fresh bun installs) |
 | Pinned runtime asset | `minilm-l6-embeddings/vocab.txt` restored byte-identical (SHA-256 `07eced375cec…` — exactly the P0-pinned hash); tokenizer suite 7/0 |
