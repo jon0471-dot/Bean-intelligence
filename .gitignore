@@ -57,6 +57,15 @@ local-*
 !src/lib/local-engine/
 !src/lib/media/local-models.ts
 !src/app/api/laxii/local-models/
+# M48.1 (FOURTH occurrence of the same bug class, this time missed by a whole
+# milestone review): the P0 R3 eligibility contract src/lib/riishe/local-fallback.ts
+# is REAL source code imported by the committed use-riishe-chat.ts and pinned by
+# the committed 11-case p0-local-fallback suite — but the bare local-* rule
+# silently ignored it, git add skipped it, and main was type-broken after PR #44
+# (TS2307 + 26 poisoned downstream errors) while the P0 worktree — where the
+# file existed on disk — built and tested fine. Negated per the established
+# pattern; verified with git check-ignore.
+!src/lib/riishe/local-fallback.ts
 .claude
 .z-ai-config
 *.log

@@ -74,13 +74,41 @@ export function integrationRepository(): RepoRef | null {
   return { owner: m[1], repo: m[2] }
 }
 
-/** Honest one-liner about the write-lane readiness of THIS deployment. */
+/** The owner production repository — never a disposable write target (M48.1). */
+export const PRODUCTION_REPOSITORY = 'jon0471-dot/Bean-intelligence'
+
+/**
+ * Honest one-liner about the write-lane readiness of THIS deployment.
+ *
+ * M48.1 — this is the SYNCHRONOUS STATIC PROJECTION of the one authoritative
+ * readiness decision: it derives every fact it can establish without network
+ * I/O from the SAME policy primitives the write operations themselves run
+ * (integrationRepository + checkRepoPolicy), so it can never report
+ * `available: true` for a target that a later policy gate would reject.
+ * The LIVE facts (authentication, repository access, GitHub-reported write
+ * permission) are established by assessGitHubWriteReadiness() in
+ * credential-diagnostics.ts, which composes this projection with the live
+ * credential probes — the two never disagree about repository resolution or
+ * policy because they share these functions.
+ */
 export function writeLaneAvailability(): { available: boolean; reason: string } {
   const token = tokenForRequests()
   if (!token) return { available: false, reason: 'No GitHub credential is configured (GITHUB_TOKEN absent) — real writes are unavailable and are never simulated.' }
   const integration = integrationRepository()
   if (!integration) return { available: false, reason: 'No dedicated integration-test repository is configured (BEAN_TEST_REPOSITORY unset) — write acceptance targets the owner production repository by default and is therefore refused. Configure a disposable repository to enable the live write lane.' }
-  return { available: true, reason: `Write lane ready against the configured integration repository ${integration.owner}/${integration.repo} (fast-forward feature branches only; never merged, never cleaned automatically).` }
+  // M48.1 — the production repository can never become the disposable test
+  // target, even when explicitly configured as BEAN_TEST_REPOSITORY.
+  if (`${integration.owner}/${integration.repo}` === PRODUCTION_REPOSITORY) {
+    return { available: false, reason: `The configured integration repository (${PRODUCTION_REPOSITORY}) IS the owner production repository — a production repository is never treated as a disposable write target. Configure a separate disposable repository in BEAN_TEST_REPOSITORY.` }
+  }
+  // M48.1 — the SAME checkRepoPolicy every write operation runs must accept
+  // the integration repository, or the lane is not ready (an explicit
+  // BEAN_REPO_ALLOWLIST that omits it would reject every write).
+  const policy = checkRepoPolicy(integration)
+  if (!policy.ok) {
+    return { available: false, reason: `The configured integration repository ${integration.owner}/${integration.repo} is rejected by the repository policy that every write runs (${policy.reason}) — e.g. BEAN_REPO_ALLOWLIST does not include it. The write lane reports not-ready instead of promising what the policy gate would refuse.` }
+  }
+  return { available: true, reason: `Write lane configuration ready against the configured integration repository ${integration.owner}/${integration.repo} (fast-forward feature branches only; never merged, never cleaned automatically). Live facts — GitHub authentication, repository access and GitHub-reported write permission — are validated by the credential diagnostic before any real write.` }
 }
 
 export interface RepoRef {
