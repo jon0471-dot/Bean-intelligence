@@ -534,6 +534,13 @@ export function compileWorkflowToPlan(
     ok: true,
     schemaVersion: WORKFLOW_GRAPH_SCHEMA_VERSION,
     tasks: specs,
+    // M50.3 CORRECTIVE FIX: successful compilations PRESERVE the warning +
+    // info diagnostics from validation (e.g. honest availability evidence)
+    // so previews never lose backend-truth information. By construction a
+    // valid outcome carries no error severities; compilation still succeeds
+    // with warnings — a warning is never upgraded or downgraded into a
+    // refusal here.
+    diagnostics: validation.diagnostics,
     deliverableTaskId,
     deliverableNodeId,
     gateTaskId,

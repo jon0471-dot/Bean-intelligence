@@ -42,6 +42,9 @@ model User {
   evidenceKnowledge   EvidenceKnowledge[]
   autobots            AutobotAgent[]
   autobotTeams        AutobotTeam[]
+  // M50.3 — BEAN AI STUDIO workflow persistence (additive).
+  workflowDefinitions WorkflowDefinition[]
+  workflowRuns        WorkflowRun[]
 }
 
 model Session {
@@ -1177,4 +1180,91 @@ model AutobotTeamMember {
 
   @@unique([teamId, agentId])
   @@index([teamId, orderIndex])
+}
+
+// ---------------------------------------------------------------------------
+// M50.3 — BEAN AI STUDIO workflow persistence (ADDITIVE; three tables only).
+//
+// Persistence for the M50.2 pure graph core. A WorkflowDefinition is the
+// owner-scoped container; WorkflowVersion rows are its immutable-once-
+// published graph snapshots (draft → published → superseded, monotonic
+// (definitionId, version)); WorkflowRun is the THIN future execution-
+// reference model created only when M50.5 actually runs a workflow — the
+// real lifecycle authority stays the M41 AgentMission row.
+//
+// M50.3 deletion policy (the conservative resolution of M50.1 §8.1/§7.14):
+//  - a definition with WorkflowRun rows cannot be archived-with-delete or
+//    physically deleted; the SERVICE refuses with an honest 409 and offers
+//    archiving (see src/lib/ai-studio/workflow-service.ts);
+//  - with zero runs, deleting a definition cascades its (unused) versions;
+//  - the AgentMission reference is a LOOSE unique string (missionId), the
+//    app's existing cross-aggregate discipline (AgentMission.trustTaskId /
+//    .jobId / AgentMissionTask.specialistJobId) — a hard FK here would put
+//    a RESTRICT edge inside the user-cascade chain, where SQLite's
+//    undefined multi-table cascade ordering can break account deletion;
+//  - M50.3 NEVER deletes AgentMission / AgentMissionTask history.
+// ---------------------------------------------------------------------------
+model WorkflowDefinition {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String // bounded display name (1-80)
+  description String   @default("") // bounded free text (600)
+  status      String   @default("active") // active | archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  versions    WorkflowVersion[]
+  runs        WorkflowRun[]
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+}
+
+// One saved graph snapshot of one definition. A DRAFT is freely editable;
+// PUBLISH freezes it (publishedAt set, graph never mutated again);
+// publishing a newer version marks the previous published one SUPERSEDED —
+// still immutable. Version numbers are monotonic per definition; the
+// (definitionId, version) uniqueness is the transaction-race backstop.
+model WorkflowVersion {
+  id           String             @id @default(cuid())
+  definitionId String
+  definition   WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  version      Int
+  status       String             @default("draft") // draft | published | superseded
+  graphJson    String // schema-validated graph JSON, bounded 65,536 chars
+  changeNote   String             @default("") // bounded free text (300)
+  publishedAt  DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  runs         WorkflowRun[]
+
+  @@unique([definitionId, version])
+  @@index([definitionId, status])
+}
+
+// The thin future execution-reference model (M50.5 creates rows; M50.3
+// never does). compiledPlanJson carries the bounded compiled node→task
+// mapping and deliverable metadata so a run can be traced to its exact
+// immutable version without recompiling. missionId is the unique loose
+// M41 AgentMission reference (see the deletion-policy note above); the
+// mission row remains the ONLY execution lifecycle authority.
+model WorkflowRun {
+  id               String             @id @default(cuid())
+  userId           String
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  definitionId     String
+  definition       WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  versionId        String
+  version          WorkflowVersion    @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  missionId        String             @unique
+  objective        String // bounded to the M41 objective limit (4,000)
+  compiledPlanJson String // bounded compiled plan mapping/metadata
+  status           String             @default("planned") // mirrors the real mission status
+  failureNote      String?
+  createdAt        DateTime           @default(now())
+  finishedAt       DateTime?
+
+  @@index([userId, status])
+  @@index([definitionId])
+  @@index([versionId])
 }

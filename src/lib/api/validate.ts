@@ -27,3 +27,34 @@ export async function parseBody<T>(request: Request, schema: z.ZodType<T>): Prom
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
 }
+
+/**
+ * M50.3 (AI Studio workflows): parse an OPTIONAL JSON body — an empty or
+ * absent body parses as `{}`. Action-style endpoints (validate, preview,
+ * publish, duplicate) take no meaningful request fields; every field a
+ * client sends is validated against the schema (and unknown keys are
+ * ignored — never trusted), while a malformed non-empty body stays an
+ * honest VALIDATION_ERROR.
+ */
+export async function parseOptionalBody<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
+  let text = ''
+  try {
+    text = await request.text()
+  } catch {
+    text = ''
+  }
+  if (text.trim() === '') return schema.parse({})
+  let json: unknown
+  try {
+    json = JSON.parse(text)
+  } catch {
+    throw new BeanApiError('VALIDATION_ERROR', 'Request body must be valid JSON.')
+  }
+  const result = schema.safeParse(json)
+  if (!result.success) {
+    const first = result.error.issues[0]
+    const where = first?.path?.length ? `${first.path.join('.')}: ` : ''
+    throw new BeanApiError('VALIDATION_ERROR', `${where}${first?.message ?? 'Invalid request.'}`)
+  }
+  return result.data
+}
