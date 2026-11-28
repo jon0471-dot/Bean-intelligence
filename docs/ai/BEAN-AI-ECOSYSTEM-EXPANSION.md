@@ -68,6 +68,32 @@ Master documentation entry point: [`AI_GUIDE.md`](../../AI_GUIDE.md).
   [agents/M49.2-TEAM-EXECUTION-CONTRACT.md](../agents/M49.2-TEAM-EXECUTION-CONTRACT.md),
   [agents/M49.2-TEAM-ACCEPTANCE.md](../agents/M49.2-TEAM-ACCEPTANCE.md).
 
+## 2.c What M50.1 actually delivered (2026-11-28, same-day follow-on)
+
+- **BEAN AI STUDIO architecture + contracts — documentation only, no
+  implementation.** The complete design is frozen in
+  [agents/M50.1-AI-STUDIO-ARCHITECTURE.md](../agents/M50.1-AI-STUDIO-ARCHITECTURE.md)
+  and summarized in [systems/AI-STUDIO.md](systems/AI-STUDIO.md) (status:
+  architecture specified; runtime NOT implemented).
+- **The central decision, grounded in inspected source**: a user-authored
+  visual graph compiles onto the EXISTING M41 mission machinery through ONE
+  pure deterministic compiler (`compileWorkflowToPlan`) — every supported
+  node maps to exactly one M41 task kind (`buildTaskSpec`-constructed;
+  fixed `KIND_AGENT`/`KIND_AUTH_SCOPE`), the platform QUALITY
+  `verify-deliverable` gate is ALWAYS emitted, and the plan is submitted
+  through the EXISTING `createMissionFromPlan` (ONE durable `mission-run`
+  GenerationJob, ONE Trust task, every preflight/verifier/outcome rule
+  unchanged). No second queue, no workflow engine, no duplicate specialists.
+- **Honest catalogue discipline**: first-release nodes only from proven
+  capabilities (research/atlas lanes, CODE GIFTZ coding+document jobs, LAXII
+  images, JAZMII text-to-video, GANGZII speech, the QUALITY gate);
+  approval-gate, agent-turn, team, inline-LLM, NIIKI, external-provider and
+  arbitrary-code nodes are documented as PROPOSED/FORBIDDEN with their exact
+  structural gaps — never advertised.
+- Boundaries preserved: no Studio UI, API, Prisma change, migration,
+  dependency, or runtime behavior in M50.1; NIIKI remains M51 PLANNED;
+  no main merge.
+
 ## 3. Relation to the February 2027 plan (historical record preserved)
 
 The February 2027 launch documentation (`docs/feb2027/`) planned a narrower
@@ -95,7 +121,11 @@ expansion; the expansion is recorded here and cross-linked.
   graph validation, execution engine, reusable workflows, debugging and
   execution history. The workflow engine must reuse the existing job
   infrastructure, capability registry and Trust Engine. No arbitrary-code
-  execution system.
+  execution system. **M50.1 (2026-11-28): architecture + contracts
+  SPECIFIED** (see [agents/M50.1-AI-STUDIO-ARCHITECTURE.md](../agents/M50.1-AI-STUDIO-ARCHITECTURE.md));
+  implementation remains M50.2–M50.7 (schema/registry/validation →
+  persistence/APIs → canvas UI → governed execution → run visibility →
+  security/regression close-out).
 - **M51 — NIIKI**: creative production (3D scenes, geometry, materials,
   lighting, animation, motion graphics, particles, VFX, compositing,
   editable project export). Evaluate real, appropriately licensed models and

@@ -20,9 +20,11 @@ LAXII, JAZMII, GANGZII, KNOWLEDGE, QUALITY) are real execution surfaces that
 RIISHE delegates to through those shared substrates — never parallel stacks.
 **BEAN AUTOBOTS** (M49.1) is the user-facing workforce layer on top: personas
 users configure, executed through the SAME orchestration and delegation
-contracts. **BEAN AI STUDIO** (M50) and **NIIKI** (M51) are planned products
-with documented technical direction but no execution path in this codebase
-today.
+contracts; **BEAN AUTOBOT TEAMS** (M49.2) compose those agents into teams on
+the same mission machinery. **BEAN AI STUDIO** (M50) is architecture-
+specified as of M50.1 (contracts frozen in
+docs/agents/M50.1-AI-STUDIO-ARCHITECTURE.md) but has NO execution path in
+this codebase today; **NIIKI** (M51) remains fully planned.
 
 ```
                          ┌──────────────────────────────┐
@@ -60,7 +62,7 @@ today.
 | QUALITY | [docs/ai/systems/QUALITY.md](docs/ai/systems/QUALITY.md) | Implemented (mission gate) | Deterministic output verification |
 | BEAN AUTOBOTS | [docs/ai/systems/AUTOBOTS.md](docs/ai/systems/AUTOBOTS.md) | Implemented (M49.1) | User-facing AI workforce: agent personas on real capabilities |
 | BEAN AUTOBOT TEAMS | [docs/ai/systems/AUTOBOT-TEAMS.md](docs/ai/systems/AUTOBOT-TEAMS.md) | Implemented (M49.2) | User-configured agent teams executed through the existing M41 mission engine |
-| BEAN AI STUDIO | [docs/ai/systems/AI-STUDIO.md](docs/ai/systems/AI-STUDIO.md) | **Planned (M50)** — no implementation | Visual node-based AI workflow creation |
+| BEAN AI STUDIO | [docs/ai/systems/AI-STUDIO.md](docs/ai/systems/AI-STUDIO.md) | **Architecture specified (M50.1) — no implementation** | Visual node-based AI workflow creation; contracts frozen in [docs/agents/M50.1-AI-STUDIO-ARCHITECTURE.md](docs/agents/M50.1-AI-STUDIO-ARCHITECTURE.md) |
 | NIIKI | [docs/ai/systems/NIIKI.md](docs/ai/systems/NIIKI.md) | **Planned (M51)** — no implementation | 3D/animation/motion/VFX creative production |
 | Capability registry | [docs/ai/systems/CAPABILITY-REGISTRY.md](docs/ai/systems/CAPABILITY-REGISTRY.md) | Implemented | The single source of product/task/backend truth and health |
 
