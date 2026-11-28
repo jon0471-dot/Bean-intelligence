@@ -72,3 +72,18 @@ Deterministic decompositions for the four canonical multi-agent workflows (A web
 | Deterministic retrieval triggers incl. fiction exclusion | implemented + live-verified (fiction/transform refused at 0–1 ms, zero network calls) |
 | Honest registry states (Tier A–G, per-action) | implemented (registry is the source of truth; disabled/not_integrated rows reported verbatim) |
 | Product-level five-product dev-server e2e in the M42 window | NOT re-run this window — contract + mission-path suites cover the real execution paths in-process (recorded as the window's honest limitation) |
+
+## 8. M49.2 addendum — Autobot team missions ride THIS machinery (additive)
+
+> Branch `feat/m49-2-autobot-teams`. BEAN AUTOBOT TEAMS composes the user's own M49.1 agents into teams and executes team objectives through the EXISTING M41 stack. Full contract: `docs/agents/M49.2-TEAM-EXECUTION-CONTRACT.md`; full system guide: `docs/ai/systems/AUTOBOT-TEAMS.md`.
+
+| M41 element | M49.2 relationship (additive; nothing rebuilt) |
+|---|---|
+| Deterministic planner (`planner.ts`) | The ONLY planner for team missions — a team cannot author its own task graph. `POST /api/autobots/teams/[id]/plan` is strictly read-only (pinned: zero rows, zero enqueues). |
+| DAG kernel (`graph.ts`) | Unchanged — dependency ordering, bounded parallel lanes, skip propagation, deliverable-chain outcomes are exactly as delivered in M41/M42/M43. |
+| Task contracts (`types.ts`) | Unchanged — fixed kind/agent/scope vocabularies; the team capability map (`TASK_KIND_TEAM_CAPABILITY`) is defined ON TOP of them, never instead of them. |
+| Store (`store.ts`) | `createMissionFromPlan` gains an OPTIONAL team context: `AgentMission.teamId` (SetNull), `AgentMission.teamSnapshotJson` (immutable snapshot), `AgentMissionTask.assignmentJson` (per-task member snapshot). All nullable/additive; written once; legacy missions unaffected (existing suites pass unchanged). |
+| Executor (`executor.ts`) | ONE additive seam (`objectiveForMember`, test-exported as `TEAM_PERSONA_OBJECTIVE_SEAM`): ONLY delegated `code-build`/`document-draft` objectives may carry the ≤700-char bounded, untrusted-framed, idempotent member-preference block. Media/retrieval/verification lanes carry attribution only. All authorization still derives from the task kind. |
+| Handoffs (`handoff.ts`) | Unchanged — team missions use the SAME verified-artifact handoff contracts (research packs, asset digests, correction digests). |
+| Verifiers (`verifiers.ts`) | Unchanged — the QUALITY gate (`verify-deliverable`) is never assignable to a team member; no team configuration can disable or capture it (pinned by tests). |
+| Execution substrate | Unchanged — ONE durable `mission-run` GenerationJob on the riishe pool per team mission (pinned: exactly one job, existing enqueue seam; no team job queue exists). |

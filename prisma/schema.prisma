@@ -41,6 +41,7 @@ model User {
   missions            AgentMission[]
   evidenceKnowledge   EvidenceKnowledge[]
   autobots            AutobotAgent[]
+  autobotTeams        AutobotTeam[]
 }
 
 model Session {
@@ -954,6 +955,17 @@ model AgentMission {
   cancelRequested   Boolean  @default(false)
   failureNote       String? // truthful reason for failed/cancelled missions
   outcomeSummary    String? // bounded customer-safe delivery summary
+  // M49.2 (additive, nullable): the Autobot team that ran this mission. Null
+  // for individual/RIISHE-chat missions. SetNull on team deletion — the
+  // mission's immutable teamSnapshotJson below preserves the execution
+  // context even after the team row is gone.
+  teamId            String?
+  team              AutobotTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  // M49.2 (additive, nullable): the IMMUTABLE team execution snapshot taken
+  // at mission start (team identity, membership, agent identities, capability
+  // keys, roles, bounded persona preferences, task assignments). Editing a
+  // team or agent afterwards never changes a running mission's context.
+  teamSnapshotJson  String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   startedAt         DateTime?
@@ -962,6 +974,7 @@ model AgentMission {
 
   @@index([userId, status])
   @@index([jobId])
+  @@index([teamId])
 }
 
 model AgentMissionTask {
@@ -987,6 +1000,11 @@ model AgentMissionTask {
   verificationResultJson String? // {status, reasons[], artifacts[]} from the deterministic verifier
   failureNote            String?
   artifactJson           String? // admitted artifacts (JSON array)
+  // M49.2 (additive, nullable): the assigned Autobot team member snapshot for
+  // this task (memberId, agentId, agentName, capabilityKey, bounded persona
+  // preferences). Written ONCE at mission creation from the server-side
+  // assignment engine; never mutated afterwards (execution snapshot rule).
+  assignmentJson         String?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
@@ -1060,6 +1078,7 @@ model AutobotAgent {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   conversations  AutobotConversation[]
+  teamMemberships AutobotTeamMember[]
 
   @@index([userId, status])
   @@index([userId, createdAt])
@@ -1099,4 +1118,63 @@ model AutobotMessage {
   createdAt      DateTime            @default(now())
 
   @@index([conversationId])
+}
+
+// ---------------------------------------------------------------------------
+// M49.2 — BEAN AUTOBOT TEAMS: a user-configured COMPOSITION of their own
+// Autobot agents. A team is coordination metadata for the EXISTING M41
+// mission machinery — never a second execution framework, never an
+// agent-to-agent chat fabric. The member's `capabilityKey` (fixed M49.1
+// vocabulary, server-authoritative) is the ONLY thing that decides which
+// M41 task kinds a member can be assigned; names, responsibility text and
+// instructions are descriptive user data and can never widen authorization.
+// The team leader is attribution/coordination copy — never extra permission.
+// ---------------------------------------------------------------------------
+model AutobotTeam {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String // bounded display name (1-80)
+  description        String   @default("") // bounded free text (600)
+  // The coordinating member (a AutobotTeamMember id in THIS team). Copy for
+  // coordination/attribution only — being the leader grants NO extra tools.
+  leaderMemberId     String?
+  // Descriptive workflow preference from the fixed vocabulary ('auto' |
+  // 'research-first' | 'build-first' | 'review-heavy'). It never alters the
+  // deterministic M41 planner, the DAG kernel or any authorization scope.
+  workflowPreference String   @default("auto")
+  // The deterministic multi-member assignment rule ('team-order' |
+  // 'leader-first'). A pure ordering over the SAVED roster — it never
+  // consults persona text and never widens authorization.
+  assignmentPreference String  @default("team-order")
+  templateKey        String? // catalogue team template (null = fully custom)
+  status             String   @default("active") // active | archived
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  members            AutobotTeamMember[]
+  missions           AgentMission[]
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+}
+
+// One agent inside one team, with a descriptive responsibility. The agent
+// MUST belong to the same user as the team (enforced at every service
+// touchpoint). Cascade on agent deletion — a team cannot reference an agent
+// that no longer exists.
+model AutobotTeamMember {
+  id             String       @id @default(cuid())
+  teamId         String
+  team           AutobotTeam  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  agentId        String
+  agent          AutobotAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  // Descriptive responsibility text (bounded 300) — USER DATA, never
+  // authorization; the assignment engine reads ONLY the agent's capabilityKey.
+  responsibility String       @default("")
+  // Saved team order (deterministic tie-break for assignment).
+  orderIndex     Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@unique([teamId, agentId])
+  @@index([teamId, orderIndex])
 }

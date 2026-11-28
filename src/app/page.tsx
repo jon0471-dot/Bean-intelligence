@@ -106,8 +106,11 @@ export default function Home() {
           surface without changing any other screen. */}
       {view === 'gangzii' && <Gangzii />}
       {/* M49.1 — BEAN AUTOBOTS: the user-facing AI workforce. One mount for
-          the product view (catalogue, my agents, create, workspace, details). */}
-      {view === 'autobots' && <Autobots user={user} />}
+          the product view (catalogue, my agents, create, workspace, details).
+          M49.2 adds the TEAMS surface inside the same product (My Teams,
+          team templates, team workspace) — deliverable artifacts can deep-
+          link into their existing product surfaces via onNavigate. */}
+      {view === 'autobots' && <Autobots user={user} onNavigate={(v) => setView(v as ViewId)} />}
       {view === 'ai-device' && <AiDeviceSettings />}
       {view === 'portal' && <Portal />}
       {view === 'usage' && <Usage />}

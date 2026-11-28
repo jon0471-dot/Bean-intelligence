@@ -1,6 +1,26 @@
 # BEAN Intelligence — Multi-Agent Worklog
 
 ---
+Task ID: 0-M49.2
+Agent: main (Z.ai)
+Task: M49.2 — BEAN AUTOBOT TEAMS: Multi-Agent Workforce Collaboration (branch `feat/m49-2-autobot-teams`, worktree `m49-2-autobots-wt`, based on verified origin/main `422e96f` = PR #47 merge of M49.1; every milestone committed + pushed + remote-SHA-verified)
+
+Work Log:
+- Phase 0: fetched all remotes; origin/main verified `422e96fee015ed170951b66470395029e5750b3b` (M49.1 landed via PR #47 in the intervening window — confirmed before any work); dedicated worktree created from fresh origin/main; branch `feat/m49-2-autobot-teams` fast-forward only.
+- Mandatory inspection: M49.1 (catalog/agent-service/agent-run/UI/APIs/docs) + M41 (types/planner/graph/executor/store/handoff/verifiers + docs) + Trust Engine + durable jobs + registry + Prisma + rate limits/quotas/audit.
+- Additive Prisma: `AutobotTeam` + `AutobotTeamMember` tables; nullable `AgentMission.teamId` (SET NULL)/`teamSnapshotJson`, `AgentMissionTask.assignmentJson`, `AutobotTeam.assignmentPreference`; migration `20261128_m49_2_autobot_teams_additive` (pure addition; dev-DB push applied WITHOUT --accept-data-loss).
+- Pure catalogue (`teams/catalog.ts`): 10 verified team templates over REAL agent templates; fixed task-kind→capability map with `verify-deliverable` → platform QUALITY gate (never a member); descriptive workflow preferences; deterministic assignment rules {team-order, leader-first}.
+- Assignment engine (`teams/assignment.ts`): eligibility = capabilityKey + active status ONLY; deterministic orderings; exact missing-capability refusals (no substitutes); gate non-capturable; bounded untrusted-framed persona block with never-truncated security framing + idempotency marker; immutable snapshot serializer with honest overflow refusal.
+- Team service + mission bridge: owner-scoped CRUD (2..8 same-owner ACTIVE members, duplicates refused, leader-must-be-member, 30-team cap, rate limits, audit); archive/delete REFUSE while a mission is planned/running; `planTeamMission` STRICTLY read-only; `runTeamMission` re-validates everything, records the immutable snapshot, and creates the mission through the EXISTING `createMissionFromPlan` (extended with an optional team context) — exactly ONE durable `mission-run` job on the EXISTING queue, ONE Trust task, existing duplicate guards.
+- Executor: ONE seam (`objectiveForMember`) — delegated code-build/document-draft objectives only; media/retrieval/verification lanes carry attribution WITHOUT persona injection (honest limitation, documented).
+- APIs: 7 routes (`teams`, `teams/catalog`, `[id]`, `[id]/duplicate`, `[id]/plan`, `[id]/run`, `[id]/missions`).
+- UI: `teams.tsx` (Discover/My Teams/Create incl. inline agent creation/Team Workspace with read-only plan preview, dependency waves, honest gaps, real mission progress + deliverable deep links) mounted via an Agents⇄Teams switch inside the existing Autobots view — no new navigation item.
+- Tests: 58 new hermetic cases (catalog 12, assignment 16, service 17, mission/security 13) — security pins: persona cannot widen permissions, gate uncapturable, plan read-only, snapshot immutability, cross-user 404s, no second queue.
+- Gates: census 3,525/0/10 across 257 files (per-file execution — sandbox memory ceiling identical on pristine main; MiniLM artifact provisioned via the repo's own M40 bootstrap); tsc 325=325 vs pristine main (0 in touched files); eslint clean; production build exit 0 (all 7 team routes in manifest); real-app preview desktop+mobile (validation/m49-2-ui/).
+- Docs: AUTOBOT-TEAMS.md (new), M49.2-TEAM-EXECUTION-CONTRACT.md (new), M49.2-TEAM-ACCEPTANCE.md (new); AI_GUIDE, AUTOBOTS.md, ECOSYSTEM-EXPANSION, M41-AGENT-ARCHITECTURE §8, HANDOFF 0.c updated.
+- NO merges performed; owner retains merge authority.
+
+---
 Task ID: 0-P0
 Agent: main (Z.ai)
 Task: P0 — RIISHE Always-Respond & Conversational Reliability Hotfix (branch `fix/riishe-always-respond`; every milestone committed + pushed + remote-SHA-verified)
