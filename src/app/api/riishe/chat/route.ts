@@ -471,6 +471,16 @@ export async function POST(request: Request) {
           // First bytes on the wire immediately — establishes the response
           // before any slow research/model work begins.
           writer.comment('connected')
+          // P0 R2 (2026-11-28) — EARLY CONVERSATION ID: the very first VALID
+          // data event now carries the conversation ID, before any research,
+          // model generation or buffered tool work starts. Previously the ID
+          // only reached the client with the first delta/done frame, so a
+          // connection lost during the early silent phase of a NEW
+          // conversation left the client without the key its dead-wire
+          // recovery needs — the server-side persisted answer became
+          // unreachable. Same wire protocol (delta frames already carry
+          // conversationId); no fabricated content; the comment frame stays.
+          writer.send({ conversationId: convId })
           const result = await orchestrateTurn({
             userMessage: body.message,
             history,

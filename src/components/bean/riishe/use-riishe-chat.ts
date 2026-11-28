@@ -21,7 +21,7 @@ import { CHAT_MODEL_ID, CHAT_CPU_MODEL_ID } from '@/lib/client-compute/inference
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { beanFetch } from '@/components/bean/shared'
 import type { ConversationListItem } from '@/lib/riishe/conversation-view'
-import { planRegenerate, persistedAnswerMatchesTurn } from '@/lib/riishe/retry'
+import { planRegenerate, persistedAnswerMatchesTurn, recoveryDelayForAttempt } from '@/lib/riishe/retry'
 import {
   classifyHttpFailure,
   consumeRiisheStream,
@@ -458,18 +458,32 @@ export function useRiisheChat(refs: RiisheChatRefs) {
 
       /**
        * DEAD-WIRE RECONCILIATION (root-cause completion of the 2026-11-01
-       * streaming fix). Measured incident: the platform path can silently
-       * drop the client connection mid-generation; the SERVER still finishes
-       * the turn and persists the complete answer (disconnects are contained
-       * in the SSE writer), but the client only saw its own watchdog message
-       * and the partial text — the finished answer sat in the database
-       * unseen. After any non-abort transport failure with a known
-       * conversation, the client now fetches the persisted conversation and
-       * adopts the completed answer when (a) the newest row is the assistant
-       * reply to THIS turn's question and (b) the partial's head matches it —
-       * never a guess, never another turn's answer. One bounded delayed
-       * retry covers the case where the watchdog fired while the server was
-       * still finishing a long buffered phase.
+       * streaming fix; P0-hardened 2026-11-28). Measured incident: the
+       * platform path can silently drop the client connection mid-generation;
+       * the SERVER still finishes the turn and persists the complete answer
+       * (disconnects are contained in the SSE writer), but the client only
+       * saw its own watchdog message and the partial text — the finished
+       * answer sat in the database unseen. After any non-abort transport
+       * failure with a known conversation, the client fetches the persisted
+       * conversation and adopts the completed answer when (a) the newest row
+       * is the assistant reply to THIS turn's question and (b) the partial's
+       * head matches it — never a guess, never another turn's answer.
+       *
+       * P0 R2 hardening:
+       *  - the server now emits the conversation ID as the FIRST data event
+       *    (see route), so recovery works even when a NEW conversation's
+       *    connection dies during the early silent phase;
+       *  - retries follow a small BOUNDED schedule (immediately, then +8s,
+       *    +20s, +40s — a ~68s window sized from the server's real buffered
+       *    turn timing; the request timeout is 90s, so a still-running turn
+       *    is given a honest chance to persist, and there is NEVER infinite
+       *    polling);
+       *  - every attempt re-checks the recovery sequence guard, so a newer
+       *    user turn or a new send cleanly cancels a stale recovery;
+       *  - adoption never duplicates messages (the existing bubble is
+       *    updated in place) and never replays the request — the fetch is
+       *    read-only, so a potentially-successful protected operation can
+       *    never be re-issued by a transport failure.
        */
       const runRecovery = async (attempt: number) => {
         if (!convId || recoverySeq !== recoverySeqRef.current) return
@@ -506,16 +520,26 @@ export function useRiisheChat(refs: RiisheChatRefs) {
                   : m,
               ),
             )
+            // The persisted answer was recovered: the connection-loss banner
+            // must not survive it — the user sees a finished answer, not an
+            // error.
             setError(null)
             return
           }
-          // Not persisted yet (or honestly not this turn's answer): one
-          // bounded delayed retry in case the server was still finishing.
-          if (attempt === 0) {
-            setTimeout(() => void runRecovery(1), 20_000)
+          // Not persisted yet (or honestly not this turn's answer): retry on
+          // the bounded schedule; after the last attempt, stop cleanly — the
+          // preserved partial + honest incomplete label (or the restored
+          // question) remain, and retry stays one keystroke away.
+          const nextDelay = recoveryDelayForAttempt(attempt + 1)
+          if (nextDelay !== undefined) {
+            setTimeout(() => void runRecovery(attempt + 1), nextDelay)
           }
         } catch {
           /* recovery is best-effort; the preserved partial stays visible */
+          const nextDelay = recoveryDelayForAttempt(attempt + 1)
+          if (nextDelay !== undefined && recoverySeq === recoverySeqRef.current) {
+            setTimeout(() => void runRecovery(attempt + 1), nextDelay)
+          }
         }
       }
 
