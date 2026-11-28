@@ -16,10 +16,11 @@
  * real workspace transcripts.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Archive, Bot, Copy, Pencil, Plus, Search, Sparkles, Trash2, Undo2, X } from 'lucide-react'
+import { Archive, Bot, Copy, Layers, Pencil, Plus, Search, Sparkles, Trash2, Undo2, X } from 'lucide-react'
 import { Spinner, beanFetch, type BeanUser } from '@/components/bean/shared'
 import { cn } from '@/lib/utils'
 import { AgentDetails, AgentWorkspace } from './workspace'
+import { TeamsView } from './teams'
 
 // ---------------------------------------------------------------------------
 // Shared view types (server API shapes)
@@ -126,7 +127,12 @@ const EMPTY_FORM: FormState = {
 // Main component
 // ---------------------------------------------------------------------------
 
-export function Autobots({ user }: { user: BeanUser }) {
+export function Autobots({ user, onNavigate }: { user: BeanUser; onNavigate?: (view: string) => void }) {
+  // M49.2 — the product now carries two surface families: AGENTS (the M49.1
+  // individual workforce) and TEAMS (compositions of the user's own agents
+  // executed through the existing M41 mission machinery). One product, one
+  // navigation item — no separate navigation system.
+  const [surface, setSurface] = useState<'agents' | 'teams'>('agents')
   const [section, setSection] = useState<Section>('discover')
   const [catalog, setCatalog] = useState<CatalogData | null>(null)
   const [agents, setAgents] = useState<AutobotAgentView[]>([])
@@ -314,27 +320,71 @@ export function Autobots({ user }: { user: BeanUser }) {
     )
   }
 
+  // ---- M49.2 surface switch (Agents / Teams) -----------------------------
+  const SurfaceSwitch = (
+    <div className="mx-auto mb-4 flex w-fit items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
+      <button
+        onClick={() => setSurface('agents')}
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors',
+          surface === 'agents' ? 'bg-[rgba(212,175,55,0.16)] text-[#f0c75e] shadow-[inset_0_0_0_1px_rgba(212,175,55,0.28)]' : 'text-white/50 hover:text-white/80',
+        )}
+      >
+        <Bot className="h-3.5 w-3.5" /> Agents
+      </button>
+      <button
+        onClick={() => setSurface('teams')}
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors',
+          surface === 'teams' ? 'bg-[rgba(212,175,55,0.16)] text-[#f0c75e] shadow-[inset_0_0_0_1px_rgba(212,175,55,0.28)]' : 'text-white/50 hover:text-white/80',
+        )}
+      >
+        <Layers className="h-3.5 w-3.5" /> Teams
+      </button>
+    </div>
+  )
+
+  if (surface === 'teams') {
+    return (
+      <div>
+        {SurfaceSwitch}
+        <TeamsView
+          user={user}
+          agents={agents}
+          refreshAgents={refreshAgents}
+          onNavigate={(view) => onNavigate?.(view)}
+        />
+      </div>
+    )
+  }
+
   // ---- Workspace / Details take over the whole view ------------------------
   if (section === 'workspace' && activeAgent) {
     return (
-      <AgentWorkspace
-        agent={activeAgent}
-        onBack={() => { setSection('mine'); void refreshAgents() }}
-        onOpenDetails={() => { setSection('details'); void refreshActiveAgent(activeAgent.id) }}
-        onAgentUpdated={() => void refreshAgents()}
-      />
+      <div>
+        {SurfaceSwitch}
+        <AgentWorkspace
+          agent={activeAgent}
+          onBack={() => { setSection('mine'); void refreshAgents() }}
+          onOpenDetails={() => { setSection('details'); void refreshActiveAgent(activeAgent.id) }}
+          onAgentUpdated={() => void refreshAgents()}
+        />
+      </div>
     )
   }
 
   if (section === 'details' && activeAgent) {
     return (
-      <AgentDetails
-        agent={activeAgent}
-        conversations={activeConversations}
-        onBack={() => { setSection('mine'); void refreshAgents() }}
-        onOpenWorkspace={() => setSection('workspace')}
-        onEdit={() => openEdit(activeAgent)}
-      />
+      <div>
+        {SurfaceSwitch}
+        <AgentDetails
+          agent={activeAgent}
+          conversations={activeConversations}
+          onBack={() => { setSection('mine'); void refreshAgents() }}
+          onOpenWorkspace={() => setSection('workspace')}
+          onEdit={() => openEdit(activeAgent)}
+        />
+      </div>
     )
   }
 
@@ -342,7 +392,9 @@ export function Autobots({ user }: { user: BeanUser }) {
   if (section === 'create') {
     const cap = capabilityById.get(form.capabilityKey)
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+      <div>
+        {SurfaceSwitch}
+        <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
         <button
           onClick={() => setSection(editingId ? 'details' : 'discover')}
           className="mb-4 inline-flex items-center gap-1.5 text-[12.5px] text-white/45 transition-colors hover:text-white/80"
@@ -481,19 +533,23 @@ export function Autobots({ user }: { user: BeanUser }) {
           </div>
         </div>
       </div>
+      </div>
     )
   }
 
   // ---- Discover Agents -------------------------------------------------------
   if (section === 'discover') {
     return (
-      <CatalogView
-        catalog={catalog}
-        onUseTemplate={(t) => openCreate(t)}
-        onCreateCustom={() => openCreate()}
-        onGoMine={() => { setSection('mine'); void refreshAgents() }}
-        mineCount={agents.length}
-      />
+      <div>
+        {SurfaceSwitch}
+        <CatalogView
+          catalog={catalog}
+          onUseTemplate={(t) => openCreate(t)}
+          onCreateCustom={() => openCreate()}
+          onGoMine={() => { setSection('mine'); void refreshAgents() }}
+          mineCount={agents.length}
+        />
+      </div>
     )
   }
 
@@ -501,7 +557,9 @@ export function Autobots({ user }: { user: BeanUser }) {
   const active = agents.filter((a) => a.status === 'active')
   const archived = agents.filter((a) => a.status === 'archived')
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+    <div>
+      {SurfaceSwitch}
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-white/92">My agents</h1>
@@ -607,6 +665,7 @@ export function Autobots({ user }: { user: BeanUser }) {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

@@ -42,6 +42,9 @@ import { decideMissionOutcome, deliverableChain, readyTaskIds, skippedDownstream
 import { correctionHandoff, enrichObjective, researchPackHandoff, type HandoffBlock } from './handoff'
 import { verifyDeliverable, verifyTaskOutput, parsePayload, type CodingJobPayload, type ResearchPayload } from './verifiers'
 import { attachSpecialistJob, beginMissionTrust, transitionMission, transitionTask, updateRunningTask, retryTask, TrustStateMissionError } from './store'
+// M49.2 — team-member persona seam (PURE helpers only; no service import,
+// no cycle: assignment.ts depends solely on pure modules).
+import { parseAssignment, memberPersonaPreferenceBlock, MEMBER_PERSONA_MARKER } from '@/lib/autobots/teams/assignment'
 
 // ---------------------------------------------------------------------------
 // Small local helpers
@@ -89,6 +92,8 @@ interface TaskRow {
   verificationResultJson: string | null
   failureNote: string | null
   artifactJson: string | null
+  /** M49.2 (additive, nullable): server-built member assignment snapshot. */
+  assignmentJson: string | null
 }
 
 interface TaskLimits {
@@ -153,6 +158,32 @@ function specOf(t: TaskRow): MissionTaskSpec {
     })(),
     limits: parseLimits(t.limitsJson) as MissionTaskSpec['limits'],
   }
+}
+
+// ---------------------------------------------------------------------------
+// M49.2 — team-member persona seam (BOUNDED, UNTRUSTED-FRAMED).
+//
+// The ONLY persona injection surface in team missions: delegated engineering
+// objectives (code-build / document-draft), whose objective string is the
+// specialist job's user-side instruction and where M41 already appends
+// verified handoff blocks through the same enrichObjective contract. The
+// block is bounded (≤700 chars), framed as user-configured preferences —
+// never authority — and carries a stable marker so re-entry paths (correction
+// rounds, transient retries) stay idempotent. Media lanes (image/video/audio)
+// would corrupt generation prompts; research/knowledge/verify-deliverable are
+// deterministic tool executions with no model seam — those tasks carry
+// ATTRIBUTION ONLY (the persisted assignment), never persona text.
+// The task's authorization (scope, permissions, verification criteria,
+// limits) is NEVER derived from this block — it stays a function of the M41
+// task kind alone.
+// ---------------------------------------------------------------------------
+
+function objectiveForMember(objective: string, assignmentJson: string | null, kind: MissionTaskKind): string {
+  const persona = parseAssignment(assignmentJson)
+  if (!persona?.personaBounded) return objective
+  if (kind !== 'code-build' && kind !== 'document-draft') return objective
+  if (objective.includes(MEMBER_PERSONA_MARKER)) return objective // idempotent re-entry
+  return enrichObjective(objective, [{ text: memberPersonaPreferenceBlock(persona), sourceCount: 0 }])
 }
 
 async function loadMission(missionId: string): Promise<MissionRow | null> {
@@ -588,7 +619,7 @@ async function startTask(mission: MissionRow, row: TaskRow, spec: MissionTaskSpe
   }
 
   // --- delegated lanes (durable specialist jobs) ----------------------------
-  let objective = spec.objective
+  let objective = objectiveForMember(spec.objective, row.assignmentJson ?? null, spec.kind)
   const handoffBlocks: HandoffBlock[] = []
   let handedOffRefs: MissionSourceRef[] = []
   if (deps.length > 0) {
@@ -694,7 +725,7 @@ async function refreshDelegatedTask(mission: MissionRow, row: TaskRow, spec: Mis
       const blocks = [correctionHandoff(outcome.reasons)]
       const { artifacts, sources } = await researchPackFor(mission, deps)
       if (sources.length > 0) blocks.push(researchPackHandoff(artifacts, sources))
-      const corrected = enrichObjective(spec.objective, blocks)
+      const corrected = enrichObjective(objectiveForMember(spec.objective, row.assignmentJson ?? null, spec.kind), blocks)
       const verificationContext =
         spec.kind === 'code-build' || spec.kind === 'document-draft'
           ? buildVerificationContext({
@@ -748,7 +779,7 @@ async function refreshDelegatedTask(mission: MissionRow, row: TaskRow, spec: Mis
           : undefined
       const resubmission =
         spec.kind === 'code-build' || spec.kind === 'document-draft'
-          ? await delegateCoding(mission, spec.objective, spec.params.projectName)
+          ? await delegateCoding(mission, objectiveForMember(spec.objective, row.assignmentJson ?? null, spec.kind), spec.params.projectName)
           : await delegateMedia(mission, spec.kind, spec.params, mediaRetryContext)
       if (resubmission.ok && resubmission.jobId) {
         await updateRunningTask(mission.id, row.taskId, {
@@ -1176,3 +1207,9 @@ async function settleMission(
 /** Test/ops seam: which mission task kinds execute inline vs delegated. */
 export const INLINE_TASK_KINDS: readonly MissionTaskKind[] = ['research', 'knowledge', 'verify-deliverable']
 export const DELEGATED_TASK_KINDS: readonly MissionTaskKind[] = ['code-build', 'document-draft', 'image-asset', 'video-asset', 'audio-asset']
+
+/** Test/ops seam: the M49.2 team persona-seam objective builder (pure over
+ *  its inputs — no I/O). Pins the security property that ONLY delegated
+ *  engineering/document lanes receive the bounded member-persona block, and
+ *  that re-entry is idempotent (the marker guard). */
+export const TEAM_PERSONA_OBJECTIVE_SEAM = objectiveForMember

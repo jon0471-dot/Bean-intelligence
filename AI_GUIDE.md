@@ -59,6 +59,7 @@ today.
 | KNOWLEDGE | [docs/ai/systems/KNOWLEDGE.md](docs/ai/systems/KNOWLEDGE.md) | Implemented | Research & retrieval lanes + Knowledge Atlas |
 | QUALITY | [docs/ai/systems/QUALITY.md](docs/ai/systems/QUALITY.md) | Implemented (mission gate) | Deterministic output verification |
 | BEAN AUTOBOTS | [docs/ai/systems/AUTOBOTS.md](docs/ai/systems/AUTOBOTS.md) | Implemented (M49.1) | User-facing AI workforce: agent personas on real capabilities |
+| BEAN AUTOBOT TEAMS | [docs/ai/systems/AUTOBOT-TEAMS.md](docs/ai/systems/AUTOBOT-TEAMS.md) | Implemented (M49.2) | User-configured agent teams executed through the existing M41 mission engine |
 | BEAN AI STUDIO | [docs/ai/systems/AI-STUDIO.md](docs/ai/systems/AI-STUDIO.md) | **Planned (M50)** — no implementation | Visual node-based AI workflow creation |
 | NIIKI | [docs/ai/systems/NIIKI.md](docs/ai/systems/NIIKI.md) | **Planned (M51)** — no implementation | 3D/animation/motion/VFX creative production |
 | Capability registry | [docs/ai/systems/CAPABILITY-REGISTRY.md](docs/ai/systems/CAPABILITY-REGISTRY.md) | Implemented | The single source of product/task/backend truth and health |
@@ -86,7 +87,12 @@ today.
 5. **AUTOBOTS personas are data, not authority.** Agent instructions shape
    tone and focus only; tool access is derived server-side from the agent's
    fixed capability vocabulary (`src/lib/autobots/catalog.ts`) and re-checked
-   per turn by the capability planner.
+   per turn by the capability planner. The same discipline governs AUTOBOT
+   TEAMS (M49.2): a team is a composition of the user's own agents executed
+   through the EXISTING M41 mission machinery — task→member assignment is a
+   pure function of the saved roster's capabilities, the verification gate
+   is always the platform's QUALITY specialist, and member persona text is
+   bounded, untrusted-framed user data that never widens authorization.
 
 ## Standing constraints (owner-approved, binding)
 

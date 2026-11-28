@@ -64,6 +64,21 @@ export interface SubmittedMission {
 }
 
 /**
+ * M49.2 (additive, optional): the Autobot-team context for a team mission.
+ * The mission row gains the team reference + the IMMUTABLE execution
+ * snapshot; each task row gains its server-built member-assignment JSON.
+ * Everything here is written ONCE at creation and never mutated afterwards.
+ * The mission's execution authorization still derives exclusively from the
+ * M41 task kinds — team context is attribution + bounded persona framing.
+ */
+export interface TeamMissionContext {
+  teamId: string
+  teamSnapshotJson: string
+  /** taskId → serialized assignment JSON (from the assignment engine). */
+  taskAssignments: Record<string, string>
+}
+
+/**
  * Persist a planned mission and submit its durable mission-run job.
  * The job enters the SAME engine every product job uses (claim, lease,
  * heartbeat, crash recovery) — a server restart can lose nothing that the
@@ -73,6 +88,8 @@ export async function createMissionFromPlan(
   userId: string,
   objective: string,
   plan: MissionPlan,
+  /** M49.2: optional Autobot-team context (server-built). */
+  team?: TeamMissionContext,
 ): Promise<SubmittedMission> {
   const boundedObjective = bounded(objective.trim(), MISSION_LIMITS.objectiveChars, 'objective')
   // Duplicate-work prevention at the MISSION level: an identical ACTIVE
@@ -104,6 +121,8 @@ export async function createMissionFromPlan(
       planJson: JSON.stringify(plan),
       detectedJson: JSON.stringify(plan.detected.slice(0, 6)),
       trustTaskId: trust.id,
+      // M49.2 (additive, nullable): team reference + immutable snapshot.
+      ...(team ? { teamId: team.teamId, teamSnapshotJson: team.teamSnapshotJson } : {}),
     },
   })
   for (const spec of plan.tasks) {
@@ -122,6 +141,10 @@ export async function createMissionFromPlan(
         verificationJson: JSON.stringify(spec.verification),
         limitsJson: JSON.stringify(spec.limits),
         status: 'pending',
+        // M49.2 (additive, nullable): the server-built member assignment.
+        ...(team && team.taskAssignments[spec.id]
+          ? { assignmentJson: bounded(team.taskAssignments[spec.id], 2400, 'task.assignmentJson') }
+          : {}),
       },
     })
   }

@@ -21,7 +21,6 @@
 Master documentation entry point: [`AI_GUIDE.md`](../../AI_GUIDE.md).
 
 ## 2. What M49.1 actually delivered
-
 - **BEAN AUTOBOTS as a first-class product**: navigation item, Discover
   catalogue (19 verified templates, 8 categories), My Agents
   (edit/duplicate/archive/delete), Create Agent (bounded validated form),
@@ -39,6 +38,35 @@ Master documentation entry point: [`AI_GUIDE.md`](../../AI_GUIDE.md).
   `AutobotConversation`, `AutobotMessage`), owner-scoped, cascade-contained.
 - **Universal BEAN AI documentation**: this docs tree + root
   [`AI_GUIDE.md`](../../AI_GUIDE.md).
+
+## 2.b What M49.2 actually delivered (2026-11-28, same-day follow-on)
+
+- **MY TEAMS inside BEAN AUTOBOTS** (one product, one navigation item — the
+  Agents⇄Teams surface switch): Discover Teams (10 verified templates),
+  My Teams (open/edit/duplicate/archive/restore/delete with real derived
+  mission stats), Create Team (bounded roster builder, responsibilities,
+  leader, saved order, deterministic assignment rule, inline agent creation)
+  and the Team Workspace (read-only plan preview → confirmed run → real
+  mission progress with verification outcomes and deliverable follow-up
+  links into existing product surfaces).
+- **Real team collaboration on the EXISTING M41 machinery**: the plan is
+  ALWAYS the deterministic M41 planner's output; the assignment engine maps
+  task kinds to members by REAL capability only; handoffs remain the M41
+  verified-artifact contracts; verification is ALWAYS the platform QUALITY
+  gate. No agent-to-agent chat; no second job queue; no team-authored
+  execution plans (plan preview is strictly read-only — pinned by tests).
+- **The immutable execution snapshot** (team identity, membership, agent
+  identities, capability keys, roles, bounded persona preferences, task
+  assignments) written once at mission start; later team/agent edits can
+  never change a running mission's context.
+- **The one bounded persona seam**: delegated engineering/document
+  objectives only; ≤700 chars; untrusted-framed with a never-truncated
+  security framing; idempotent across correction/retry re-entry. Media,
+  retrieval and verification lanes carry truthful attribution WITHOUT
+  persona injection (documented limitation, not a faked influence path).
+- Docs: [systems/AUTOBOT-TEAMS.md](systems/AUTOBOT-TEAMS.md),
+  [agents/M49.2-TEAM-EXECUTION-CONTRACT.md](../agents/M49.2-TEAM-EXECUTION-CONTRACT.md),
+  [agents/M49.2-TEAM-ACCEPTANCE.md](../agents/M49.2-TEAM-ACCEPTANCE.md).
 
 ## 3. Relation to the February 2027 plan (historical record preserved)
 
@@ -60,10 +88,9 @@ expansion; the expansion is recorded here and cross-linked.
 
 ## 4. Milestone sequence (technical direction)
 
-- **M49.1 (this milestone)** — AUTOBOTS foundation + universal AI docs. Done.
+- **M49.1 — AUTOBOTS foundation + universal AI docs.** Done.
 - **M49.2 — AUTOBOT TEAMS**: user-configured teams over the EXISTING M41
-  task graph and mission executor (`src/lib/riishe/mission/`); teams compose
-  only actual authorized capabilities; no agent-to-agent free chat.
+  task graph and mission executor. **Done (2026-11-28).**
 - **M50 — BEAN AI STUDIO**: visual node editor, node contracts, typed ports,
   graph validation, execution engine, reusable workflows, debugging and
   execution history. The workflow engine must reuse the existing job

@@ -1,6 +1,6 @@
 # BEAN AUTOBOTS — User-Facing AI Workforce
 
-**Status: implemented (M49.1, November 28, 2026). The user-facing workforce layer on BEAN's existing execution systems.**
+**Status: implemented (M49.1, November 28, 2026; teams delivered M49.2). The user-facing workforce layer on BEAN's existing execution systems.**
 
 ## 1. Purpose and responsibilities
 
@@ -29,8 +29,11 @@ Three layers, one authority chain:
    loading.
 
 UI: `src/components/bean/autobots/index.tsx` (Discover / My Agents / Create)
-+ `workspace.tsx` (workspace chat + details). Navigation: `ViewId 'autobots'`
-in `src/components/bean/shell.tsx`, mounted in `src/app/page.tsx`.
++ `workspace.tsx` (workspace chat + details). M49.2 adds the TEAMS surface
+inside the same product (`teams.tsx`, the Agents⇄Teams switch in
+`index.tsx`) — see [AUTOBOT-TEAMS.md](AUTOBOT-TEAMS.md) for the full team
+architecture. Navigation: `ViewId 'autobots'` in
+`src/components/bean/shell.tsx`, mounted in `src/app/page.tsx`.
 
 ## 3. Source-code locations
 
@@ -139,15 +142,19 @@ Archived agents refuse new turns with a 409.
   into agent turns — deliberate privacy scope for M49.1).
 - Media/engineering delegation requires the corresponding backends to be
   configured; otherwise the refusal is honest (never simulated).
-- No agent-to-agent chat and no user-configured team execution (M49.2
-  direction, not implemented).
+- Agent-to-agent chat does not exist and will not exist: team collaboration
+  (M49.2) is coordinated execution through the M41 kernel with structured
+  verified handoffs — see [AUTOBOT-TEAMS.md](AUTOBOT-TEAMS.md).
 - The catalogue is a curated verified set — it does not claim every
   profession is implemented.
 
 ## 13. Planned capabilities (NOT implemented)
 
-- **M49.2 — AUTOBOT TEAMS**: user-configured teams over the existing M41
-  task graph/mission executor; only through actual authorized capabilities.
+- ~~M49.2 — AUTOBOT TEAMS~~ → **DELIVERED in M49.2**:
+  [AUTOBOT-TEAMS.md](AUTOBOT-TEAMS.md) (user-configured teams over the
+  existing M41 task graph/mission executor; deterministic capability-based
+  assignment; immutable execution snapshots; the platform QUALITY gate
+  stays uncapturable).
 - Agent-level durable memory (consented, owner-scoped).
 - Deeper per-agent tool selection UI (still server-validated).
-Nothing in this list is claimed by the running product today.
+Nothing else in this list is claimed by the running product today.
