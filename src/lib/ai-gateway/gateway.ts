@@ -33,6 +33,7 @@ import { recordUsage } from '@/lib/observability/metering'
 import { checkRateLimit, type RateLimitResult } from '@/lib/auth/ratelimit'
 import { upstreamCoolingDown, classifyUpstreamError } from '@/lib/upstream/gateway'
 import { getGatewayModels, resolveGatewayModel, type GatewayModelWithHealth } from '@/lib/registry/models'
+import { resolveToolCallingDescriptor } from '@/lib/riishe/tool-invocation'
 import { openAICompatibleChat, openAICompatibleStream } from './providers/openai-compatible'
 import type {
   GatewayCallContext,
@@ -448,6 +449,21 @@ export async function gatewayModelsOverview(): Promise<Array<Record<string, unkn
     configurationStatus: m.configurationStatus,
     contextLimits: m.contextLimits,
     pricing: m.pricing,
+    // M47.1 — evidence-backed tool-calling availability for this model's
+    // lane (pure projection of the riishe tool-calling registry: what the
+    // runtime will use, what is measured, and what stays honestly
+    // unmeasured). Admin-visible; carries no provider internals or secrets.
+    toolCalling: (() => {
+      const d = resolveToolCallingDescriptor(m.backendId)
+      return {
+        protocol: d.kind,
+        nativeState: d.nativeState,
+        streamingToolCalls: d.streamingToolCalls,
+        measuredAt: d.measuredAt,
+        evidence: d.evidence,
+        note: d.note,
+      }
+    })(),
     health: m.backendHealth
       ? { healthy: m.backendHealth.healthy, checkedAt: m.backendHealth.checkedAt, latencyMs: m.backendHealth.latencyMs, detail: m.backendHealth.detail, cached: m.backendHealth.cached ?? false }
       : null,

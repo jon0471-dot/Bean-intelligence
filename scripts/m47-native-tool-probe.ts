@@ -114,12 +114,22 @@ async function main(): Promise<void> {
         tool_call_id: call.id ?? '',
         content: JSON.stringify({ iso: new Date().toISOString() }),
       }
+      // The SDK's typed ChatMessage union predates native tool calling (its
+      // body carries an index signature; message items are stricter). The
+      // wire contract MEASURED in probes 1-3 accepts these shapes; the casts
+      // exist only to satisfy the stale local types — the gateway does the
+      // real validation.
+      const assistantWithCalls = {
+        role: 'assistant',
+        content: String(msg0.content ?? ''),
+        tool_calls: calls0,
+      } as unknown as { role: 'assistant'; content: string }
       const second = (await zai.chat.completions.create({
         messages: [
           { role: 'user', content: userPrompt },
-          { role: 'assistant', content: String(msg0.content ?? ''), tool_calls: calls0 },
+          assistantWithCalls,
           toolMsg,
-        ],
+        ] as unknown as [{ role: 'user'; content: string }, { role: 'assistant'; content: string }, { role: 'user'; content: string }],
         tools: PROBE_TOOLS,
         tool_choice: 'auto',
         thinking: { type: 'disabled' },

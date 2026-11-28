@@ -1,32 +1,41 @@
 /**
- * BEAN Intelligence — M46.1: tool-invocation reliability & honesty
+ * BEAN Intelligence — M46.1 + M47.1: tool-invocation reliability, honesty
+ * and the provider-native tool-calling capability registry
  * (SERVER ONLY, pure — no I/O on the hot path).
  *
  * M45 wired the `execution_decision` tool into the conversational universe,
  * but the recorded production walkthrough answered two governance-shaped
  * requests advice-first WITHOUT emitting a tool call. Root cause (from the
- * M46.0 audit): every BEAN chat lane runs the RIISHE TEXT tool protocol
- * (`TOOL_CALL: {json}` lines) — none of the adapters exposes native
- * function calling — so a governed tool is invoked only when the model
- * actually emits protocol syntax. That behavior was previously invisible:
- * nothing measured "tools were available but the model never called one".
+ * M46.0 audit): every BEAN chat lane ran the RIISHE TEXT tool protocol
+ * (`TOOL_CALL: {json}` lines) — so a governed tool was invoked only when the
+ * model actually emitted protocol syntax. That behavior was previously
+ * invisible: nothing measured "tools were available but the model never
+ * called one".
  *
- * This module makes invocation BEHAVIOR observable and honest, without
- * moving any security decision:
+ * M46.1 made invocation BEHAVIOR observable and honest, without moving any
+ * security decision.
+ *
+ * M47.1 supersedes M46's "no lane exposes native function calling" with
+ * MEASUREMENT: a real probe through the authorized hosted gateway
+ * (scripts/m47-native-tool-probe.ts, 2026-11-28) emitted a genuine
+ * provider-native tool call (`finish_reason=tool_calls`, OpenAI-shaped
+ * `tool_calls` array with preserved `call_…` identifiers), accepted a
+ * `role:'tool'` result round-trip, and showed that STREAMING with tools
+ * produces no usable deltas. The registry below records exactly what was
+ * measured, per lane, and drives RUNTIME capability selection: a lane only
+ * uses native tool calls when its record says `native`; everything else
+ * keeps the proven text protocol; nothing is ever advertised beyond its
+ * evidence.
+ *
+ * Security invariants (unchanged by any of this):
  *   - the two-key gate, server-derived intent gate, digest-bound approvals
  *     and owner-only grants all stay exactly where M44/M45 put them;
- *   - this module only classifies + records what the model DID with the
- *     tool universe it was given (invocation behavior ≠ task completion);
- *   - a lane whose descriptor declares no tool protocol gets the existing
- *     safe fallback (plain chat, tools never offered) with an honest
- *     degraded note — never a fabricated execution, never weakened auth.
- *
- * Provider honesty: the protocol table is DERIVED from the backend
- * registry facts (all current chat lanes are text-protocol through the
- * RIISHE loop; none exposes native function calling today). Unknown
- * backends DEFAULT to the text protocol rather than a per-model refusal,
- * so a future provider is never silently broken by a stale table —
- * capability claims stay with the registry, measurement stays here.
+ *   - a native tool call is UNTRUSTED MODEL INPUT: it still passes the tool
+ *     registry allowlist, validation, permission checks and the M44 Trust
+ *     Engine before anything executes;
+ *   - a lane with no usable protocol gets the existing safe fallback (plain
+ *     chat, tools never offered) with an honest degraded note — never a
+ *     fabricated execution, never weakened auth.
  */
 
 // ---------------------------------------------------------------------------
@@ -35,17 +44,20 @@
 
 /**
  * How a chat lane can receive tool requests:
- *  - 'text'  — the RIISHE bounded text protocol (TOOL_CALL lines parsed and
- *              executed server-side). Works over plain chat completions;
- *              invocation depends on model protocol compliance (measured,
- *              never assumed).
- *  - 'none'  — this lane cannot carry tool requests at all. The orchestrator
- *              must not open the tool loop; it answers plainly and says so.
- * ('native' is deliberately absent: no BEAN adapter exposes provider-native
- * function calling today. When one lands, the registry declares it here —
- * inventing the verb now would advertise a capability nothing uses.)
+ *  - 'text'   — the RIISHE bounded text protocol (TOOL_CALL lines parsed and
+ *               executed server-side). Works over plain chat completions;
+ *               invocation depends on model protocol compliance (measured,
+ *               never assumed).
+ *  - 'native' — provider-native function calling: the tools travel in the
+ *               provider request (`tools`), the model responds with
+ *               structured tool-call objects, and results return through the
+ *               provider's own tool-result message shape. Selected ONLY when
+ *               the capability registry records MEASURED support for the
+ *               lane (and never for streaming where streaming is broken).
+ *  - 'none'   — this lane cannot carry tool requests at all. The orchestrator
+ *               must not open the tool loop; it answers plainly and says so.
  */
-export type ToolProtocolKind = 'text' | 'none'
+export type ToolProtocolKind = 'text' | 'native' | 'none'
 
 export interface ToolProtocolDescriptor {
   kind: ToolProtocolKind
@@ -53,38 +65,227 @@ export interface ToolProtocolDescriptor {
   note: string
 }
 
+// ---------------------------------------------------------------------------
+// M47.1 — provider-native tool-calling capability states.
+// ---------------------------------------------------------------------------
+
 /**
- * Protocol per chat backend, keyed by the REAL backend ids from
- * `src/lib/registry/backends.ts`. Facts, not policy: today every chat lane
- * reaches the model as plain chat completions, so all three run the text
- * protocol. Unlisted backends default to 'text' (see
- * `resolveToolProtocol`) so future lanes are not silently refused.
+ * The MEASURED (or honestly unmeasured) native tool-calling state of a
+ * provider/model combination. These are evidence states, not wishes:
+ *  - 'native'                 — a real probe/response demonstrated native
+ *                               tool calling for this lane's configured model.
+ *  - 'text-protocol'          — the lane carries tools through the RIISHE
+ *                               text protocol (the shipped M45/M46 behavior).
+ *  - 'unsupported'            — MEASURED to not support native tool calling
+ *                               (probe rejected, or responses never carry
+ *                               structured calls).
+ *  - 'unknown'                — no measurement exists yet. The lane never
+ *                               advertises native support from this state.
+ *  - 'temporarily-unavailable'- the lane measured/declared native support at
+ *                               some point but is not usable right now
+ *                               (dormant credential, breaker open, provider
+ *                               outage) — a runtime condition, re-evaluated
+ *                               per turn, never folded into 'unsupported'.
  */
-const TOOL_PROTOCOL_BY_BACKEND: Record<string, ToolProtocolDescriptor> = {
+export type NativeToolCallingState =
+  | 'native'
+  | 'text-protocol'
+  | 'unsupported'
+  | 'unknown'
+  | 'temporarily-unavailable'
+
+export const NATIVE_TOOL_CALLING_STATES: readonly NativeToolCallingState[] = [
+  'native',
+  'text-protocol',
+  'unsupported',
+  'unknown',
+  'temporarily-unavailable',
+]
+
+/**
+ * Full tool-calling descriptor for one backend lane (optionally narrowed to
+ * a specific provider-side model). Every field is evidence-backed:
+ *  - `null` means "not measured" — never conflated with false.
+ *  - `multiCallPerResponse` unmeasured is SAFE: the executor always handles
+ *    any number of calls (bounded), so an unmeasured capability can never
+ *    break the loop.
+ *  - `streamingToolCalls=false` is a HARD runtime constraint: the native
+ *    path must not be opened on a streaming pass when this is false.
+ */
+export interface ToolCallingDescriptor extends ToolProtocolDescriptor {
+  /** What the runtime USES for this lane (the resolved protocol). */
+  kind: ToolProtocolKind
+  /** What the provider/model genuinely supports (evidence state). */
+  nativeState: NativeToolCallingState
+  /** Provider request carries the tool list (openai `tools` / anthropic `tools`). */
+  requestCarriesTools: boolean
+  /** How calls appear in responses (null = unmeasured/not applicable). */
+  responseCallShape: 'openai-tool_calls' | 'anthropic-tool_use' | null
+  /** Tool-result message shape required by the provider (null = unmeasured). */
+  toolResultShape: 'openai-role-tool' | 'anthropic-tool_result' | null
+  /** Identifier handling measured on this lane (null = unmeasured). */
+  toolCallIdStyle: 'openai-call-id' | null
+  /** Multiple tool calls in ONE response measured? (null = unmeasured; safe either way). */
+  multiCallPerResponse: boolean | null
+  /** Streaming with tools measured usable? (null = unmeasured; false = measured broken). */
+  streamingToolCalls: boolean | null
+  /** Argument encoding as the provider returns it ('json-string' = OpenAI style). */
+  argumentEncoding: 'json-string' | null
+  /** When the underlying measurement was taken (ISO date, null = unmeasured). */
+  measuredAt: string | null
+  /** The concrete evidence artifact (probe script / recorded run). */
+  evidence: string | null
+}
+
+/**
+ * The M47.1 registry, keyed by the REAL backend ids from
+ * `src/lib/registry/backends.ts`.
+ *
+ * Facts, not policy — every non-null field below traces to a measurement or
+ * to the provider's documented wire contract PLUS an explicit honesty note
+ * that the per-model check is pending. Dormant lanes (no configured
+ * credential in this deployment) are `unknown`, never `native`: an
+ * unconfigured lane cannot be measured, and the registry is authoritative
+ * for runtime selection.
+ *
+ * Per-model narrowing: `MODEL_NATIVE_OVERRIDES` may pin a different state
+ * for a specific provider-side model (`<backendId>::<providerModel>`).
+ * Backend-level records apply where no override exists. The hosted lane's
+ * model identity is provider-managed (checkpoint not disclosed), so its
+ * measurement is recorded at lane level with the measurement date — a
+ * provider-side checkpoint change is exactly what `measuredAt` makes
+ * auditable, and the committed probe script re-verifies on demand.
+ */
+const TOOL_CALLING_BY_BACKEND: Record<string, ToolCallingDescriptor> = {
   'bean-llm-hosted-primary': {
-    kind: 'text',
-    note: 'Authorized hosted gateway via plain chat completions; RIISHE text tool protocol (TOOL_CALL lines). Model compliance varies — measured per turn, not assumed.',
+    kind: 'native',
+    note: 'Authorized hosted gateway. MEASURED 2026-11-28: native tool calls emitted in non-streaming completions (structured tool_calls with preserved call_ ids, schema-shaped arguments); role:tool result round-trip accepted; STREAMING with tools produced no usable deltas — native tool turns MUST be buffered.',
+    nativeState: 'native',
+    requestCarriesTools: true,
+    responseCallShape: 'openai-tool_calls',
+    toolResultShape: 'openai-role-tool',
+    toolCallIdStyle: 'openai-call-id',
+    multiCallPerResponse: null,
+    streamingToolCalls: false,
+    argumentEncoding: 'json-string',
+    measuredAt: '2026-11-28',
+    evidence: 'scripts/m47-native-tool-probe.ts (4 live gateway calls: emit / control / round-trip / stream)',
   },
   'bean-llm-openai-compatible': {
     kind: 'text',
-    note: 'OpenAI-compatible adapter used WITHOUT the native tools parameter; RIISHE text tool protocol. No per-provider reliability measurement exists yet.',
+    note: 'OpenAI-compatible adapter: the wire protocol defines a native tools parameter, but no provider is configured in this deployment, so no per-model measurement exists. The lane runs the proven text protocol; native is never advertised from an unmeasured state.',
+    nativeState: 'unknown',
+    requestCarriesTools: true,
+    responseCallShape: null,
+    toolResultShape: null,
+    toolCallIdStyle: null,
+    multiCallPerResponse: null,
+    streamingToolCalls: null,
+    argumentEncoding: null,
+    measuredAt: null,
+    evidence: null,
+  },
+  'bean-llm-anthropic': {
+    kind: 'text',
+    note: 'Anthropic Messages slot: the API defines native tool use (tools/input_schema, tool_use blocks, tool_result), but no provider is configured in this deployment and no per-model measurement exists. The lane runs the text protocol; native stays unadvertised until measured.',
+    nativeState: 'unknown',
+    requestCarriesTools: true,
+    responseCallShape: null,
+    toolResultShape: null,
+    toolCallIdStyle: null,
+    multiCallPerResponse: null,
+    streamingToolCalls: null,
+    argumentEncoding: null,
+    measuredAt: null,
+    evidence: null,
   },
   'bean-chat-local-llamacpp': {
     kind: 'text',
-    note: 'Local llama.cpp lane via plain chat completions; RIISHE text tool protocol. Small-model protocol compliance is expected to be weaker — measured, never assumed.',
+    note: 'Local llama.cpp lane via plain chat completions; RIISHE text tool protocol. Tool-calling behavior of llama-server varies by build and the loaded GGUF — with no measurement, the text protocol stays and native is never claimed. Small-model protocol compliance is expected to be weaker — measured per turn, never assumed.',
+    nativeState: 'unknown',
+    requestCarriesTools: true,
+    responseCallShape: null,
+    toolResultShape: null,
+    toolCallIdStyle: null,
+    multiCallPerResponse: null,
+    streamingToolCalls: null,
+    argumentEncoding: null,
+    measuredAt: null,
+    evidence: null,
   },
 }
 
-/** Resolve a backend's tool protocol. Unknown ids default to 'text'. */
-export function resolveToolProtocol(backendId: string | null | undefined): ToolProtocolDescriptor {
+/** Per-model overrides keyed `<backendId>::<providerModel>`. Empty until a
+ *  per-model measurement exists; backend records apply otherwise. */
+const MODEL_NATIVE_OVERRIDES: Record<string, NativeToolCallingState> = {}
+
+/** Resolve a lane's full tool-calling descriptor. Unknown backend ids get an
+ *  honestly-unmeasured record with the default text protocol (a future lane
+ *  is never silently broken by a stale table — capability claims stay with
+ *  the registry). */
+export function resolveToolCallingDescriptor(
+  backendId: string | null | undefined,
+  providerModel?: string | null,
+): ToolCallingDescriptor {
   const key = (backendId ?? '').trim()
-  if (!key) {
-    return { kind: 'text', note: 'Backend id unavailable to this turn; the default text protocol applies.' }
-  }
-  return TOOL_PROTOCOL_BY_BACKEND[key] ?? {
+  const base: ToolCallingDescriptor = TOOL_CALLING_BY_BACKEND[key] ?? {
     kind: 'text',
-    note: `Backend "${key.slice(0, 64)}" has no explicit protocol record; the default text protocol applies.`,
+    note: `Backend "${key.slice(0, 64) || '(unavailable)'}" has no tool-calling record; the default text protocol applies and native support is unmeasured.`,
+    nativeState: 'unknown',
+    requestCarriesTools: false,
+    responseCallShape: null,
+    toolResultShape: null,
+    toolCallIdStyle: null,
+    multiCallPerResponse: null,
+    streamingToolCalls: null,
+    argumentEncoding: null,
+    measuredAt: null,
+    evidence: null,
   }
+  const modelKey = providerModel ? `${key}::${providerModel.trim()}` : null
+  const override = modelKey ? MODEL_NATIVE_OVERRIDES[modelKey] : undefined
+  if (!override || override === base.nativeState) return base
+  // A per-model override narrows the descriptor honestly: the evidence fields
+  // stay the lane's; the state change is explicit and the note says so.
+  return {
+    ...base,
+    nativeState: override,
+    note: `${base.note} Per-model override for "${providerModel!.slice(0, 64)}": ${override}.`,
+  }
+}
+
+/** Back-compat: the M46 protocol resolver, now derived from the full registry. */
+export function resolveToolProtocol(backendId: string | null | undefined): ToolProtocolDescriptor {
+  const d = resolveToolCallingDescriptor(backendId)
+  return { kind: d.kind, note: d.note }
+}
+
+/**
+ * Operator-facing diagnostics: tool-calling availability per configured
+ * chat lane (no secrets, no provider internals beyond the disclosed
+ * registry facts). Consumed by the admin models overview; values are pure
+ * projections of this registry — never computed at request time.
+ */
+export function toolCallingDiagnostics(): Array<{
+  backendId: string
+  protocol: ToolProtocolKind
+  nativeState: NativeToolCallingState
+  streamingToolCalls: boolean | null
+  multiCallPerResponse: boolean | null
+  measuredAt: string | null
+  evidence: string | null
+  note: string
+}> {
+  return Object.entries(TOOL_CALLING_BY_BACKEND).map(([backendId, d]) => ({
+    backendId,
+    protocol: d.kind,
+    nativeState: d.nativeState,
+    streamingToolCalls: d.streamingToolCalls,
+    multiCallPerResponse: d.multiCallPerResponse,
+    measuredAt: d.measuredAt,
+    evidence: d.evidence,
+    note: d.note,
+  }))
 }
 
 // ---------------------------------------------------------------------------
@@ -99,31 +300,71 @@ export interface ToolInvocationPolicy {
   reason: string
   /** Customer-safe degraded note for mode 'plain-fallback' (empty otherwise). */
   degradedNote: string | null
+  /** The resolved protocol for this turn (M47.1: 'native' | 'text' | 'none'). */
+  protocol: ToolProtocolKind
+  /** The lane's evidence-backed native state (M47.1 diagnostics/observability). */
+  nativeState: NativeToolCallingState
+  /** HARD constraint from measurement: native calls must never be attempted
+   *  on a streaming pass when false (null = unmeasured). Text protocol is
+   *  unaffected. */
+  streamingToolCalls: boolean | null
 }
 
 /**
- * Decide whether this turn may run the bounded tool loop at all. This is a
- * CAPABILITY check (can this lane carry tool requests?), NOT an
- * authorization decision — permissions, capability planning and intent
- * gates are unchanged and still run server-side afterwards.
+ * Decide whether this turn may run the bounded tool loop at all, and under
+ * which protocol. This is a CAPABILITY check (can this lane carry tool
+ * requests, and how?), NOT an authorization decision — permissions,
+ * capability planning and intent gates are unchanged and still run
+ * server-side afterwards.
+ *
+ * M47.1 selection rules (registry-authoritative):
+ *  - native lane + tools active        → loop under the NATIVE protocol;
+ *  - native lane measured broken for streaming → the constraint rides the
+ *    policy (`streamingToolCalls=false`); the caller must use the buffered
+ *    pass for tool rounds (text lanes ignore this field);
+ *  - text lane                         → loop under the text protocol (the
+ *    shipped M45/M46 behavior, unchanged);
+ *  - lane with no protocol             → plain-fallback (tools never offered).
  */
 export function resolveToolInvocationPolicy(input: {
   backendId?: string | null
   toolNames: readonly string[]
+  providerModel?: string | null
 }): ToolInvocationPolicy {
+  const descriptor = resolveToolCallingDescriptor(input.backendId, input.providerModel)
+  const laneLabel = String(input.backendId ?? '').slice(0, 64) || '(default)'
   if (input.toolNames.length === 0) {
-    return { mode: 'loop', reason: 'no-tools-active', degradedNote: null }
+    return { mode: 'loop', reason: 'no-tools-active', degradedNote: null, protocol: descriptor.kind, nativeState: descriptor.nativeState, streamingToolCalls: descriptor.streamingToolCalls }
   }
-  const protocol = resolveToolProtocol(input.backendId)
-  if (protocol.kind === 'none') {
+  if (descriptor.kind === 'none') {
     return {
       mode: 'plain-fallback',
-      reason: `backend ${String(input.backendId).slice(0, 64)} declares no tool protocol`,
+      reason: `backend ${laneLabel} declares no tool protocol`,
       degradedNote:
         'The active model lane cannot carry tool requests; this turn was answered WITHOUT tool access. Nothing was executed, and nothing is reported as executed.',
+      protocol: 'none',
+      nativeState: descriptor.nativeState,
+      streamingToolCalls: descriptor.streamingToolCalls,
     }
   }
-  return { mode: 'loop', reason: `backend ${String(input.backendId ?? '').slice(0, 64) || '(default)'} uses the text tool protocol`, degradedNote: null }
+  if (descriptor.kind === 'native') {
+    return {
+      mode: 'loop',
+      reason: `backend ${laneLabel} uses provider-native tool calling (measured ${descriptor.measuredAt ?? 'unmeasured'})`,
+      degradedNote: null,
+      protocol: 'native',
+      nativeState: descriptor.nativeState,
+      streamingToolCalls: descriptor.streamingToolCalls,
+    }
+  }
+  return {
+    mode: 'loop',
+    reason: `backend ${laneLabel} uses the text tool protocol`,
+    degradedNote: null,
+    protocol: 'text',
+    nativeState: descriptor.nativeState,
+    streamingToolCalls: descriptor.streamingToolCalls,
+  }
 }
 
 // ---------------------------------------------------------------------------
