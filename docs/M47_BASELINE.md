@@ -116,3 +116,13 @@ The two largest clusters (`scripts/fulltest/*`, `validation/m40-rtx/*`) are pre-
 | M47.7 | regression, Preview walkthrough, documentation set, final publication report |
 
 Standing rules restated: work only on `feat/m47-native-tool-operations-activation`; no merge into main without separate owner authorization; every milestone ends IMPLEMENTED + TESTED + COMMITTED + PUSHED + REMOTE-SHA-VERIFIED; never force-push; never simulate a live capability or describe an unavailable integration as operational.
+
+## 10. ADDENDUM (recorded during M47.4, 2026-11-28) — the owner merged PR #40 mid-session
+
+`git fetch` during M47.4 observed `origin/main` moved `0e3dcbf` → **`82fd028`** = "Merge pull request #40 from jon0471-dot/feat/m47-native-tool-operations-activation" — the OWNER merged the M47 branch (tip at that moment: `a57de84`, M47.0–M47.2) into main themselves. BEAN performed no merge (the owner rule stays respected). The working branch continued independently on top of its own history: `95620d9` (M47.2 correction) → `9b35963` (M47.3); at the observation moment the branch was 2 ahead / 1 behind origin/main (the only behind-commit being the merge commit itself). No rebase and no force-push is performed; the branch remains a normal fast-forward continuation for the owner's next merge. All later M47 sections must treat `82fd028` as the current main, not `0e3dcbf`.
+
+Also recorded during M47.4 — the REAL GitHub lane readiness run (`scripts/m47-github-readiness.ts`, this environment):
+- `writeLaneAvailability()`: available=false — "No GitHub credential is configured (GITHUB_TOKEN absent) — real writes are unavailable and are never simulated."
+- `diagnoseGitHubCredential()`: state=not-configured, env name `GITHUB_TOKEN` consulted (value never read), live validation skipped honestly.
+- `integrationRepository()`: NOT-CONFIGURED — the owner production repository is never assumed disposable.
+- LIVE read lane: PASS via real `git ls-remote` (quota-free, no token consumed) — the read path demonstrably works without credentials while writes stay honestly unavailable.
