@@ -150,7 +150,10 @@ describe('simulated search outage (honest degradation)', () => {
     expect(r.searchRan).toBe(false)
     expect(r.metadata.states).not.toContain('TOOL_UNAVAILABLE')
     expect(r.metadata.retrievedAt).toBeUndefined()
-    expect(r.metadata.degraded.join(' ')).toContain('search not warranted')
+    // P0 (2026-11-28): "search not warranted" is a NORMAL policy decision,
+    // never recorded as a degradation — the honest signals are searchRan=false
+    // + no TOOL_UNAVAILABLE + no retrievedAt, all still pinned above.
+    expect(r.metadata.degraded.join(' ')).not.toContain('search not warranted')
   })
 
   test('injection guard still fires when research is degraded (defense in depth intact)', async () => {

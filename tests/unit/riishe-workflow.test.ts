@@ -229,9 +229,12 @@ describe('M37 §4 — strict grounding suppresses web retrieval (REAL orchestrat
     expect(researchCalls).toBe(0)
     expect(result.metadata.docGrounded).toBe(true)
     expect(result.task).toBe('document')
-    // Terminal task stage recorded from the real response states.
+    // Terminal task stage: P0 completion-policy — a delivered documents-only
+    // answer ran no retrieval and no tools, so it is ordinary conversational
+    // delivery: NO limitation badge. (Previously this pinned the buggy
+    // 'completed-with-limitations' badge the owner rejected.)
     const stages = (result.metadata.taskStages ?? []).map((s) => s.stage)
-    expect(stages).toContain('completed-with-limitations')
+    expect(stages).not.toContain('completed-with-limitations')
     expect(stages).not.toContain('researching')
   })
 
@@ -295,7 +298,9 @@ describe('M37 §4 — strict grounding suppresses web retrieval (REAL orchestrat
     expect(result.metadata.docGrounded).toBeUndefined()
     const stages = (result.metadata.taskStages ?? []).map((s) => s.stage)
     expect(stages).not.toContain('planning')
-    expect(stages).toContain('completed-with-limitations')
+    // P0 completion-policy: an ordinary greeting is successful conversation
+    // delivery — no limitation badge (previously pinned the buggy badge).
+    expect(stages).not.toContain('completed-with-limitations')
   })
 })
 

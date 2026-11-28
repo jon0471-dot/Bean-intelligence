@@ -457,9 +457,12 @@ describe('orchestrator deterministic grounding (stubs, no network)', () => {
     expect(result.content).not.toContain('[5]')
     // MEASURED (2026-10-29): with no evidence at all, orphan markers are
     // stripped silently (nothing to resolve against — there is no citation
-    // integrity note), the turn stays honestly UNVERIFIED and the degraded
-    // note records that retrieval was not warranted.
-    expect(result.metadata.degraded.join(' ')).toContain('search not warranted')
+    // integrity note) and the turn stays honestly UNVERIFIED.
+    // P0 (2026-11-28): "search not warranted" is a NORMAL policy decision —
+    // it is no longer recorded as a degradation (the owner explicitly
+    // rejected ordinary answers carrying failure inventories). The evidence
+    // states stay untouched: UNVERIFIED remains the honest internal state.
+    expect(result.metadata.degraded.join(' ')).not.toContain('search not warranted')
     expect(result.metadata.states).toContain('UNVERIFIED')
     expect(result.metadata.sources).toHaveLength(0)
   })

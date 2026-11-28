@@ -7,8 +7,9 @@
  */
 import { useEffect, useState } from 'react'
 import { beanFetch, GoldBadge, Spinner, StatusDot, timeAgo } from './shared'
-import { ShieldCheck, Server, ScrollText, Route } from 'lucide-react'
+import { ShieldCheck, Server, ScrollText, Route, Globe } from 'lucide-react'
 import { AdminGateway } from './admin-gateway'
+import type { ResearchSourceStatusView } from './research-status'
 
 interface Backend {
   id: string
@@ -49,6 +50,79 @@ interface Overview {
   audit: Array<{ id: string; actorId: string | null; action: string; target: string | null; createdAt: string }>
 }
 
+/**
+ * P0 RELOCATION (2026-11-28): the research-source availability inventory
+ * moved OUT of the customer conversation view (RIISHE chat) into this
+ * RESTRICTED admin surface. Same authenticated gateway endpoint the old
+ * strip used; same measured facts; admin-only visibility. No new dashboard
+ * was created — this extends the existing diagnostics page.
+ */
+interface ResearchStatusInventory {
+  ok: boolean
+  runtime: { available: boolean; version: string | null; reason: string | null }
+  obscura: { available: boolean; version: string | null; reason: string | null }
+  sources: ResearchSourceStatusView[]
+}
+
+const SOURCE_STATE_TONE: Record<ResearchSourceStatusView['state'], 'green' | 'gold' | 'neutral' | 'red'> = {
+  available: 'green',
+  requires_configuration: 'gold',
+  requires_login: 'gold',
+  experimental: 'neutral',
+  unavailable: 'neutral',
+  disabled: 'neutral',
+}
+
+function AdminResearchGateway() {
+  const [data, setData] = useState<ResearchStatusInventory | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await beanFetch<ResearchStatusInventory>('/api/research/status')
+        setData(res)
+      } catch {
+        setFailed(true)
+      }
+    })()
+  }, [])
+  if (failed) return null
+  if (!data) return <Spinner className="h-4 w-4" />
+  return (
+    <div className="bean-glass rounded-xl p-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <Globe className="h-4 w-4 text-[#d4af37]" />
+        <span className="text-sm font-semibold text-white/80">Research gateway runtime</span>
+        <GoldBadge tone={data.runtime.available ? 'green' : 'red'}>
+          {data.runtime.available ? `available${data.runtime.version ? ` · ${data.runtime.version}` : ''}` : 'unavailable'}
+        </GoldBadge>
+        <GoldBadge tone={data.obscura.available ? 'green' : 'neutral'}>
+          browser rendering: {data.obscura.available ? 'installed' : 'not installed'}
+        </GoldBadge>
+      </div>
+      {!data.runtime.available && data.runtime.reason ? (
+        <p className="text-[12px] text-white/50">Runtime reason: {data.runtime.reason}</p>
+      ) : null}
+      <div className="mt-3 space-y-1.5">
+        {data.sources.length === 0 ? (
+          <p className="text-[12px] text-white/35">No research sources registered.</p>
+        ) : (
+          data.sources.map((s) => (
+            <div key={s.id} className="flex flex-wrap items-center gap-2 text-[12px]">
+              <span className="font-mono text-white/75">{s.label}</span>
+              <GoldBadge tone={SOURCE_STATE_TONE[s.state]}>{s.state.replace(/_/g, ' ')}</GoldBadge>
+              <GoldBadge tone="neutral">{s.kind}</GoldBadge>
+              <GoldBadge tone="neutral">{s.level}</GoldBadge>
+              {s.products.length ? <span className="text-white/35">products: {s.products.join(', ')}</span> : null}
+              {s.note ? <span className="text-white/40">— {s.note}</span> : null}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function Admin() {
   const [data, setData] = useState<Overview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -76,6 +150,16 @@ export function Admin() {
       {/* Unified AI gateway management (credentials, API keys, models, verification) */}
       <div className="mb-8">
         <AdminGateway />
+      </div>
+
+      {/* P0 RELOCATION: the full research-source availability inventory lives
+          HERE (restricted admin diagnostics) — removed from the customer
+          conversation view. Measured facts only; no new customer surface. */}
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/80">
+        <Globe className="h-4 w-4 text-[#d4af37]" /> Research source gateway status
+      </h2>
+      <div className="mb-8">
+        <AdminResearchGateway />
       </div>
 
       {/* Stats */}

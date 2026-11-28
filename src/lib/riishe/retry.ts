@@ -70,3 +70,22 @@ export function persistedAnswerMatchesTurn(persisted: string, partial: string): 
   const head = (s: string): string => s.slice(0, 80)
   return full.startsWith(head(p)) || full.includes(head(p))
 }
+
+/**
+ * P0 R2 (2026-11-28) — BOUNDED dead-wire reconciliation schedule (ms).
+ *
+ * After a transport failure the client re-reads the persisted conversation
+ * to adopt the server-completed answer. A still-running turn needs time to
+ * finish: the server's chat request timeout is 90s and long buffered
+ * (tool-loop / injection-gate) turns legitimately run tens of seconds. The
+ * schedule spans ~68s — an honest window for a turn that is still
+ * completing — and then STOPS: never infinite polling, never background
+ * chatter. Attempt 0 fires immediately; each entry is the delay BEFORE the
+ * retry at that index.
+ */
+export const RECOVERY_SCHEDULE_MS: readonly number[] = [0, 8_000, 20_000, 40_000]
+
+/** Delay before recovery attempt `attempt` (undefined = schedule exhausted). */
+export function recoveryDelayForAttempt(attempt: number): number | undefined {
+  return RECOVERY_SCHEDULE_MS[attempt]
+}

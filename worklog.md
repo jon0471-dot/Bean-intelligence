@@ -1,6 +1,27 @@
 # BEAN Intelligence — Multi-Agent Worklog
 
 ---
+Task ID: 0-P0
+Agent: main (Z.ai)
+Task: P0 — RIISHE Always-Respond & Conversational Reliability Hotfix (branch `fix/riishe-always-respond`; every milestone committed + pushed + remote-SHA-verified)
+
+WHAT THE OWNER REJECTED, AND WHAT CHANGED: ordinary chat answers carried a false "Completed with limitations" badge; a permanent research-source status strip ("GitHub: Login required", "YouTube: Unavailable", ...) made the product look unavailable; connection losses could orphan server-completed answers; hosted inference failures could leave users with nothing. Fixed WITHOUT touching internal Trust semantics, governance, authorization or the M41–M47 architecture.
+
+R0 baseline (457d9f0): origin/main bafc9aa verified (owner merge of PR #42 = M48 baseline doc only); PR #41 (six M47 commits) OPEN and untouched; hotfix branch created from the COMPLETE M47 tip a1ce6fa then ordinary-merged with main (base 683ffc4, ancestry proven); fresh tsc baseline 234 measured BEFORE changes; baseline doc written.
+
+R1 (e73f49c): ResearchStatusStrip removed from the customer conversation view → full inventory relocated to the restricted admin surface (admin.tsx "Research source gateway status", same authenticated endpoint, no new dashboard); new completion-policy module separates CONVERSATION DELIVERY / EVIDENCE VERIFICATION / OPERATIONAL EXECUTION — ordinary conversational delivery records NO terminal stage (internal ledger mapping unchanged); governed calculate executions map to COMPUTATION_VERIFIED (the measured M47 live case no longer badges as limited); "search not warranted" no longer recorded as degradation.
+
+R2 (ec88c76): route emits the conversation ID as the FIRST valid SSE data event (identity-only frame before any work; comment frame preserved); dead-wire recovery upgraded to a bounded schedule (0/8s/20s/40s, pure contract in retry.ts), adoption in place, read-only reconciliation (a transport failure can never replay a request or duplicate a side effect), stale error cleared on adoption.
+
+R3 (aabefac): consented browser-local fallback (local-fallback.ts + hook wiring): eligible inference-class failure + nothing streamed + no attachments + explicit consent + model already loaded → the EXISTING on-device runtime answers with honest on-device disclosure; never a silent download; aborted turns and auth failures never fall back; recovery adoption beats the fallback via settle-time guards. Server-side authorized failover verified through the existing provider-fallback suite (credential gates, zero-fetch-when-uncredentialed, breaker isolation, mid-stream propagation, servedBy attribution, audit).
+
+R4 (b63db73): research-failure isolation — an out-of-contract research explosion now degrades the turn honestly (synthesized empty pack, TOOL_UNAVAILABLE, honest note, answer still ships) instead of aborting generation; stream-reliability inventory reviewed in source (UTF-8 streaming decode, heartbeats below the client watchdog, stall guard, bounded continuation, buffered tool protocol with reset, slot release-once, post-disconnect recoverability) — all pinned by existing suites.
+
+R5 (this commit): acceptance suite docs/intelligence/P0-ACCEPTANCE.md — 54 unique scenarios, ONE classification each: LIVE 12 / LOCAL-INT 41 / HONEST_UNAVAILABLE 1 (consented local-model fallback with a REAL model — headless preview env has no WebGPU/GPU; owner-verifiable). Fresh regression: per-file hermetic census 247 files = 3,355 pass / 0 fail / 10 skip (M47 record + exactly the 33 new P0 cases; one environmental ENOENT — pinned MiniLM vocab absent from the fresh worktree — resolved with the SHA-verified pinned asset, re-verified 7/0). tsc 234=234 zero delta; eslint clean; production build exit 0. PREVIEW with the real production build + real Chromium + isolated DB copy: 7 real hosted turns (desktop Tamil/Hindi/follow-up + mobile), 0 limitation badges + 0 strip occurrences, LIVE SSE wire capture (FIRST data frame = identity-only conversationId), disconnect persisted exactly 1+1 rows with taskStages=['verifying'] and NO limitation stage (independent DB read), mobile no horizontal overflow, console + page errors EMPTY everywhere. REPORT: docs/P0-RIISHE-RELIABILITY-REPORT.md.
+
+NO MERGES PERFORMED. PR #41 preserved for the owner. No main-targeted hotfix PR created (mandate: no misleading duplicate while PR #41 is open). Worktree hygiene: watchdog active throughout; all work in riishe-reliability-wt; no force-push; every push fetched back and independently verified.
+
+---
 Task ID: 0-M44
 Agent: main (Z.ai)
 Task: M44 — Autonomous Decision Intelligence & Verified Execution (branch `feat/m44-autonomous-decision-execution`; every milestone committed + pushed + remote-SHA-verified)
