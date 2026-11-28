@@ -22,9 +22,12 @@ RIISHE delegates to through those shared substrates — never parallel stacks.
 users configure, executed through the SAME orchestration and delegation
 contracts; **BEAN AUTOBOT TEAMS** (M49.2) compose those agents into teams on
 the same mission machinery. **BEAN AI STUDIO** (M50) is architecture-
-specified as of M50.1 (contracts frozen in
-docs/agents/M50.1-AI-STUDIO-ARCHITECTURE.md) but has NO execution path in
-this codebase today; **NIIKI** (M51) remains fully planned.
+specified (M50.1, contracts frozen in
+docs/agents/M50.1-AI-STUDIO-ARCHITECTURE.md) with its PURE GRAPH CORE
+implemented as of M50.2 (`src/lib/ai-studio/` — versioned schema, node
+registry, deterministic validation + compilation); it still has NO
+persistence, API, UI or execution path in this codebase today; **NIIKI**
+(M51) remains fully planned.
 
 ```
                          ┌──────────────────────────────┐
@@ -62,7 +65,7 @@ this codebase today; **NIIKI** (M51) remains fully planned.
 | QUALITY | [docs/ai/systems/QUALITY.md](docs/ai/systems/QUALITY.md) | Implemented (mission gate) | Deterministic output verification |
 | BEAN AUTOBOTS | [docs/ai/systems/AUTOBOTS.md](docs/ai/systems/AUTOBOTS.md) | Implemented (M49.1) | User-facing AI workforce: agent personas on real capabilities |
 | BEAN AUTOBOT TEAMS | [docs/ai/systems/AUTOBOT-TEAMS.md](docs/ai/systems/AUTOBOT-TEAMS.md) | Implemented (M49.2) | User-configured agent teams executed through the existing M41 mission engine |
-| BEAN AI STUDIO | [docs/ai/systems/AI-STUDIO.md](docs/ai/systems/AI-STUDIO.md) | **Architecture specified (M50.1) — no implementation** | Visual node-based AI workflow creation; contracts frozen in [docs/agents/M50.1-AI-STUDIO-ARCHITECTURE.md](docs/agents/M50.1-AI-STUDIO-ARCHITECTURE.md) |
+| BEAN AI STUDIO | [docs/ai/systems/AI-STUDIO.md](docs/ai/systems/AI-STUDIO.md) | **Architecture specified (M50.1) + pure graph core implemented (M50.2) — no runtime yet** | Visual node-based AI workflow creation; contracts in [docs/agents/M50.1-AI-STUDIO-ARCHITECTURE.md](docs/agents/M50.1-AI-STUDIO-ARCHITECTURE.md); implemented core: `src/lib/ai-studio/` (schema, registry, validation, compilation — no persistence/API/UI/execution) |
 | NIIKI | [docs/ai/systems/NIIKI.md](docs/ai/systems/NIIKI.md) | **Planned (M51)** — no implementation | 3D/animation/motion/VFX creative production |
 | Capability registry | [docs/ai/systems/CAPABILITY-REGISTRY.md](docs/ai/systems/CAPABILITY-REGISTRY.md) | Implemented | The single source of product/task/backend truth and health |
 
