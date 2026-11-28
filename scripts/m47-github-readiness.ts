@@ -16,7 +16,7 @@
  * Run: bun scripts/m47-github-readiness.ts
  */
 import { writeLaneAvailability, integrationRepository, checkRepoPolicy } from '../src/lib/riishe/mission/repository-adapter'
-import { diagnoseGitHubCredential } from '../src/lib/riishe/mission/credential-diagnostics'
+import { diagnoseGitHubCredential, assessGitHubWriteReadiness } from '../src/lib/riishe/mission/credential-diagnostics'
 import { execFileSync } from 'node:child_process'
 
 async function main(): Promise<void> {
@@ -36,6 +36,16 @@ async function main(): Promise<void> {
     console.log(`REPO_POLICY: allowed=${policy.ok} reason=${policy.ok ? 'allowlisted' : JSON.stringify(policy.reason)}`)
   }
 
+  // ---- 3.b M48.1 — the ONE authoritative write-readiness decision ---------
+  //   Eight required facts (static policy projection + live probes); a fact
+  //   that cannot be established is `unknown`, and unknown is never ready.
+  const ready = await assessGitHubWriteReadiness()
+  console.log(`WRITE_READINESS: verdict=${ready.verdict} repository=${ready.repository ?? 'unconfigured'}`)
+  for (const f of ready.facts) {
+    console.log(`  FACT ${f.id.padEnd(38)} ${f.state.padEnd(6)} — ${f.note.slice(0, 220)}`)
+  }
+  console.log(`WRITE_READINESS_SUMMARY: ${ready.summary.slice(0, 500)}`)
+
   // ---- 4. LIVE read lane (real network I/O, no credentials needed) --------
   try {
     const out = execFileSync('git', ['ls-remote', 'https://github.com/jon0471-dot/Bean-intelligence.git', 'HEAD'], { timeout: 30_000, encoding: 'utf8' })
@@ -46,9 +56,9 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    lane.available
-      ? 'M47.4 STATE: write lane READY — the real workflow may run under authorization.'
-      : 'M47.4 STATE: live write lane HONEST-UNAVAILABLE — implementation complete and transport-tested; activation requires the owner to configure the missing prerequisites (never through chat).',
+    ready.available
+      ? 'M48.1 STATE: write lane READY — the real workflow may run under authorization (M48.2 performs the authorized write acceptance).'
+      : 'M48.1 STATE: live write lane HONEST-NOT-READY — implementation complete and transport-tested; activation requires the owner-side configuration listed above (never through chat, never assumed).',
   )
 }
 
