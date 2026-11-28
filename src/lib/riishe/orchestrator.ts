@@ -41,7 +41,7 @@ import { planCapabilities } from './capability-plan'
 import { detectSourceContradictions, describeContradiction } from './contradictions'
 import { detectClaimExceedsEvidence, uncertaintyStatement, type ClaimContradiction } from '@/lib/research/contradiction-reasoning'
 import { detectWorkflow } from './workflow'
-import { mapRiisheStatesToOutcome } from '@/lib/trust/types'
+import { customerTerminalStage } from '@/lib/riishe/completion-policy'
 import { buildMemoryBlock, composeMemoryContextView } from './memory'
 import { BeanApiError } from '@/lib/api/errors'
 import { buildSystemPrompt, buildUserTurn } from './prompts'
@@ -310,6 +310,10 @@ function statesFrom(
   degraded: string[],
   executionEvidence: boolean,
   support: ClaimSupportAudit | null,
+  /** P0: a governed `calculate` tool execution actually ran and succeeded
+   *  this turn — deterministic computation evidence the SELF_CHECK evaluator
+   *  cannot see (it only audits arithmetic written INTO the answer text). */
+  calculationExecuted = false,
 ): ResponseState[] {
   const states = new Set<ResponseState>()
   const searchFailed = searchNeeded && pack !== null && pack.sources.length === 0 && pack.degraded.length > 0
@@ -317,7 +321,13 @@ function statesFrom(
 
   const computationVerified = computation?.ran === true && computation.passed
   const computationFailed = computation?.ran === true && !computation.passed
-  if (computationVerified) states.add('COMPUTATION_VERIFIED')
+  // P0 completion-semantics fix: the answer's arithmetic may have been
+  // computed by the governed `calculate` TOOL (M45/M47 native tool loop)
+  // rather than restated in a SELF_CHECK block. When the tool actually
+  // executed and succeeded, the computation IS executed-and-checked — record
+  // the same COMPUTATION_VERIFIED evidence state. Only the real execution
+  // grants this; the model has no field to claim it.
+  if (computationVerified || calculationExecuted) states.add('COMPUTATION_VERIFIED')
 
   const hasSources = (pack?.sources.length ?? 0) > 0
   // Full verification means MORE than "sources were found": the answer must
@@ -443,6 +453,9 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   const t0 = Date.now()
   const { userMessage, history, caps, adapter, onEvent } = input
   const degraded: string[] = []
+  // P0: hoisted approval-pending flag (set by the tool loop from the REAL
+  // check_coding_job output; consulted by the terminal-stage policy).
+  let waitingApproval = false
   const stages: MessageMetadata['stages'] = []
   // M37 §5 — operational task stages, recorded ONLY at real execution events.
   // Each stage is emitted once per turn; the array persists in metadata so
@@ -608,9 +621,12 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     stages.push({ stage: 'researching', durationMs: Date.now() - tSearch })
     degraded.push(...pack.degraded)
     onEvent?.({ type: 'research', queries: pack.queries })
-  } else {
-    degraded.push(`search not warranted: ${decision.reason}`)
   }
+  // P0 R4: "search not warranted" is a NORMAL policy decision (the freshness
+  // router decided plain conversation needs no retrieval) — it is NOT a
+  // degradation and must never be recorded as one. The decision itself stays
+  // observable in the router metadata and server logs; `degraded` is reserved
+  // for things that actually failed.
   const evidenceBlock = pack ? formatEvidenceBlock(pack) : null
   const documentBlock = documents.length > 0 ? buildDocumentBlock(documents) : null
 
@@ -924,7 +940,10 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     }
     // M37 §5 — a delegated job that is WAITING FOR APPROVAL is a real
     // operational state, parsed from the status probe's ACTUAL output.
-    const waitingApproval = toolExecutions.some(
+    // P0: the flag is hoisted to function scope (let) so the terminal-stage
+    // policy can honor it (an approval-pending operation must never wear a
+    // terminal completion badge).
+    waitingApproval = toolExecutions.some(
       (e) => e.tool === 'check_coding_job' && e.ok && e.output.includes('WAITING FOR APPROVAL'),
     )
     if (waitingApproval) emitTaskStage('approval-waiting')
@@ -1491,21 +1510,44 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
 
   // ---- Respond ---------------------------------------------------------------
   const ranCode = toolExecutions.some((e) => e.tool === 'run_code' && e.ok)
-  const states = statesFrom(searchNeeded, pack, citationsValid, computation, degraded, ranCode, support)
+  const calculationExecuted = toolExecutions.some((e) => e.tool === 'calculate' && e.ok)
+  const states = statesFrom(searchNeeded, pack, citationsValid, computation, degraded, ranCode, support, calculationExecuted)
 
   // M37 §5 — the terminal task stage derives from the SAME response states
   // (assigned from actual execution) through the SAME trust mapping — never
   // from the model's own claim, and never manufactured when nothing ran.
-  if (finalContent.trim().length > 0) {
-    const outcome = mapRiisheStatesToOutcome(states, true)
-    emitTaskStage(
-      outcome.outcome === 'completed'
-        ? 'completed'
-        : outcome.outcome === 'failed'
-          ? 'failed'
-          : 'completed-with-limitations',
-    )
+  //
+  // P0 COMPLETION-POLICY FIX (2026-11-28): the CUSTOMER-FACING terminal stage
+  // is now decided by the dedicated completion policy, which separates
+  // conversation delivery from evidence verification from operational
+  // execution. An ordinary conversational answer (nothing ran, nothing was
+  // warranted, delivery succeeded) records NO terminal stage at all — the
+  // internal Trust ledger keeps its honest completed_with_limitations outcome
+  // via mapRiisheStatesToOutcome (used by the trust adapter on the same
+  // states), so no internal semantics changed; only the badge noise is gone.
+  // Material qualifications (required tool failed, verification warranted but
+  // unconfirmed, partial verification) still record
+  // completed-with-limitations; real operational executions record completed.
+  const retrievalRan = pack !== null
+  const operationalRun = workflow.active || toolExecutions.length > 0
+  if (waitingApproval) {
+    // A governed operation is awaiting the user's decision: 'approval-waiting'
+    // (already emitted above from the real tool event) stays the honest last
+    // stage — never a terminal completion badge for an operation that has not
+    // executed yet.
+  } else {
+    const terminalStage = customerTerminalStage({
+      producedAnswer: finalContent.trim().length > 0,
+      states,
+      searchNeeded,
+      researchRan: retrievalRan,
+      operationalRun,
+    })
+    if (terminalStage) emitTaskStage(terminalStage)
   }
+  // (The internal Trust outcome is mapped independently by the trust adapter
+  // from the SAME persisted states — mapRiisheStatesToOutcome semantics are
+  // unchanged there; nothing in the ledger contract was altered.)
 
   // Sources shown to the reader: auditUniverse is already canonically
   // deduped (same-page duplicates collapsed, ids renumbered above); when the

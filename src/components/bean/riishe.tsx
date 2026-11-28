@@ -31,7 +31,6 @@ import type { BeanUser } from '@/components/bean/shared'
 import { RiisheSidebarDesktop, RiisheSidebarMobile } from './riishe/riishe-sidebar'
 import { RiisheThread } from './riishe/riishe-messages'
 import { RiisheComposer } from './riishe/riishe-composer'
-import { ResearchStatusStrip } from './research-status'
 import { useRiisheChat } from './riishe/use-riishe-chat'
 import { RiisheIcon } from '@/components/riishe/RiisheIcon'
 import { PanelLeft } from 'lucide-react'
@@ -130,10 +129,19 @@ export function Riishe({ user, onOpenSettings }: { user: BeanUser; onOpenSetting
           <RiisheThread chat={chat} endRef={endRef} />
         </div>
 
-        {/* ADDITIVE (shared research gateway): honest source availability. */}
-        <div className="mx-auto w-full max-w-3xl px-4 pb-1 sm:px-6">
-          <ResearchStatusStrip product="riishe" />
-        </div>
+        {/* P0 RELIABILITY FIX (2026-11-28): the always-visible research-source
+            status strip was REMOVED from the customer conversation view. A
+            normal chat must not permanently list optional-source readiness
+            states ("GitHub: Login required", "YouTube: Unavailable", …) —
+            optional integrations are capabilities, not prerequisites, and
+            their inventory made the product look unavailable. Nothing was
+            deleted: research, the channel registry/gateway, source discovery
+            and provenance, and all availability measurements remain; the full
+            infrastructure inventory now lives ONLY in the restricted admin
+            diagnostics (Admin → Research source gateway status). When research
+            actually runs, sources still appear through the per-answer
+            collapsible Sources section; materially affected answers keep
+            their honest verification note. */}
 
         {chat.error ? (
           <div className="mx-4 mb-2 sm:mx-6">
