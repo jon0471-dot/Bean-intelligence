@@ -101,7 +101,7 @@ describe('M47.2 validateNativeCalls (pre-execution refusal classes)', () => {
 
 describe('M47.2 native tool loop (real governed execution)', () => {
   test('a native call executes through the registry and the result returns as a role:tool turn with the PRESERVED id', async () => {
-    const solveCalls: number[][] = []
+    const solveCalls: string[][] = []
     const passes: NativeSolvePassResult[] = [
       {
         content: 'I will compute that.',
@@ -150,7 +150,7 @@ describe('M47.2 native tool loop (real governed execution)', () => {
       baseMessages: [{ role: 'user', content: 'do things' }],
       toolNames: [...enabled],
       toolCtx: ctx,
-      solve: () => '',
+      solve: async () => '',
       solveNative: async () => passes[passIndex++],
       protocol: 'native',
     })
@@ -175,7 +175,7 @@ describe('M47.2 native tool loop (real governed execution)', () => {
       baseMessages: [{ role: 'user', content: 'compute two things' }],
       toolNames: [...enabled],
       toolCtx: ctx,
-      solve: () => '',
+      solve: async () => '',
       solveNative: async () => passes[passIndex++],
       protocol: 'native',
     })
@@ -189,7 +189,7 @@ describe('M47.2 native tool loop (real governed execution)', () => {
         baseMessages: [{ role: 'user', content: 'x' }],
         toolNames: [...enabled],
         toolCtx: ctx,
-        solve: () => 'text answer',
+        solve: async () => 'text answer',
         protocol: 'native',
       }),
     ).rejects.toThrow(/native solver/)
@@ -201,7 +201,7 @@ describe('M47.2 native tool loop (real governed execution)', () => {
       baseMessages: [{ role: 'user', content: 'loop forever' }],
       toolNames: [...enabled],
       toolCtx: ctx,
-      solve: () => '',
+      solve: async () => '',
       solveNative: async () => {
         passes += 1
         return { content: '', nativeToolCalls: [call(`call_r${passes}`, 'calculate', { expression: '1' })] }
