@@ -160,6 +160,12 @@ export interface ToolRoundResult {
   protocol: ToolLoopProtocol
   /** M47.2 — native calls refused BEFORE execution, with honest reasons. */
   nativeRefusals: Array<{ id: string; tool: string; reason: string }>
+  /** M47.3 — governed decision operations that actually executed, in order
+   *  (authorization-relevant observability; extracted from the call INPUTS
+   *  the loop itself dispatched — never from model text). */
+  decisionOps: string[]
+  /** M47.3 — structured native calls the model emitted (before validation). */
+  nativeCallsEmitted: number
 }
 
 /**
@@ -188,6 +194,8 @@ export async function runToolLoop(opts: {
   const enabled = new Set(toolNames)
   const executions: ExecutedToolCall[] = []
   const nativeRefusals: ToolRoundResult['nativeRefusals'] = []
+  const decisionOps: string[] = []
+  let nativeCallsEmitted = 0
   const degraded: string[] = []
   const messages: ChatTurn[] = [...baseMessages]
 
@@ -200,6 +208,7 @@ export async function runToolLoop(opts: {
     if (protocol === 'native') {
       const pass = await opts.solveNative!(messages)
       passContent = pass.content ?? ''
+      nativeCallsEmitted += (pass.nativeToolCalls ?? []).length
       const validated = validateNativeCalls(pass.nativeToolCalls ?? [], enabled)
       nativeRefusals.push(...validated.refused)
       // Every refused call still gets an honest role:tool result so the
@@ -242,12 +251,21 @@ export async function runToolLoop(opts: {
         rounds: round + 1,
         protocol,
         nativeRefusals,
+        decisionOps,
+        nativeCallsEmitted,
       }
     }
 
     // ---- Execute EVERY accepted call through the governed registry --------
     const results: Array<{ id: string | null; text: string; ok: boolean }> = []
     for (const call of calls) {
+      // M47.3 — the operation discriminator of the governed decision tool is
+      // observability-relevant (advice vs approval-creation vs execution);
+      // it comes from the VALIDATED input the loop dispatched, not from text.
+      if (call.tool === 'execution_decision') {
+        const op = (call.input as { operation?: unknown } | null)?.operation
+        if (typeof op === 'string' && op.length <= 40) decisionOps.push(op)
+      }
       onToolEvent?.({ name: call.tool, status: 'started' })
       const executed = await executeToolCall(call, toolCtx, enabled)
       executions.push(executed)

@@ -225,3 +225,17 @@ Branch `feat/m46-production-readiness-live-operations` (commit trail `3eec7f3`�
 **Standing limitations (owner configuration pending):** live GitHub writes need `GITHUB_TOKEN` + `BEAN_TEST_REPOSITORY`; external staging needs a provider; the hosted chat lane declined governed tool calls in all sampled windows (now measured per turn — never faked); dependency audit tooling unavailable in-sandbox (zero dependency changes made).
 
 **Test suite:** 243 files, 0 failures (batched runs — the 4 GB sandbox crashes natively under full-parallel `--isolate` on ONNX-bearing files; reproduced independent of code changes). 67 new M46 cases. tsc delta 0; eslint clean; build exit 0.
+
+## 12. M47 ADDENDUM (2026-11-28 — native tool calling & live operations activation; additive)
+
+Branch `feat/m47-native-tool-operations-activation` (commit trail `8b5e486`→`cf1fa7b`→`a57de84`→`95620d9`→`9b35963`→`dc02839`→`7b91cc6`→`abb103d`→docs; every SHA pushed + `git ls-remote`-verified; the OWNER merged PR #40 mid-session (main `0e3dcbf`→`82fd028`) — BEAN performed no merge). Baseline: origin/main `0e3dcbf` (PR #39 merge) — see `docs/M47_BASELINE.md` (+ §10 owner-merge addendum). Full report: `docs/M47_IMPLEMENTATION_REPORT.md`; acceptance matrix (45 unique scenarios, reconciled totals 6 LIVE + 4 LOCAL-LIVE + 27 LOCAL-INT + 1 MANUAL + 7 HONEST-UNAVAILABLE): `docs/intelligence/M47-ACCEPTANCE.md`.
+
+**Decisive evidence:** the hosted chat lane MEASURABLY supports provider-native tool calling in non-streaming requests (genuine `tool_calls` emitted, ids preserved, role:tool round-trips accepted); streaming+tools measured NOT USABLE → native tool turns are buffered-only; the complete conversational loop (adapter seam → governed validation → real execution → verified round-trip) measured LIVE (`scripts/m47-live-native-e2e.ts`). The M46 text protocol remains for every unmeasured lane.
+
+**New seams:** `tool-invocation.ts` capability registry (native/text-protocol/unsupported/unknown/temporarily-unavailable + per-lane descriptors + `toolCallingDiagnostics()`); adapter contract `NativeToolSpec`/`NativeToolCall`/`nativeToolsToWire` (+ ChatTurn role:'tool'); protocol-aware `toolloop` (pre-execution refusal classes, role:tool results, decisionOps observability); orchestrator `loopProtocol` + full per-turn invocation records (plain-fallback turns recorded too); NATIVE_TOOL_PROTOCOL prompt variant.
+
+**Standing limitations (owner configuration pending, unchanged):** live GitHub writes need `GITHUB_TOKEN` + `BEAN_TEST_REPOSITORY`; configured staging needs `BEAN_STAGING_ROOT`/`BEAN_STAGING_BASE_URL`/`BEAN_STAGING_DEPLOY_TOKEN`; external staging needs `BEAN_DEPLOY_PROVIDER`/`BEAN_DEPLOY_TOKEN`; other model lanes stay text-protocol until configured AND measured; streaming native calls unsupported on the hosted lane (measured).
+
+**Environment notes:** Turbopack rejects symlinked node_modules (real install required for build); pinned MiniLM vocab reinstall + SHA-256 `07eced37…` verified; per-file test runs are the hermetic regression strategy (batched multi-file interference proven pre-existing on the pristine tree).
+
+**Test suite:** per-file hermetic census 244 files, 3,322 pass / 0 fail / 10 skip. 50 new M47 cases. tsc delta 0 (234=234, exact location parity); eslint clean; build exit 0.

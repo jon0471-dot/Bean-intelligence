@@ -417,6 +417,36 @@ export interface GovernanceInvocationRecord {
   intent: string
   backendId: string
   at: number
+  // ---- M47.3 per-turn observability fields (additive; all server-derived,
+  // ---- no secrets, no user message content — identities and counts only).
+  /** Fresh per-turn id (the orchestrator's randomTurnId). */
+  turnId?: string
+  /** Conversation scope id (server-derived binding context). */
+  conversationId?: string
+  /** Authenticated principal (id only — never a token or email). */
+  userId?: string
+  /** The protocol the registry selected for this turn ('text' | 'native' | 'none'). */
+  protocol?: ToolProtocolKind
+  /** The lane's evidence-backed native capability state at turn time. */
+  nativeState?: NativeToolCallingState
+  /** The protocol the loop ACTUALLY ran under (may differ from the selected
+   *  one only when no tools were active — plain turns never open a loop). */
+  protocolUsed?: 'text' | 'native' | 'none'
+  /** How many tools the turn's universe offered (registry state). */
+  toolsOfferedCount?: number
+  /** Native tool calls the model emitted in structured form. */
+  nativeCallsEmitted?: number
+  /** Emitted calls that passed pre-execution validation. */
+  nativeCallsValidated?: number
+  /** Emitted calls refused BEFORE execution (allowlist/arguments/identity). */
+  nativeCallsRefused?: number
+  /** Governed decision operations the turn actually executed (e.g.
+   *  'create_decision', 'request_approval' — authorization-relevant observability). */
+  decisionOps?: string[]
+  /** Every executed tool call (tool + ok) in order. */
+  executions?: Array<{ tool: string; ok: boolean }>
+  /** Honest end state of the TURN's tool involvement. */
+  finalState?: 'completed' | 'plain-fallback' | 'no-tools-active'
 }
 
 const MAX_LEDGER_ENTRIES = 512
