@@ -164,3 +164,11 @@ export const LAXII_SIZES = [
   { value: '2048x1024', label: 'Wide 2:1' },
   { value: '1024x2048', label: 'Tall 1:2' },
 ] as const
+
+/**
+ * M50.2 — the JAZMII text-to-video size vocabulary, moved here so client-safe
+ * modules (AI STUDIO node registry) and the specialist delegation path share
+ * ONE list (previously a private const in src/lib/riishe/specialists.ts).
+ * Values unchanged; validation behavior unchanged.
+ */
+export const JAZMII_VIDEO_SIZES = ['1280x720', '720x1280', '1024x1024'] as const

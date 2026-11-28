@@ -9,7 +9,7 @@
 |---|---|---|
 | **RIISHE** | Central intelligence and coordination | Implemented (one orchestrator for chat, agents, missions) |
 | **BEAN AUTOBOTS** | Customizable professional and personal AI workforce | Implemented (M49.1) — catalogue, custom agents, owner-scoped persistence, real execution |
-| **BEAN AI STUDIO** | Visual node-based AI workflow creation and execution | Planned — M50 (no implementation; see [systems/AI-STUDIO.md](systems/AI-STUDIO.md)) |
+| **BEAN AI STUDIO** | Visual node-based AI workflow creation and execution | M50.1 architecture specified + M50.2 pure graph core implemented — no runtime yet (see [systems/AI-STUDIO.md](systems/AI-STUDIO.md)) |
 | **NIIKI** | 3D, animation, motion graphics, VFX, creative production | Planned — M51 (no implementation; see [systems/NIIKI.md](systems/NIIKI.md)) |
 | **CODE GIFTZ** | Engineering | Implemented |
 | **LAXII** | Image and visual intelligence | Implemented (backend-dependent availability) |
@@ -94,6 +94,38 @@ Master documentation entry point: [`AI_GUIDE.md`](../../AI_GUIDE.md).
   dependency, or runtime behavior in M50.1; NIIKI remains M51 PLANNED;
   no main merge.
 
+## 2.d What M50.2 actually delivered (2026-11-28, same-day follow-on)
+
+- **BEAN AI STUDIO pure graph core — IMPLEMENTED (first code).** The
+  technical foundation exists as pure modules in `src/lib/ai-studio/`:
+  the versioned workflow-graph schema (`schemaVersion 1`, data-only — a
+  graph cannot carry task kinds, agents, scopes, permissions or
+  verification overrides), the server-authoritative ten-node first-release
+  registry (eight executable contracts mapping to exactly ONE real M41
+  task kind each via `buildTaskSpec`, two structural contracts with NO
+  task kind at all — the recorded type-model refinement, architecture doc
+  §14.2), strict schema parsing, the ten ordered validation stages with
+  the documented diagnostic vocabulary, and the deterministic compiler
+  `compileWorkflowToPlan` that emits a validated `CompiledWorkflowPlan`
+  (M41 `MissionTaskSpec[]` through `buildTaskSpec`, deterministic ids/
+  ordering, the UNCAPTURABLE platform `verify-deliverable` gate appended
+  or preserved exactly once, deliverable designation to the real producer,
+  final check through the EXISTING `validateTaskGraph`).
+- **Honest boundaries kept**: no persistence, no API, no UI, no Prisma
+  change, no `MISSION_TYPES` change (the `'workflow'` extension stays
+  deferred to M50.5 with owner approval), no new queue/worker/specialist,
+  no execution of any kind — the compiler calls `createMissionFromPlan`
+  never; one behavior-neutral vocabulary relocation
+  (`JAZMII_VIDEO_SIZES` → `src/lib/registry/products.ts`, values
+  unchanged) keeps ONE size vocabulary without importing server-only
+  modules into the pure core.
+- **Verification**: 121 new hermetic cases in five suites (including the
+  full port-type compatibility matrix, adversarial injection pins, and a
+  source-scan purity pin); M41/M49 regressions green; TypeScript/ESLint
+  clean in touched files; production build exit 0. Status across docs:
+  architecture specified (M50.1) + pure graph core implemented (M50.2);
+  the user-facing Studio runtime is NOT implemented.
+
 ## 3. Relation to the February 2027 plan (historical record preserved)
 
 The February 2027 launch documentation (`docs/feb2027/`) planned a narrower
@@ -122,10 +154,11 @@ expansion; the expansion is recorded here and cross-linked.
   execution history. The workflow engine must reuse the existing job
   infrastructure, capability registry and Trust Engine. No arbitrary-code
   execution system. **M50.1 (2026-11-28): architecture + contracts
-  SPECIFIED** (see [agents/M50.1-AI-STUDIO-ARCHITECTURE.md](../agents/M50.1-AI-STUDIO-ARCHITECTURE.md));
-  implementation remains M50.2–M50.7 (schema/registry/validation →
-  persistence/APIs → canvas UI → governed execution → run visibility →
-  security/regression close-out).
+  SPECIFIED** (see [agents/M50.1-AI-STUDIO-ARCHITECTURE.md](../agents/M50.1-AI-STUDIO-ARCHITECTURE.md)).
+  **M50.2 (2026-11-28): pure graph core IMPLEMENTED** (`src/lib/ai-studio/` —
+  versioned schema, node registry, deterministic validation + compilation;
+  see §2.d above). Remaining: M50.3–M50.7 (persistence/APIs → canvas UI →
+  governed execution → run visibility → security/regression close-out).
 - **M51 — NIIKI**: creative production (3D scenes, geometry, materials,
   lighting, animation, motion graphics, particles, VFX, compositing,
   editable project export). Evaluate real, appropriately licensed models and

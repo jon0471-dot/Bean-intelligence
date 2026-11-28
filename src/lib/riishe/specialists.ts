@@ -31,7 +31,7 @@ import { BeanApiError } from '@/lib/api/errors'
 import { preflight } from '@/lib/router/router'
 import { dedupeKeyFor, hasActiveDuplicate } from '@/lib/ai-engine/queue'
 import { recordAudit } from '@/lib/observability/metering'
-import { LAXII_SIZES } from '@/lib/registry/products'
+import { LAXII_SIZES, JAZMII_VIDEO_SIZES as VIDEO_SIZES } from '@/lib/registry/products'
 import { chunkTextForTts } from '@/lib/adapters/hosted-audio'
 import { GANGZII_VOICE_PRESETS, isHostedVoice, isKokoroVoice } from '@/lib/registry/gangzii-presets'
 import type { ToolContext, ToolDescriptor, ToolResult } from './tools/types'
@@ -216,7 +216,9 @@ export interface CreateVideoInput {
   size?: string
 }
 
-const VIDEO_SIZES = ['1280x720', '720x1280', '1024x1024'] as const
+// M50.2: VIDEO_SIZES now lives in the client-safe registry
+// (src/lib/registry/products.ts as JAZMII_VIDEO_SIZES) and is imported above,
+// so every consumer shares ONE vocabulary. Values and validation unchanged.
 
 export function validateCreateVideoInput(input: unknown): CreateVideoInput {
   const rec = (input ?? {}) as Record<string, unknown>
