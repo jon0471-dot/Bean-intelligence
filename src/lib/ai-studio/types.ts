@@ -252,12 +252,24 @@ export interface WorkflowValidationOutcome {
 // caller. The pure graph core NEVER fetches health, reads the environment or
 // infers availability. Semantics mirror the honest registry states
 // (src/lib/registry/status.ts): 'unknown'/absent = no evidence, no claim.
+//
+// M50.3 CORRECTIVE EXTENSION (measured vocabulary alignment): the real
+// BEAN capability-health model carries a 'blocked' state
+// (ProductHealthEntry.capabilities[].state in src/lib/registry/status.ts —
+// a measured contract blocker / unverified capability, aggregated as a
+// functional gap beyond throttling). M50.2's Studio vocabulary omitted it,
+// so a genuinely blocked capability could not be reported honestly. 'blocked'
+// is now part of the Studio snapshot vocabulary and maps to a customer-safe
+// WARNING (never a validation error) — identical severity policy to the
+// other honest availability states: the pure core cannot probe health, and
+// the execution-time router preflight stays authoritative.
 // ---------------------------------------------------------------------------
 
 export type StudioAvailabilityState =
   | 'available'
   | 'degraded'
   | 'rate-limited'
+  | 'blocked'
   | 'unavailable'
   | 'not-configured'
   | 'unknown'
@@ -275,6 +287,15 @@ export interface CompiledWorkflowPlan {
   schemaVersion: typeof WORKFLOW_GRAPH_SCHEMA_VERSION
   /** buildTaskSpec-constructed, validateTaskGraph-validated task list. */
   tasks: MissionTaskSpec[]
+  /**
+   * M50.3 CORRECTIVE FIX (bounded, deterministic): the warning and info
+   * diagnostics produced by validation, preserved onto the SUCCESSFUL plan
+   * so availability evidence (not-configured / unavailable / degraded /
+   * rate-limited / blocked) survives into previews. By construction a
+   * successful compilation carries NO error diagnostics (errors refuse the
+   * graph first) and never turns a warning into a refusal.
+   */
+  diagnostics: StudioDiagnostic[]
   /** The task producing the designated deliverable — NEVER the verify gate. */
   deliverableTaskId: string
   /** The output.deliverable node that made the designation (when present). */

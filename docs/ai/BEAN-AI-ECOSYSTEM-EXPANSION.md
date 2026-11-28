@@ -157,8 +157,14 @@ expansion; the expansion is recorded here and cross-linked.
   SPECIFIED** (see [agents/M50.1-AI-STUDIO-ARCHITECTURE.md](../agents/M50.1-AI-STUDIO-ARCHITECTURE.md)).
   **M50.2 (2026-11-28): pure graph core IMPLEMENTED** (`src/lib/ai-studio/` —
   versioned schema, node registry, deterministic validation + compilation;
-  see §2.d above). Remaining: M50.3–M50.7 (persistence/APIs → canvas UI →
-  governed execution → run visibility → security/regression close-out).
+  see §2.d above). **M50.3 (2026-11-28): durable persistence + owner-scoped
+  APIs IMPLEMENTED** (three additive Prisma tables + workflow CRUD/version/
+  duplicate/archive/delete + read-only validate/preview endpoints that
+  create ZERO rows; quota 50/owner owner-confirmable; no retention cleanup;
+  the M50.2 corrective fixes — diagnostics preserved on successful
+  compilation and the measured `blocked` availability state — also landed
+  here). Remaining: M50.4–M50.7 (canvas UI → governed execution → run
+  visibility → security/regression close-out).
 - **M51 — NIIKI**: creative production (3D scenes, geometry, materials,
   lighting, animation, motion graphics, particles, VFX, compositing,
   editable project export). Evaluate real, appropriately licensed models and

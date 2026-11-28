@@ -438,6 +438,19 @@ export function validateWorkflowGraph(
           { nodeId: node.nodeId, severity: 'info' },
         ),
       )
+    } else if (state === 'blocked') {
+      // M50.3 CORRECTIVE FIX: 'blocked' is a REAL state in BEAN's measured
+      // capability-health vocabulary (src/lib/registry/status.ts) — a
+      // functional gap beyond throttling. M50.2 could not report it; now it
+      // becomes an honest, customer-safe WARNING (never a validation error,
+      // never claimed operational, never a fabricated provider failure).
+      problems.push(
+        diag(
+          'E_CAPABILITY_UNAVAILABLE',
+          `"${c.displayName}" is currently blocked on this deployment. Validation still passes structurally, but execution will fail while the block remains.`,
+          { nodeId: node.nodeId, severity: 'warning' },
+        ),
+      )
     }
     // 'available' and 'unknown'/absent: no diagnostic. Absence of evidence is
     // not evidence of availability — and validation is never a promise.
