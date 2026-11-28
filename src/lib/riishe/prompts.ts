@@ -220,8 +220,22 @@ ${'{TOOLS}'}
 - When the user's message EXPLICITLY asks to run/execute code ("run code to …", "execute this snippet", "simulate …"), you MUST use run_code for it — do not compute in your head and do not merely describe what code would output. Emit the TOOL_CALL line, then report the REAL stdout result.
 - If a tool fails or is denied, say what you could not verify and continue with what you have.`
 
-function buildToolSection(toolNames: readonly string[], catalog: string): string {
-  const base = TOOL_PROTOCOL.replace('{TOOLS}', catalog || toolNames.map((n) => `- ${n}`).join('\n'))
+// M47.2 — the NATIVE variant replaces the wire syntax (function calling
+// replaces TOOL_CALL lines) while keeping every honesty rule identical.
+// Guidance can never widen what a tool call may do: authorization stays
+// server-side under both protocols.
+const NATIVE_TOOL_PROTOCOL = `
+Tool protocol (server-side execution via function calling):
+- You may request REAL tool executions by calling the functions provided with this request (the tools parameter) — do NOT write TOOL_CALL text lines; use the function-calling interface itself.
+- BEAN executes each call and returns the actual result as a tool message bound to your call id; a result you have not received does not exist. Never fabricate tool output, and never restate a tool result you were not shown.
+- Available tools:
+${'{TOOLS}'}
+- Call tools only when they materially improve the answer (live facts, exact arithmetic, execution evidence, document detail). Otherwise answer directly.
+- When the user's message EXPLICITLY asks to run/execute code ("run code to …", "execute this snippet", "simulate …"), you MUST call run_code for it — do not compute in your head and do not merely describe what code would output. Call it, then report the REAL stdout result.
+- If a tool fails or is denied, say what you could not verify and continue with what you have.`
+
+function buildToolSection(toolNames: readonly string[], catalog: string, protocol: 'text' | 'native' = 'text'): string {
+  const base = (protocol === 'native' ? NATIVE_TOOL_PROTOCOL : TOOL_PROTOCOL).replace('{TOOLS}', catalog || toolNames.map((n) => `- ${n}`).join('\n'))
   // M46.1 — governed-execution protocol precision: when the decision tool is
   // in this turn's universe, the model gets the exact call shapes. This is
   // RELIABILITY guidance only — every operation stays gated server-side by
@@ -243,7 +257,7 @@ Governed execution calls (execution_decision) — use the tool INSTEAD of only d
 - NEVER call "request_approval" or "execute_plan" unless the user's message explicitly asks for that exact step. A conversational "yes/approved/go ahead" is intent, NOT a grant — the owner grants through the approval flow; say so instead of treating it as authorization.
 - Never invent decisionIds, plan digests, approval ids or verification verdicts. Relay tool output exactly; "Succeeded" only ever means independently verified.`
 
-export function buildSystemPrompt(ctx: PromptContext, toolCatalog?: string): string {
+export function buildSystemPrompt(ctx: PromptContext, toolCatalog?: string, toolProtocol: 'text' | 'native' = 'text'): string {
   let prompt = BASE_PROTOCOL
   // Identity + provenance + people protocols ride along on EVERY turn, for
   // every task: the provenance rules are what stop a user-supplied claim
@@ -264,7 +278,7 @@ export function buildSystemPrompt(ctx: PromptContext, toolCatalog?: string): str
   if (ctx.hasImages) prompt += IMAGE_PROTOCOL
   if (ctx.userLanguage && ctx.userLanguage !== 'English') prompt += MULTILINGUAL_PROTOCOL
   if (ctx.toolNames && ctx.toolNames.length > 0) {
-    prompt += buildToolSection(ctx.toolNames, toolCatalog ?? '')
+    prompt += buildToolSection(ctx.toolNames, toolCatalog ?? '', toolProtocol)
   }
   return prompt
 }

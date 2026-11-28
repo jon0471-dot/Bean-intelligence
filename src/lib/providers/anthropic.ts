@@ -124,6 +124,20 @@ export function buildAnthropicBody(
       index += 1
       continue
     }
+    // M47.2 — role 'tool' (and native tool-call replays) exist ONLY on lanes
+    // whose registry record says native; the Anthropic slot is text-protocol
+    // and never legitimately receives them. Defensive conversion keeps the
+    // adapter total (no crash on a misrouted turn): the foreign shape becomes
+    // an honestly-labeled user turn — the bounded note preserves the
+    // conversation without inventing provider-specific semantics.
+    if (m.role === 'tool' || m.nativeToolCalls?.length) {
+      turns.push({
+        role: 'user',
+        content: `[system note: a native tool-protocol turn reached the text-protocol lane and was converted; no tool executed through it]\n${content}`,
+      })
+      index += 1
+      continue
+    }
     turns.push({ role: m.role, content })
     index += 1
   }

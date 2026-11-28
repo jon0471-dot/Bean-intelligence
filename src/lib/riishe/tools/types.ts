@@ -94,6 +94,11 @@ export interface ToolDescriptor<I> {
   execute(input: I, ctx: ToolContext): Promise<ToolResult>
   /** Per-call timeout (ms). The loop enforces it. */
   timeoutMs: number
+  /** M47.2 — optional explicit JSON Schema for the native tool-calling path.
+   *  When absent, a minimal object schema is derived (see
+   *  `nativeToolSpecs`) and the tool's own validate() remains the binding
+   *  server-side validation either way. */
+  inputSchema?: Record<string, unknown>
 }
 
 /** Shape the model is asked to emit: TOOL_CALL: {"tool": name, "input": {...}} */
