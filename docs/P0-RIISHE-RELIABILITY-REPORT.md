@@ -73,7 +73,7 @@ Final tip after R5: see §6 for the exact published SHA.
 
 ## 6. Acceptance
 
-`docs/intelligence/P0-ACCEPTANCE.md` — 54 unique scenarios, exactly one classification each: **LIVE 12 · LOCAL-INT 41 · HONEST_UNAVAILABLE 1** (12+41+1 = 54). No mocked transport counted as live; no screenshot-based claims; every scenario carries ID, classification, execution result, evidence and the independent-verification flag.
+`docs/intelligence/P0-ACCEPTANCE.md` — 54 unique scenarios, exactly one classification each: **LIVE 13 · LOCAL-INT 40 · HONEST_UNAVAILABLE 1** (13+40+1 = 54; corrected by the M48.1 re-evaluation of 2026-11-28 — the original text stated "LIVE 12 · LOCAL-INT 41" while its own enumeration listed 13 LIVE IDs; every row now carries exactly ONE primary classification, and historical M47 live evidence remains in the evidence column only). No mocked transport counted as live; no screenshot-based claims; every scenario carries ID, classification, execution result, evidence and the independent-verification flag.
 
 ## 7. Publication
 
@@ -86,8 +86,28 @@ Final tip after R5: see §6 for the exact published SHA.
 
 ## 8. Remaining limitations (honest)
 
-1. **PR #41 still awaits owner merge.** This hotfix carries complete M47 ancestry precisely so it can follow it into main without duplication.
+> M48.1 correction (2026-11-28): limitations 1 and the §7 merge-authority note below describe the state at the time of writing and were accurate then; the publication state has since advanced — see §9 for the independently verified current record.
+
+1. ~~**PR #41 still awaits owner merge.**~~ **RESOLVED:** the owner merged PR #41 (merge commit `683ffc4`), then PR #43 and PR #44 merged this branch itself — see §9.
 2. **Second real provider credential is not configured in this sandbox** — the authorized secondary failover lane is verified by its hermetic suite; with a real credential it behaves identically (same code path, credential-gated).
 3. **Local-model live leg** — see §5 boundaries; needs a capable owner browser with consent + the model installed.
 4. **`prisma generate` before `next build`** — a fresh-install operator step (bun skips postinstall); documented here and in the failure analysis.
 5. **Manual owner walkthrough** — the mandate's mobile click-through was executed here with a real browser and real assertions; an owner-side spot check on a physical device remains recommended (the app uses the same code path).
+
+## 9. Publication reconciliation — independently verified current state (M48.1, 2026-11-28)
+
+All facts below were re-measured this session via `git fetch --prune`, `git ls-remote` and authenticated GitHub API reads (historical references treated as claims, not facts):
+
+| Fact | Verified value |
+|---|---|
+| PR #41 (M47 completion, 6 commits) | **MERGED** by the owner — merge commit `683ffc40132b94db0d57c34ef5a7fad88869087d`, head `a1ce6fabd247fcd154b12ee5e30e583235fc502b` |
+| PR #42 (M48 baseline document) | **MERGED** — merge commit `bafc9aa2d2a7a57f5d4e74c91acaa5848efdd5fc`, head `4cc1e92acabb9c7265c1fdf7365170bf4e386d45` |
+| PR #43 (P0 hotfix publication, R0–R4) | **MERGED** — merge commit `ae0d06c3154c7a1ebf90b0c84461ac97acf9e655`, head `457d9f0` |
+| PR #44 (P0 reliability implementation, R5 = this report's tree) | **MERGED** — merge commit = current main `ed3ede98db7ca4ecea2ad66ae41f62942cad64e5`, head `5bfb8965898a0eb62cf7dad712397f96a0afe597` |
+| Current `origin/main` | `ed3ede98db7ca4ecea2ad66ae41f62942cad64e5` (merge of PR #44; parents `ae0d06c` + `5bfb896`) |
+| M47 final SHA ancestry | `a1ce6fa` verified ancestor of main (`git merge-base --is-ancestor`) |
+| P0 final SHA ancestry | `5bfb896` verified ancestor of main (`git merge-base --is-ancestor`) |
+| M48 implementation gate | **COMPLETE** — the owner merged the complete M47 delivery (PR #41) and the P0 implementation (PR #44); no M47/P0 delivery commits remain outside main |
+| This hotfix branch | `fix/riishe-always-respond` tip `5bfb896` — merged via PR #44; the branch is retained as history, untouched |
+
+The P0 delivery is fully in production `main`. No merge was performed by the assistant at any point; every merge above was the owner's own GitHub action.

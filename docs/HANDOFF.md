@@ -1,7 +1,11 @@
 # BEAN Intelligence — Project Handoff (Session Continuity Document)
 
-> Maintained for future Z.ai development sessions. Last updated: 2026-11-27 (UTC+8).
+> Maintained for future Z.ai development sessions. Last updated: 2026-11-28 (UTC+8).
 > This document contains environment variable NAMES only — never secret values.
+
+## 0.b CURRENT STATE ADDENDUM (2026-11-28 — M48.1 publication reconciliation; supersedes the publication-state claims in 0.a)
+
+- **ALL FOUR PUBLICATION PRs MERGED — M48 IMPLEMENTATION GATE COMPLETE (independently verified 2026-11-28 via `git fetch --prune`, `git ls-remote` and authenticated GitHub API; historical claims re-measured, not assumed).** PR #41 (complete M47 delivery, six commits `95620d9`→`a1ce6fa`) MERGED — merge commit `683ffc40132b94db0d57c34ef5a7fad88869087d`. PR #42 (M48 baseline document, `4cc1e92`) MERGED — merge commit `bafc9aa2d2a7a57f5d4e74c91acaa5848efdd5fc`. PR #43 (P0 hotfix publication, `457d9f0`) MERGED — merge commit `ae0d06c3154c7a1ebf90b0c84461ac97acf9e655`. PR #44 (P0 reliability implementation, `5bfb896`) MERGED — merge commit = **current `origin/main` `ed3ede98db7ca4ecea2ad66ae41f62942cad64e5`** (parents `ae0d06c` + `5bfb896`). Ancestry proven: `a1ce6fa` (M47 final), `4cc1e92` (M48 baseline), `5bfb896` (P0 final) are all ancestors of main — no M47/P0 delivery commits remain outside main; **M48 implementation gate: COMPLETE**, final M48 starting SHA `ed3ede9`. Section 0.a's publication-state claims ("PR #41 still OPEN", "main at `bafc9aa`", "LIVE 12 / LOCAL-INT 41") were accurate at its writing and are now superseded; the P0 acceptance doc was re-evaluated per-scenario in M48.1 with the corrected exclusive distribution **LIVE 13 · LOCAL-INT 40 · HONEST_UNAVAILABLE 1 = 54** (`docs/intelligence/P0-ACCEPTANCE.md` revision note). **M48.1 IN PROGRESS (branch `feat/m48-1-github-readiness`, linked worktree `m48-1-wt`, created from verified `ed3ede9`):** GitHub credential & repository readiness — one authoritative write-readiness decision aligned with the actual execution policy (`writeLaneAvailability` vs `checkRepoPolicy`), real credential validation via the existing M45/M46/M47 adapter (no second GitHub integration), read-only live acceptance, hermetic readiness tests. No production writes; owner retains all merge authority.
 
 ## 0.a CURRENT STATE ADDENDUM (2026-11-28 — P0 RIISHE reliability hotfix)
 
