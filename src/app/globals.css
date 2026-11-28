@@ -133,6 +133,45 @@
   box-shadow: 0 0 32px -8px rgba(212, 175, 55, 0.45);
 }
 
+/* M49.1 BEAN AUTOBOTS — shared form control styling (glass input family,
+   consistent with the existing bean-glass surfaces; additive utility only). */
+.bean-input {
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.55rem 0.75rem;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.88);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.bean-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+.bean-input:focus {
+  border-color: rgba(212, 175, 55, 0.38);
+}
+.bean-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+select.bean-input {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.4) 50%),
+    linear-gradient(135deg, rgba(255,255,255,0.4) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2rem;
+}
+select.bean-input option {
+  background-color: #0d0d10;
+  color: rgba(255, 255, 255, 0.88);
+}
+textarea.bean-input {
+  line-height: 1.55;
+}
+
 .bean-scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;

@@ -39,3 +39,16 @@ recovered, or pretend the product is secure. Trust is the product. Every
 document in this set is written under that rule: statuses are measured, gaps
 are named, and nothing is claimed complete on the basis of types, stubs,
 mocks or successful compilation alone.
+
+---
+
+## Dated addendum (2026-11-28): ecosystem expansion recorded
+
+The owner's **November 28, 2026 direction** expands this plan's previously
+narrower agent roadmap with BEAN AUTOBOTS (user-facing AI workforce,
+delivered in M49.1), BEAN AI STUDIO (M50), NIIKI (M51) and AUTOBOT TEAMS
+(M49.2) — all built on the same one-orchestrator / one-queue / one-Trust
+architecture this launch plan established. This historical record is
+preserved verbatim; the expansion is recorded in
+[`../ai/BEAN-AI-ECOSYSTEM-EXPANSION.md`](../ai/BEAN-AI-ECOSYSTEM-EXPANSION.md)
+and all standing constraints of this document remain binding.

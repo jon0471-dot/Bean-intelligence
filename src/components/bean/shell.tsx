@@ -24,6 +24,7 @@ import {
   Menu,
   X,
   ListChecks,
+  Bot,
 } from 'lucide-react'
 
 export type ViewId =
@@ -34,6 +35,7 @@ export type ViewId =
   | 'jazmii'
   | 'code-giftz'
   | 'gangzii'
+  | 'autobots'
   | 'ai-device'
   | 'portal'
   | 'usage'
@@ -48,6 +50,9 @@ const NAV: Array<{ id: ViewId; label: string; icon: React.ElementType; group: st
   { id: 'jazmii', label: 'JAZMII', icon: Video, group: 'Products' },
   { id: 'code-giftz', label: 'CODE GIFTZ', icon: Code2, group: 'Products' },
   { id: 'gangzii', label: 'GANGZII', icon: AudioLines, group: 'Products' },
+  // M49.1 — BEAN AUTOBOTS: the user-facing AI workforce (agent catalogue,
+  // custom agents, agent workspaces). A first-class product surface.
+  { id: 'autobots', label: 'BEAN AUTOBOTS', icon: Bot, group: 'Products' },
   { id: 'ai-device', label: 'AI Device', icon: Cpu, group: 'Platform' },
   { id: 'portal', label: 'Developer portal', icon: FolderKey, group: 'Account' },
   { id: 'usage', label: 'Usage & quotas', icon: BarChart3, group: 'Account' },

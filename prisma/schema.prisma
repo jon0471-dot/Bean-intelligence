@@ -40,6 +40,7 @@ model User {
   gangziiAudioAssets  GangziiAudioAsset[]
   missions            AgentMission[]
   evidenceKnowledge   EvidenceKnowledge[]
+  autobots            AutobotAgent[]
 }
 
 model Session {
@@ -1018,4 +1019,84 @@ model ExecutionDecision {
   @@index([userId, conversationId])
   @@index([userId, status])
   @@index([trustTaskId])
+}
+
+// ---------------------------------------------------------------------------
+// M49.1 — BEAN AUTOBOTS: the user-facing AI workforce.
+//
+// An AutobotAgent is a PERSONA the user configures (identity, profession,
+// instructions, capability selection, memory mode). It is NOT an execution
+// worker: every turn rides the EXISTING RIISHE orchestration through the
+// `riishe` chat product, and every delegated specialist action rides the
+// EXISTING durable job queue. The agent's `capabilityKey` — server
+// vocabulary, never persona text — decides which tool-permission keys a turn
+// runs with. Persona/instructions are USER-CONFIGURABLE DATA, framed as
+// untrusted preferences at execution time; they can never widen tool access.
+// ---------------------------------------------------------------------------
+model AutobotAgent {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String // bounded display name (1-60)
+  role           String // profession / role label (bounded 60)
+  industry       String?  // bounded free text (80)
+  description    String // what this agent does, user-facing (bounded 1000)
+  personality    String?  // communication style preferences (bounded 1000)
+  instructions   String?  // working preferences — UNTRUSTED user data (bounded 4000)
+  language       String?  // language preference (bounded 60)
+  // The REAL execution capability (fixed vocabulary: advisory | research |
+  // engineering | visual | motion | voice | review). Server-authoritative:
+  // the ONLY input to per-turn tool-permission derivation.
+  capabilityKey  String
+  // Permitted memory mode: 'disabled' (fresh each session) or 'conversation'
+  // (this workspace history is retained). Agent-level long-term memory is
+  // NOT implemented in M49.1 (planned — see docs/ai/systems/AUTOBOTS.md).
+  memoryMode     String   @default("disabled")
+  // Catalogue template this agent was created from (null = fully custom).
+  templateKey    String?
+  status         String   @default("active") // active | archived
+  executionCount Int      @default(0) // real completed turns (honest usage signal)
+  lastExecutedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  conversations  AutobotConversation[]
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+}
+
+// An agent workspace conversation. Distinct from the RIISHE Conversation
+// model on purpose: agent transcripts are scoped to the agent persona, so a
+// RIISHE assistant conversation and an Autobot workspace never mix context.
+model AutobotConversation {
+  id        String        @id @default(cuid())
+  agentId   String
+  agent     AutobotAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  // Denormalized owner scope (audit + owner-indexed cleanup); always the
+  // agent's owner — enforced at every API touchpoint.
+  userId    String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  AutobotMessage[]
+
+  @@index([agentId])
+  @@index([userId])
+}
+
+model AutobotMessage {
+  id             String              @id @default(cuid())
+  conversationId String
+  conversation   AutobotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // user | assistant
+  content        String
+  // RIISHE orchestration artifact (sources, response states, verification
+  // summary) — the same honest metadata contract as Message.metadata. Null
+  // for plain rows.
+  metadata       Json?
+  latencyMs      Int?
+  tokensEstIn    Int?
+  tokensEstOut   Int?
+  createdAt      DateTime            @default(now())
+
+  @@index([conversationId])
 }
