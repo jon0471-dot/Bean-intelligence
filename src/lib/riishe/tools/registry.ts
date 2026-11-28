@@ -136,3 +136,35 @@ async function withToolTimeout<T>(p: Promise<T>, ms: number, label: string): Pro
 }
 
 export type { ToolResult, ToolContext, ToolDescriptor } from './types'
+
+// ---------------------------------------------------------------------------
+// M47.2 — native tool-calling spec builder.
+//
+// Converts enabled registry tools into provider tool specs (BEAN-internal
+// JSON Schema). The schema is MODEL GUIDANCE; the tool's own validate()
+// remains the BINDING server-side validation on every call. Tools without
+// an explicit `inputSchema` get a minimal object schema so the model still
+// receives an honest, generic contract — arguments beyond `{}` are shaped
+// by the description, and anything the validator rejects is refused with an
+// honest TOOL_ERROR (never executed on a guess).
+// ---------------------------------------------------------------------------
+
+import type { NativeToolSpec } from '@/lib/adapters/types'
+
+export function nativeToolSpecs(names: readonly string[]): NativeToolSpec[] {
+  const specs: NativeToolSpec[] = []
+  for (const n of names) {
+    const t = getTool(n)
+    if (!t) continue
+    const explicit = t.inputSchema
+    specs.push({
+      name: t.name,
+      description: t.description.slice(0, 1024),
+      parameters:
+        explicit && typeof explicit === 'object'
+          ? explicit
+          : { type: 'object', properties: {}, additionalProperties: true },
+    })
+  }
+  return specs
+}

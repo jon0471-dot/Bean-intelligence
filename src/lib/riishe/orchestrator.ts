@@ -57,8 +57,8 @@ import {
   INJECTION_REFUSAL,
   type EchoDirective,
 } from '@/lib/verify/injection'
-import { runToolLoop, stripToolCallSyntax } from './toolloop'
-import { describeTools } from './tools/registry'
+import { runToolLoop, stripToolCallSyntax, type NativeSolvePassResult } from './toolloop'
+import { describeTools, nativeToolSpecs } from './tools/registry'
 import { registerBuiltins } from './tools/builtin-registry'
 import type { ToolContext } from './tools/types'
 import { classifyTurnIntent } from './mission/conversation-intent'
@@ -643,6 +643,11 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     degraded.push(invocationPolicy.degradedNote!)
   }
   const finalToolsActive = effectiveToolNames.length > 0 && input.toolContext != null
+  // M47.2 — the protocol this turn's tool loop will actually run under,
+  // resolved ONCE from the registry (native lanes measured 'native'; text
+  // lanes unchanged) and used for BOTH the prompt wire syntax and the loop.
+  const loopProtocol: 'text' | 'native' =
+    invocationPolicy.mode === 'loop' && invocationPolicy.protocol === 'native' && finalToolsActive ? 'native' : 'text'
   // M46.1 — observe whether the governance universe actually opened this turn
   // (measured once the loop closes below; invocation behavior ≠ completion).
   const governanceUniverseOffered = allowExecutionGovernance && finalToolsActive && effectiveToolNames.includes('execution_decision')
@@ -690,6 +695,10 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         ...(workflow.active ? { workflow: { parts: workflow.parts } } : {}),
       },
       finalToolsActive ? describeTools(finalToolNames) : undefined,
+      // M47.2 — the prompt's wire syntax matches the protocol this turn will
+      // actually run (native lanes get the function-calling contract; text
+      // lanes keep the TOOL_CALL contract).
+      loopProtocol,
     ) + buildMemoryBlock(memoryContents)
   let userTurn = buildUserTurn(userMessage, {
     evidenceBlock: evidenceBlock ? evidenceBlock : null,
@@ -771,6 +780,31 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     return full
   }
 
+  // M47.2 — native solve pass for lanes whose tool-calling registry record
+  // says 'native'. ALWAYS a buffered non-streaming adapter.chat call: the
+  // registry's streamingToolCalls=false constraint is MEASURED (streaming
+  // with tools produced no usable deltas on this lane), so a native tool
+  // pass never rides the streaming path. Tool specs travel in the request;
+  // structured tool calls come back validated-by-the-loop (never executed
+  // directly from here).
+  const runNativeSolvePass = async (messages: ChatTurn[]): Promise<NativeSolvePassResult> => {
+    solvePasses += 1
+    onEvent?.({ type: 'stage', stage: 'solving' })
+    const result = await withTimeout(
+      adapter.chat!({
+        messages,
+        maxPromptChars: caps.maxPromptChars,
+        maxHistoryMessages: caps.maxHistoryMessages,
+        timeoutMs: streamConfig().upstreamTimeoutMs,
+        thinkingEnabled: profile.thinkingEnabled,
+        nativeTools: nativeToolSpecs(effectiveToolNames),
+      }),
+      streamConfig().upstreamTimeoutMs,
+      'RIISHE',
+    )
+    return { content: result.content, nativeToolCalls: result.nativeToolCalls }
+  }
+
   // Bounded tool loop when tools are active; a single solve pass otherwise.
   // Tool search results continue the evidence numbering so citations stay
   // unambiguous across the pre-solve pipeline pack and model-driven lookups.
@@ -788,6 +822,8 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     const loop = await runToolLoop({
       baseMessages,
       toolNames: effectiveToolNames,
+      protocol: loopProtocol,
+      ...(loopProtocol === 'native' ? { solveNative: runNativeSolvePass } : {}),
       toolCtx: {
         ...input.toolContext!,
         sourceIdOffset: pack?.sources.length ?? 0,
@@ -817,6 +853,16 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     stages.push({ stage: 'tools', durationMs: Date.now() - tTools })
     toolExecutions = loop.executions
     degraded.push(...loop.degraded)
+    // M47.2 — the protocol this turn actually ran under is observable (the
+    // registry decision vs what executed), never folded into the answer text.
+    if (loopProtocol === 'native') {
+      logger.info('riishe.tool_loop.native', {
+        backendId: input.backendId ?? '',
+        rounds: loop.rounds,
+        executions: loop.executions.length,
+        refusals: loop.nativeRefusals.length,
+      })
+    }
     // M46.1 — invocation-behavior observability: when the governed-execution
     // universe was offered and the model closed the loop WITHOUT a single
     // tool call, the record says so (the M45 walkthrough gap, now measured).

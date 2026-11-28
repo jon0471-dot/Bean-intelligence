@@ -12,8 +12,10 @@ import type {
   CodeTaskRequest,
   CodeTaskResult,
   HealthReport,
+  NativeToolCall,
   TaskAdapter,
 } from './types'
+import { nativeToolCallToWire, nativeToolsToWire } from './types'
 import { estimateTokens } from '@/lib/api/validate'
 import {
   classifyUpstreamError,
@@ -239,10 +241,31 @@ function buildMessages(req: ChatRequest | CodeTaskRequest) {
   const maxHistoryMessages =
     'maxHistoryMessages' in req ? req.maxHistoryMessages : req.messages.length
   const history = req.messages.slice(-maxHistoryMessages)
-  return history.map((m) => ({
-    role: m.role as 'user' | 'assistant',
-    content: m.content.slice(0, req.maxPromptChars),
-  }))
+  // M47.2: native tool turns (assistant-with-calls / role:'tool' results)
+  // convert to the MEASURED hosted-gateway wire shapes (probe evidence
+  // 2026-11-28: the gateway accepts OpenAI-shaped tool_calls and role:tool
+  // messages). The SDK's local message types predate native tool calling —
+  // the casts only satisfy stale types; the gateway validates the real wire.
+  return history.map((m) => {
+    if (m.role === 'tool' && m.toolCallId) {
+      return {
+        role: 'tool' as const,
+        tool_call_id: m.toolCallId,
+        content: m.content.slice(0, req.maxPromptChars),
+      }
+    }
+    if (m.role === 'assistant' && m.nativeToolCalls?.length) {
+      return {
+        role: 'assistant' as const,
+        content: m.content,
+        tool_calls: m.nativeToolCalls.map(nativeToolCallToWire),
+      }
+    }
+    return {
+      role: m.role as 'user' | 'assistant',
+      content: m.content.slice(0, req.maxPromptChars),
+    }
+  })
 }
 
 /**
@@ -525,15 +548,48 @@ export const hostedLlmAdapter: TaskAdapter = {
   async chat(req: ChatRequest): Promise<ChatResult> {
     const t0 = Date.now()
     const zai = await ZAI.create()
+    // M47.2 — native tool calling (hosted lane: MEASURED native, non-streaming
+    // ONLY). The tools parameter rides the SDK's index signature exactly like
+    // the probe proved; the response carries structured tool_calls with
+    // preserved call_ ids. A pass that emits tool calls is NOT an empty
+    // completion even when its text content is empty/whitespace — treating it
+    // as one used to be the correct text-protocol behavior and is now refined.
+    const nativeTools = req.nativeTools?.length ? req.nativeTools : null
     const completion = (await createWithGatewayGuard(zai, {
       messages: buildMessages(req),
       thinking: { type: req.thinkingEnabled ? 'enabled' : 'disabled' },
       ...outputTokenFields(),
+      ...(nativeTools ? { tools: nativeToolsToWire(nativeTools), tool_choice: 'auto' as const } : {}),
     })) as {
-      choices?: Array<{ message?: { content?: string }; finish_reason?: string | null }>
+      choices?: Array<{
+        message?: {
+          content?: string
+          tool_calls?: Array<{
+            id?: string
+            type?: string
+            function?: { name?: string; arguments?: string }
+          }>
+        }
+        finish_reason?: string | null
+      }>
     }
     const choice = completion.choices?.[0]
     const content = choice?.message?.content ?? ''
+    const rawCalls = choice?.message?.tool_calls ?? []
+    // Structural validation ONLY (allowlist + schema validation happen in the
+    // governed tool registry before anything executes). A call without a
+    // usable id/name is dropped honestly — never executed on a guess.
+    const nativeToolCalls: NativeToolCall[] = []
+    for (const c of rawCalls) {
+      const name = typeof c?.function?.name === 'string' ? c.function.name : ''
+      const id = typeof c?.id === 'string' ? c.id : ''
+      if (!name || !id) continue
+      nativeToolCalls.push({
+        id,
+        name,
+        argumentsJson: typeof c.function?.arguments === 'string' ? c.function.arguments : '{}',
+      })
+    }
     // Non-streaming truncation is detected EXACTLY like the streaming one:
     // finish_reason "length" is its own honest class (never a silent short
     // answer, never a generic failure). The truncated text rides on the
@@ -544,7 +600,7 @@ export const hostedLlmAdapter: TaskAdapter = {
         content,
       )
     }
-    if (!content) {
+    if (!content && nativeToolCalls.length === 0) {
       throw new Error('Upstream returned an empty completion')
     }
     const durationMs = Date.now() - t0
@@ -554,6 +610,7 @@ export const hostedLlmAdapter: TaskAdapter = {
       tokensInEst: lastUser ? estimateTokens(lastUser.content) : null,
       tokensOutEst: estimateTokens(content),
       durationMs,
+      ...(nativeToolCalls.length > 0 ? { nativeToolCalls } : {}),
     }
   },
 

@@ -52,8 +52,10 @@ import type {
   CodeTaskRequest,
   CodeTaskResult,
   HealthReport,
+  NativeToolCall,
   TaskAdapter,
 } from '@/lib/adapters/types'
+import { nativeToolCallToWire, nativeToolsToWire } from '@/lib/adapters/types'
 import { resolveOpenAiCompatibleRuntimeCredential } from './credentials'
 
 export const OPENAI_COMPATIBLE_BACKEND_ID = 'bean-llm-openai-compatible'
@@ -109,14 +111,33 @@ function buildBody(
   stream: boolean,
   model: string,
 ): Record<string, unknown> {
+  // M47.2: native tool specs ride the standard OpenAI wire contract
+  // (tools + tool_choice). The lane's registry record stays 'unknown' until
+  // a configured provider is measured — the runtime only sets nativeTools
+  // for lanes whose record says native, so this passthrough is dormant
+  // until then, never self-activating.
+  const nativeTools = 'nativeTools' in req && req.nativeTools?.length ? req.nativeTools : null
   return {
     model,
-    messages: req.messages.map((m) => ({
-      role: m.role as 'user' | 'assistant' | 'system',
-      content: m.content.slice(0, req.maxPromptChars),
-    })),
+    messages: req.messages.map((m) => {
+      if (m.role === 'tool' && m.toolCallId) {
+        return { role: 'tool' as const, tool_call_id: m.toolCallId, content: m.content.slice(0, req.maxPromptChars) }
+      }
+      if (m.role === 'assistant' && m.nativeToolCalls?.length) {
+        return {
+          role: 'assistant' as const,
+          content: m.content,
+          tool_calls: m.nativeToolCalls.map(nativeToolCallToWire),
+        }
+      }
+      return {
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content.slice(0, req.maxPromptChars),
+      }
+    }),
     stream,
     max_tokens: 4096,
+    ...(nativeTools ? { tools: nativeToolsToWire(nativeTools), tool_choice: 'auto' as const } : {}),
   }
 }
 
@@ -258,17 +279,38 @@ export const openAiCompatibleAdapter: TaskAdapter = {
     const t0 = Date.now()
     const res = await execute(req, false)
     const json = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string }; finish_reason?: string | null }>
+      choices?: Array<{
+        message?: {
+          content?: string
+          tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }>
+        }
+        finish_reason?: string | null
+      }>
       usage?: { prompt_tokens?: number; completion_tokens?: number }
     }
-    const content = json.choices?.[0]?.message?.content ?? ''
-    if (!content) throw new Error('Fallback provider returned an empty completion')
+    const choice = json.choices?.[0]
+    const content = choice?.message?.content ?? ''
+    // M47.2: structured tool calls (same structural validation as the hosted
+    // lane — allowlist + schema checks happen in the governed registry).
+    const nativeToolCalls: NativeToolCall[] = []
+    for (const c of choice?.message?.tool_calls ?? []) {
+      const name = typeof c?.function?.name === 'string' ? c.function.name : ''
+      const id = typeof c?.id === 'string' ? c.id : ''
+      if (!name || !id) continue
+      nativeToolCalls.push({
+        id,
+        name,
+        argumentsJson: typeof c.function?.arguments === 'string' ? c.function.arguments : '{}',
+      })
+    }
+    if (!content && nativeToolCalls.length === 0) throw new Error('Fallback provider returned an empty completion')
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user')
     return {
       content,
       tokensInEst: json.usage?.prompt_tokens ?? (lastUser ? estimateTokens(lastUser.content) : null),
       tokensOutEst: json.usage?.completion_tokens ?? estimateTokens(content),
       durationMs: Date.now() - t0,
+      ...(nativeToolCalls.length > 0 ? { nativeToolCalls } : {}),
     }
   },
 

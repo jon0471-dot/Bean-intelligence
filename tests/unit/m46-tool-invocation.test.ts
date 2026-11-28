@@ -200,10 +200,19 @@ describe('M46.1 tool schema delivery to the model', () => {
 
 // ---------------------------------------------------------------------------
 // 5. Model-selection honesty — protocol capability + safe fallback.
+// NOTE (M47.1): the first assertion below is SUPERSEDED BY MEASUREMENT.
+// M46 recorded every lane as text-protocol; scripts/m47-native-tool-probe.ts
+// (2026-11-28) then measured genuine native tool calling on the hosted lane,
+// so the registry now records hosted = native while the other lanes remain
+// honestly unmeasured (text protocol). The updated assertions pin exactly
+// that evidence state — never a capability claim beyond evidence.
 // ---------------------------------------------------------------------------
 describe('M46.1 provider tool-calling capability honesty', () => {
-  test('every registered chat lane is honestly recorded as text-protocol (no native function calling exists)', () => {
-    for (const id of ['bean-llm-hosted-primary', 'bean-llm-openai-compatible', 'bean-chat-local-llamacpp']) {
+  test('the registry records the MEASURED state: hosted = native (measured 2026-11-28), all other lanes honestly unmeasured (text protocol)', () => {
+    const hosted = resolveToolProtocol('bean-llm-hosted-primary')
+    expect(hosted.kind).toBe('native')
+    expect(hosted.note).toMatch(/MEASURED 2026-11-28/)
+    for (const id of ['bean-llm-openai-compatible', 'bean-chat-local-llamacpp']) {
       const p = resolveToolProtocol(id)
       expect(p.kind).toBe('text')
       expect(p.note.length).toBeGreaterThan(20)
