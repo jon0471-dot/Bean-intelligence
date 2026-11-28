@@ -3,7 +3,7 @@
 > Maintained for future Z.ai development sessions. Last updated: 2026-11-28 (UTC+8).
 > This document contains environment variable NAMES only — never secret values.
 
-## 0.f CURRENT STATE ADDENDUM (2026-11-28 — M50.3 BEAN AI STUDIO persistence, version control & owner-scoped APIs implemented)
+## 0.f CURRENT STATE ADDENDUM (2026-11-28 — M50.3 BEAN AI STUDIO persistence, version control & owner-scoped APIs implemented; NOTE: the OWNER merged PR #51 themselves mid-session — main `979704a`→`912d26a`; BEAN performed no merge)
 
 - **M50.3 DELIVERED (2026-11-28, branch `feat/m50-3-ai-studio-persistence-apis`, linked worktree `m50-3-ai-studio-persistence-wt`, based on freshly verified origin/main `979704a` = the owner's PR #50 merge of M50.2; the M50.2 implementation commit `644be6d` + merge confirmed ancestors before any edit): DURABLE BEAN AI STUDIO WORKFLOW MANAGEMENT IS NOW CODE — additive persistence, version control, owner-scoped APIs and strictly read-only validate/preview. NO canvas UI, NO workflow execution: M50.3 never creates missions, GenerationJobs, Trust tasks or WorkflowRun rows, and `createMissionFromPlan` is never called anywhere in the milestone.**
 - **M50.2 CORRECTIVE FIXES (mandatory first, additive):** (1) `CompiledWorkflowPlan` now carries bounded deterministic `diagnostics` — warnings/info from validation survive successful compilation (pinned with graphs that USE a not-configured/unavailable/degraded/rate-limited surface; warnings never become errors); (2) the measured `blocked` capability state (`src/lib/registry/status.ts` vocabulary) joined `StudioAvailabilityState` as a customer-safe non-blocking WARNING. All 121 M50.2 cases re-run green; schema/ports/mappings/gate/M41 contracts/determinism unchanged.

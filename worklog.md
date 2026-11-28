@@ -22,7 +22,7 @@ Decisions: (1) deletion policy resolved conservatively (service-enforced protect
 
 Limitations recorded: no canvas UI and no execution (M50.4/M50.5); WorkflowRun never written in M50.3 (zero rows by design); validate/preview attach no live availability snapshot (honest silence; M50.5 preflight authoritative); quota value + retention remain owner-confirmable/pending; riishe-text-tokenizer census failure is pre-existing environmental (missing model artifact, reproduced on pristine main).
 
-Publication: commit to feat/m50-3-ai-studio-persistence-apis only; normal fast-forward push; remote SHA independently fetched and verified; PR opened targeting main; NOT merged (owner retains merge authority).
+Publication: commits `1b50fab` (implementation) + `813d77c` (PR-script record) to feat/m50-3-ai-studio-persistence-apis only; normal fast-forward pushes; remote SHAs independently fetched and verified (`git ls-remote`); PR #51 opened targeting main — BEAN performed NO merge. **OWNER MERGE RECORDED (mid-session, the M47 precedent): the owner (jon0471-dot) merged PR #51 themselves at 2026-11-28T12:13:04Z — main `979704a` → merge commit `912d26a`; BEAN performed no merge action.**
 
 ---
 Task ID: 0-M50.2
