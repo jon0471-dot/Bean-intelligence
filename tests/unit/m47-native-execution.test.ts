@@ -234,6 +234,105 @@ describe('M47.2 native tool loop (real governed execution)', () => {
   })
 })
 
+describe('M47.3 per-turn invocation observability', () => {
+  test('decisionOps are extracted from VALIDATED call inputs (never from model text)', async () => {
+    const passes: NativeSolvePassResult[] = [
+      {
+        content: '',
+        nativeToolCalls: [call('call_op', 'execution_decision', { operation: 'create_decision', objective: 'decide a rollout strategy with evidence' })],
+      },
+      { content: 'Decision created.' },
+    ]
+    let passIndex = 0
+    const loop = await runToolLoop({
+      baseMessages: [{ role: 'user', content: 'help me decide the rollout' }],
+      toolNames: ['execution_decision'],
+      toolCtx: ctx,
+      solve: async () => '',
+      solveNative: async () => passes[passIndex++],
+      protocol: 'native',
+    })
+    expect(loop.decisionOps).toEqual(['create_decision'])
+    expect(loop.nativeCallsEmitted).toBe(1)
+    expect(loop.nativeRefusals).toHaveLength(0)
+  })
+
+  test('a refused native call is counted in emitted/refused but never in decisionOps', async () => {
+    const passes: NativeSolvePassResult[] = [
+      {
+        content: '',
+        nativeToolCalls: [
+          call('call_r1', 'execution_decision', { operation: 'execute_plan', decisionId: 'dec_1' }), // tool not enabled here
+          call('call_r2', 'execution_decision', 'not-json'),
+        ],
+      },
+      { content: 'Nothing ran.' },
+    ]
+    let passIndex = 0
+    const loop = await runToolLoop({
+      baseMessages: [{ role: 'user', content: 'execute everything' }],
+      toolNames: ['calculate'], // execution_decision NOT enabled → both refused
+      toolCtx: ctx,
+      solve: async () => '',
+      solveNative: async () => passes[passIndex++],
+      protocol: 'native',
+    })
+    expect(loop.executions).toHaveLength(0)
+    expect(loop.decisionOps).toHaveLength(0)
+    expect(loop.nativeCallsEmitted).toBe(2)
+    expect(loop.nativeRefusals).toHaveLength(2)
+  })
+
+  test('text-protocol execution_decision calls are observed identically', async () => {
+    let passIndex = 0
+    const passes = [
+      'TOOL_CALL: {"tool":"execution_decision","input":{"operation":"action_status","decisionId":"dec_2"}}',
+      'Status follows.',
+    ]
+    const loop = await runToolLoop({
+      baseMessages: [{ role: 'user', content: 'status?' }],
+      toolNames: ['execution_decision'],
+      toolCtx: ctx,
+      solve: async () => passes[passIndex++],
+      protocol: 'text',
+    })
+    expect(loop.decisionOps).toEqual(['action_status'])
+    expect(loop.protocol).toBe('text')
+  })
+
+  test('the ledger record shape carries identities and counts but no secret-shaped values', async () => {
+    const { globalInvocationLedger, classifyInvocationOutcome } = await import('../../src/lib/riishe/tool-invocation')
+    globalInvocationLedger.reset()
+    globalInvocationLedger.record({
+      outcome: classifyInvocationOutcome({ toolsOffered: true, executionCount: 1 }),
+      intent: 'result',
+      backendId: 'bean-llm-hosted-primary',
+      at: Date.now(),
+      turnId: 'turn-123',
+      conversationId: 'conv-456',
+      userId: 'user-789',
+      protocol: 'native',
+      nativeState: 'native',
+      protocolUsed: 'native',
+      toolsOfferedCount: 2,
+      nativeCallsEmitted: 1,
+      nativeCallsValidated: 1,
+      nativeCallsRefused: 0,
+      decisionOps: ['inspect_decision'],
+      executions: [{ tool: 'execution_decision', ok: true }],
+      finalState: 'completed',
+    })
+    const snap = globalInvocationLedger.snapshot()
+    expect(snap.totals['tool-call-emitted']).toBe(1)
+    const rec = snap.recent[snap.recent.length - 1]
+    expect(rec.turnId).toBe('turn-123')
+    expect(rec.decisionOps).toEqual(['inspect_decision'])
+    const blob = JSON.stringify(snap)
+    expect(blob).not.toMatch(/ghp_|sk-|bearer|apikey/i)
+    globalInvocationLedger.reset()
+  })
+})
+
 describe('M47.2 nativeToolSpecs (model guidance, validation stays server-side)', () => {
   test('every registered tool gets a spec; explicit schemas pass through, others get the minimal object schema', () => {
     const names = listToolNames().slice(0, 6)

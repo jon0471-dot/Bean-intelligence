@@ -641,6 +641,22 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
   if (invocationPolicy.mode === 'plain-fallback') {
     effectiveToolNames = []
     degraded.push(invocationPolicy.degradedNote!)
+    // M47.3 — a governance-shaped turn the lane could not carry is recorded
+    // honestly (outcome no-tools-offered, finalState plain-fallback): the
+    // ops picture shows WHY no tool ran, and nothing is reported as executed.
+    if (allowExecutionGovernance) {
+      globalInvocationLedger.record({
+        outcome: 'no-tools-offered',
+        intent: classifyTurnIntent(userMessage),
+        backendId: input.backendId ?? '',
+        at: Date.now(),
+        protocol: 'none',
+        nativeState: invocationPolicy.nativeState,
+        protocolUsed: 'none',
+        toolsOfferedCount: 0,
+        finalState: 'plain-fallback',
+      })
+    }
   }
   const finalToolsActive = effectiveToolNames.length > 0 && input.toolContext != null
   // M47.2 — the protocol this turn's tool loop will actually run under,
@@ -863,17 +879,47 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
         refusals: loop.nativeRefusals.length,
       })
     }
-    // M46.1 — invocation-behavior observability: when the governed-execution
-    // universe was offered and the model closed the loop WITHOUT a single
-    // tool call, the record says so (the M45 walkthrough gap, now measured).
-    // This is observational only — it never changes authorization, and the
-    // note keeps "no governed action happened" true in the audit trail.
+    // M46.1 + M47.3 — invocation-behavior observability: when the governed-
+    // execution universe was offered, the record states exactly what happened
+    // (tools offered, protocol selected vs used, native calls emitted /
+    // validated / refused, decision operations that ran, executions and
+    // outcomes). Observational only — it never changes authorization, and a
+    // declined universe keeps "no governed action happened" true in the audit
+    // trail. Identities are server-derived; no secret and no user message
+    // content enters the record.
     if (governanceUniverseOffered) {
       const outcome = classifyInvocationOutcome({ toolsOffered: true, executionCount: loop.executions.length })
-      globalInvocationLedger.record({ outcome, intent: toolCtxIntent, backendId: input.backendId ?? '', at: Date.now() })
+      globalInvocationLedger.record({
+        outcome,
+        intent: toolCtxIntent,
+        backendId: input.backendId ?? '',
+        at: Date.now(),
+        turnId: input.toolContext?.turnId ?? undefined,
+        conversationId: input.toolContext?.conversationId ?? undefined,
+        userId: input.userId ?? input.toolContext?.userId ?? undefined,
+        protocol: invocationPolicy.protocol,
+        nativeState: invocationPolicy.nativeState,
+        protocolUsed: loop.protocol,
+        toolsOfferedCount: effectiveToolNames.length,
+        nativeCallsEmitted: loop.nativeCallsEmitted,
+        nativeCallsValidated: loop.nativeCallsEmitted - loop.nativeRefusals.length,
+        nativeCallsRefused: loop.nativeRefusals.length,
+        decisionOps: loop.decisionOps,
+        executions: loop.executions.map((e) => ({ tool: e.tool, ok: e.ok })),
+        finalState: 'completed',
+      })
       if (outcome === 'model-declined-tool-call') {
         logger.info('riishe.tool_invocation.declined', { backendId: input.backendId ?? '', intent: toolCtxIntent })
         degraded.push(declinedGovernanceNote())
+      } else {
+        logger.info('riishe.tool_invocation.recorded', {
+          backendId: input.backendId ?? '',
+          intent: toolCtxIntent,
+          protocol: loop.protocol,
+          executions: loop.executions.length,
+          decisionOps: loop.decisionOps.length,
+          nativeRefusals: loop.nativeRefusals.length,
+        })
       }
     }
     // M37 §5 — a delegated job that is WAITING FOR APPROVAL is a real
