@@ -295,6 +295,34 @@ describe('P0-D — research-required turns keep HONEST qualifications', () => {
     expect(stagesOf(result)).toContain('completed-with-limitations')
   })
 
+  test('P0-R4: an exploding research lane degrades the turn honestly — the answer still ships', async () => {
+    const adapter = scriptedAdapter(['Here is the general context while live verification was unavailable.'])
+    const result = await orchestrateTurn({
+      userMessage: 'What is the current measured value in the report?',
+      history: [],
+      caps: CAPS,
+      adapter,
+      nonStreaming: true,
+      hooks: {
+        // Out-of-contract explosion (the real pipeline is never-throwing; the
+        // orchestrator must contain even a hook/pipeline bug).
+        runResearch: async () => {
+          throw new Error('simulated research transport explosion')
+        },
+      },
+      toolContext: { permissions: new Set(), userId: 'user-1', documents: new Map() },
+    })
+    // Core generation SURVIVED — the turn produced its answer.
+    expect(result.content.trim().length).toBeGreaterThan(0)
+    // The failure is honest: warranted retrieval that retrieved nothing with
+    // a degraded note is TOOL_UNAVAILABLE, never a fabricated success.
+    expect(result.metadata.states).toContain('TOOL_UNAVAILABLE')
+    expect(result.metadata.degraded.join(' ')).toContain('live research failed unexpectedly')
+    expect(stagesOf(result)).toContain('completed-with-limitations')
+    // The attempted retrieval time is recorded truthfully (researching ran).
+    expect(result.metadata.stages.some((s) => s.stage === 'researching')).toBe(true)
+  })
+
   test('workflow execution → completed terminal stage (operational progress is real)', async () => {
     const adapter = scriptedAdapter([
       'Plan:\n1. Research the topic.\n2. Delegate the landing page build.\nFindings: the market grew [1].\nUnfinished work: the coding job was submitted and is queued.\nVerification: claims tied to sources.',

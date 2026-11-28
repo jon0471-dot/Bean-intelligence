@@ -615,9 +615,37 @@ export async function orchestrateTurn(input: OrchestrationInput): Promise<Orches
     onEvent?.({ type: 'stage', stage: 'researching' })
     emitTaskStage('researching')
     const tSearch = Date.now()
-    pack = input.hooks?.runResearch
-      ? await input.hooks.runResearch(userMessage, decision)
-      : await runResearch(userMessage, decision, { userId: input.userId ?? null })
+    // P0 R4 — RESEARCH-FAILURE ISOLATION: the pipeline is contractually
+    // never-throwing (all tool failures land in the pack's degraded notes),
+    // but an unexpected explosion (a pipeline bug, an injected hook throwing,
+    // an out-of-contract transport crash) must degrade the TURN HONESTLY —
+    // never abort core text generation because an OPTIONAL source failed.
+    // The synthesized empty pack keeps every downstream invariant intact:
+    // statesFrom records TOOL_UNAVAILABLE (warranted + nothing retrieved +
+    // degraded), the answer still ships, and the limitation badge is the
+    // truthful one.
+    try {
+      pack = input.hooks?.runResearch
+        ? await input.hooks.runResearch(userMessage, decision)
+        : await runResearch(userMessage, decision, { userId: input.userId ?? null })
+    } catch (researchError) {
+      const detail = researchError instanceof Error ? researchError.message.slice(0, 160) : String(researchError).slice(0, 160)
+      pack = {
+        sources: [],
+        queries: [],
+        degraded: [`live research failed unexpectedly: ${detail}`],
+        staleness: null,
+        geoWarning: null,
+        durationMs: Date.now() - tSearch,
+        searchMs: Date.now() - tSearch,
+        pageReadMs: 0,
+        searchCalls: 0,
+        pageReadCalls: 0,
+        cacheHits: 0,
+        fetchedAt: new Date().toISOString(),
+      }
+      logger.warn('riishe.research_pipeline_exploded', { detail })
+    }
     stages.push({ stage: 'researching', durationMs: Date.now() - tSearch })
     degraded.push(...pack.degraded)
     onEvent?.({ type: 'research', queries: pack.queries })
