@@ -2,8 +2,9 @@
 
 **Milestone:** M48 — LIVE OPERATIONS ACTIVATION & REAL-WORLD ACCEPTANCE
 **Document status:** Phase 0 (M47 publication reconciliation) evidence record.
-**M48 implementation gate: PENDING — owner action required (merge PR #41).**
+**M48 implementation gate: ~~PENDING~~ → COMPLETE (owner merged PR #41, #42, #43, #44; verified 2026-11-28 — see §5.1).**
 **Written:** 2026-11-28 (Asia/Calcutta session time)
+**M48.1 correction:** the current-state claims in this document were accurate at writing; the publication state has since advanced. Independently verified current state: PRs #41–#44 all MERGED, `origin/main` = `ed3ede98db7ca4ecea2ad66ae41f62942cad64e5`. See §5.1.
 
 ---
 
@@ -79,7 +80,7 @@ The six M47 commits remained branch-only, so per the Phase 0 mandate a normal re
 | **Base** | `82fd02832f6f5c82ba1d76f02a2ec1ea2295a6ac` (`main`) |
 | **Commits** | exactly 6: `95620d9` → `9b35963` → `dc02839` → `7b91cc6` → `abb103d` → `a1ce6fa` (unchanged, no rewrites) |
 | **Changed files** | 20 (API-reported) |
-| **State at writing** | open, not merged |
+| **State at writing** | open, not merged — **since MERGED by the owner (merge commit `683ffc40132b94db0d57c34ef5a7fad88869087d`, 2026-11-28T02:45:31Z); verified via authenticated API — see §5.1** |
 | **Verification channels** | (1) git protocol: `refs/pull/41/head` = `a1ce6fa…`; (2) authenticated API re-read: number 41, state open, merged false, head/base/commits as above |
 
 Duplicate-avoidance check ran before creation (0 open PRs; no `feat/m47-*` head PR). No merge was performed and none will be — **the owner retains all merge authority.**
@@ -104,9 +105,20 @@ After owner merge, the post-gate sequence will be executed and recorded here:
 |---|---|
 | Current verified `origin/main` (pre-gate) | `82fd02832f6f5c82ba1d76f02a2ec1ea2295a6ac` |
 | M48 working branch | `feat/m48-live-operations-activation` — created from the verified `origin/main` above; currently carries **only this reconciliation document** |
-| **Final M48 starting SHA** | **TO BE RECORDED after owner merge of PR #41** (post-merge `origin/main`) |
+| **Final M48 starting SHA** | **TO BE RECORDED after owner merge of PR #41** (post-merge `origin/main`) → **RECORDED 2026-11-28: `ed3ede98db7ca4ecea2ad66ae41f62942cad64e5` — see §5.1** |
 
 Deliberately **not** done: stacking any M48 implementation on this branch; creating an M48 PR; merging PR #41; rebasing or rewriting the M47 branch.
+
+### 5.1 Post-gate verification — recorded 2026-11-28 (M48.1 session, independently verified)
+
+The owner executed the gate. Each step of the promised post-gate sequence was then performed and verified:
+
+1. `git fetch --all --prune` → `origin/main` advanced `82fd028` → `ed3ede98db7ca4ecea2ad66ae41f62942cad64e5`.
+2. Ancestor checks (`git merge-base --is-ancestor`): `a1ce6fa` (final M47 commit) ✓ ancestor of main; `4cc1e92` (this document's commit, merged via PR #42 = `bafc9aa`) ✓ ancestor of main; `5bfb896` (P0 final tip) ✓ ancestor of main.
+3. PR states via authenticated GitHub API (historical claims re-measured): **PR #41 MERGED** (merge commit `683ffc40132b94db0d57c34ef5a7fad88869087d`, head `a1ce6fa` — the six M47 commits); **PR #42 MERGED** (merge commit `bafc9aa2d2a7a57f5d4e74c91acaa5848efdd5fc`, head `4cc1e92` — this document); **PR #43 MERGED** (merge commit `ae0d06c3154c7a1ebf90b0c84461ac97acf9e655`, head `457d9f0` — P0 hotfix publication); **PR #44 MERGED** (merge commit `ed3ede9…` = current main, head `5bfb896` — the P0 reliability implementation). All four closed/merged, none open.
+4. No M47 or P0 delivery commits remain outside main: the M47 branch tip and the P0 branch tip are both ancestors of `ed3ede9`.
+5. **Final M48 starting SHA: `ed3ede98db7ca4ecea2ad66ae41f62942cad64e5`** (merge of PR #44; parents `ae0d06c3154c7a1ebf90b0c84461ac97acf9e655` + `5bfb8965898a0eb62cf7dad712397f96a0afe597`). All M48 implementation work starts from this SHA.
+6. `feat/m48-live-operations-activation` was NOT reset, rewritten or moved — it remains at `4cc1e92` as merged history.
 
 ---
 
@@ -167,7 +179,9 @@ Each milestone: implemented + tested + committed + pushed + independently remote
 
 ## 9. Phase 0 verdict
 
+> M48.1 update (2026-11-28): the PENDING gate below was the state at writing and is now **COMPLETE** — see §5.1 for the independently verified post-gate record.
+
 - M47 publication reconciliation: **complete** (§2–§4).
-- Follow-up PR #41: **created, verified, awaiting owner merge** (§4).
-- M48 implementation gate: **PENDING — owner action required** (§5).
+- Follow-up PR #41: **created, verified, awaiting owner merge** (§4) → **MERGED by the owner, verified (§5.1)**.
+- M48 implementation gate: ~~**PENDING — owner action required**~~ → **COMPLETE** (§5.1).
 - No M48 implementation has been started. No main writes, no merges, no force-pushes, no cleanup of any branch/artifact/PR.
